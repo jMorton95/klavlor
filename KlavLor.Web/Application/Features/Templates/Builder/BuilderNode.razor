@@ -1,0 +1,98 @@
+@using KlavLor.Domain.Entities
+
+<div class="builder-node group absolute select-none cursor-grab active:cursor-grabbing"
+     style="left: @(Node.PositionX)px; top: @(Node.PositionY)px; z-index: 2;"
+     data-node-id="@Node.Id"
+     data-template-id="@TemplateId">
+
+    <div class="flex items-center bg-white rounded-lg shadow-sm border-2 @GetBorderColor() hover:shadow-md transition-shadow w-[140px]">
+        @* Ports — all four sides *@
+        <div class="builder-port absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border-2 bg-white @GetPortColor() cursor-crosshair"
+             data-node-id="@Node.Id" style="z-index: 3;"></div>
+        <div class="builder-port absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border-2 bg-white @GetPortColor() cursor-crosshair"
+             data-node-id="@Node.Id" style="z-index: 3;"></div>
+        <div class="builder-port absolute left-1/2 -top-2 -translate-x-1/2 w-4 h-4 rounded-full border-2 bg-white @GetPortColor() cursor-crosshair"
+             data-node-id="@Node.Id" style="z-index: 3;"></div>
+        <div class="builder-port absolute left-1/2 -bottom-2 -translate-x-1/2 w-4 h-4 rounded-full border-2 bg-white @GetPortColor() cursor-crosshair"
+             data-node-id="@Node.Id" style="z-index: 3;"></div>
+
+        @* Node body *@
+        <div class="flex-1 px-2 py-1.5 min-w-0">
+            @if (!string.IsNullOrEmpty(Node.IconUrl))
+            {
+                <div class="flex items-center gap-1.5">
+                    <img src="@Node.IconUrl" alt="" class="w-7 h-7 object-contain flex-shrink-0"
+                         onerror="this.style.display='none'" />
+                    <p class="text-xs font-medium text-slate-800 truncate" title="@Node.Label">@Node.Label</p>
+                </div>
+            }
+            else
+            {
+                <div class="flex items-center gap-1.5 mb-0.5">
+                    <span class="text-[10px] font-bold uppercase tracking-wider @GetTypeTextColor()">@Node.NodeType</span>
+                </div>
+                <p class="text-xs font-medium text-slate-800 truncate" title="@Node.Label">@Node.Label</p>
+            }
+        </div>
+
+        @* Actions *@
+        <div class="builder-node-actions flex flex-col gap-0.5 pr-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button type="button"
+                    hx-get="@($"/api/templates/{TemplateId}/builder/nodes/{Node.Id}/edit")"
+                    hx-target="#hx-modal-container"
+                    hx-swap="innerHTML"
+                    class="p-0.5 text-slate-400 hover:text-slate-600 rounded" title="Edit">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+            </button>
+            <button type="button"
+                    hx-delete="@($"/api/templates/{TemplateId}/builder/nodes/{Node.Id}")"
+                    hx-target="#builder-canvas"
+                    hx-swap="innerHTML"
+                    hx-confirm="Delete this node?"
+                    class="p-0.5 text-slate-400 hover:text-red-500 rounded" title="Delete">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public required TemplateNode Node { get; set; }
+    [Parameter] public int TemplateId { get; set; }
+
+    private string GetBorderColor() => Node.NodeType switch
+    {
+        NodeType.Item => "border-amber-400",
+        NodeType.Skill => "border-blue-400",
+        NodeType.Prayer => "border-purple-400",
+        NodeType.Quest => "border-green-400",
+        NodeType.Construction => "border-orange-400",
+        NodeType.Slayer => "border-red-400",
+        NodeType.Spell => "border-indigo-400",
+        _ => "border-slate-300"
+    };
+
+    private string GetPortColor() => Node.NodeType switch
+    {
+        NodeType.Item => "border-amber-400 hover:bg-amber-100",
+        NodeType.Skill => "border-blue-400 hover:bg-blue-100",
+        NodeType.Prayer => "border-purple-400 hover:bg-purple-100",
+        NodeType.Quest => "border-green-400 hover:bg-green-100",
+        NodeType.Construction => "border-orange-400 hover:bg-orange-100",
+        NodeType.Slayer => "border-red-400 hover:bg-red-100",
+        NodeType.Spell => "border-indigo-400 hover:bg-indigo-100",
+        _ => "border-slate-300 hover:bg-slate-100"
+    };
+
+    private string GetTypeTextColor() => Node.NodeType switch
+    {
+        NodeType.Item => "text-amber-600",
+        NodeType.Skill => "text-blue-600",
+        NodeType.Prayer => "text-purple-600",
+        NodeType.Quest => "text-green-600",
+        NodeType.Construction => "text-orange-600",
+        NodeType.Slayer => "text-red-600",
+        NodeType.Spell => "text-indigo-600",
+        _ => "text-slate-500"
+    };
+}

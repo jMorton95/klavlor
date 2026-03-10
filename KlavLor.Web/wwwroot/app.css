@@ -1,0 +1,113 @@
+@import "tailwindcss";
+
+@source "../**/*.razor";
+@source "../**/*.html";
+@source "../**/*.cshtml";
+
+@theme {
+    --color-main-100: #d97706;
+    --breakpoint-3xl: 120rem;
+    --duration-2000: 2000ms;
+}
+
+var {
+    --progress-duration: 10s;
+}
+
+.validation-message {
+    color: #dc3545;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+
+@keyframes fade-in {
+    from { opacity: 0; }
+}
+
+@keyframes fade-out {
+    to { opacity: 0; }
+}
+
+@keyframes scale-in {
+    from { transform: scale(1); }
+    to { transform: scale(1); }
+}
+
+.animate-fade-in {
+    animation: fade-in 0.2s ease-out;
+}
+
+.animate-scale-in {
+    animation: scale-in 0.2s ease-out;
+}
+
+::view-transition-old(grid) {
+    animation: fade-out 120ms ease forwards;
+}
+
+::view-transition-new(grid) {
+    animation: fade-in 200ms ease forwards;
+}
+
+.page-transition {
+    view-transition-name: grid;
+}
+
+@keyframes toast-progress {
+    from { transform: scaleX(1); }
+    to { transform: scaleX(0); }
+}
+
+.animate-toast-progress {
+    animation-name: toast-progress;
+    animation-timing-function: linear;
+    animation-fill-mode: forwards;
+    animation-duration: var(--progress-duration, 10s);
+}
+
+/* Builder & viewer canvas */
+.builder-canvas,
+.viewer-canvas {
+    min-height: 500px;
+    background-image: radial-gradient(circle, #e2e8f0 1px, transparent 1px);
+    background-size: 20px 20px;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+}
+
+.builder-canvas::-webkit-scrollbar,
+.viewer-canvas::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
+}
+
+.builder-node {
+    transition: box-shadow 0.15s ease;
+}
+
+.builder-node:hover .builder-node-actions {
+    opacity: 1 !important;
+}
+
+.builder-edge {
+    transition: stroke 0.15s ease, stroke-width 0.15s ease;
+    cursor: pointer;
+}
+
+.builder-edge:hover {
+    stroke: #ef4444;
+    stroke-width: 3;
+}
+
+/* Invisible wider hit area for edges */
+.builder-edge-hit {
+    stroke: transparent;
+    stroke-width: 16;
+    fill: none;
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+.builder-edge-group:hover .builder-edge {
+    stroke: #ef4444;
+    stroke-width: 3;
+}

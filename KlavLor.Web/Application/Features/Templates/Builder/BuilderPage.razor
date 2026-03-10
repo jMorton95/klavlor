@@ -1,0 +1,13 @@
+@using KlavLor.Domain.Entities
+@using KlavLor.Web.Components.Layout
+
+<TopBarMetaData PageTitle="@($"KlavLor - {Template.Name}")" Title="@Template.Name" Description="Gear Progression Builder" />
+
+<div class="flex flex-col h-[calc(100vh-8rem)]">
+    <BuilderToolbar TemplateId="@Template.Id" TemplateName="@Template.Name" />
+    <BuilderCanvas Template="@Template" />
+</div>
+
+@code {
+    [Parameter] public required Template Template { get; set; }
+}

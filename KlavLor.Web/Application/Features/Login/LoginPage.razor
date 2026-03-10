@@ -1,0 +1,124 @@
+@page "/login"
+@layout LoginLayout
+@attribute [AllowAnonymous]
+@using KlavLor.Web.Components.Layout
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Web
+@using KlavLor.Application.Features.Login
+@using KlavLor.Application.Interfaces.Authentication
+@using KlavLor.Web.Components.Generic.Form
+@inject NavigationManager NavigationManager
+@inject ISessionStateManager SessionStateManager
+
+<PageTitle>KlavLor - Login</PageTitle>
+
+<CascadingValue Value="ValidationErrors">
+    <div class="flex items-center justify-center min-h-[calc(100vh-8rem)]">
+        <div class="w-full max-w-md">
+            <div class="absolute top-0 left-0 w-72 h-72 bg-amber-400/20 rounded-full blur-3xl -z-10"></div>
+            <div class="absolute bottom-0 right-0 w-72 h-72 bg-orange-400/20 rounded-full blur-3xl -z-10"></div>
+
+            <EditForm EditContext="_editContext" hx-post="@AppRoutes.Login.FromApi()" hx-target="#authentication-layout" id="login" class="space-y-8">
+                <div class="bg-white/80 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20 p-8 relative overflow-hidden">
+                    <div class="absolute top-0 left-0 right-0 h-1 bg-linear-to-r from-slate-900 to-amber-600"></div>
+
+                    <div class="text-center mb-8">
+                        <div class="flex justify-center mb-6">
+                            <div class="p-4 bg-linear-to-br from-amber-600 to-orange-500 rounded-2xl shadow-lg">
+                                <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <h1 class="text-3xl font-bold bg-linear-to-r from-slate-900 to-amber-700 bg-clip-text text-transparent mb-2">
+                            Welcome back
+                        </h1>
+                        <p class="text-slate-600">Enter your credentials to continue</p>
+                    </div>
+
+                    <div class="space-y-6">
+                        <div class="group">
+                            <label for="email" class="block text-sm font-semibold text-slate-700 mb-2">Email address</label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                    <svg class="w-5 h-5 text-slate-400 group-focus-within:text-amber-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"/>
+                                    </svg>
+                                </div>
+                                <InputText @bind-Value="LoginCommand.Email"
+                                           Name="@nameof(LoginCommand.Email)"
+                                           type="email" id="email"
+                                           class="w-full pl-12 pr-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all duration-200 outline-none"
+                                           placeholder="you@example.com"/>
+                            </div>
+                            <FormMemberValidationError TModel="LoginCommand" For="@(x => x.Email)" />
+                        </div>
+
+                        <div class="group">
+                            <label for="passwordOne" class="block text-sm font-semibold text-slate-700 mb-2">Password</label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                    <svg class="w-5 h-5 text-slate-400 group-focus-within:text-amber-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                                    </svg>
+                                </div>
+                                <InputText @bind-Value="LoginCommand.Password"
+                                           Name="@nameof(LoginCommand.Password)"
+                                           id="passwordOne" type="password"
+                                           class="w-full pl-12 pr-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all duration-200 outline-none"
+                                           placeholder="••••••••"/>
+                            </div>
+                            <FormMemberValidationError TModel="LoginCommand" For="@(x => x.Password)" />
+                        </div>
+
+                        <div class="flex items-center">
+                            <InputCheckbox @bind-Value="LoginCommand.RememberMe"
+                                           Name="@nameof(LoginCommand.RememberMe)"
+                                           id="rememberMe"
+                                           class="w-4 h-4 text-amber-600 border-slate-300 rounded focus:ring-amber-500 transition-colors"/>
+                            <label for="rememberMe" class="ml-2 block text-sm font-medium text-slate-700 cursor-pointer">Remember me</label>
+                        </div>
+
+                        @if (ErrorMessage != null)
+                        {
+                            <ErrorMessageComponent ErrorMessage="@ErrorMessage" />
+                        }
+
+                        <button type="submit"
+                                class="group relative w-full flex justify-center items-center py-3.5 px-4 border border-transparent rounded-xl text-sm font-semibold text-white bg-linear-to-r from-amber-700 to-slate-600 hover:from-amber-700 hover:to-orange-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:-translate-y-0.5">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
+                            </svg>
+                            Sign in to your account
+                        </button>
+                    </div>
+                </div>
+
+                <p class="text-center text-sm text-slate-600">
+                    Don't have an account?
+                    <span class="font-semibold text-amber-600 hover:text-amber-700 transition-colors">Contact your administrator.</span>
+                </p>
+            </EditForm>
+        </div>
+    </div>
+</CascadingValue>
+
+@code {
+    [Parameter] public LoginCommand LoginCommand { get; set; } = new();
+    [Parameter] public Dictionary<string, string[]>? ValidationErrors { get; set; } = new();
+    [Parameter] public string? ErrorMessage { get; set; }
+
+    private EditContext? _editContext;
+
+    protected override void OnInitialized()
+    {
+        if (SessionStateManager.IsAuthenticated())
+        {
+            NavigationManager.NavigateTo("/", replace: true);
+            return;
+        }
+
+        _editContext = new EditContext(LoginCommand);
+    }
+}

@@ -1,0 +1,23 @@
+@page "/"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using KlavLor.Application.Interfaces.Authentication
+@using KlavLor.Web.Components.Layout
+
+@inject ISessionStateManager SessionStateManager
+@inject NavigationManager NavigationManager
+
+<PageLayout PageTitle="KlavLor - Home" Title="Dashboard" Description="Your gear progression templates">
+    <HomePage UpdateHeader="@false" />
+</PageLayout>
+
+@code {
+    protected override void OnInitialized()
+    {
+        var userId = SessionStateManager.GetUserSessionId();
+        if (userId == null)
+        {
+            NavigationManager.NavigateTo(AppRoutes.Login);
+        }
+    }
+}

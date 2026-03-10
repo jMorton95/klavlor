@@ -1,0 +1,20 @@
+@using KlavLor.Application.Interfaces.Authentication
+@using KlavLor.Web.Application
+@inject ISessionStateManager SessionStateManager
+
+<PageTitle>@PageTitle</PageTitle>
+
+<TopBarComponent TitleDefaults="@Title" DescriptionDefaults="@Description" PageTitleDefaults="@PageTitle"></TopBarComponent>
+
+<div id="hx-modal-container"></div>
+
+<div class="p-4 sm:p-4 sm:pt-0" id="hx-page-container">
+    @ChildContent
+</div>
+
+@code {
+    [Parameter] public required RenderFragment ChildContent { get; set; }
+    [Parameter] public required string PageTitle { get; set; }
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string Description { get; set; } = "";
+}

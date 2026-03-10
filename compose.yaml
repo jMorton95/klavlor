@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres
+    user: postgres
+    environment:
+      - POSTGRES_DB=klavlor
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - database-data:/var/lib/postgresql
+    healthcheck:
+      test: [ "CMD", "pg_isready" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  
+volumes:
+  database-data:
+  letsencrypt:

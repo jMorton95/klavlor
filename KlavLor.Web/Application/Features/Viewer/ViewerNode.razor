@@ -1,0 +1,91 @@
+@using KlavLor.Domain.Entities
+
+@if (CanToggle)
+{
+    <div id="viewer-node-@Node.Id" class="viewer-node absolute select-none cursor-pointer"
+         style="left: @(Node.PositionX)px; top: @(Node.PositionY)px; z-index: 2;"
+         hx-post="@($"/api/templates/{TemplateId}/completion/{Node.Id}")"
+         hx-target="@($"#viewer-node-{Node.Id}")"
+         hx-swap="outerHTML">
+        @NodeContent
+    </div>
+}
+else
+{
+    <div id="viewer-node-@Node.Id" class="viewer-node absolute select-none"
+         style="left: @(Node.PositionX)px; top: @(Node.PositionY)px; z-index: 2;">
+        @NodeContent
+    </div>
+}
+
+@code {
+    [Parameter] public required TemplateNode Node { get; set; }
+    [Parameter] public int TemplateId { get; set; }
+    [Parameter] public bool IsCompleted { get; set; }
+    [Parameter] public bool CanToggle { get; set; }
+
+    private RenderFragment NodeContent => __builder =>
+    {
+        var completedClasses = IsCompleted ? "border-green-400 bg-green-50" : "bg-white";
+
+        <div class="@($"flex items-center rounded-lg shadow-sm border-2 {GetBorderColor()} {completedClasses} hover:shadow-md transition-all w-[140px]")">
+            <div class="flex-1 px-2 py-1.5 min-w-0">
+                @if (!string.IsNullOrEmpty(Node.IconUrl))
+                {
+                    <div class="flex items-center gap-1.5">
+                        <img src="@Node.IconUrl" alt="" class="w-7 h-7 object-contain flex-shrink-0"
+                             onerror="this.style.display='none'" />
+                        <p class="text-xs font-medium text-slate-800 truncate" title="@Node.Label">@Node.Label</p>
+                        @if (IsCompleted)
+                        {
+                            <svg class="w-3.5 h-3.5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                            </svg>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="flex items-center gap-1.5 mb-0.5">
+                        <span class="@($"text-[10px] font-bold uppercase tracking-wider {GetTypeTextColor()}")">@Node.NodeType</span>
+                        @if (IsCompleted)
+                        {
+                            <svg class="w-3.5 h-3.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                            </svg>
+                        }
+                    </div>
+                    <p class="text-xs font-medium text-slate-800 truncate" title="@Node.Label">@Node.Label</p>
+                }
+            </div>
+        </div>
+    };
+
+    private string GetBorderColor()
+    {
+        if (IsCompleted) return "border-green-400";
+        return Node.NodeType switch
+        {
+            NodeType.Item => "border-amber-400",
+            NodeType.Skill => "border-blue-400",
+            NodeType.Prayer => "border-purple-400",
+            NodeType.Quest => "border-green-400",
+            NodeType.Construction => "border-orange-400",
+            NodeType.Slayer => "border-red-400",
+            NodeType.Spell => "border-indigo-400",
+            _ => "border-slate-300"
+        };
+    }
+
+    private string GetTypeTextColor() => Node.NodeType switch
+    {
+        NodeType.Item => "text-amber-600",
+        NodeType.Skill => "text-blue-600",
+        NodeType.Prayer => "text-purple-600",
+        NodeType.Quest => "text-green-600",
+        NodeType.Construction => "text-orange-600",
+        NodeType.Slayer => "text-red-600",
+        NodeType.Spell => "text-indigo-600",
+        _ => "text-slate-500"
+    };
+}

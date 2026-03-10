@@ -1,0 +1,43 @@
+@page "/templates/{Id:int}/builder"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using KlavLor.Domain.Entities
+@using KlavLor.Domain.Interfaces.Repositories
+@using KlavLor.Application.Interfaces.Authentication
+@using KlavLor.Web.Components.Layout
+
+@inject ITemplateRepository TemplateRepository
+@inject ISessionStateManager SessionStateManager
+@inject NavigationManager NavigationManager
+
+<PageLayout PageTitle="@($"KlavLor - {_template?.Name}")" Title="@(_template?.Name ?? "")" Description="Gear Progression Builder">
+    @if (_template is not null)
+    {
+        <div class="flex flex-col h-[calc(100vh-8rem)]">
+            <BuilderToolbar TemplateId="@_template.Id" TemplateName="@_template.Name" />
+            <BuilderCanvas Template="@_template" />
+        </div>
+    }
+</PageLayout>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private Template? _template;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var userId = SessionStateManager.GetUserSessionId();
+        if (userId is null)
+        {
+            NavigationManager.NavigateTo(AppRoutes.Login);
+            return;
+        }
+
+        _template = await TemplateRepository.GetById(Id);
+        if (_template is null || _template.CreatedById != userId.Value)
+        {
+            NavigationManager.NavigateTo(AppRoutes.TemplatesSearch);
+        }
+    }
+}

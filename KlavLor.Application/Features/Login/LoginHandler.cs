@@ -1,0 +1,68 @@
+using Microsoft.Extensions.Logging;
+using KlavLor.Application.Common;
+using KlavLor.Domain.Entities;
+using KlavLor.Domain.Interfaces.Repositories;
+using KlavLor.Domain.Interfaces.Services;
+using KlavLor.Domain.Services.Users;
+
+namespace KlavLor.Application.Features.Login;
+
+public sealed class LoginHandler(
+    IUserRepository userRepository,
+    UserLoginService loginService,
+    IPasswordService passwordService,
+    LoginValidator validator,
+    TimeProvider timeProvider,
+    ILogger<LoginHandler> logger)
+{
+    public async Task<Result<User>> Handle(LoginCommand command)
+    {
+        var validationResult = await validator.ValidateAsync(command);
+
+        if (!validationResult.IsValid)
+        {
+            return Result<User>.ValidationFailure(validationResult.ToDictionary());
+        }
+
+        var result = await ValidateCredentialsAsync(command);
+
+        if (result is not { IsSuccess: false })
+        {
+            return Result<User>.Success(result.Value);
+        }
+
+        logger.LogWarning("Login attempt failed for user {Email}.", command.Email);
+        return Result<User>.Failure(result.ErrorMessage);
+    }
+
+    private async Task<Result<User>> ValidateCredentialsAsync(LoginCommand command)
+    {
+        var user = await userRepository.GetByEmail(command.Email);
+
+        if (user == null)
+            return Result<User>.Failure("Incorrect Username & Password combo.");
+
+        if (!user.IsActive)
+            return Result<User>.Failure("User account has been disabled.");
+
+        if (user.IsLockedOut && user.LockoutEnd >= timeProvider.GetUtcNow())
+            return Result<User>.Failure($"Account locked out until {user.LockoutEnd}.");
+
+        if (user.IsLockedOut && user.LockoutEnd < timeProvider.GetUtcNow())
+        {
+            loginService.HandleSuccessfulLogin(user);
+        }
+
+        if (user.HashedPassword != null && !passwordService.CheckPassword(user, command.Password, user.HashedPassword))
+        {
+            loginService.HandleFailedLogin(user, timeProvider.GetUtcNow());
+            await userRepository.SaveUser(user);
+            return Result<User>.Failure(user.IsLockedOut ? $"Account locked until {user.LockoutEnd}" : "Incorrect password");
+        }
+
+        loginService.HandleSuccessfulLogin(user);
+        await userRepository.SaveUser(user);
+
+        return Result<User>.Success(user);
+    }
+}

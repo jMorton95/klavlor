@@ -1,0 +1,133 @@
+@using KlavLor.Domain.Entities
+
+@{
+    var allPositions = Template.Groups.Select(g => (g.PositionX, g.PositionY)).ToList();
+    var maxX = allPositions.Any() ? allPositions.Max(p => p.PositionX) + 400 : 1200;
+    var maxY = allPositions.Any() ? allPositions.Max(p => p.PositionY) + 300 : 800;
+    var canvasW = Math.Max(maxX, 1200);
+    var canvasH = Math.Max(maxY, 800);
+
+    const double groupWidth = 180;
+    const double groupItemHeight = 28;
+    const double groupPadding = 12;
+    var groupLookup = Template.Groups.ToDictionary(g => g.Id);
+    var nodesByGroup = Template.Nodes
+        .Where(n => n.GroupId.HasValue)
+        .GroupBy(n => n.GroupId!.Value)
+        .ToDictionary(g => g.Key, g => g.ToList());
+
+    var renderedGroupEdges = new HashSet<(int, int)>();
+}
+
+<div id="viewer-canvas" class="viewer-canvas relative bg-slate-50 rounded-lg border border-slate-200 overflow-auto" style="min-height: 500px;"
+     data-template-id="@Template.Id">
+
+    <div class="relative" style="min-width: @(canvasW)px; min-height: @(canvasH)px;">
+
+        @* SVG edge layer *@
+        <svg class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 1; min-width: @(canvasW)px; min-height: @(canvasH)px;">
+            <defs>
+                <marker id="viewer-arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8" />
+                </marker>
+                <marker id="viewer-arrowhead-completed" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="#22c55e" />
+                </marker>
+            </defs>
+            @foreach (var edge in Template.Edges)
+            {
+                var fromNode = Template.Nodes.FirstOrDefault(n => n.Id == edge.FromNodeId);
+                var toNode = Template.Nodes.FirstOrDefault(n => n.Id == edge.ToNodeId);
+                if (fromNode == null || toNode == null) continue;
+
+                int? fromGid = fromNode.GroupId, toGid = toNode.GroupId;
+
+                if (fromGid.HasValue && toGid.HasValue && fromGid != toGid)
+                {
+                    var key = (fromGid.Value, toGid.Value);
+                    if (!renderedGroupEdges.Add(key)) continue;
+                }
+
+                if (fromGid.HasValue && toGid.HasValue && fromGid == toGid) continue;
+
+                double fx, fy, fw, fh, tx, ty, tw, th;
+                if (fromGid.HasValue && groupLookup.ContainsKey(fromGid.Value))
+                {
+                    var fg = groupLookup[fromGid.Value];
+                    var fCount = nodesByGroup.GetValueOrDefault(fromGid.Value)?.Count ?? 1;
+                    fx = fg.PositionX; fy = fg.PositionY; fw = groupWidth; fh = fCount * groupItemHeight + groupPadding * 2;
+                }
+                else { continue; }
+
+                if (toGid.HasValue && groupLookup.ContainsKey(toGid.Value))
+                {
+                    var tg = groupLookup[toGid.Value];
+                    var tCount = nodesByGroup.GetValueOrDefault(toGid.Value)?.Count ?? 1;
+                    tx = tg.PositionX; ty = tg.PositionY; tw = groupWidth; th = tCount * groupItemHeight + groupPadding * 2;
+                }
+                else { continue; }
+
+                double x1, y1, x2, y2;
+                var ddx = (tx + tw / 2) - (fx + fw / 2);
+                var ddy = (ty + th / 2) - (fy + fh / 2);
+                if (Math.Abs(ddx) >= Math.Abs(ddy))
+                {
+                    if (ddx >= 0) { x1 = fx + fw; y1 = fy + fh / 2; x2 = tx; y2 = ty + th / 2; }
+                    else { x1 = fx; y1 = fy + fh / 2; x2 = tx + tw; y2 = ty + th / 2; }
+                }
+                else
+                {
+                    if (ddy >= 0) { x1 = fx + fw / 2; y1 = fy + fh; x2 = tx + tw / 2; y2 = ty; }
+                    else { x1 = fx + fw / 2; y1 = fy; x2 = tx + tw / 2; y2 = ty + th; }
+                }
+
+                var allFromCompleted = nodesByGroup.GetValueOrDefault(fromGid!.Value)?.All(n => CompletedNodeIds.Contains(n.Id)) ?? false;
+                var allToCompleted = nodesByGroup.GetValueOrDefault(toGid!.Value)?.All(n => CompletedNodeIds.Contains(n.Id)) ?? false;
+                var isCompleted = allFromCompleted && allToCompleted;
+                var strokeColor = isCompleted ? "#22c55e" : "#94a3b8";
+                var markerRef = isCompleted ? "url(#viewer-arrowhead-completed)" : "url(#viewer-arrowhead)";
+                var dx = Math.Abs(x2 - x1);
+                var dy = Math.Abs(y2 - y1);
+                string pathD;
+                if (dx >= dy)
+                {
+                    var cpOffset = Math.Max(dx * 0.4, 50);
+                    pathD = $"M {x1} {y1} C {x1 + cpOffset} {y1}, {x2 - cpOffset} {y2}, {x2} {y2}";
+                }
+                else
+                {
+                    var cpOffset = Math.Max(dy * 0.4, 50);
+                    var cpDir = y2 > y1 ? 1 : -1;
+                    pathD = $"M {x1} {y1} C {x1} {y1 + cpOffset * cpDir}, {x2} {y2 - cpOffset * cpDir}, {x2} {y2}";
+                }
+
+                <path class="viewer-edge" d="@pathD"
+                      stroke="@strokeColor" stroke-width="2" fill="none"
+                      marker-end="@markerRef"
+                      data-from-group="@fromGid"
+                      data-to-group="@toGid" />
+            }
+        </svg>
+
+        @* Group layer *@
+        @foreach (var group in Template.Groups)
+        {
+            var groupNodes = Template.Nodes.Where(n => n.GroupId == group.Id).ToList();
+            <ViewerGroup Group="@group" TemplateId="@Template.Id" GroupedNodes="@groupNodes"
+                         CompletedNodeIds="@CompletedNodeIds" CanTrackCompletion="@CanTrackCompletion" />
+        }
+
+        @if (!Template.Nodes.Any())
+        {
+            <div class="absolute inset-0 flex items-center justify-center">
+                <p class="text-slate-400 text-sm">This template has no nodes yet.</p>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public required Template Template { get; set; }
+    [Parameter] public HashSet<int> CompletedNodeIds { get; set; } = [];
+    [Parameter] public bool CanTrackCompletion { get; set; }
+}

@@ -1,0 +1,107 @@
+services:
+  traefik:
+    image: traefik:v3.1
+    command:
+      - "--providers.docker"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entryPoints.websecure.address=:443"
+      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+      - "--certificatesresolvers.myresolver.acme.email=josh@joshuawoodward.dev"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+    ports:
+      - mode: host
+        protocol: tcp
+        published: 80
+        target: 80
+      - mode: host
+        protocol: tcp
+        published: 443
+        target: 443
+    volumes:
+      - letsencrypt:/letsencrypt
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  web:
+    image: ghcr.io/jmorton95/propelvulnerabilitytracker-web:${GIT_COMMIT_HASH:-latest}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.services.web.loadbalancer.server.port=8080"
+      - "traefik.http.routers.web.rule=Host(`joshuawoodward.dev`) || Host(`www.joshuawoodward.dev`)"
+      - "traefik.http.routers.web.entrypoints=websecure"
+      - "traefik.http.routers.web.tls.certresolver=myresolver"
+      - "traefik.http.routers.web.middlewares=login-rate-limit"
+      - "traefik.http.middlewares.login-rate-limit.ratelimit.period=10s"
+      - "traefik.http.middlewares.login-rate-limit.rateLimit.average=50"
+      - "traefik.http.middlewares.login-rate-limit.rateLimit.burst=25"
+    environment:
+      - DatabaseSettings__Host=db
+      - DatabaseSettings__Port=5432
+      - DatabaseSettings__Database=pvt
+      - DatabaseSettings__Username=postgres
+      - DatabaseSettings__Password=${DB_PASSWORD}
+      - GitHubConfiguration__GithubToken=${GITHUB_TOKEN}
+      - SystemConfiguration__SystemUsername=${SYSTEM_USERNAME}
+      - SystemConfiguration__SystemPassword=${SYSTEM_PASSWORD}
+      - BitbucketConfiguration__BitbucketBaseUrl=${BITBUCKET_BASE_URL}
+      - BitbucketConfiguration__BitbucketUsername=${BITBUCKET_USERNAME}
+      - BitbucketConfiguration__BitbucketToken=${BITBUCKET_TOKEN}
+    deploy:
+      update_config:
+        order: start-first
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    depends_on:
+      - db
+        
+  worker:
+    image: ghcr.io/jmorton95/propelvulnerabilitytracker-worker:${GIT_COMMIT_HASH:-latest}
+    environment:
+      - DatabaseSettings__Host=db
+      - DatabaseSettings__Port=5432
+      - DatabaseSettings__Database=pvt
+      - DatabaseSettings__Username=postgres
+      - DatabaseSettings__Password=${DB_PASSWORD}
+      - GitHubConfiguration__GithubToken=${GITHUB_TOKEN}
+      - SystemConfiguration__SystemUsername=${SYSTEM_USERNAME}
+      - SystemConfiguration__SystemPassword=${SYSTEM_PASSWORD}
+      - BitbucketConfiguration__BitbucketBaseUrl=${BITBUCKET_BASE_URL}
+      - BitbucketConfiguration__BitbucketUsername=${BITBUCKET_USERNAME}
+      - BitbucketConfiguration__BitbucketToken=${BITBUCKET_TOKEN}
+    deploy:
+      update_config:
+        order: start-first
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    depends_on:
+        - db
+
+  db:
+    image: postgres:18.1
+    user: postgres
+    volumes:
+      - database-data:/var/lib/postgresql
+    secrets:
+      - db-password
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/db-password
+    healthcheck:
+      test: ["CMD", "pg_isready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  database-data:
+  letsencrypt:
+
+secrets:
+  db-password:
+    external: true

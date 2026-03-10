@@ -1,0 +1,26 @@
+@if (!string.IsNullOrWhiteSpace(PageTitle))
+{
+    <title>@PageTitle</title>
+}
+
+<div class="flex-1 min-w-0" hx-swap-oob="innerHTML:#metadata-container">
+    @if (!string.IsNullOrWhiteSpace(Title))
+    {
+        <h1 class="text-2xl font-bold text-slate-900 truncate">
+            @Title
+        </h1>
+
+        @if (!string.IsNullOrWhiteSpace(Description))
+        {
+            <p class="mt-1 text-sm text-slate-600 hidden sm:block">
+                @Description
+            </p>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string? Description { get; set; }
+    [Parameter] public string? PageTitle { get; set; }
+}

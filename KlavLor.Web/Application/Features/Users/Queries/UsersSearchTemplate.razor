@@ -1,0 +1,28 @@
+@page "/admin/users"
+@attribute [Authorize(Roles = "Admin")]
+@using Microsoft.AspNetCore.Authorization
+@using KlavLor.Application.Common
+@using KlavLor.Application.Features.Users.Search
+@using KlavLor.Web.Components.Layout
+
+@inject UserSearchHandler SearchHandler
+
+<PageLayout PageTitle="KlavLor - Users" Title="User Management" Description="Manage system users">
+    @if (_result is not null)
+    {
+        <UsersSearchGrid Result="@_result" />
+    }
+</PageLayout>
+
+@code {
+    private PagedList<UserSearchResponse>? _result;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await SearchHandler.Handle(new UserSearchQuery());
+        if (result.IsSuccess)
+        {
+            _result = result.Value;
+        }
+    }
+}

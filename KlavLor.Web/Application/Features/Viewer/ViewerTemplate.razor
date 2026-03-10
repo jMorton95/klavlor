@@ -1,0 +1,79 @@
+@page "/templates/{Id:int}"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using KlavLor.Domain.Entities
+@using KlavLor.Application.Features.Viewer.ViewerData
+@using KlavLor.Application.Interfaces.Authentication
+@using KlavLor.Web.Components.Layout
+
+@inject ViewerDataHandler ViewerDataHandler
+@inject ISessionStateManager SessionStateManager
+@inject NavigationManager NavigationManager
+
+<PageLayout PageTitle="@($"KlavLor - {_response?.Template.Name}")" Title="@(_response?.Template.Name ?? "")" Description="@(_response?.Template.Description ?? "Gear Progression Template")">
+    @if (_response is not null)
+    {
+        <div class="space-y-4">
+            <div class="flex items-center justify-between bg-white rounded-lg border border-slate-200 px-4 py-3">
+                <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-2">
+                        @if (_response.Template.IsPublic)
+                        {
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Public</span>
+                        }
+                        else
+                        {
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">Private</span>
+                        }
+                        <span class="text-sm text-slate-500">by @(_response.Template.CreatedBy?.FirstName ?? "Unknown") @(_response.Template.CreatedBy?.LastName ?? "")</span>
+                    </div>
+                    @if (_response.CanTrackCompletion)
+                    {
+                        <div class="flex items-center gap-2 text-sm">
+                            <span class="text-slate-500">Progress:</span>
+                            <span class="font-semibold text-amber-600">@_response.CompletedNodeIds.Count / @_response.Template.Nodes.Count</span>
+                        </div>
+                    }
+                </div>
+                <div class="flex items-center gap-2">
+                    @if (_response.IsOwner)
+                    {
+                        <a hx-get="@AppRoutes.Builder.WithId(_response.Template.Id).FromApi()" hx-target="#hx-page-container" hx-push-url="@AppRoutes.Builder.WithId(_response.Template.Id)" hx-swap="innerHTML transition:true"
+                           class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-amber-600 border border-amber-300 rounded-lg hover:bg-amber-50 transition-colors cursor-pointer">
+                            Edit in Builder
+                        </a>
+                    }
+                    <a hx-get="@AppRoutes.TemplatesSearch.FromApi()" hx-target="#hx-page-container" hx-push-url="@AppRoutes.TemplatesSearch" hx-swap="innerHTML transition:true"
+                       class="text-sm text-slate-500 hover:text-slate-700 cursor-pointer">Back to Templates</a>
+                </div>
+            </div>
+            <ViewerCanvas Template="@_response.Template" CompletedNodeIds="@_response.CompletedNodeIds" CanTrackCompletion="@_response.CanTrackCompletion" />
+        </div>
+    }
+</PageLayout>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private ViewerDataResponse? _response;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var userId = SessionStateManager.GetUserSessionId();
+        if (userId is null)
+        {
+            NavigationManager.NavigateTo(AppRoutes.Login);
+            return;
+        }
+
+        var result = await ViewerDataHandler.Handle(new ViewerDataQuery { TemplateId = Id }, userId);
+        if (result.IsSuccess)
+        {
+            _response = result.Value;
+        }
+        else
+        {
+            NavigationManager.NavigateTo(AppRoutes.TemplatesSearch);
+        }
+    }
+}

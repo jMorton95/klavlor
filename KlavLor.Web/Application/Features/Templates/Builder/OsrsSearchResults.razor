@@ -1,0 +1,31 @@
+@using KlavLor.Infrastructure.ExternalServices.OsrsWiki
+
+@if (Results.Any())
+{
+    <div class="absolute left-0 right-0 top-full mt-1 bg-white rounded-lg border border-slate-200 shadow-lg max-h-60 overflow-y-auto z-50">
+        @foreach (var item in Results)
+        {
+            <button type="button"
+                    class="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-amber-50 transition-colors text-sm"
+                    onclick="selectOsrsItem(this, '@EscapeJs(item.Name)', '@item.IconUrl')">
+                @if (item.IconUrl is not null)
+                {
+                    <img src="@item.IconUrl" alt="" class="w-6 h-6 object-contain flex-shrink-0"
+                         onerror="this.style.display='none'" />
+                }
+                else
+                {
+                    <div class="w-6 h-6 bg-slate-100 rounded flex-shrink-0"></div>
+                }
+                <span class="truncate text-slate-800">@item.Name</span>
+            </button>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public List<OsrsSearchResult> Results { get; set; } = [];
+
+    private static string EscapeJs(string value)
+        => value.Replace("\\", "\\\\").Replace("'", "\\'");
+}

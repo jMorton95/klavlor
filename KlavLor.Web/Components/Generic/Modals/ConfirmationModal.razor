@@ -1,0 +1,66 @@
+@using KlavLor.Web.Enums
+<div id="modal-element"
+     class="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
+
+    <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+         onclick="document.getElementById('modal-element').remove()"></div>
+            <div class="relative bg-white/90 backdrop-blur-xl rounded-lg border border-white/30 shadow-[0_8px_30px_rgb(0,0,0,0.12)] max-w-lg w-full overflow-hidden animate-scale-in">
+
+        <div class="px-6 py-5 border-b border-white/20 flex items-start justify-between">
+            <div class="pr-6">
+                <h3 class="text-lg font-semibold text-slate-900 tracking-tight">@Title</h3>
+                @if (!string.IsNullOrWhiteSpace(Description))
+                {
+                    <p class="mt-2 text-sm text-slate-600 leading-relaxed">@Description</p>
+                }
+            </div>
+            <button type="button" onclick="this.closest('.fixed').remove()" class="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200/40 rounded-lg transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+
+        <div class="px-6 py-2 bg-white/60 backdrop-blur-sm border-t border-white/20 flex items-center justify-end gap-4">
+            <button type="button" onclick="this.closest('.fixed').remove()" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white/80 border border-slate-300 rounded-lg hover:bg-white transition-colors">
+                @CancelText
+            </button>
+            <button type="button"
+                    @attributes="GetHxAttributes()"
+                    hx-target="@HxTarget"
+                    hx-trigger="click"
+                    hx-swap="@HxSwap"
+                    hx-on:htmx:after-request="@HxAfterRequest"
+                    class="px-5 py-2 text-sm font-semibold text-white @GetConfirmButtonClass() rounded-lg transition-colors">
+                @ConfirmText
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public required string Title { get; set; }
+    [Parameter] public string? Description { get; set; }
+    [Parameter] public string? HxTarget { get; set; }
+    [Parameter] public string HxAfterRequest { get; set; } = "this.closest('.fixed').remove()";
+    [Parameter] public string HxSwap { get; set; } = "none";
+    [Parameter] public required string ConfirmRoute { get; set; }
+    [Parameter] public string ConfirmText { get; set; } = "Confirm";
+    [Parameter] public string CancelText { get; set; } = "Cancel";
+    [Parameter] public ModalConfirmationType ModalConfirmationType { get; set; } = ModalConfirmationType.Primary;
+    [Parameter] public HxMethod Method { get; set; } = HxMethod.POST;
+
+    private string GetConfirmButtonClass() => ModalConfirmationType switch
+    {
+        ModalConfirmationType.Danger => "bg-gradient-to-br from-red-400/90 to-rose-600/90 hover:from-rose-600 hover:to-red-700",
+        ModalConfirmationType.Warning => "bg-gradient-to-br from-amber-500/80 to-orange-500/90 hover:from-amber-600 hover:to-orange-700",
+        _ => "bg-gradient-to-br from-indigo-600/90 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800"
+    };
+
+    private Dictionary<string, object> GetHxAttributes() => Method switch
+    {
+        HxMethod.POST => new() { ["hx-post"] = ConfirmRoute },
+        HxMethod.DELETE => new() { ["hx-delete"] = ConfirmRoute },
+        _ => new() { ["hx-get"] = ConfirmRoute }
+    };
+}

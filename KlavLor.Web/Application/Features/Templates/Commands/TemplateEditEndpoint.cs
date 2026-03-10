@@ -1,0 +1,56 @@
+using Microsoft.AspNetCore.Mvc;
+using KlavLor.Application.Features.Templates.Edit;
+using KlavLor.Application.Features.Templates.GetById;
+using KlavLor.Application.Interfaces.Authentication;
+using KlavLor.Domain.Shared;
+using KlavLor.Web.Application.Results;
+
+namespace KlavLor.Web.Application.Features.Templates.Commands;
+
+public sealed class TemplateEditEndpoint : IEndpoint
+{
+    public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
+    {
+        app.MapGet(AppRoutes.TemplatesEdit.FromApi(), GetPage).RequireAuthorization(nameof(RoleName.User));
+        return app.MapPost(AppRoutes.TemplatesEdit.FromApi(), Endpoint).RequireAuthorization(nameof(RoleName.User));
+    }
+
+    private static async Task<Results<RazorComponentResult, HtmxRedirectResult>> GetPage(
+        int id, TemplateGetByIdHandler handler)
+    {
+        var result = await handler.Handle(new TemplateGetByIdQuery(id));
+
+        if (!result.IsSuccess)
+            return IResultExtensions.HtmxRedirect(AppRoutes.TemplatesSearch);
+
+        var command = new TemplateEditCommand
+        {
+            Id = result.Value.Id,
+            Name = result.Value.Name,
+            Description = result.Value.Description,
+            IsPublic = result.Value.IsPublic
+        };
+
+        return IResultExtensions.Component<TemplateForm>(new { Command = command, IsEditing = true });
+    }
+
+    private static async Task<Results<HtmxRedirectResult, RazorComponentResult>> Endpoint(
+        int id,
+        [FromForm] TemplateEditCommand command,
+        ISessionStateManager sessionManager,
+        TemplateEditHandler handler)
+    {
+        var userId = sessionManager.GetUserSessionId();
+        if (userId is null) return IResultExtensions.HtmxRedirect(AppRoutes.Login);
+
+        command.Id = id;
+        var result = await handler.Handle(command, userId.Value);
+
+        return result switch
+        {
+            { IsSuccess: true } => IResultExtensions.HtmxRedirect(AppRoutes.TemplatesSearch),
+            { ValidationErrors: not null } => IResultExtensions.Component<TemplateForm>(new { Command = command, result.ValidationErrors, IsEditing = true }),
+            _ => IResultExtensions.Component<TemplateForm>(new { Command = command, ErrorMessage = result.ErrorMessage, IsEditing = true })
+        };
+    }
+}

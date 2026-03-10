@@ -1,0 +1,83 @@
+@using KlavLor.Domain.Entities
+
+<div id="modal-element" class="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
+    <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+         onclick="document.getElementById('modal-element').remove()"></div>
+    <div class="relative bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
+        <h3 class="text-lg font-semibold text-slate-900 mb-4">Edit Node</h3>
+        <form hx-put="@($"/api/templates/{TemplateId}/builder/nodes/{NodeId}")"
+              hx-target="#builder-canvas" hx-swap="innerHTML"
+              hx-on::after-request="if(event.detail.elt===this) this.closest('#modal-element')?.remove()">
+            <input type="hidden" name="TemplateId" value="@TemplateId" />
+            <input type="hidden" name="NodeId" value="@NodeId" />
+            <input type="hidden" name="Label" value="@Label" />
+            <input type="hidden" name="IconUrl" value="@IconUrl" />
+            <div class="space-y-3">
+                @* OSRS Wiki Search *@
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Item / Search</label>
+                    <div class="relative">
+                        @if (!string.IsNullOrEmpty(IconUrl))
+                        {
+                            <div id="selected-item" class="flex items-center gap-2 px-3 py-2 text-sm border border-slate-300 rounded-lg bg-slate-50">
+                                <img src="@IconUrl" alt="" class="w-6 h-6 object-contain" onerror="this.style.display='none'" />
+                                <span class="flex-1 truncate text-slate-800" id="selected-item-name">@Label</span>
+                                <button type="button" onclick="clearOsrsSelection(this)" class="text-slate-400 hover:text-slate-600">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                </button>
+                            </div>
+                        }
+                        <input type="text" id="osrs-search-input"
+                               hx-get="@($"/api/osrs/search")"
+                               hx-trigger="input changed delay:300ms"
+                               hx-target="#osrs-search-results"
+                               hx-swap="innerHTML"
+                               name="q"
+                               value=""
+                               placeholder="Search OSRS Wiki..."
+                               autocomplete="off"
+                               class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none @(string.IsNullOrEmpty(IconUrl) ? "" : "hidden")" />
+                        <div id="osrs-search-results" class="relative"></div>
+                    </div>
+                </div>
+
+                @* Node Type *@
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Type</label>
+                    <select name="NodeType"
+                            class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none">
+                        @foreach (var type in Enum.GetValues<NodeType>())
+                        {
+                            if (type == CurrentNodeType)
+                            {
+                                <option value="@((int)type)" selected>@type</option>
+                            }
+                            else
+                            {
+                                <option value="@((int)type)">@type</option>
+                            }
+                        }
+                    </select>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 mt-5">
+                <button type="button" onclick="this.closest('#modal-element').remove()"
+                        class="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200">
+                    Cancel
+                </button>
+                <button type="submit"
+                        class="px-4 py-2 text-sm font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700">
+                    Save
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int TemplateId { get; set; }
+    [Parameter] public int NodeId { get; set; }
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public string? IconUrl { get; set; }
+    [Parameter] public NodeType CurrentNodeType { get; set; }
+}

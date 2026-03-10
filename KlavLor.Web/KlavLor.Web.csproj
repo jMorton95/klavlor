@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+        <RootNamespace>KlavLor.Web</RootNamespace>
+        <DisableScopedCssBundling>true</DisableScopedCssBundling>
+    </PropertyGroup>
+
+    <Target Name="TailwindOnBuild" BeforeTargets="Compile">
+        <Exec Command="npx tailwindcss -i wwwroot/app.css -o wwwroot/styles.css --minify"
+              Condition="'$(Configuration)' == 'Debug'" />
+    </Target>
+
+    <ItemGroup>
+        <ProjectReference Include="..\KlavLor.Domain\KlavLor.Domain.csproj" />
+        <ProjectReference Include="..\KlavLor.Infrastructure\KlavLor.Infrastructure.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="FluentValidation" Version="12.1.0" />
+        <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.0" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+    </ItemGroup>
+
+</Project>

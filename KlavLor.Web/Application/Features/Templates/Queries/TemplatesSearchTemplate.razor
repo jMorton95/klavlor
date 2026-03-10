@@ -1,0 +1,38 @@
+@page "/templates"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using KlavLor.Application.Common
+@using KlavLor.Application.Features.Templates.Search
+@using KlavLor.Application.Interfaces.Authentication
+@using KlavLor.Web.Components.Layout
+
+@inject TemplateSearchHandler SearchHandler
+@inject ISessionStateManager SessionStateManager
+@inject NavigationManager NavigationManager
+
+<PageLayout PageTitle="KlavLor - My Templates" Title="My Templates" Description="Manage your gear progression templates">
+    @if (_result is not null)
+    {
+        <TemplatesSearchGrid Result="@_result" />
+    }
+</PageLayout>
+
+@code {
+    private PagedList<TemplateSearchResponse>? _result;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var userId = SessionStateManager.GetUserSessionId();
+        if (userId is null)
+        {
+            NavigationManager.NavigateTo(AppRoutes.Login);
+            return;
+        }
+
+        var result = await SearchHandler.Handle(new TemplateSearchQuery(), userId.Value);
+        if (result.IsSuccess)
+        {
+            _result = result.Value;
+        }
+    }
+}

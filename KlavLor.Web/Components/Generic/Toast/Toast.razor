@@ -1,0 +1,89 @@
+@using KlavLor.Domain.Shared
+<div hx-swap-oob="beforeend:#toast-container">
+    <div class="@GetToastClasses()" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="flex items-start gap-3">
+            <div class="@GetIconClasses()" aria-hidden="true">
+                @GetIcon()
+            </div>
+
+            <div class="flex-1 min-w-0">
+                @if (!string.IsNullOrWhiteSpace(Title))
+                {
+                    <p class="font-semibold text-sm leading-5">@Title</p>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(Message))
+                {
+                    <p class="@GetMessageClasses()">@Message</p>
+                }
+            </div>
+
+            <button type="button"
+                    onclick="window.removeToast(this)"
+                    class="ml-auto -mx-1.5 -my-1.5 rounded-lg p-1.5 @GetCloseButtonClasses() hover:bg-opacity-20 transition-colors"
+                    aria-label="Close">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+
+        @if (AutoDismiss)
+        {
+            <div class="pointer-events-none absolute left-0 right-0 bottom-0 h-2 rounded-none overflow-hidden opacity-30"
+                 style="--progress-duration: @(ProgressSeconds)s;"
+                 onanimationend="window.fadeOutToast(this)">
+                <div class="absolute inset-0 bg-current origin-right animate-toast-progress"></div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public NotificationType Type { get; set; }
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string? Message { get; set; }
+    [Parameter] public bool AutoDismiss { get; set; } = true;
+    [Parameter] public int ProgressSeconds { get; set; } = 10;
+
+    private string GetToastClasses()
+    {
+        var baseClasses = "relative w-96 max-w-full rounded-none p-4 shadow-lg backdrop-blur-sm ";
+        return Type switch
+        {
+            NotificationType.Success => baseClasses + "bg-emerald-50/90 text-emerald-800 border border-emerald-300",
+            NotificationType.Error => baseClasses + "bg-rose-50/90 text-rose-800 border border-rose-300",
+            NotificationType.Warning => baseClasses + "bg-amber-50/90 text-amber-800 border border-amber-300",
+            NotificationType.Info => baseClasses + "bg-sky-50/90 text-sky-800 border border-sky-300",
+            _ => baseClasses + "bg-gray-50/90 text-gray-800"
+        };
+    }
+
+    private string GetIconClasses() => Type switch
+    {
+        NotificationType.Success => "text-emerald-500",
+        NotificationType.Error => "text-rose-500",
+        NotificationType.Warning => "text-amber-500",
+        NotificationType.Info => "text-sky-500",
+        _ => "text-gray-500"
+    };
+
+    private string GetMessageClasses() => "mt-1 text-sm " + (string.IsNullOrWhiteSpace(Title) ? "" : "opacity-90");
+
+    private string GetCloseButtonClasses() => Type switch
+    {
+        NotificationType.Success => "text-emerald-500 hover:bg-emerald-100",
+        NotificationType.Error => "text-rose-500 hover:bg-rose-100",
+        NotificationType.Warning => "text-amber-500 hover:bg-amber-100",
+        NotificationType.Info => "text-sky-500 hover:bg-sky-100",
+        _ => "text-gray-500"
+    };
+
+    private RenderFragment GetIcon() => Type switch
+    {
+        NotificationType.Success => @<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+        NotificationType.Error => @<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+        NotificationType.Warning => @<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.998-.833-2.732 0L4.346 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>,
+        _ => @<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+    };
+}

@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="KlavLor.Application/KlavLor.Application.csproj" />
+  <Project Path="KlavLor.Domain/KlavLor.Domain.csproj" />
+  <Project Path="KlavLor.Infrastructure/KlavLor.Infrastructure.csproj" />
+  <Project Path="KlavLor.Web/KlavLor.Web.csproj" />
+</Solution>
