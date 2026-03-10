@@ -4,25 +4,25 @@
 
     <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
          onclick="document.getElementById('modal-element').remove()"></div>
-            <div class="relative bg-white/90 backdrop-blur-xl rounded-lg border border-white/30 shadow-[0_8px_30px_rgb(0,0,0,0.12)] max-w-lg w-full overflow-hidden animate-scale-in">
+            <div class="relative bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl rounded-lg border border-white/30 dark:border-slate-700 shadow-[0_8px_30px_rgb(0,0,0,0.12)] max-w-lg w-full overflow-hidden animate-scale-in">
 
-        <div class="px-6 py-5 border-b border-white/20 flex items-start justify-between">
+        <div class="px-6 py-5 border-b border-white/20 dark:border-slate-700 flex items-start justify-between">
             <div class="pr-6">
-                <h3 class="text-lg font-semibold text-slate-900 tracking-tight">@Title</h3>
+                <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 tracking-tight">@Title</h3>
                 @if (!string.IsNullOrWhiteSpace(Description))
                 {
-                    <p class="mt-2 text-sm text-slate-600 leading-relaxed">@Description</p>
+                    <p class="mt-2 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">@Description</p>
                 }
             </div>
-            <button type="button" onclick="this.closest('.fixed').remove()" class="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200/40 rounded-lg transition-colors">
+            <button type="button" onclick="this.closest('.fixed').remove()" class="p-2 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/40 dark:hover:bg-slate-700/40 rounded-lg transition-colors">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
             </button>
         </div>
 
-        <div class="px-6 py-2 bg-white/60 backdrop-blur-sm border-t border-white/20 flex items-center justify-end gap-4">
-            <button type="button" onclick="this.closest('.fixed').remove()" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white/80 border border-slate-300 rounded-lg hover:bg-white transition-colors">
+        <div class="px-6 py-2 bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm border-t border-white/20 dark:border-slate-700 flex items-center justify-end gap-4">
+            <button type="button" onclick="this.closest('.fixed').remove()" class="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white/80 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-white transition-colors">
                 @CancelText
             </button>
             <button type="button"

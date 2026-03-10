@@ -7,7 +7,7 @@
             <input type="text" name="searchTerm" placeholder="Search users..." value="@Result?.SearchTerm"
                    hx-get="@AppRoutes.UsersSearch.FromApi()" hx-trigger="keyup changed delay:300ms" hx-target="#hx-page-container" hx-swap="innerHTML transition:true"
                    hx-include="[name='sortBy'], [name='sortDirection']"
-                   class="px-4 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+                   class="px-4 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
         </div>
         <a href="@AppRoutes.UsersCreate" hx-get="@AppRoutes.UsersCreate.FromApi()" hx-target="#hx-page-container" hx-push-url="@AppRoutes.UsersCreate" hx-swap="innerHTML transition:true"
            class="inline-flex items-center px-4 py-2 bg-amber-600 text-white text-sm font-semibold rounded-lg hover:bg-amber-700 transition-colors">
@@ -18,50 +18,50 @@
         </a>
     </div>
 
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <table class="min-w-full divide-y divide-slate-200">
-            <thead class="bg-slate-50">
+    <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+        <table class="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+            <thead class="bg-slate-50 dark:bg-slate-800">
                 <tr>
-                    <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Name</th>
-                    <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Email</th>
-                    <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
-                    <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Roles</th>
-                    <th class="px-6 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
+                    <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Name</th>
+                    <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Email</th>
+                    <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Status</th>
+                    <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Roles</th>
+                    <th class="px-6 py-3 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Actions</th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-slate-200">
+            <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
                 @if (Result?.Items.Any() == true)
                 {
                     @foreach (var user in Result.Items)
                     {
-                        <tr class="hover:bg-slate-50 transition-colors">
-                            <td class="px-6 py-4 text-sm font-medium text-slate-900">@user.FullName</td>
-                            <td class="px-6 py-4 text-sm text-slate-600">@user.Email</td>
+                        <tr class="hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                            <td class="px-6 py-4 text-sm font-medium text-slate-900 dark:text-slate-100">@user.FullName</td>
+                            <td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">@user.Email</td>
                             <td class="px-6 py-4">
                                 @if (user.IsLockedOut)
                                 {
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Locked</span>
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-300">Locked</span>
                                 }
                                 else if (user.IsActive)
                                 {
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Active</span>
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300">Active</span>
                                 }
                                 else
                                 {
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800">Inactive</span>
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200">Inactive</span>
                                 }
                             </td>
                             <td class="px-6 py-4">
                                 @foreach (var role in user.RoleNames)
                                 {
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 mr-1">@role</span>
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-300 mr-1">@role</span>
                                 }
                             </td>
                             <td class="px-6 py-4 text-right space-x-2">
                                 <a hx-get="@AppRoutes.UsersEdit.WithId(user.Id).FromApi()" hx-target="#hx-page-container" hx-push-url="@AppRoutes.UsersEdit.WithId(user.Id)" hx-swap="innerHTML transition:true"
-                                   class="text-sm text-amber-600 hover:text-amber-800 font-medium cursor-pointer">Edit</a>
+                                   class="text-sm text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300 font-medium cursor-pointer">Edit</a>
                                 <button hx-get="@AppRoutes.UsersDelete.WithId(user.Id).FromApi()" hx-target="#hx-modal-container" hx-swap="innerHTML"
-                                        class="text-sm text-red-600 hover:text-red-800 font-medium cursor-pointer">Delete</button>
+                                        class="text-sm text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 font-medium cursor-pointer">Delete</button>
                             </td>
                         </tr>
                     }
@@ -69,7 +69,7 @@
                 else
                 {
                     <tr>
-                        <td colspan="5" class="px-6 py-8 text-center text-sm text-slate-500">No users found.</td>
+                        <td colspan="5" class="px-6 py-8 text-center text-sm text-slate-500 dark:text-slate-400">No users found.</td>
                     </tr>
                 }
             </tbody>

@@ -1,11 +1,6 @@
 // builder.js - DAG Builder Canvas Interactions
 
 (function () {
-    const GROUP_WIDTH = 180;
-    const GROUP_ITEM_HEIGHT = 28;
-    const GROUP_PADDING = 12;
-    const GROUP_ADD_BTN_HEIGHT = 24;
-
     let dragState = null;
     let connectState = null;
     let panState = null;
@@ -31,11 +26,6 @@
         }
     }
 
-    function getGroupHeight(groupEl) {
-        const items = groupEl.querySelectorAll('[data-grouped]');
-        return Math.max(items.length, 1) * GROUP_ITEM_HEIGHT + GROUP_PADDING * 2 + GROUP_ADD_BTN_HEIGHT;
-    }
-
     function getPortId(port) {
         return port.dataset.groupId;
     }
@@ -43,8 +33,10 @@
     function getGroupEdgePoints(groupEl) {
         var x = parseFloat(groupEl.style.left);
         var y = parseFloat(groupEl.style.top);
-        var h = getGroupHeight(groupEl);
-        return { x: x, y: y, w: GROUP_WIDTH, h: h, cx: x + GROUP_WIDTH / 2, cy: y + h / 2 };
+        var rect = groupEl.getBoundingClientRect();
+        var w = rect.width;
+        var h = rect.height;
+        return { x: x, y: y, w: w, h: h, cx: x + w / 2, cy: y + h / 2 };
     }
 
     function computeEdgeEndpoints(from, to) {
@@ -81,8 +73,10 @@
     function updateGroupEdgePaths(groupId, newX, newY) {
         var groupEl = document.querySelector(`.builder-group[data-group-id="${groupId}"]`);
         if (!groupEl) return;
-        var gh = getGroupHeight(groupEl);
-        var fromPt = { x: newX, y: newY, w: GROUP_WIDTH, h: gh, cx: newX + GROUP_WIDTH / 2, cy: newY + gh / 2 };
+        var rect = groupEl.getBoundingClientRect();
+        var gw = rect.width;
+        var gh = rect.height;
+        var fromPt = { x: newX, y: newY, w: gw, h: gh, cx: newX + gw / 2, cy: newY + gh / 2 };
 
         document.querySelectorAll(`.builder-edge[data-from-group="${groupId}"]`).forEach(function (path) {
             var toGroupId = path.dataset.toGroup;
@@ -240,6 +234,25 @@
             dragState.el.style.top = y + 'px';
             dragState.moved = true;
 
+            // Expand canvas if group is dragged near the edge
+            var canvas = document.getElementById('builder-canvas');
+            if (canvas) {
+                var innerEl = canvas.firstElementChild;
+                var padding = 300;
+                var groupRect = dragState.el.getBoundingClientRect();
+                var neededW = x + groupRect.width + padding;
+                var neededH = y + groupRect.height + padding;
+                if (neededW > parseFloat(innerEl.style.minWidth))
+                    innerEl.style.minWidth = neededW + 'px';
+                if (neededH > parseFloat(innerEl.style.minHeight))
+                    innerEl.style.minHeight = neededH + 'px';
+                var svg = innerEl.querySelector('svg');
+                if (svg) {
+                    svg.style.minWidth = innerEl.style.minWidth;
+                    svg.style.minHeight = innerEl.style.minHeight;
+                }
+            }
+
             updateGroupEdgePaths(dragState.id, x, y);
         }
 
@@ -260,8 +273,28 @@
             e.preventDefault();
             var dx = e.clientX - panState.startX;
             var dy = e.clientY - panState.startY;
-            panState.canvas.scrollLeft = panState.scrollLeft - dx;
-            panState.canvas.scrollTop = panState.scrollTop - dy;
+            var newScrollLeft = panState.scrollLeft - dx;
+            var newScrollTop = panState.scrollTop - dy;
+
+            // Expand canvas if panning beyond current bounds
+            var innerEl = panState.canvas.firstElementChild;
+            if (innerEl) {
+                var padding = 200;
+                var neededW = newScrollLeft + panState.canvas.clientWidth + padding;
+                var neededH = newScrollTop + panState.canvas.clientHeight + padding;
+                if (neededW > parseFloat(innerEl.style.minWidth || 0))
+                    innerEl.style.minWidth = neededW + 'px';
+                if (neededH > parseFloat(innerEl.style.minHeight || 0))
+                    innerEl.style.minHeight = neededH + 'px';
+                var svg = innerEl.querySelector('svg');
+                if (svg) {
+                    svg.style.minWidth = innerEl.style.minWidth;
+                    svg.style.minHeight = innerEl.style.minHeight;
+                }
+            }
+
+            panState.canvas.scrollLeft = newScrollLeft;
+            panState.canvas.scrollTop = newScrollTop;
         }
     });
 
@@ -424,13 +457,13 @@
         modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-4';
         modal.innerHTML =
             '<div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" data-dismiss></div>' +
-            '<div class="relative bg-white rounded-lg border border-slate-200 shadow-xl max-w-sm w-full overflow-hidden">' +
+            '<div class="relative bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-xl max-w-sm w-full overflow-hidden">' +
                 '<div class="px-6 py-5">' +
-                    '<h3 class="text-lg font-semibold text-slate-900">Confirm</h3>' +
-                    '<p class="mt-2 text-sm text-slate-600">' + message + '</p>' +
+                    '<h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Confirm</h3>' +
+                    '<p class="mt-2 text-sm text-slate-600 dark:text-slate-400">' + message + '</p>' +
                 '</div>' +
-                '<div class="px-6 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3">' +
-                    '<button type="button" data-dismiss class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 cursor-pointer">Cancel</button>' +
+                '<div class="px-6 py-3 bg-slate-50 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 flex items-center justify-end gap-3">' +
+                    '<button type="button" data-dismiss class="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer">Cancel</button>' +
                     '<button type="button" data-confirm class="px-4 py-2 text-sm font-semibold text-white bg-red-500 rounded-lg hover:bg-red-600 cursor-pointer">Delete</button>' +
                 '</div>' +
             '</div>';

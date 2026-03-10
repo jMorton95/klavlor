@@ -7,7 +7,7 @@
             <input type="text" name="searchTerm" placeholder="Search templates..." value="@Result?.SearchTerm"
                    hx-get="@AppRoutes.TemplatesSearch.FromApi()" hx-trigger="keyup changed delay:300ms" hx-target="#hx-page-container" hx-swap="innerHTML transition:true"
                    hx-include="[name='sortBy'], [name='sortDirection']"
-                   class="px-4 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+                   class="px-4 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
         </div>
         <div class="flex items-center gap-2">
             <a href="@AppRoutes.TemplatesCreate" hx-get="@AppRoutes.TemplatesCreate.FromApi()" hx-target="#hx-page-container" hx-push-url="@AppRoutes.TemplatesCreate" hx-swap="innerHTML transition:true"
@@ -25,32 +25,32 @@
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             @foreach (var template in Result.Items)
             {
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 hover:shadow-md hover:border-amber-200 transition-all duration-200 overflow-hidden">
+                <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md hover:border-amber-200 dark:hover:border-amber-700 transition-all duration-200 overflow-hidden">
                     <div class="p-5">
                         <div class="flex items-start justify-between mb-3">
-                            <h3 class="text-lg font-semibold text-slate-900 truncate">@template.Name</h3>
+                            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 truncate">@template.Name</h3>
                             <div class="flex items-center gap-1 ml-2 shrink-0">
                                 @if (template.IsPublic)
                                 {
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Public</span>
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300">Public</span>
                                 }
                                 else
                                 {
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">Private</span>
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">Private</span>
                                 }
                             </div>
                         </div>
 
                         @if (!string.IsNullOrWhiteSpace(template.Description))
                         {
-                            <p class="text-sm text-slate-600 mb-3 line-clamp-2">@template.Description</p>
+                            <p class="text-sm text-slate-600 dark:text-slate-400 mb-3 line-clamp-2">@template.Description</p>
                         }
                         else
                         {
-                            <p class="text-sm text-slate-400 italic mb-3">No description</p>
+                            <p class="text-sm text-slate-400 dark:text-slate-500 italic mb-3">No description</p>
                         }
 
-                        <div class="flex items-center gap-4 text-xs text-slate-500">
+                        <div class="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
                             <span class="flex items-center gap-1">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/></svg>
                                 @template.NodeCount nodes
@@ -61,18 +61,18 @@
                             </span>
                             @if (!template.IsOwner)
                             {
-                                <span class="text-slate-400">by @template.CreatedByName</span>
+                                <span class="text-slate-400 dark:text-slate-500">by @template.CreatedByName</span>
                             }
                         </div>
                     </div>
 
-                    <div class="px-5 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+                    <div class="px-5 py-3 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between">
                         <div class="flex items-center gap-3">
                             <a hx-get="@AppRoutes.TemplatesView.WithId(template.Id).FromApi()"
                                hx-target="#hx-page-container"
                                hx-push-url="@AppRoutes.TemplatesView.WithId(template.Id)"
                                hx-swap="innerHTML transition:true"
-                               class="text-sm font-medium text-amber-600 hover:text-amber-800 cursor-pointer">
+                               class="text-sm font-medium text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300 cursor-pointer">
                                 View
                             </a>
                             @if (template.IsOwner)
@@ -81,7 +81,7 @@
                                    hx-target="#hx-page-container"
                                    hx-push-url="@AppRoutes.Builder.WithId(template.Id)"
                                    hx-swap="innerHTML transition:true"
-                                   class="text-sm font-medium text-amber-600 hover:text-amber-800 cursor-pointer">
+                                   class="text-sm font-medium text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300 cursor-pointer">
                                     Open Builder
                                 </a>
                             }
@@ -93,11 +93,11 @@
                                    hx-target="#hx-page-container"
                                    hx-push-url="@AppRoutes.TemplatesEdit.WithId(template.Id)"
                                    hx-swap="innerHTML transition:true"
-                                   class="text-sm text-slate-500 hover:text-slate-700 cursor-pointer">Edit</a>
+                                   class="text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300 cursor-pointer">Edit</a>
                                 <button hx-get="@AppRoutes.TemplatesDelete.WithId(template.Id).FromApi()"
                                         hx-target="#hx-modal-container"
                                         hx-swap="innerHTML"
-                                        class="text-sm text-red-500 hover:text-red-700 cursor-pointer">Delete</button>
+                                        class="text-sm text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 cursor-pointer">Delete</button>
                             </div>
                         }
                     </div>
@@ -107,16 +107,16 @@
     }
     else
     {
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center">
+        <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-12 text-center">
             <div class="flex justify-center mb-4">
-                <div class="p-4 bg-amber-50 rounded-full">
+                <div class="p-4 bg-amber-50 dark:bg-amber-950 rounded-full">
                     <svg class="w-8 h-8 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7"/>
                     </svg>
                 </div>
             </div>
-            <h3 class="text-lg font-semibold text-slate-900 mb-2">No templates yet</h3>
-            <p class="text-sm text-slate-500 mb-6">Create your first gear progression template to get started.</p>
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">No templates yet</h3>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mb-6">Create your first gear progression template to get started.</p>
             <a href="@AppRoutes.TemplatesCreate" hx-get="@AppRoutes.TemplatesCreate.FromApi()" hx-target="#hx-page-container" hx-push-url="@AppRoutes.TemplatesCreate" hx-swap="innerHTML transition:true"
                class="inline-flex items-center px-4 py-2 bg-amber-600 text-white text-sm font-semibold rounded-lg hover:bg-amber-700 transition-colors">
                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

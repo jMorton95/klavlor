@@ -4,6 +4,9 @@
 @source "../**/*.html";
 @source "../**/*.cshtml";
 
+/* Use class-based dark mode instead of prefers-color-scheme */
+@variant dark (&:where(.dark, .dark *));
+
 @theme {
     --color-main-100: #d97706;
     --breakpoint-3xl: 120rem;
@@ -73,6 +76,11 @@ var {
     background-size: 20px 20px;
     scrollbar-width: none; /* Firefox */
     -ms-overflow-style: none; /* IE/Edge */
+}
+
+:where(.dark, .dark *) .builder-canvas,
+:where(.dark, .dark *) .viewer-canvas {
+    background-image: radial-gradient(circle, #334155 1px, transparent 1px);
 }
 
 .builder-canvas::-webkit-scrollbar,

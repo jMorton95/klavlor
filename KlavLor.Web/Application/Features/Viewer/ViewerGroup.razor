@@ -4,7 +4,7 @@
      data-group-id="@Group.Id"
      style="left: @(Group.PositionX)px; top: @(Group.PositionY)px; z-index: 2;">
 
-    <div class="bg-white/90 rounded-lg border-2 border-slate-400 shadow-md">
+    <div class="bg-white/90 dark:bg-slate-800/90 rounded-lg border-2 border-slate-400 dark:border-slate-500 shadow-md">
         @* List view (icon + text) *@
         <div class="view-list p-1.5 space-y-0.5">
             @foreach (var node in GroupedNodes)
@@ -21,7 +21,7 @@
                 @foreach (var node in GroupedNodes)
                 {
                     var borderColor = CompletedNodeIds.Contains(node.Id) ? "border-green-400" : GetNodeBorderColor(node.NodeType);
-                    var bgColor = CompletedNodeIds.Contains(node.Id) ? "bg-green-50" : "bg-white";
+                    var bgColor = CompletedNodeIds.Contains(node.Id) ? "bg-green-50 dark:bg-green-950" : "bg-white dark:bg-slate-800";
                     var isCompleted = CompletedNodeIds.Contains(node.Id);
 
                     if (CanTrackCompletion)
@@ -39,7 +39,7 @@
                             }
                             else
                             {
-                                <span class="text-[8px] font-bold text-slate-500">@node.Label[..Math.Min(2, node.Label.Length)]</span>
+                                <span class="text-[8px] font-bold text-slate-500 dark:text-slate-400">@node.Label[..Math.Min(2, node.Label.Length)]</span>
                             }
                             @if (isCompleted)
                             {
@@ -60,7 +60,7 @@
                             }
                             else
                             {
-                                <span class="text-[8px] font-bold text-slate-500">@node.Label[..Math.Min(2, node.Label.Length)]</span>
+                                <span class="text-[8px] font-bold text-slate-500 dark:text-slate-400">@node.Label[..Math.Min(2, node.Label.Length)]</span>
                             }
                             @if (isCompleted)
                             {

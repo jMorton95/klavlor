@@ -6,19 +6,19 @@
      data-template-id="@TemplateId">
 
     @* Ports — all four sides *@
-    <div class="builder-port absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border-2 bg-white border-slate-400 hover:bg-slate-100 cursor-crosshair"
+    <div class="builder-port absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border-2 bg-white dark:bg-slate-800 border-slate-400 dark:border-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-crosshair"
          data-group-id="@Group.Id" style="z-index: 3;"></div>
-    <div class="builder-port absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border-2 bg-white border-slate-400 hover:bg-slate-100 cursor-crosshair"
+    <div class="builder-port absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border-2 bg-white dark:bg-slate-800 border-slate-400 dark:border-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-crosshair"
          data-group-id="@Group.Id" style="z-index: 3;"></div>
-    <div class="builder-port absolute left-1/2 -top-2 -translate-x-1/2 w-4 h-4 rounded-full border-2 bg-white border-slate-400 hover:bg-slate-100 cursor-crosshair"
+    <div class="builder-port absolute left-1/2 -top-2 -translate-x-1/2 w-4 h-4 rounded-full border-2 bg-white dark:bg-slate-800 border-slate-400 dark:border-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-crosshair"
          data-group-id="@Group.Id" style="z-index: 3;"></div>
-    <div class="builder-port absolute left-1/2 -bottom-2 -translate-x-1/2 w-4 h-4 rounded-full border-2 bg-white border-slate-400 hover:bg-slate-100 cursor-crosshair"
+    <div class="builder-port absolute left-1/2 -bottom-2 -translate-x-1/2 w-4 h-4 rounded-full border-2 bg-white dark:bg-slate-800 border-slate-400 dark:border-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-crosshair"
          data-group-id="@Group.Id" style="z-index: 3;"></div>
 
-    <div class="relative bg-white/90 rounded-lg border-2 border-slate-400 shadow-md hover:border-slate-500 transition-colors min-h-[48px]">
+    <div class="relative bg-white/90 dark:bg-slate-800/90 rounded-lg border-2 border-slate-400 dark:border-slate-500 shadow-md hover:border-slate-500 dark:hover:border-slate-400 transition-colors min-h-[48px]">
         @* Delete group button *@
         <button type="button"
-                class="builder-confirm-delete absolute -top-2 -right-2 p-0.5 bg-white rounded-full border border-slate-300 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                class="builder-confirm-delete absolute -top-2 -right-2 p-0.5 bg-white dark:bg-slate-800 rounded-full border border-slate-300 dark:border-slate-600 text-slate-400 dark:text-slate-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
                 data-delete-url="@($"/api/templates/{TemplateId}/builder/groups/{Group.Id}")"
                 data-delete-message="Delete this group and all its items?"
                 style="z-index: 4;" title="Delete group">
@@ -30,27 +30,27 @@
             @foreach (var node in GroupedNodes)
             {
                 var borderColor = GetNodeBorderColor(node.NodeType);
-                <div class="flex items-center gap-1.5 px-1.5 py-1 rounded shadow-sm group/item border-2 @borderColor bg-white"
+                <div class="flex items-center gap-1.5 px-1.5 py-1 rounded shadow-sm group/item border-2 @borderColor bg-white dark:bg-slate-800"
                      data-node-id="@node.Id" data-grouped="true">
                     @if (!string.IsNullOrEmpty(node.IconUrl))
                     {
                         <img src="@node.IconUrl" alt="" class="w-5 h-5 object-contain flex-shrink-0"
                              onerror="this.style.display='none'" />
                     }
-                    <span class="text-[11px] font-medium text-slate-800 truncate flex-1" title="@node.Label">@node.Label</span>
+                    <span class="text-[11px] font-medium text-slate-800 dark:text-slate-200 truncate flex-1" title="@node.Label">@node.Label</span>
                     <div class="flex items-center gap-0.5 opacity-0 group-hover/item:opacity-100 transition-opacity">
                         <button type="button"
                                 hx-get="@($"/api/templates/{TemplateId}/builder/nodes/{node.Id}/edit")"
                                 hx-target="#hx-modal-container"
                                 hx-swap="innerHTML"
-                                class="p-0.5 text-slate-300 hover:text-slate-600" title="Edit">
+                                class="p-0.5 text-slate-300 dark:text-slate-500 hover:text-slate-600" title="Edit">
                             <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                         </button>
                         <button type="button"
                                 hx-delete="@($"/api/templates/{TemplateId}/builder/nodes/{node.Id}")"
                                 hx-target="#builder-canvas"
                                 hx-swap="innerHTML"
-                                class="p-0.5 text-slate-300 hover:text-red-400" title="Delete">
+                                class="p-0.5 text-slate-300 dark:text-slate-500 hover:text-red-400" title="Delete">
                             <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                         </button>
                     </div>
@@ -64,7 +64,7 @@
                 @foreach (var node in GroupedNodes)
                 {
                     var borderColor = GetNodeBorderColor(node.NodeType);
-                    <div class="group/item relative rounded border-2 @borderColor bg-white shadow-sm w-8 h-8 flex items-center justify-center"
+                    <div class="group/item relative rounded border-2 @borderColor bg-white dark:bg-slate-800 shadow-sm w-8 h-8 flex items-center justify-center"
                          data-node-id="@node.Id" data-grouped="true" title="@node.Label">
                         @if (!string.IsNullOrEmpty(node.IconUrl))
                         {
@@ -73,7 +73,7 @@
                         }
                         else
                         {
-                            <span class="text-[8px] font-bold text-slate-500">@node.Label[..Math.Min(2, node.Label.Length)]</span>
+                            <span class="text-[8px] font-bold text-slate-500 dark:text-slate-400">@node.Label[..Math.Min(2, node.Label.Length)]</span>
                         }
                     </div>
                 }
@@ -84,10 +84,10 @@
         <div class="px-1.5 pb-1.5">
             <div class="relative builder-add-item-container">
                 <button type="button"
-                        class="builder-add-item-toggle w-full px-2 py-0.5 text-[10px] text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded border border-dashed border-slate-300 transition-colors text-center cursor-pointer">
+                        class="builder-add-item-toggle w-full px-2 py-0.5 text-[10px] text-slate-400 dark:text-slate-500 hover:text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 rounded border border-dashed border-slate-300 dark:border-slate-600 transition-colors text-center cursor-pointer">
                     + Add item
                 </button>
-                <div class="builder-add-item-dropdown hidden absolute left-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-slate-200 p-1 w-full" style="z-index: 50;">
+                <div class="builder-add-item-dropdown hidden absolute left-0 top-full mt-1 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 p-1 w-full" style="z-index: 50;">
                     @foreach (var nodeType in Enum.GetValues<NodeType>())
                     {
                         <form hx-post="@($"/api/templates/{TemplateId}/builder/nodes")"
@@ -99,7 +99,7 @@
                             <input type="hidden" name="PositionY" value="@Group.PositionY" />
                             <input type="hidden" name="GroupId" value="@Group.Id" />
                             <button type="submit"
-                                    class="w-full text-left px-2 py-1 text-[11px] rounded hover:bg-slate-50 cursor-pointer @GetNodeTypeTextColor(nodeType)">
+                                    class="w-full text-left px-2 py-1 text-[11px] rounded hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer @GetNodeTypeTextColor(nodeType)">
                                 @nodeType
                             </button>
                         </form>

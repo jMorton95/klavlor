@@ -1,3 +1,15 @@
+// --- Dark Mode Toggle ---
+function toggleDarkMode() {
+    var isDark = document.documentElement.classList.toggle('dark');
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+}
+
+document.addEventListener('click', function(e) {
+    if (e.target.closest('[data-toggle="dark-mode"]')) {
+        toggleDarkMode();
+    }
+});
+
 const toggleSidebar = () => {
     const sidebar = document.getElementById('mobile-sidebar');
     const backdrop = document.getElementById('sidebar-backdrop');
@@ -68,10 +80,10 @@ window.selectOsrsItem = function(el, name, iconUrl) {
 
     var preview = document.createElement('div');
     preview.id = 'selected-item';
-    preview.className = 'flex items-center gap-2 px-3 py-2 text-sm border border-slate-300 rounded-lg bg-slate-50';
+    preview.className = 'flex items-center gap-2 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-800';
     preview.innerHTML =
         (iconUrl ? '<img src="' + iconUrl + '" alt="" class="w-6 h-6 object-contain" onerror="this.style.display=\'none\'" />' : '') +
-        '<span class="flex-1 truncate text-slate-800">' + name.replace(/</g, '&lt;') + '</span>' +
+        '<span class="flex-1 truncate text-slate-800 dark:text-slate-200">' + name.replace(/</g, '&lt;') + '</span>' +
         '<button type="button" onclick="clearOsrsSelection(this)" class="text-slate-400 hover:text-slate-600">' +
         '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>' +
         '</button>';

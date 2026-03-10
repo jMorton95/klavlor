@@ -1,15 +1,15 @@
 @using KlavLor.Domain.Entities
 @using KlavLor.Web.Application
 
-<div class="flex items-center justify-between bg-white border-b border-slate-200 px-4 py-2 rounded-t-lg">
+<div class="flex items-center justify-between bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 px-4 py-2 rounded-t-lg">
     <div class="flex items-center gap-3">
         <a hx-get="@AppRoutes.TemplatesSearch.FromApi()" hx-target="#hx-page-container" hx-push-url="@AppRoutes.TemplatesSearch" hx-swap="innerHTML transition:true"
-           class="text-sm text-slate-500 hover:text-slate-700 flex items-center gap-1 cursor-pointer">
+           class="text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 flex items-center gap-1 cursor-pointer">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
             Back to Templates
         </a>
-        <span class="text-slate-300">|</span>
-        <span class="text-sm font-medium text-slate-700">@TemplateName</span>
+        <span class="text-slate-300 dark:text-slate-600">|</span>
+        <span class="text-sm font-medium text-slate-700 dark:text-slate-300">@TemplateName</span>
     </div>
     <div class="flex items-center gap-2">
         @foreach (var nodeType in Enum.GetValues<NodeType>())
@@ -24,17 +24,17 @@
                 <input type="hidden" name="PositionX" value="400" />
                 <input type="hidden" name="PositionY" value="300" />
                 <button type="submit"
-                        class="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-md border border-slate-200 hover:bg-slate-50 transition-colors @GetNodeTypeColor(nodeType)">
+                        class="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-md border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors @GetNodeTypeColor(nodeType)">
                     @nodeType
                 </button>
             </form>
         }
-        <span class="text-slate-300">|</span>
-        <button type="button" class="view-mode-toggle inline-flex items-center px-2 py-1 text-xs font-medium rounded-md border border-slate-200 hover:bg-slate-50 transition-colors text-slate-600 cursor-pointer" title="Toggle icon-only view">
+        <span class="text-slate-300 dark:text-slate-600">|</span>
+        <button type="button" class="view-mode-toggle inline-flex items-center px-2 py-1 text-xs font-medium rounded-md border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-400 cursor-pointer" title="Toggle icon-only view">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
         </button>
         <a hx-get="@AppRoutes.TemplatesView.WithId(TemplateId).FromApi()" hx-target="#hx-page-container" hx-push-url="@AppRoutes.TemplatesView.WithId(TemplateId)" hx-swap="innerHTML transition:true"
-           class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-amber-600 border border-amber-300 rounded-lg hover:bg-amber-50 transition-colors cursor-pointer">
+           class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-amber-600 dark:text-amber-400 border border-amber-300 dark:border-amber-600 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950 transition-colors cursor-pointer">
             View Template
         </a>
     </div>

@@ -6,12 +6,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <base href="/"/>
     <link rel="stylesheet" href="@Assets["styles.css"]"/>
+    <script>
+        (function() {
+            var stored = localStorage.getItem('theme');
+            if (stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+            }
+        })();
+    </script>
     <script type="text/javascript" defer src="@Assets["htmx.min.js"]"></script>
     <script type="module" defer src="@Assets["site.js"]"></script>
     <script type="text/javascript" defer src="@Assets["builder.js"]"></script>
     <HeadOutlet/>
 </head>
-    <body>
+    <body class="bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
         <Routes/>
     </body>
 </html>
