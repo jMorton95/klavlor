@@ -29,7 +29,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.services.web.loadbalancer.server.port=8080"
-      - "traefik.http.routers.web.rule=Host(`chart.joshuawoodward.dev`)
+      - "traefik.http.routers.web.rule=Host(`chart.joshuawoodward.dev`)"
       - "traefik.http.routers.web.entrypoints=websecure"
       - "traefik.http.routers.web.tls.certresolver=myresolver"
       - "traefik.http.routers.web.middlewares=login-rate-limit"

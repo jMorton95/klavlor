@@ -30,7 +30,7 @@ jobs:
           push: true
           tags: |
             ghcr.io/jmorton95/klavlor:latest
-            ghcr.io/jmorton95/klavlor-web:${{ github.sha }}
+            ghcr.io/jmorton95/klavlor:${{ github.sha }}
 
   deploy:
     needs: build-and-push-image
