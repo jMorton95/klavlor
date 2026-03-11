@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using KlavLor.Application.Features.Templates.Edit;
-using KlavLor.Application.Features.Templates.GetById;
 using KlavLor.Application.Interfaces.Authentication;
+using KlavLor.Domain.Interfaces.Repositories;
 using KlavLor.Domain.Shared;
 using KlavLor.Web.Application.Results;
 
@@ -16,19 +16,22 @@ public sealed class TemplateEditEndpoint : IEndpoint
     }
 
     private static async Task<Results<RazorComponentResult, HtmxRedirectResult>> GetPage(
-        int id, TemplateGetByIdHandler handler)
+        int id, ISessionStateManager sessionManager, ITemplateRepository templateRepository)
     {
-        var result = await handler.Handle(new TemplateGetByIdQuery(id));
+        var userId = sessionManager.GetUserSessionId();
+        if (userId is null) return IResultExtensions.HtmxRedirect(AppRoutes.Login);
 
-        if (!result.IsSuccess)
+        var template = await templateRepository.GetById(id);
+
+        if (template is null || template.CreatedById != userId.Value)
             return IResultExtensions.HtmxRedirect(AppRoutes.TemplatesSearch);
 
         var command = new TemplateEditCommand
         {
-            Id = result.Value.Id,
-            Name = result.Value.Name,
-            Description = result.Value.Description,
-            IsPublic = result.Value.IsPublic
+            Id = template.Id,
+            Name = template.Name,
+            Description = template.Description,
+            IsPublic = template.IsPublic
         };
 
         return IResultExtensions.Component<TemplateForm>(new { Command = command, IsEditing = true });

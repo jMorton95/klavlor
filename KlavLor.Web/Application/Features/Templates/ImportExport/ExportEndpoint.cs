@@ -27,9 +27,10 @@ public sealed class ExportEndpoint : IEndpoint
         var json = JsonSerializer.Serialize(result.Value, new JsonSerializerOptions { WriteIndented = true });
         var bytes = System.Text.Encoding.UTF8.GetBytes(json);
 
+        var safeName = System.Text.RegularExpressions.Regex.Replace(result.Value.Name, @"[^a-zA-Z0-9_\-]", "_");
         return Microsoft.AspNetCore.Http.Results.File(
             bytes,
             "application/json",
-            $"{result.Value.Name.Replace(" ", "_")}_export.json");
+            $"{safeName}_export.json");
     }
 }

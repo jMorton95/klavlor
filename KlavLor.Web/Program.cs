@@ -86,6 +86,8 @@ app.UseAntiforgery();
 app.Use(async (context, next) =>
 {
     context.Response.Headers.XFrameOptions = "DENY";
+    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
     await next();
 });
 

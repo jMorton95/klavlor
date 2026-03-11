@@ -37,16 +37,19 @@ public sealed class LoginHandler(
 
     private async Task<Result<User>> ValidateCredentialsAsync(LoginCommand command)
     {
+        const string invalidCredentials = "Invalid email or password.";
+        const string accountLocked = "Account is temporarily locked. Please try again later.";
+
         var user = await userRepository.GetByEmail(command.Email);
 
         if (user == null)
-            return Result<User>.Failure("Incorrect Username & Password combo.");
+            return Result<User>.Failure(invalidCredentials);
 
         if (!user.IsActive)
-            return Result<User>.Failure("User account has been disabled.");
+            return Result<User>.Failure(invalidCredentials);
 
         if (user.IsLockedOut && user.LockoutEnd >= timeProvider.GetUtcNow())
-            return Result<User>.Failure($"Account locked out until {user.LockoutEnd}.");
+            return Result<User>.Failure(accountLocked);
 
         if (user.IsLockedOut && user.LockoutEnd < timeProvider.GetUtcNow())
         {
@@ -57,7 +60,7 @@ public sealed class LoginHandler(
         {
             loginService.HandleFailedLogin(user, timeProvider.GetUtcNow());
             await userRepository.SaveUser(user);
-            return Result<User>.Failure(user.IsLockedOut ? $"Account locked until {user.LockoutEnd}" : "Incorrect password");
+            return Result<User>.Failure(user.IsLockedOut ? accountLocked : invalidCredentials);
         }
 
         loginService.HandleSuccessfulLogin(user);

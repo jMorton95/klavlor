@@ -6,8 +6,9 @@
         @foreach (var item in Results)
         {
             <button type="button"
-                    class="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-amber-50 dark:hover:bg-amber-950 transition-colors text-sm"
-                    onclick="selectOsrsItem(this, '@EscapeJs(item.Name)', '@EscapeJs(item.IconUrl ?? "")')">
+                    class="osrs-search-result w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-amber-50 dark:hover:bg-amber-950 transition-colors text-sm"
+                    data-item-name="@item.Name"
+                    data-item-icon="@(item.IconUrl ?? "")">
                 @if (item.IconUrl is not null)
                 {
                     <img src="@item.IconUrl" alt="" class="w-6 h-6 object-contain flex-shrink-0"
@@ -25,7 +26,4 @@
 
 @code {
     [Parameter] public List<OsrsSearchResult> Results { get; set; } = [];
-
-    private static string EscapeJs(string value)
-        => value.Replace("\\", "\\\\").Replace("'", "\\'");
 }

@@ -177,7 +177,9 @@ public sealed class Template : Entity
 
     private static string GenerateShareToken()
     {
-        return Convert.ToBase64String(Guid.NewGuid().ToByteArray())
-            .Replace("/", "_").Replace("+", "-")[..8];
+        var bytes = new byte[16];
+        System.Security.Cryptography.RandomNumberGenerator.Fill(bytes);
+        return Convert.ToBase64String(bytes)
+            .Replace("/", "_").Replace("+", "-").Replace("=", "")[..22];
     }
 }

@@ -63,6 +63,14 @@ window.fadeOutToast = function(progressBar) {
     setTimeout(() => toast.remove(), 300);
 }
 
+// OSRS Wiki search - delegated click handler for search results
+document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.osrs-search-result');
+    if (!btn) return;
+    e.preventDefault();
+    selectOsrsItem(btn, btn.dataset.itemName, btn.dataset.itemIcon);
+});
+
 // OSRS Wiki search - select an item from the dropdown
 window.selectOsrsItem = function(el, name, iconUrl) {
     var modal = el.closest('#modal-element');
@@ -81,12 +89,28 @@ window.selectOsrsItem = function(el, name, iconUrl) {
     var preview = document.createElement('div');
     preview.id = 'selected-item';
     preview.className = 'flex items-center gap-2 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-800';
-    preview.innerHTML =
-        (iconUrl ? '<img src="' + iconUrl + '" alt="" class="w-6 h-6 object-contain" onerror="this.style.display=\'none\'" />' : '') +
-        '<span class="flex-1 truncate text-slate-800 dark:text-slate-200">' + name.replace(/</g, '&lt;') + '</span>' +
-        '<button type="button" onclick="clearOsrsSelection(this)" class="text-slate-400 hover:text-slate-600">' +
-        '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>' +
-        '</button>';
+
+    if (iconUrl) {
+        var img = document.createElement('img');
+        img.src = iconUrl;
+        img.alt = '';
+        img.className = 'w-6 h-6 object-contain';
+        img.onerror = function() { this.style.display = 'none'; };
+        preview.appendChild(img);
+    }
+
+    var span = document.createElement('span');
+    span.className = 'flex-1 truncate text-slate-800 dark:text-slate-200';
+    span.textContent = name;
+    preview.appendChild(span);
+
+    var clearBtn = document.createElement('button');
+    clearBtn.type = 'button';
+    clearBtn.className = 'text-slate-400 hover:text-slate-600';
+    clearBtn.addEventListener('click', function() { clearOsrsSelection(this); });
+    clearBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>';
+    preview.appendChild(clearBtn);
+
     searchInput.parentElement.insertBefore(preview, searchInput);
 
     // Clear results

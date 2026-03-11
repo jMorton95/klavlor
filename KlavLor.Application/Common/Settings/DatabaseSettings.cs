@@ -7,6 +7,12 @@ public class DatabaseSettings()
     public string? Database { get; init; }
     public string? Username { get; init; }
     public string? Password { get; init; }
+    public bool IncludeErrorDetail { get; init; }
 
-    public string ToConnectionString() => $"Host={Host};Port={Port};Database={Database};Username={Username};Password={Password};Include Error Detail=true";
+    public string ToConnectionString()
+    {
+        var conn = $"Host={Host};Port={Port};Database={Database};Username={Username};Password={Password}";
+        if (IncludeErrorDetail) conn += ";Include Error Detail=true";
+        return conn;
+    }
 }

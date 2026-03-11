@@ -11,9 +11,9 @@ public class LogoutEndpoint : IEndpoint
         return app.MapPost(AppRoutes.Logout.FromApi(), Endpoint);
     }
 
-    public static HtmxRedirectResult Endpoint([FromServices] ISessionStateManager sessionManager)
+    public static async Task<HtmxRedirectResult> Endpoint([FromServices] ISessionStateManager sessionManager)
     {
-        sessionManager.LogoutAsync();
+        await sessionManager.LogoutAsync();
         return IResultExtensions.HtmxRedirect(AppRoutes.Login);
     }
 }

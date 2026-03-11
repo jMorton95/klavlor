@@ -9,7 +9,14 @@ public sealed class ToggleCompletionHandler(
 {
     public async Task<Result> Handle(ToggleCompletionCommand command, int userId)
     {
-        var nodeExists = await templateRepository.NodeBelongsToTemplate(command.NodeId, command.TemplateId);
+        var template = await templateRepository.GetById(command.TemplateId);
+        if (template is null)
+            return Result.Failure("Template not found.");
+
+        if (template.CreatedById != userId)
+            return Result.Failure("Not authorized to track completion on this template.");
+
+        var nodeExists = template.Nodes.Any(n => n.Id == command.NodeId);
         if (!nodeExists)
             return Result.Failure("Node does not belong to this template.");
 
