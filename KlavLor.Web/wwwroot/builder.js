@@ -4,6 +4,7 @@
     let dragState = null;
     let connectState = null;
     let panState = null;
+    var selectedGroupIds = new Set();
 
     // --- Helpers ---
 
@@ -34,8 +35,10 @@
         var x = parseFloat(groupEl.style.left);
         var y = parseFloat(groupEl.style.top);
         var rect = groupEl.getBoundingClientRect();
-        var w = rect.width;
-        var h = rect.height;
+        var canvas = document.getElementById('builder-canvas');
+        var zoom = canvas ? (zoomLevels[canvas.id] || 1) : 1;
+        var w = rect.width / zoom;
+        var h = rect.height / zoom;
         return { x: x, y: y, w: w, h: h, cx: x + w / 2, cy: y + h / 2 };
     }
 
@@ -74,8 +77,10 @@
         var groupEl = document.querySelector(`.builder-group[data-group-id="${groupId}"]`);
         if (!groupEl) return;
         var rect = groupEl.getBoundingClientRect();
-        var gw = rect.width;
-        var gh = rect.height;
+        var canvas = document.getElementById('builder-canvas');
+        var zoom = canvas ? (zoomLevels[canvas.id] || 1) : 1;
+        var gw = rect.width / zoom;
+        var gh = rect.height / zoom;
         var fromPt = { x: newX, y: newY, w: gw, h: gh, cx: newX + gw / 2, cy: newY + gh / 2 };
 
         document.querySelectorAll(`.builder-edge[data-from-group="${groupId}"]`).forEach(function (path) {
@@ -137,6 +142,49 @@
         });
     }
 
+    // --- Multi-select helpers ---
+
+    function updateSelectionVisuals() {
+        document.querySelectorAll('.builder-group').forEach(function (el) {
+            if (selectedGroupIds.has(el.dataset.groupId)) {
+                el.classList.add('builder-group-selected');
+            } else {
+                el.classList.remove('builder-group-selected');
+            }
+        });
+    }
+
+    function clearSelection() {
+        selectedGroupIds.clear();
+        updateSelectionVisuals();
+    }
+
+    function toggleGroupSelection(groupId) {
+        if (selectedGroupIds.has(groupId)) {
+            selectedGroupIds.delete(groupId);
+        } else {
+            selectedGroupIds.add(groupId);
+        }
+        updateSelectionVisuals();
+    }
+
+    function selectAllGroups() {
+        document.querySelectorAll('.builder-group').forEach(function (el) {
+            selectedGroupIds.add(el.dataset.groupId);
+        });
+        updateSelectionVisuals();
+    }
+
+    // Ctrl+A to select all groups
+    document.addEventListener('keydown', function (e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+            var canvas = document.getElementById('builder-canvas');
+            if (!canvas) return;
+            e.preventDefault();
+            selectAllGroups();
+        }
+    });
+
     // --- Edge Connection (pointerdown on ANY port) ---
 
     document.addEventListener('pointerdown', function (e) {
@@ -184,22 +232,56 @@
         var groupEl = e.target.closest('.builder-group');
         if (!groupEl) return;
 
+        var groupId = groupEl.dataset.groupId;
+
+        // Ctrl+click toggles selection without starting drag
+        if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            toggleGroupSelection(groupId);
+            return;
+        }
+
         e.preventDefault();
         groupEl.setPointerCapture(e.pointerId);
 
-        const rect = groupEl.getBoundingClientRect();
         const canvas = document.getElementById('builder-canvas');
         const innerEl = canvas.firstElementChild;
         const canvasRect = innerEl.getBoundingClientRect();
+        const zoom = zoomLevels[canvas.id] || 1;
+
+        // If this group is part of the selection, drag all selected groups
+        // If not, clear selection and drag just this one
+        if (!selectedGroupIds.has(groupId)) {
+            clearSelection();
+        }
+
+        // Build list of groups to drag together
+        var draggedGroups = [];
+        var allDragIds = selectedGroupIds.size > 0 && selectedGroupIds.has(groupId)
+            ? Array.from(selectedGroupIds) : [groupId];
+
+        allDragIds.forEach(function (gid) {
+            var el = document.querySelector('.builder-group[data-group-id="' + gid + '"]');
+            if (el) {
+                draggedGroups.push({
+                    el: el,
+                    id: gid,
+                    startX: parseFloat(el.style.left) || 0,
+                    startY: parseFloat(el.style.top) || 0
+                });
+            }
+        });
 
         dragState = {
             el: groupEl,
-            id: groupEl.dataset.groupId,
+            id: groupId,
             templateId: groupEl.dataset.templateId || canvas.dataset.templateId,
-            offsetX: e.clientX - rect.left,
-            offsetY: e.clientY - rect.top,
+            startClientX: e.clientX,
+            startClientY: e.clientY,
             canvasLeft: canvasRect.left,
             canvasTop: canvasRect.top,
+            zoom: zoom,
+            draggedGroups: draggedGroups,
             moved: false
         };
     });
@@ -211,6 +293,11 @@
         var canvas = e.target.closest('#builder-canvas') || e.target.closest('#viewer-canvas');
         if (!canvas) return;
         if (e.target.closest('.builder-group') || e.target.closest('.builder-edge') || e.target.closest('.builder-edge-hit') || e.target.closest('.viewer-group') || e.target.closest('.viewer-node')) return;
+
+        // Clicking on empty canvas clears selection
+        if (canvas.id === 'builder-canvas' && !(e.ctrlKey || e.metaKey)) {
+            clearSelection();
+        }
 
         panState = {
             startX: e.clientX,
@@ -227,33 +314,41 @@
     document.addEventListener('pointermove', function (e) {
         if (dragState) {
             e.preventDefault();
-            var x = Math.max(0, e.clientX - dragState.canvasLeft - dragState.offsetX);
-            var y = Math.max(0, e.clientY - dragState.canvasTop - dragState.offsetY);
-
-            dragState.el.style.left = x + 'px';
-            dragState.el.style.top = y + 'px';
+            var zoom = dragState.zoom || 1;
+            var dx = (e.clientX - dragState.startClientX) / zoom;
+            var dy = (e.clientY - dragState.startClientY) / zoom;
             dragState.moved = true;
+
+            dragState.draggedGroups.forEach(function (g) {
+                var newX = Math.max(0, g.startX + dx);
+                var newY = Math.max(0, g.startY + dy);
+                g.el.style.left = newX + 'px';
+                g.el.style.top = newY + 'px';
+                updateGroupEdgePaths(g.id, newX, newY);
+            });
 
             // Expand canvas if group is dragged near the edge
             var canvas = document.getElementById('builder-canvas');
             if (canvas) {
                 var innerEl = canvas.firstElementChild;
                 var padding = 300;
-                var groupRect = dragState.el.getBoundingClientRect();
-                var neededW = x + groupRect.width + padding;
-                var neededH = y + groupRect.height + padding;
-                if (neededW > parseFloat(innerEl.style.minWidth))
-                    innerEl.style.minWidth = neededW + 'px';
-                if (neededH > parseFloat(innerEl.style.minHeight))
-                    innerEl.style.minHeight = neededH + 'px';
+                dragState.draggedGroups.forEach(function (g) {
+                    var gx = parseFloat(g.el.style.left);
+                    var gy = parseFloat(g.el.style.top);
+                    var groupRect = g.el.getBoundingClientRect();
+                    var neededW = gx + groupRect.width / zoom + padding;
+                    var neededH = gy + groupRect.height / zoom + padding;
+                    if (neededW > parseFloat(innerEl.style.minWidth))
+                        innerEl.style.minWidth = neededW + 'px';
+                    if (neededH > parseFloat(innerEl.style.minHeight))
+                        innerEl.style.minHeight = neededH + 'px';
+                });
                 var svg = innerEl.querySelector('svg');
                 if (svg) {
                     svg.style.minWidth = innerEl.style.minWidth;
                     svg.style.minHeight = innerEl.style.minHeight;
                 }
             }
-
-            updateGroupEdgePaths(dragState.id, x, y);
         }
 
         if (connectState) {
@@ -284,9 +379,11 @@
     document.addEventListener('pointerup', function (e) {
         if (dragState) {
             if (dragState.moved) {
-                var x = parseFloat(dragState.el.style.left);
-                var y = parseFloat(dragState.el.style.top);
-                saveGroupPosition(dragState.templateId, dragState.id, x, y);
+                dragState.draggedGroups.forEach(function (g) {
+                    var x = parseFloat(g.el.style.left);
+                    var y = parseFloat(g.el.style.top);
+                    saveGroupPosition(dragState.templateId, g.id, x, y);
+                });
             }
             dragState = null;
         }
@@ -416,6 +513,12 @@
         if (!targetId) return;
 
         if (targetId === 'hx-page-container' || targetId === 'viewer-canvas' || targetId === 'builder-canvas') {
+            // Re-apply zoom level after HTMX swap
+            ['builder-canvas', 'viewer-canvas'].forEach(function (id) {
+                var canvas = document.getElementById(id);
+                if (canvas) applyZoom(canvas, zoomLevels[id] || 1);
+            });
+
             requestAnimationFrame(function () {
                 recalculateViewerEdges();
                 recalculateBuilderEdges();
@@ -519,14 +622,50 @@
         });
     });
 
-    // --- Wheel scroll on canvas ---
+    // --- Canvas Zoom & Scroll ---
+
+    var zoomLevels = { 'builder-canvas': 1, 'viewer-canvas': 1 };
+    var MIN_ZOOM = 0.25;
+    var MAX_ZOOM = 2;
+
+    function applyZoom(canvas, zoom) {
+        var innerEl = canvas.firstElementChild;
+        if (!innerEl) return;
+        innerEl.style.transform = 'scale(' + zoom + ')';
+        innerEl.style.transformOrigin = '0 0';
+    }
 
     document.addEventListener('wheel', function (e) {
         var canvas = e.target.closest('#builder-canvas') || e.target.closest('#viewer-canvas');
         if (!canvas) return;
         e.preventDefault();
-        canvas.scrollLeft += e.deltaX || 0;
-        canvas.scrollTop += e.deltaY || 0;
+
+        var canvasId = canvas.id;
+
+        if (e.ctrlKey || e.metaKey) {
+            // Zoom
+            var oldZoom = zoomLevels[canvasId] || 1;
+            var delta = e.deltaY > 0 ? -0.1 : 0.1;
+            var newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, oldZoom + delta));
+            if (newZoom === oldZoom) return;
+
+            // Zoom toward cursor position
+            var rect = canvas.getBoundingClientRect();
+            var cursorX = e.clientX - rect.left + canvas.scrollLeft;
+            var cursorY = e.clientY - rect.top + canvas.scrollTop;
+
+            zoomLevels[canvasId] = newZoom;
+            applyZoom(canvas, newZoom);
+
+            // Adjust scroll to keep cursor position stable
+            var ratio = newZoom / oldZoom;
+            canvas.scrollLeft = cursorX * ratio - (e.clientX - rect.left);
+            canvas.scrollTop = cursorY * ratio - (e.clientY - rect.top);
+        } else {
+            // Pan
+            canvas.scrollLeft += e.deltaX || 0;
+            canvas.scrollTop += e.deltaY || 0;
+        }
     }, { passive: false });
 
     // --- Initial edge recalculation on page load ---

@@ -113,6 +113,16 @@ window.clearOsrsSelection = function(el) {
     }
 };
 
+// Get the center of the builder canvas viewport for placing new nodes
+window.getCanvasViewportCenter = function() {
+    var canvas = document.getElementById('builder-canvas');
+    if (!canvas) return { x: 400, y: 300 };
+    return {
+        x: Math.round(canvas.scrollLeft + canvas.clientWidth / 2 - 90),
+        y: Math.round(canvas.scrollTop + canvas.clientHeight / 2 - 40)
+    };
+};
+
 // Include antiforgery token in all HTMX requests
 document.body.addEventListener('htmx:configRequest', function(e) {
     const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;

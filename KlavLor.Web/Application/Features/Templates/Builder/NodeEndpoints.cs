@@ -14,11 +14,33 @@ public sealed class NodeEndpoints : IEndpoint
 {
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
+        app.MapGet(AppRoutes.BuilderNodeCreate.FromApi(), GetCreateModal).RequireAuthorization(nameof(RoleName.User));
         app.MapPost(AppRoutes.BuilderNodes.FromApi(), AddNode).RequireAuthorization(nameof(RoleName.User));
         app.MapGet(AppRoutes.BuilderNodeEdit.FromApi(), GetEditModal).RequireAuthorization(nameof(RoleName.User));
         app.MapPut(AppRoutes.BuilderNode.FromApi(), UpdateNode).RequireAuthorization(nameof(RoleName.User));
         app.MapPut(AppRoutes.BuilderNodePosition.FromApi(), UpdateNodePosition).RequireAuthorization(nameof(RoleName.User));
         return app.MapDelete(AppRoutes.BuilderNode.FromApi(), DeleteNode).RequireAuthorization(nameof(RoleName.User));
+    }
+
+    private static IResult GetCreateModal(
+        int id,
+        [FromQuery] int nodeType,
+        [FromQuery] double posX,
+        [FromQuery] double posY,
+        ISessionStateManager sessionManager)
+    {
+        var userId = sessionManager.GetUserSessionId();
+        if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
+
+        var nt = (Domain.Entities.NodeType)nodeType;
+        return IResultExtensions.Component<NodeCreateModal>(new
+        {
+            TemplateId = id,
+            DefaultLabel = nt.ToString(),
+            DefaultNodeType = nt,
+            PositionX = posX > 0 ? posX : 400,
+            PositionY = posY > 0 ? posY : 300
+        });
     }
 
     private static async Task<IResult> AddNode(
@@ -30,16 +52,10 @@ public sealed class NodeEndpoints : IEndpoint
         var userId = sessionManager.GetUserSessionId();
         if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
 
-        var isNewGroup = !command.GroupId.HasValue;
-
         var result = await handler.Handle(command, userId.Value);
         if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
 
         var template = await templateRepository.GetById(command.TemplateId);
-
-        if (isNewGroup)
-            return IResultExtensions.Component<BuilderCanvasWithModal>(new { Template = template, Node = result.Value });
-
         return IResultExtensions.Component<BuilderCanvas>(new { Template = template });
     }
 

@@ -35,6 +35,7 @@ public static class AppRoutes
 
     public const string Builder = "/templates/{id:int}/builder";
     public const string BuilderNodes = "/templates/{id:int}/builder/nodes";
+    public const string BuilderNodeCreate = "/templates/{id:int}/builder/nodes/create";
     public const string BuilderNode = "/templates/{id:int}/builder/nodes/{nodeId:int}";
     public const string BuilderNodeEdit = "/templates/{id:int}/builder/nodes/{nodeId:int}/edit";
     public const string BuilderNodePosition = "/templates/{id:int}/builder/nodes/{nodeId:int}/position";

@@ -4,8 +4,8 @@
     var allPositions = Template.Groups.Select(g => (g.PositionX, g.PositionY)).ToList();
     var maxX = allPositions.Any() ? allPositions.Max(p => p.PositionX) + 400 : 1200;
     var maxY = allPositions.Any() ? allPositions.Max(p => p.PositionY) + 300 : 800;
-    var canvasW = Math.Max(maxX, 1200) + 1000;
-    var canvasH = Math.Max(maxY, 800) + 1000;
+    var canvasW = Math.Max(maxX, 1200) + 200;
+    var canvasH = Math.Max(maxY, 800) + 200;
 
     const double groupWidth = 180;
     const double groupItemHeight = 28;

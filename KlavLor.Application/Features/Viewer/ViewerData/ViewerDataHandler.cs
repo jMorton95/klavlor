@@ -26,7 +26,7 @@ public sealed class ViewerDataHandler(
             return Result<ViewerDataResponse>.Failure("Not authorized");
 
         var completedNodeIds = new HashSet<int>();
-        var canTrackCompletion = userId.HasValue;
+        var canTrackCompletion = isOwner;
 
         if (userId.HasValue)
         {
