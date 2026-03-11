@@ -486,3 +486,4 @@ PVT.Worker/appsettings.Local.json
 PVT.Web/appsettings.Local.json
 KlavLor.Web/appsettings.Local.json
 KlavLor.Web/wwwroot/styles.css
+.claude/
