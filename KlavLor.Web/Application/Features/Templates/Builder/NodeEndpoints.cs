@@ -30,10 +30,16 @@ public sealed class NodeEndpoints : IEndpoint
         var userId = sessionManager.GetUserSessionId();
         if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
 
+        var isNewGroup = !command.GroupId.HasValue;
+
         var result = await handler.Handle(command, userId.Value);
         if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
 
         var template = await templateRepository.GetById(command.TemplateId);
+
+        if (isNewGroup)
+            return IResultExtensions.Component<BuilderCanvasWithModal>(new { Template = template, Node = result.Value });
+
         return IResultExtensions.Component<BuilderCanvas>(new { Template = template });
     }
 

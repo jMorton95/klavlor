@@ -1,0 +1,13 @@
+@using KlavLor.Domain.Entities
+
+<BuilderCanvas Template="@Template" />
+
+<div hx-swap-oob="innerHTML:#hx-modal-container">
+    <NodeEditModal TemplateId="@Template.Id" NodeId="@Node.Id" Label="@Node.Label"
+                   IconUrl="@Node.IconUrl" CurrentNodeType="@Node.NodeType" />
+</div>
+
+@code {
+    [Parameter] public required Template Template { get; set; }
+    [Parameter] public required TemplateNode Node { get; set; }
+}

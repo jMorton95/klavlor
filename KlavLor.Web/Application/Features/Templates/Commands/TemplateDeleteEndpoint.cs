@@ -3,7 +3,6 @@ using KlavLor.Application.Interfaces.Authentication;
 using KlavLor.Domain.Shared;
 using KlavLor.Web.Application.Results;
 using KlavLor.Web.Components.Generic.Modals;
-using KlavLor.Web.Components.Generic.Toast;
 using KlavLor.Web.Enums;
 
 namespace KlavLor.Web.Application.Features.Templates.Commands;
@@ -34,19 +33,16 @@ public sealed class TemplateDeleteEndpoint : IEndpoint
             "innerHTML");
     }
 
-    private static async Task<RazorComponentResult> DeleteEndpoint(
+    private static async Task<IResult> DeleteEndpoint(
         int id,
         ISessionStateManager sessionManager,
         TemplateDeleteHandler handler)
     {
         var userId = sessionManager.GetUserSessionId();
-        if (userId is null)
-            return IResultExtensions.Component<Toast>(new { Type = KlavLor.Domain.Shared.NotificationType.Error, Title = "Error", Message = "Not authenticated." });
+        if (userId is null) return IResultExtensions.HtmxRedirect(AppRoutes.Login);
 
-        var result = await handler.Handle(new TemplateDeleteCommand(id), userId.Value);
+        await handler.Handle(new TemplateDeleteCommand(id), userId.Value);
 
-        return result.IsSuccess
-            ? IResultExtensions.Component<Toast>(new { Type = KlavLor.Domain.Shared.NotificationType.Success, Title = "Template Deleted", Message = "The template has been successfully deleted." })
-            : IResultExtensions.Component<Toast>(new { Type = KlavLor.Domain.Shared.NotificationType.Error, Title = "Error", Message = result.ErrorMessage });
+        return IResultExtensions.HtmxRedirect(AppRoutes.TemplatesSearch);
     }
 }
