@@ -157,7 +157,7 @@ document.body.addEventListener('htmx:configRequest', function(e) {
 
 // --- Last Viewed Template Tracking ---
 function trackLastViewedTemplate() {
-    var match = window.location.pathname.match(/^\/templates\/(\d+)$/);
+    var match = window.location.pathname.match(/^\/templates\/(\d+)(\/builder)?$/);
     if (match) {
         localStorage.setItem('lastViewedTemplate', match[1]);
     }
@@ -169,13 +169,9 @@ function redirectToLastTemplate() {
 
     var lastId = localStorage.getItem('lastViewedTemplate');
     if (lastId) {
-        var apiUrl = '/api/templates/' + lastId;
-        var pushUrl = '/templates/' + lastId;
-        htmx.ajax('GET', apiUrl, { target: '#hx-page-container', swap: 'innerHTML transition:true' });
-        history.replaceState({}, '', pushUrl);
+        window.location.replace('/templates/' + lastId);
     } else {
-        htmx.ajax('GET', '/api/templates', { target: '#hx-page-container', swap: 'innerHTML transition:true' });
-        history.replaceState({}, '', '/templates');
+        window.location.replace('/templates');
     }
 }
 
