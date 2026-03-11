@@ -18,7 +18,8 @@ internal sealed class TemplateQueryRepository(DataContext dataContext, ILogger<T
                 .Where(t => t.CreatedById == userId || t.IsPublic)
                 .AsQueryable();
 
-            query = query.SortByProperty(pagedQuery.SortBy, pagedQuery.SortDirection);
+            query = query.OrderByDescending(t => t.CreatedById == userId)
+                .ThenByDescending(t => t.SavedAt);
 
             if (!string.IsNullOrWhiteSpace(pagedQuery.SearchTerm))
             {
