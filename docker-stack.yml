@@ -25,11 +25,11 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
 
   web:
-    image: ghcr.io/jmorton95/propelvulnerabilitytracker-web:${GIT_COMMIT_HASH:-latest}
+    image: ghcr.io/jmorton95/klavlor:${GIT_COMMIT_HASH:-latest}
     labels:
       - "traefik.enable=true"
       - "traefik.http.services.web.loadbalancer.server.port=8080"
-      - "traefik.http.routers.web.rule=Host(`joshuawoodward.dev`) || Host(`www.joshuawoodward.dev`)"
+      - "traefik.http.routers.web.rule=Host(`chart.joshuawoodward.dev`)
       - "traefik.http.routers.web.entrypoints=websecure"
       - "traefik.http.routers.web.tls.certresolver=myresolver"
       - "traefik.http.routers.web.middlewares=login-rate-limit"
@@ -39,15 +39,11 @@ services:
     environment:
       - DatabaseSettings__Host=db
       - DatabaseSettings__Port=5432
-      - DatabaseSettings__Database=pvt
+      - DatabaseSettings__Database=klavlor
       - DatabaseSettings__Username=postgres
       - DatabaseSettings__Password=${DB_PASSWORD}
-      - GitHubConfiguration__GithubToken=${GITHUB_TOKEN}
       - SystemConfiguration__SystemUsername=${SYSTEM_USERNAME}
       - SystemConfiguration__SystemPassword=${SYSTEM_PASSWORD}
-      - BitbucketConfiguration__BitbucketBaseUrl=${BITBUCKET_BASE_URL}
-      - BitbucketConfiguration__BitbucketUsername=${BITBUCKET_USERNAME}
-      - BitbucketConfiguration__BitbucketToken=${BITBUCKET_TOKEN}
     deploy:
       update_config:
         order: start-first
@@ -58,30 +54,6 @@ services:
     depends_on:
       - db
         
-  worker:
-    image: ghcr.io/jmorton95/propelvulnerabilitytracker-worker:${GIT_COMMIT_HASH:-latest}
-    environment:
-      - DatabaseSettings__Host=db
-      - DatabaseSettings__Port=5432
-      - DatabaseSettings__Database=pvt
-      - DatabaseSettings__Username=postgres
-      - DatabaseSettings__Password=${DB_PASSWORD}
-      - GitHubConfiguration__GithubToken=${GITHUB_TOKEN}
-      - SystemConfiguration__SystemUsername=${SYSTEM_USERNAME}
-      - SystemConfiguration__SystemPassword=${SYSTEM_PASSWORD}
-      - BitbucketConfiguration__BitbucketBaseUrl=${BITBUCKET_BASE_URL}
-      - BitbucketConfiguration__BitbucketUsername=${BITBUCKET_USERNAME}
-      - BitbucketConfiguration__BitbucketToken=${BITBUCKET_TOKEN}
-    deploy:
-      update_config:
-        order: start-first
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-    depends_on:
-        - db
-
   db:
     image: postgres:18.1
     user: postgres

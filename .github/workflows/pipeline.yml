@@ -1,0 +1,78 @@
+name: deploy-pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  packages: write
+
+jobs:
+  build-and-push-image:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: https://ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./KlavLor.Web/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/jmorton95/klavlor:latest
+            ghcr.io/jmorton95/klavlor-web:${{ github.sha }}
+
+  deploy:
+    needs: build-and-push-image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set deployment variables
+        id: set-vars
+        run: |
+          if [ "${GITHUB_REF}" = "refs/heads/main" ]; then
+            echo "STACK_NAME=klavlor" >> $GITHUB_ENV
+            echo "STACK_FILE=docker-stack.yml" >> $GITHUB_ENV
+            echo "APP_DOMAIN=chart.joshuawoodward.dev" >> $GITHUB_ENV
+          else
+            echo "STACK_NAME=klavlor-staging" >> $GITHUB_ENV
+            echo "STACK_FILE=docker-stack-staging.yml" >> $GITHUB_ENV
+            echo "APP_DOMAIN=staging.chart.joshuawoodward.dev" >> $GITHUB_ENV
+          fi
+
+      - name: Create env file
+        env:
+          SYS_USER: ${{ secrets.SYSTEM_USERNAME }}
+          SYS_PASS: ${{ secrets.SYSTEM_PASSWORD }}
+          DB_PASS: ${{ secrets.DB_PASSWORD }}
+        run: |
+          cat <<'EOF' > ./envfile
+          GIT_COMMIT_HASH=${{ github.sha }}
+          EOF
+          
+          printf "APP_DOMAIN=\"%s\"\n" "$APP_DOMAIN" >> ./envfile
+          printf "SYSTEM_USERNAME=\"%s\"\n" "$SYS_USER" >> ./envfile
+          printf "SYSTEM_PASSWORD=\"%s\"\n" "$SYS_PASS" >> ./envfile
+          printf "DB_PASSWORD=\"%s\"\n" "$DB_PASS" >> ./envfile
+
+      - name: Deploy Docker Stack
+        uses: cssnr/stack-deploy-action@v1
+        with:
+          name: ${{ env.STACK_NAME }}
+          file: ${{ env.STACK_FILE }}
+          host: ${{ env.APP_DOMAIN }}
+          user: deploy
+          ssh_key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          env_file: ./envfile
