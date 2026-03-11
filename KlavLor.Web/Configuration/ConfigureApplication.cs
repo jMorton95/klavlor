@@ -67,6 +67,19 @@ public static class ConfigureApplication
                     options.SlidingExpiration = true;
                     options.LoginPath = "/login";
                     options.AccessDeniedPath = "/login";
+                    options.Events.OnRedirectToLogin = context =>
+                    {
+                        if (context.Request.Headers.ContainsKey("HX-Request"))
+                        {
+                            context.Response.Headers["HX-Redirect"] = context.RedirectUri;
+                            context.Response.StatusCode = 200;
+                        }
+                        else
+                        {
+                            context.Response.Redirect(context.RedirectUri);
+                        }
+                        return Task.CompletedTask;
+                    };
                 });
         }
 

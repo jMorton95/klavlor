@@ -4,8 +4,8 @@
     var allPositions = Template.Groups.Select(g => (g.PositionX, g.PositionY)).ToList();
     var maxX = allPositions.Any() ? allPositions.Max(p => p.PositionX) + 400 : 1200;
     var maxY = allPositions.Any() ? allPositions.Max(p => p.PositionY) + 300 : 800;
-    var canvasW = Math.Max(maxX, 1200);
-    var canvasH = Math.Max(maxY, 800);
+    var canvasW = Math.Max(maxX, 1200) + 1000;
+    var canvasH = Math.Max(maxY, 800) + 1000;
 
     const double groupWidth = 180;
     const double groupItemHeight = 28;
@@ -19,7 +19,7 @@
     var renderedGroupEdges = new HashSet<(int, int)>();
 }
 
-<div id="viewer-canvas" class="viewer-canvas relative bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-200 dark:border-slate-700 overflow-auto" style="min-height: 500px;"
+<div id="viewer-canvas" class="viewer-canvas relative flex-1 min-h-0 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden"
      data-template-id="@Template.Id">
 
     <div class="relative" style="min-width: @(canvasW)px; min-height: @(canvasH)px;">

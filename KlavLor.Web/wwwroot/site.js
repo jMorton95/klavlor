@@ -30,7 +30,7 @@ function updateSidebarActive() {
     let activeEntity = null;
 
     if (path === "/" || path === "") {
-        activeEntity = "home";
+        activeEntity = "templates";
     } else {
         const segments = path.split('/').filter(Boolean);
         for (const link of sidebarLinks) {
@@ -121,7 +121,36 @@ document.body.addEventListener('htmx:configRequest', function(e) {
     }
 });
 
-document.body.addEventListener('htmx:afterSettle', updateSidebarActive);
+// --- Last Viewed Template Tracking ---
+function trackLastViewedTemplate() {
+    var match = window.location.pathname.match(/^\/templates\/(\d+)$/);
+    if (match) {
+        localStorage.setItem('lastViewedTemplate', match[1]);
+    }
+}
+
+function redirectToLastTemplate() {
+    var container = document.getElementById('hx-page-container');
+    if (!container || !container.querySelector('#home-redirect')) return;
+
+    var lastId = localStorage.getItem('lastViewedTemplate');
+    if (lastId) {
+        var apiUrl = '/api/templates/' + lastId;
+        var pushUrl = '/templates/' + lastId;
+        htmx.ajax('GET', apiUrl, { target: '#hx-page-container', swap: 'innerHTML transition:true' });
+        history.replaceState({}, '', pushUrl);
+    } else {
+        htmx.ajax('GET', '/api/templates', { target: '#hx-page-container', swap: 'innerHTML transition:true' });
+        history.replaceState({}, '', '/templates');
+    }
+}
+
+document.body.addEventListener('htmx:afterSettle', function() {
+    updateSidebarActive();
+    trackLastViewedTemplate();
+    redirectToLastTemplate();
+});
 window.addEventListener('popstate', updateSidebarActive);
 
 updateSidebarActive();
+trackLastViewedTemplate();

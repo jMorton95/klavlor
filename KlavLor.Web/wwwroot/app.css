@@ -71,11 +71,8 @@ var {
 /* Builder & viewer canvas */
 .builder-canvas,
 .viewer-canvas {
-    min-height: 500px;
     background-image: radial-gradient(circle, #e2e8f0 1px, transparent 1px);
     background-size: 20px 20px;
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none; /* IE/Edge */
 }
 
 :where(.dark, .dark *) .builder-canvas,
@@ -83,10 +80,6 @@ var {
     background-image: radial-gradient(circle, #334155 1px, transparent 1px);
 }
 
-.builder-canvas::-webkit-scrollbar,
-.viewer-canvas::-webkit-scrollbar {
-    display: none; /* Chrome/Safari */
-}
 
 .builder-node {
     transition: box-shadow 0.15s ease;

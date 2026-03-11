@@ -273,28 +273,9 @@
             e.preventDefault();
             var dx = e.clientX - panState.startX;
             var dy = e.clientY - panState.startY;
-            var newScrollLeft = panState.scrollLeft - dx;
-            var newScrollTop = panState.scrollTop - dy;
 
-            // Expand canvas if panning beyond current bounds
-            var innerEl = panState.canvas.firstElementChild;
-            if (innerEl) {
-                var padding = 200;
-                var neededW = newScrollLeft + panState.canvas.clientWidth + padding;
-                var neededH = newScrollTop + panState.canvas.clientHeight + padding;
-                if (neededW > parseFloat(innerEl.style.minWidth || 0))
-                    innerEl.style.minWidth = neededW + 'px';
-                if (neededH > parseFloat(innerEl.style.minHeight || 0))
-                    innerEl.style.minHeight = neededH + 'px';
-                var svg = innerEl.querySelector('svg');
-                if (svg) {
-                    svg.style.minWidth = innerEl.style.minWidth;
-                    svg.style.minHeight = innerEl.style.minHeight;
-                }
-            }
-
-            panState.canvas.scrollLeft = newScrollLeft;
-            panState.canvas.scrollTop = newScrollTop;
+            panState.canvas.scrollLeft = panState.scrollLeft - dx;
+            panState.canvas.scrollTop = panState.scrollTop - dy;
         }
     });
 
@@ -537,6 +518,16 @@
             swap: 'innerHTML'
         });
     });
+
+    // --- Wheel scroll on canvas ---
+
+    document.addEventListener('wheel', function (e) {
+        var canvas = e.target.closest('#builder-canvas') || e.target.closest('#viewer-canvas');
+        if (!canvas) return;
+        e.preventDefault();
+        canvas.scrollLeft += e.deltaX || 0;
+        canvas.scrollTop += e.deltaY || 0;
+    }, { passive: false });
 
     // --- Initial edge recalculation on page load ---
 

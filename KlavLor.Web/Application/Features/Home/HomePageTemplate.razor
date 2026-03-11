@@ -7,8 +7,18 @@
 @inject ISessionStateManager SessionStateManager
 @inject NavigationManager NavigationManager
 
-<PageLayout PageTitle="KlavLor - Home" Title="Dashboard" Description="Your gear progression templates">
-    <HomePage UpdateHeader="@false" />
+<PageLayout PageTitle="KlavLor" Title="" Description="">
+    <div id="home-redirect"></div>
+    <script>
+        (function() {
+            var lastId = localStorage.getItem('lastViewedTemplate');
+            if (lastId) {
+                window.location.replace('/templates/' + lastId);
+            } else {
+                window.location.replace('/templates');
+            }
+        })();
+    </script>
 </PageLayout>
 
 @code {
