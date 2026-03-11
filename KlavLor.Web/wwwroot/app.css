@@ -73,6 +73,13 @@ var {
 .viewer-canvas {
     background-image: radial-gradient(circle, #e2e8f0 1px, transparent 1px);
     background-size: 20px 20px;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+}
+
+.builder-canvas::-webkit-scrollbar,
+.viewer-canvas::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
 }
 
 :where(.dark, .dark *) .builder-canvas,
