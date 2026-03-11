@@ -27,6 +27,7 @@ public sealed class NodeEndpoints : IEndpoint
         [FromQuery] int nodeType,
         [FromQuery] double posX,
         [FromQuery] double posY,
+        [FromQuery] int? groupId,
         ISessionStateManager sessionManager)
     {
         var userId = sessionManager.GetUserSessionId();
@@ -39,7 +40,8 @@ public sealed class NodeEndpoints : IEndpoint
             DefaultLabel = nt.ToString(),
             DefaultNodeType = nt,
             PositionX = posX > 0 ? posX : 400,
-            PositionY = posY > 0 ? posY : 300
+            PositionY = posY > 0 ? posY : 300,
+            GroupId = groupId
         });
     }
 
@@ -56,7 +58,19 @@ public sealed class NodeEndpoints : IEndpoint
         if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
 
         var template = await templateRepository.GetById(command.TemplateId);
-        return IResultExtensions.Component<BuilderCanvas>(new { Template = template });
+        if (template is null) return Microsoft.AspNetCore.Http.Results.NotFound();
+
+        var node = result.Value!;
+        var groupId = node.GroupId!.Value;
+        var group = template.Groups.First(g => g.Id == groupId);
+        var groupNodes = template.Nodes.Where(n => n.GroupId == groupId).ToList();
+
+        return IResultExtensions.Component<BuilderGroup>(new
+        {
+            Group = group,
+            TemplateId = command.TemplateId,
+            GroupedNodes = groupNodes
+        });
     }
 
     private static async Task<IResult> GetEditModal(
@@ -80,7 +94,8 @@ public sealed class NodeEndpoints : IEndpoint
             NodeId = nodeId,
             Label = node.Label,
             IconUrl = node.IconUrl,
-            CurrentNodeType = node.NodeType
+            CurrentNodeType = node.NodeType,
+            GroupId = node.GroupId
         });
     }
 
@@ -97,7 +112,20 @@ public sealed class NodeEndpoints : IEndpoint
         if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
 
         var template = await templateRepository.GetById(command.TemplateId);
-        return IResultExtensions.Component<BuilderCanvas>(new { Template = template });
+        if (template is null) return Microsoft.AspNetCore.Http.Results.NotFound();
+
+        var node = template.Nodes.FirstOrDefault(n => n.Id == command.NodeId);
+        if (node?.GroupId is null) return Microsoft.AspNetCore.Http.Results.NotFound();
+
+        var group = template.Groups.First(g => g.Id == node.GroupId.Value);
+        var groupNodes = template.Nodes.Where(n => n.GroupId == node.GroupId.Value).ToList();
+
+        return IResultExtensions.Component<BuilderGroup>(new
+        {
+            Group = group,
+            TemplateId = command.TemplateId,
+            GroupedNodes = groupNodes
+        });
     }
 
     private static async Task<IResult> UpdateNodePosition(
@@ -127,11 +155,28 @@ public sealed class NodeEndpoints : IEndpoint
         var userId = sessionManager.GetUserSessionId();
         if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
 
+        // Capture state before deletion
+        var templateBefore = await templateRepository.GetById(id);
+        if (templateBefore is null) return Microsoft.AspNetCore.Http.Results.NotFound();
+        var nodeToDelete = templateBefore.Nodes.FirstOrDefault(n => n.Id == nodeId);
+        var groupId = nodeToDelete?.GroupId;
+        var edgeIdsBefore = templateBefore.Edges.Select(e => e.Id).ToHashSet();
+
         var command = new DeleteNodeCommand { TemplateId = id, NodeId = nodeId };
         var result = await handler.Handle(command, userId.Value);
         if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
 
         var template = await templateRepository.GetById(id);
-        return IResultExtensions.Component<BuilderCanvas>(new { Template = template });
+        if (template is null) return Microsoft.AspNetCore.Http.Results.NotFound();
+
+        var removedEdgeIds = edgeIdsBefore.Except(template.Edges.Select(e => e.Id)).ToList();
+        var groupStillExists = groupId.HasValue && template.Groups.Any(g => g.Id == groupId.Value);
+
+        return Microsoft.AspNetCore.Http.Results.Json(new
+        {
+            removedEdgeIds,
+            groupId,
+            groupStillExists
+        });
     }
 }

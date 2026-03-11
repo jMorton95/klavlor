@@ -2,10 +2,10 @@
 
 @{
     var allPositions = Template.Groups.Select(g => (g.PositionX, g.PositionY)).ToList();
-    var maxX = allPositions.Any() ? allPositions.Max(p => p.PositionX) + 400 : 1200;
-    var maxY = allPositions.Any() ? allPositions.Max(p => p.PositionY) + 300 : 800;
-    var canvasW = Math.Max(maxX, 1200) + 200;
-    var canvasH = Math.Max(maxY, 800) + 200;
+    var maxX = allPositions.Any() ? allPositions.Max(p => p.PositionX) + 250 : 400;
+    var maxY = allPositions.Any() ? allPositions.Max(p => p.PositionY) + 200 : 300;
+    var canvasW = maxX;
+    var canvasH = maxY;
 
     const double groupWidth = 180;
     const double groupItemHeight = 28;
@@ -22,10 +22,10 @@
 <div id="viewer-canvas" class="viewer-canvas relative flex-1 min-h-0 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-200 dark:border-slate-700 overflow-auto"
      data-template-id="@Template.Id">
 
-    <div class="relative" style="min-width: @(canvasW)px; min-height: @(canvasH)px;">
+    <div class="relative" style="width: @(canvasW)px; height: @(canvasH)px;">
 
         @* SVG edge layer *@
-        <svg class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 1; min-width: @(canvasW)px; min-height: @(canvasH)px;">
+        <svg class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 1; width: @(canvasW)px; height: @(canvasH)px;">
             <defs>
                 <marker id="viewer-arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
                     <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8" />

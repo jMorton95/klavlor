@@ -12,14 +12,13 @@ public class HomePageEndpoint : IEndpoint
             .RequireAuthorization(nameof(RoleName.User));
     }
 
-    private static Task<Results<RazorComponentResult, HtmxRedirectResult>>
-        Endpoint(ISessionStateManager sessionManager)
+    private static Task<HtmxRedirectResult> Endpoint(ISessionStateManager sessionManager)
     {
         var userId = sessionManager.GetUserSessionId();
 
         if (userId is null)
-            return Task.FromResult<Results<RazorComponentResult, HtmxRedirectResult>>(IResultExtensions.HtmxRedirect(AppRoutes.Login));
+            return Task.FromResult(IResultExtensions.HtmxRedirect(AppRoutes.Login));
 
-        return Task.FromResult<Results<RazorComponentResult, HtmxRedirectResult>>(IResultExtensions.Component<HomePage>());
+        return Task.FromResult(IResultExtensions.HtmxRedirect(AppRoutes.TemplatesSearch));
     }
 }

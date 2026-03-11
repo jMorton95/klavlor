@@ -163,22 +163,9 @@ function trackLastViewedTemplate() {
     }
 }
 
-function redirectToLastTemplate() {
-    var container = document.getElementById('hx-page-container');
-    if (!container || !container.querySelector('#home-redirect')) return;
-
-    var lastId = localStorage.getItem('lastViewedTemplate');
-    if (lastId) {
-        window.location.replace('/templates/' + lastId);
-    } else {
-        window.location.replace('/templates');
-    }
-}
-
 document.body.addEventListener('htmx:afterSettle', function() {
     updateSidebarActive();
     trackLastViewedTemplate();
-    redirectToLastTemplate();
 });
 window.addEventListener('popstate', updateSidebarActive);
 

@@ -14,10 +14,35 @@ public sealed class GroupEndpoints : IEndpoint
 {
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
+        app.MapGet(AppRoutes.BuilderGroup.FromApi(), GetGroup).RequireAuthorization(nameof(RoleName.User));
         app.MapPost(AppRoutes.BuilderGroups.FromApi(), AddGroup).RequireAuthorization(nameof(RoleName.User));
         app.MapDelete(AppRoutes.BuilderGroup.FromApi(), DeleteGroup).RequireAuthorization(nameof(RoleName.User));
         app.MapPut(AppRoutes.BuilderGroupPosition.FromApi(), UpdateGroupPosition).RequireAuthorization(nameof(RoleName.User));
         return app.MapPut(AppRoutes.BuilderNodeGroup.FromApi(), AssignNodeToGroup).RequireAuthorization(nameof(RoleName.User));
+    }
+
+    private static async Task<IResult> GetGroup(
+        int id, int groupId,
+        ISessionStateManager sessionManager,
+        ITemplateRepository templateRepository)
+    {
+        var userId = sessionManager.GetUserSessionId();
+        if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
+
+        var template = await templateRepository.GetById(id);
+        if (template is null || template.CreatedById != userId.Value)
+            return Microsoft.AspNetCore.Http.Results.NotFound();
+
+        var group = template.Groups.FirstOrDefault(g => g.Id == groupId);
+        if (group is null) return Microsoft.AspNetCore.Http.Results.NotFound();
+
+        var groupNodes = template.Nodes.Where(n => n.GroupId == groupId).ToList();
+        return IResultExtensions.Component<BuilderGroup>(new
+        {
+            Group = group,
+            TemplateId = id,
+            GroupedNodes = groupNodes
+        });
     }
 
     private static async Task<IResult> AddGroup(
@@ -39,8 +64,7 @@ public sealed class GroupEndpoints : IEndpoint
     private static async Task<IResult> DeleteGroup(
         int id, int groupId,
         ISessionStateManager sessionManager,
-        DeleteGroupHandler handler,
-        ITemplateRepository templateRepository)
+        DeleteGroupHandler handler)
     {
         var userId = sessionManager.GetUserSessionId();
         if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
@@ -49,8 +73,7 @@ public sealed class GroupEndpoints : IEndpoint
         var result = await handler.Handle(command, userId.Value);
         if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
 
-        var template = await templateRepository.GetById(id);
-        return IResultExtensions.Component<BuilderCanvas>(new { Template = template });
+        return Microsoft.AspNetCore.Http.Results.NoContent();
     }
 
     private static async Task<IResult> UpdateGroupPosition(

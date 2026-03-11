@@ -25,7 +25,7 @@
 <div id="builder-canvas" class="builder-canvas relative flex-1 min-h-0 bg-slate-50 dark:bg-slate-950 rounded-b-lg border border-t-0 border-slate-200 dark:border-slate-700 overflow-auto"
      data-template-id="@Template.Id">
 
-    <div class="relative" style="min-width: @(canvasW)px; min-height: @(canvasH)px;">
+    <div id="builder-canvas-inner" class="relative" style="min-width: @(canvasW)px; min-height: @(canvasH)px;">
 
         @* SVG edge layer *@
         <svg class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 1; min-width: @(canvasW)px; min-height: @(canvasH)px;">

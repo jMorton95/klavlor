@@ -1,6 +1,6 @@
 @using KlavLor.Domain.Entities
 
-<div class="builder-group group absolute select-none cursor-grab active:cursor-grabbing"
+<div id="builder-group-@Group.Id" class="builder-group group absolute select-none cursor-grab active:cursor-grabbing"
      style="left: @(Group.PositionX)px; top: @(Group.PositionY)px; z-index: 2;"
      data-group-id="@Group.Id"
      data-template-id="@TemplateId">
@@ -47,10 +47,11 @@
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                         </button>
                         <button type="button"
-                                hx-delete="@($"/api/templates/{TemplateId}/builder/nodes/{node.Id}")"
-                                hx-target="#builder-canvas"
-                                hx-swap="innerHTML"
-                                class="p-1 text-slate-400 dark:text-slate-500 hover:text-red-400 cursor-pointer" title="Delete">
+                                class="builder-delete-node p-1 text-slate-400 dark:text-slate-500 hover:text-red-400 cursor-pointer"
+                                data-template-id="@TemplateId"
+                                data-node-id="@node.Id"
+                                data-group-id="@Group.Id"
+                                title="Delete">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                         </button>
                     </div>
@@ -90,19 +91,12 @@
                 <div class="builder-add-item-dropdown hidden absolute left-0 top-full mt-1 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 p-1 w-full" style="z-index: 50;">
                     @foreach (var nodeType in Enum.GetValues<NodeType>())
                     {
-                        <form hx-post="@($"/api/templates/{TemplateId}/builder/nodes")"
-                              hx-target="#builder-canvas" hx-swap="innerHTML" class="contents">
-                            <input type="hidden" name="TemplateId" value="@TemplateId" />
-                            <input type="hidden" name="Label" value="@nodeType" />
-                            <input type="hidden" name="NodeType" value="@((int)nodeType)" />
-                            <input type="hidden" name="PositionX" value="@Group.PositionX" />
-                            <input type="hidden" name="PositionY" value="@Group.PositionY" />
-                            <input type="hidden" name="GroupId" value="@Group.Id" />
-                            <button type="submit"
-                                    class="w-full text-left px-2 py-1 text-[11px] rounded hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer @GetNodeTypeTextColor(nodeType)">
-                                @nodeType
-                            </button>
-                        </form>
+                        <button type="button"
+                                hx-get="@($"/api/templates/{TemplateId}/builder/nodes/create?nodeType={(int)nodeType}&posX={Group.PositionX}&posY={Group.PositionY}&groupId={Group.Id}")"
+                                hx-target="#hx-modal-container" hx-swap="innerHTML"
+                                class="w-full text-left px-2 py-1 text-[11px] rounded hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer @GetNodeTypeTextColor(nodeType)">
+                            @nodeType
+                        </button>
                     }
                 </div>
             </div>

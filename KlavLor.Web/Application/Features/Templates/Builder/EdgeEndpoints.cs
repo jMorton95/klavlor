@@ -2,9 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using KlavLor.Application.Features.Builder.AddEdge;
 using KlavLor.Application.Features.Builder.DeleteEdge;
 using KlavLor.Application.Interfaces.Authentication;
-using KlavLor.Domain.Interfaces.Repositories;
 using KlavLor.Domain.Shared;
-using KlavLor.Web.Application.Results;
 
 namespace KlavLor.Web.Application.Features.Templates.Builder;
 
@@ -19,8 +17,7 @@ public sealed class EdgeEndpoints : IEndpoint
     private static async Task<IResult> AddEdge(
         [FromForm] AddEdgeCommand command,
         ISessionStateManager sessionManager,
-        AddEdgeHandler handler,
-        ITemplateRepository templateRepository)
+        AddEdgeHandler handler)
     {
         var userId = sessionManager.GetUserSessionId();
         if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
@@ -28,15 +25,13 @@ public sealed class EdgeEndpoints : IEndpoint
         var result = await handler.Handle(command, userId.Value);
         if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
 
-        var template = await templateRepository.GetById(command.TemplateId);
-        return IResultExtensions.Component<BuilderCanvas>(new { Template = template });
+        return Microsoft.AspNetCore.Http.Results.Ok(new { success = true });
     }
 
     private static async Task<IResult> DeleteEdge(
         int id, int edgeId,
         ISessionStateManager sessionManager,
-        DeleteEdgeHandler handler,
-        ITemplateRepository templateRepository)
+        DeleteEdgeHandler handler)
     {
         var userId = sessionManager.GetUserSessionId();
         if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
@@ -45,7 +40,6 @@ public sealed class EdgeEndpoints : IEndpoint
         var result = await handler.Handle(command, userId.Value);
         if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
 
-        var template = await templateRepository.GetById(id);
-        return IResultExtensions.Component<BuilderCanvas>(new { Template = template });
+        return Microsoft.AspNetCore.Http.Results.NoContent();
     }
 }

@@ -117,28 +117,88 @@
         }
     }
 
+    function insertEdgeSVG(fromGroupId, toGroupId) {
+        var fromEl = document.querySelector('.builder-group[data-group-id="' + fromGroupId + '"]');
+        var toEl = document.querySelector('.builder-group[data-group-id="' + toGroupId + '"]');
+        if (!fromEl || !toEl) return;
+
+        var svg = document.querySelector('#builder-canvas svg');
+        if (!svg) return;
+
+        var from = getGroupEdgePoints(fromEl);
+        var to = getGroupEdgePoints(toEl);
+        var ep = computeEdgeEndpoints(from, to);
+        var d = calculateBezierPath(ep.x1, ep.y1, ep.x2, ep.y2);
+
+        var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        g.setAttribute('class', 'builder-edge-group');
+
+        var hit = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        hit.setAttribute('class', 'builder-edge-hit pointer-events-auto');
+        hit.setAttribute('d', d);
+        hit.dataset.fromGroup = fromGroupId;
+        hit.dataset.toGroup = toGroupId;
+
+        var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('class', 'builder-edge pointer-events-auto cursor-pointer');
+        path.setAttribute('d', d);
+        path.setAttribute('stroke', '#94a3b8');
+        path.setAttribute('stroke-width', '2');
+        path.setAttribute('fill', 'none');
+        path.setAttribute('marker-end', 'url(#arrowhead)');
+        path.dataset.fromGroup = fromGroupId;
+        path.dataset.toGroup = toGroupId;
+
+        g.appendChild(hit);
+        g.appendChild(path);
+
+        var tempLine = document.getElementById('temp-edge-line');
+        if (tempLine) {
+            svg.insertBefore(g, tempLine);
+        } else {
+            svg.appendChild(g);
+        }
+    }
+
+    function removeEdgesByGroup(groupId) {
+        document.querySelectorAll('.builder-edge-group').forEach(function (g) {
+            var path = g.querySelector('.builder-edge');
+            if (path && (path.dataset.fromGroup === groupId || path.dataset.toGroup === groupId)) {
+                g.remove();
+            }
+        });
+    }
+
     function createEdge(templateId, fromGroupId, toGroupId) {
-        // Pick any node from each group to create the edge
-        var fromGroup = document.querySelector(`.builder-group[data-group-id="${fromGroupId}"]`);
-        var toGroup = document.querySelector(`.builder-group[data-group-id="${toGroupId}"]`);
+        var fromGroup = document.querySelector('.builder-group[data-group-id="' + fromGroupId + '"]');
+        var toGroup = document.querySelector('.builder-group[data-group-id="' + toGroupId + '"]');
         if (!fromGroup || !toGroup) return;
 
         var fromNode = fromGroup.querySelector('[data-node-id]');
         var toNode = toGroup.querySelector('[data-node-id]');
         if (!fromNode || !toNode) return;
 
-        var values = {
-            TemplateId: templateId,
-            FromGroupId: fromGroupId,
-            FromNodeId: fromNode.dataset.nodeId,
-            ToGroupId: toGroupId,
-            ToNodeId: toNode.dataset.nodeId
-        };
+        // Check for duplicate group-to-group edge in DOM
+        var existing = document.querySelector('.builder-edge[data-from-group="' + fromGroupId + '"][data-to-group="' + toGroupId + '"]');
+        if (existing) return;
 
-        htmx.ajax('POST', `/api/templates/${templateId}/builder/edges`, {
-            target: '#builder-canvas',
-            swap: 'innerHTML',
-            values: values
+        // Insert edge SVG immediately
+        insertEdgeSVG(fromGroupId, toGroupId);
+
+        // Persist to server
+        var body = new FormData();
+        body.append('TemplateId', templateId);
+        body.append('FromGroupId', fromGroupId);
+        body.append('FromNodeId', fromNode.dataset.nodeId);
+        body.append('ToGroupId', toGroupId);
+        body.append('ToNodeId', toNode.dataset.nodeId);
+
+        fetch('/api/templates/' + templateId + '/builder/edges', {
+            method: 'POST',
+            headers: { 'RequestVerificationToken': getAntiforgeryToken() },
+            body: body
+        }).catch(function (err) {
+            console.error('Failed to save edge:', err);
         });
     }
 
@@ -513,7 +573,7 @@
         if (!targetId) return;
 
         if (targetId === 'hx-page-container' || targetId === 'viewer-canvas' || targetId === 'builder-canvas') {
-            // Re-apply zoom level after HTMX swap
+            // Re-apply zoom level after full page HTMX swap
             ['builder-canvas', 'viewer-canvas'].forEach(function (id) {
                 var canvas = document.getElementById(id);
                 if (canvas) applyZoom(canvas, zoomLevels[id] || 1);
@@ -521,6 +581,13 @@
 
             requestAnimationFrame(function () {
                 recalculateViewerEdges();
+                recalculateBuilderEdges();
+            });
+        }
+
+        // After a targeted group swap (add item, edit node), recalculate edges
+        if (targetId.startsWith('builder-group-') || targetId === 'builder-canvas-inner') {
+            requestAnimationFrame(function () {
                 recalculateBuilderEdges();
             });
         }
@@ -574,12 +641,65 @@
 
         var url = btn.dataset.deleteUrl;
         var message = btn.dataset.deleteMessage || 'Are you sure?';
+        var groupEl = btn.closest('.builder-group');
+        var groupId = groupEl ? groupEl.dataset.groupId : null;
 
         showConfirmModal(message, function () {
-            htmx.ajax('DELETE', url, {
-                target: '#builder-canvas',
-                swap: 'innerHTML'
+            fetch(url, {
+                method: 'DELETE',
+                headers: { 'RequestVerificationToken': getAntiforgeryToken() }
+            }).then(function (res) {
+                if (!res.ok) return;
+                // Remove edges connected to this group
+                if (groupId) removeEdgesByGroup(groupId);
+                // Remove the group element
+                if (groupEl) groupEl.remove();
+            }).catch(function (err) {
+                console.error('Failed to delete:', err);
             });
+        });
+    });
+
+    // --- Node Deletion (fetch + targeted group refresh) ---
+
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('.builder-delete-node');
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        var templateId = btn.dataset.templateId;
+        var nodeId = btn.dataset.nodeId;
+        var groupId = btn.dataset.groupId;
+
+        fetch('/api/templates/' + templateId + '/builder/nodes/' + nodeId, {
+            method: 'DELETE',
+            headers: { 'RequestVerificationToken': getAntiforgeryToken() }
+        }).then(function (res) {
+            if (!res.ok) return;
+            return res.json();
+        }).then(function (data) {
+            if (!data) return;
+            // Remove edges that were deleted server-side
+            if (data.removedEdgeIds && data.removedEdgeIds.length > 0) {
+                removeEdgesByGroup(groupId);
+                // Re-insert edges that still exist (recalculate from DOM)
+                requestAnimationFrame(function () { recalculateBuilderEdges(); });
+            }
+            // Refresh the group to show updated node list
+            if (data.groupStillExists && groupId) {
+                htmx.ajax('GET', '/api/templates/' + templateId + '/builder/groups/' + groupId, {
+                    target: '#builder-group-' + groupId,
+                    swap: 'outerHTML'
+                });
+            } else if (groupId) {
+                // Group was removed — remove it from DOM
+                var groupEl = document.getElementById('builder-group-' + groupId);
+                if (groupEl) groupEl.remove();
+                removeEdgesByGroup(groupId);
+            }
+        }).catch(function (err) {
+            console.error('Failed to delete node:', err);
         });
     });
 
@@ -616,11 +736,20 @@
         if (!canvas) return;
         var templateId = canvas.dataset.templateId;
         var edgeId = edgePath.dataset.edgeId;
+        var edgeGroup = edgePath.closest('.builder-edge-group');
 
-        htmx.ajax('DELETE', `/api/templates/${templateId}/builder/edges/${edgeId}`, {
-            target: '#builder-canvas',
-            swap: 'innerHTML'
-        });
+        // Remove from DOM immediately
+        if (edgeGroup) edgeGroup.remove();
+
+        // Persist to server
+        if (edgeId) {
+            fetch('/api/templates/' + templateId + '/builder/edges/' + edgeId, {
+                method: 'DELETE',
+                headers: { 'RequestVerificationToken': getAntiforgeryToken() }
+            }).catch(function (err) {
+                console.error('Failed to delete edge:', err);
+            });
+        }
     });
 
     // --- Canvas Zoom & Scroll ---
