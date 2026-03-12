@@ -30,7 +30,7 @@ public sealed class Template : Entity
     [Required]
     public bool IsPublic { get; set; }
 
-    [Required, StringLength(8)]
+    [Required, StringLength(22)]
     public string ShareToken { get; set; }
 
     private readonly List<TemplateNode> _nodes = [];
