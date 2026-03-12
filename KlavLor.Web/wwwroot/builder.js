@@ -598,24 +598,34 @@
         if (!targetId) return;
 
         if (targetId === 'hx-page-container' || targetId === 'viewer-canvas' || targetId === 'builder-canvas') {
-            // Re-apply zoom level after full page HTMX swap
+            // Reset zoom to 1 on page navigation — stale zoom from a previous
+            // template would distort edge calculations on the new one.
+            zoomLevels['builder-canvas'] = 1;
+            zoomLevels['viewer-canvas'] = 1;
             ['builder-canvas', 'viewer-canvas'].forEach(function (id) {
                 var canvas = document.getElementById(id);
-                if (canvas) applyZoom(canvas, zoomLevels[id] || 1);
+                if (canvas) applyZoom(canvas, 1);
             });
 
+            // Double-rAF: first rAF queues after the browser commits layout for the
+            // new HTMX content; the second fires after that frame is painted, ensuring
+            // getBoundingClientRect() returns final dimensions.
             requestAnimationFrame(function () {
-                recalculateViewerEdges();
-                recalculateBuilderEdges();
-                centerCanvasOnNodes('builder-canvas');
-                centerCanvasOnNodes('viewer-canvas');
+                requestAnimationFrame(function () {
+                    recalculateViewerEdges();
+                    recalculateBuilderEdges();
+                    centerCanvasOnNodes('builder-canvas');
+                    centerCanvasOnNodes('viewer-canvas');
+                });
             });
         }
 
         // After a targeted group swap (add item, edit node), recalculate edges
         if (targetId.startsWith('builder-group-') || targetId === 'builder-canvas-inner') {
             requestAnimationFrame(function () {
-                recalculateBuilderEdges();
+                requestAnimationFrame(function () {
+                    recalculateBuilderEdges();
+                });
             });
         }
 
@@ -847,10 +857,12 @@
 
     document.addEventListener('DOMContentLoaded', function () {
         requestAnimationFrame(function () {
-            recalculateViewerEdges();
-            recalculateBuilderEdges();
-            centerCanvasOnNodes('builder-canvas');
-            centerCanvasOnNodes('viewer-canvas');
+            requestAnimationFrame(function () {
+                recalculateViewerEdges();
+                recalculateBuilderEdges();
+                centerCanvasOnNodes('builder-canvas');
+                centerCanvasOnNodes('viewer-canvas');
+            });
         });
     });
 })();
