@@ -6,6 +6,7 @@ using KlavLor.Application.Features.Builder.DeleteNode;
 using KlavLor.Application.Interfaces.Authentication;
 using KlavLor.Domain.Interfaces.Repositories;
 using KlavLor.Domain.Shared;
+using KlavLor.Infrastructure.ExternalServices.OsrsWiki;
 using KlavLor.Web.Application.Results;
 
 namespace KlavLor.Web.Application.Features.Templates.Builder;
@@ -49,10 +50,14 @@ public sealed class NodeEndpoints : IEndpoint
         [FromForm] AddNodeCommand command,
         ISessionStateManager sessionManager,
         AddNodeHandler handler,
-        ITemplateRepository templateRepository)
+        ITemplateRepository templateRepository,
+        IImageCacheService imageCacheService)
     {
         var userId = sessionManager.GetUserSessionId();
         if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
+
+        // Cache wiki image and use local URL
+        command.IconUrl = await CacheIconUrl(command.IconUrl, imageCacheService);
 
         var result = await handler.Handle(command, userId.Value);
         if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
@@ -103,10 +108,14 @@ public sealed class NodeEndpoints : IEndpoint
         [FromForm] UpdateNodeCommand command,
         ISessionStateManager sessionManager,
         UpdateNodeHandler handler,
-        ITemplateRepository templateRepository)
+        ITemplateRepository templateRepository,
+        IImageCacheService imageCacheService)
     {
         var userId = sessionManager.GetUserSessionId();
         if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
+
+        // Cache wiki image and use local URL
+        command.IconUrl = await CacheIconUrl(command.IconUrl, imageCacheService);
 
         var result = await handler.Handle(command, userId.Value);
         if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
@@ -178,5 +187,16 @@ public sealed class NodeEndpoints : IEndpoint
             groupId,
             groupStillExists
         });
+    }
+
+    private const string WikiImagesPrefix = "https://oldschool.runescape.wiki/images/";
+
+    private static async Task<string?> CacheIconUrl(string? iconUrl, IImageCacheService imageCacheService)
+    {
+        if (string.IsNullOrEmpty(iconUrl) || !iconUrl.StartsWith(WikiImagesPrefix))
+            return iconUrl;
+
+        var cached = await imageCacheService.GetOrCache(iconUrl);
+        return cached is not null ? $"/api/images/{cached.Id}" : iconUrl;
     }
 }

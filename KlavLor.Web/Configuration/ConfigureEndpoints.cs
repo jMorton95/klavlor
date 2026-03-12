@@ -36,7 +36,8 @@ public static class ConfigureEndpoints
             .MapEndpoints<NodeEndpoints>()
             .MapEndpoints<EdgeEndpoints>()
             .MapEndpoints<GroupEndpoints>()
-            .MapEndpoints<OsrsSearchEndpoint>();
+            .MapEndpoints<OsrsSearchEndpoint>()
+            .MapEndpoints<ImageEndpoint>();
 
         web.MapEndpoints<ViewerEndpoint>()
             .MapEndpoints<ShareEndpoint>()

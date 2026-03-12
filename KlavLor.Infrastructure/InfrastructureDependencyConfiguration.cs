@@ -51,6 +51,7 @@ public static class InfrastructureDependencyConfiguration
             services.AddScoped<IMigrationService, EntityFrameworkMigrator>();
 
             services.AddOsrsWikiClient();
+            services.AddImageCacheService();
         }
 
         private void AddDomainRepositories()
@@ -78,6 +79,15 @@ public static class InfrastructureDependencyConfiguration
             {
                 client.DefaultRequestHeaders.UserAgent.ParseAdd("KlavLor/1.0 (OSRS Gear Progression Builder)");
                 client.Timeout = TimeSpan.FromSeconds(10);
+            });
+        }
+
+        private void AddImageCacheService()
+        {
+            services.AddHttpClient<IImageCacheService, ImageCacheService>((_, client) =>
+            {
+                client.DefaultRequestHeaders.UserAgent.ParseAdd("KlavLor/1.0 (OSRS Gear Progression Builder)");
+                client.Timeout = TimeSpan.FromSeconds(30);
             });
         }
 

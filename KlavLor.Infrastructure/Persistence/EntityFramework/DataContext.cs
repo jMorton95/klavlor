@@ -15,6 +15,7 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
     public virtual DbSet<GearItem> GearItems => Set<GearItem>();
     public virtual DbSet<TemplateNodeGroup> TemplateNodeGroups => Set<TemplateNodeGroup>();
     public virtual DbSet<UserNodeCompletion> UserNodeCompletions => Set<UserNodeCompletion>();
+    public virtual DbSet<CachedImage> CachedImages => Set<CachedImage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -154,6 +155,16 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
                 new Role { Id = 1, Name = RoleName.Admin },
                 new Role { Id = 2, Name = RoleName.User }
             ]);
+
+        // CachedImage configuration
+        modelBuilder.Entity<CachedImage>()
+            .HasIndex(c => c.SourceUrl)
+            .IsUnique();
+
+        modelBuilder.Entity<CachedImage>()
+            .Property(c => c.CachedAt)
+            .HasColumnType("timestamp with time zone")
+            .HasDefaultValueSql("now() AT TIME ZONE 'UTC'");
 
         // Entity base class configuration (timestamps and row versions)
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())

@@ -50,6 +50,7 @@ public static class AppRoutes
     public const string ViewerCompletion = "/templates/{id:int}/completion/{nodeId:int}";
 
     public const string OsrsSearch = "/osrs/search";
+    public const string CachedImage = "/images/{imageId:int}";
 
     public const string HealthCheck = "/healthcheck";
 }

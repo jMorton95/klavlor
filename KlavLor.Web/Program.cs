@@ -9,6 +9,7 @@ using KlavLor.Domain;
 using KlavLor.Domain.Shared;
 using KlavLor.Infrastructure;
 using KlavLor.Infrastructure.Persistence.EntityFramework;
+using KlavLor.Infrastructure.Services;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -48,6 +49,8 @@ builder.Services.AddRazorComponents();
 builder.Services.AddDomain();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure();
+
+builder.Services.AddHostedService<ImageCacheBackfillService>();
 
 
 if (builder.Environment.IsProduction()) { }
