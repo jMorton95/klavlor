@@ -33,7 +33,6 @@ public sealed class TemplateNode : Entity
     [Required]
     public double PositionY { get; set; }
 
-    [StringLength(500)]
     public string? IconUrl { get; set; }
 
     [Column(TypeName = "jsonb")]

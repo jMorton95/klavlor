@@ -1,3 +1,4 @@
+using System;
 using KlavLor.Infrastructure.ExternalServices.OsrsWiki;
 using KlavLor.Infrastructure.Persistence.EntityFramework;
 using Microsoft.EntityFrameworkCore;
@@ -10,6 +11,7 @@ namespace KlavLor.Infrastructure.Services;
 public sealed class ImageCacheBackfillService(IServiceScopeFactory scopeFactory, ILogger<ImageCacheBackfillService> logger) : BackgroundService
 {
     private const string WikiImagesPrefix = "https://oldschool.runescape.wiki/images/";
+    private const string ApiImagesPrefix = "/api/images/";
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -22,57 +24,75 @@ public sealed class ImageCacheBackfillService(IServiceScopeFactory scopeFactory,
             var db = scope.ServiceProvider.GetRequiredService<DataContext>();
             var imageCacheService = scope.ServiceProvider.GetRequiredService<IImageCacheService>();
 
-            // Find all nodes with wiki icon URLs that haven't been converted yet
-            var nodesWithWikiUrls = await db.TemplateNodes
-                .Where(n => n.IconUrl != null && n.IconUrl.StartsWith(WikiImagesPrefix))
+            // Find nodes with wiki URLs or /api/images/ URLs that need converting to data URIs
+            var nodesToConvert = await db.TemplateNodes
+                .Where(n => n.IconUrl != null &&
+                    (n.IconUrl.StartsWith(WikiImagesPrefix) || n.IconUrl.StartsWith(ApiImagesPrefix)))
                 .ToListAsync(stoppingToken);
 
-            if (nodesWithWikiUrls.Count == 0)
+            if (nodesToConvert.Count == 0)
             {
-                logger.LogInformation("Image cache backfill: no nodes with wiki URLs found");
+                logger.LogInformation("Image cache backfill: no nodes to convert");
                 return;
             }
 
-            logger.LogInformation("Image cache backfill: found {Count} nodes with wiki URLs to cache", nodesWithWikiUrls.Count);
+            logger.LogInformation("Image cache backfill: found {Count} nodes to convert to data URIs", nodesToConvert.Count);
 
-            var uniqueUrls = nodesWithWikiUrls.Select(n => n.IconUrl!).Distinct().ToList();
-            var urlToLocalPath = new Dictionary<string, string>();
+            // Collect unique wiki URLs to fetch
+            var wikiUrls = nodesToConvert
+                .Where(n => n.IconUrl!.StartsWith(WikiImagesPrefix))
+                .Select(n => n.IconUrl!)
+                .Distinct()
+                .ToList();
 
-            foreach (var url in uniqueUrls)
+            var urlToDataUri = new Dictionary<string, string>();
+
+            foreach (var url in wikiUrls)
             {
                 if (stoppingToken.IsCancellationRequested) break;
 
                 var cached = await imageCacheService.GetOrCache(url);
                 if (cached is not null)
                 {
-                    urlToLocalPath[url] = $"/api/images/{cached.Id}";
-                    logger.LogInformation("Cached image: {Url} -> /api/images/{Id}", url, cached.Id);
+                    urlToDataUri[url] = $"data:{cached.ContentType};base64,{Convert.ToBase64String(cached.ImageData)}";
+                    logger.LogInformation("Cached image: {Url}", url);
                 }
                 else
                 {
                     logger.LogWarning("Failed to cache image: {Url}", url);
                 }
 
-                // Rate limit: small delay between fetches
                 await Task.Delay(TimeSpan.FromMilliseconds(500), stoppingToken);
             }
 
-            // Update all nodes to use local URLs
-            var updated = 0;
-            foreach (var node in nodesWithWikiUrls)
+            // For /api/images/{id} URLs, look up the cached image from DB
+            var apiImageNodes = nodesToConvert.Where(n => n.IconUrl!.StartsWith(ApiImagesPrefix)).ToList();
+            if (apiImageNodes.Count > 0)
             {
-                if (node.IconUrl is not null && urlToLocalPath.TryGetValue(node.IconUrl, out var localPath))
+                var cachedImageRepo = scope.ServiceProvider.GetRequiredService<Domain.Interfaces.Repositories.ICachedImageRepository>();
+                foreach (var node in apiImageNodes)
                 {
-                    node.IconUrl = localPath;
-                    updated++;
+                    var idStr = node.IconUrl!.Replace(ApiImagesPrefix, "");
+                    if (int.TryParse(idStr, out var imageId))
+                    {
+                        var cached = await cachedImageRepo.GetById(imageId);
+                        if (cached is not null)
+                        {
+                            node.IconUrl = $"data:{cached.ContentType};base64,{Convert.ToBase64String(cached.ImageData)}";
+                        }
+                    }
                 }
             }
 
-            if (updated > 0)
+            // Update wiki URL nodes
+            foreach (var node in nodesToConvert.Where(n => n.IconUrl!.StartsWith(WikiImagesPrefix)))
             {
-                await db.SaveChangesAsync(stoppingToken);
-                logger.LogInformation("Image cache backfill: updated {Count} nodes to use cached images", updated);
+                if (urlToDataUri.TryGetValue(node.IconUrl!, out var dataUri))
+                    node.IconUrl = dataUri;
             }
+
+            await db.SaveChangesAsync(stoppingToken);
+            logger.LogInformation("Image cache backfill: converted {Count} nodes to data URIs", nodesToConvert.Count);
         }
         catch (OperationCanceledException)
         {

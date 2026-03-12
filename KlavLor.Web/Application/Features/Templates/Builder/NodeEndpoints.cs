@@ -197,6 +197,8 @@ public sealed class NodeEndpoints : IEndpoint
             return iconUrl;
 
         var cached = await imageCacheService.GetOrCache(iconUrl);
-        return cached is not null ? $"/api/images/{cached.Id}" : iconUrl;
+        return cached is not null
+            ? $"data:{cached.ContentType};base64,{Convert.ToBase64String(cached.ImageData)}"
+            : null;
     }
 }
