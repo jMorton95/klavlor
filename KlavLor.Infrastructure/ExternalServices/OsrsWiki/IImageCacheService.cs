@@ -10,4 +10,10 @@ public interface IImageCacheService
     /// Returns null if fetching fails.
     /// </summary>
     Task<CachedImage?> GetOrCache(string sourceUrl);
+
+    /// <summary>
+    /// Parses a data URI, stores the image data in the cache, and returns the cached image.
+    /// Returns null if the data URI is invalid.
+    /// </summary>
+    Task<CachedImage?> GetOrCacheFromDataUri(string dataUri);
 }

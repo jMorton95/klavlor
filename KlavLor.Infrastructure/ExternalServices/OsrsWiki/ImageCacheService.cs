@@ -81,6 +81,57 @@ public sealed class ImageCacheService(
         }
     }
 
+    public async Task<CachedImage?> GetOrCacheFromDataUri(string dataUri)
+    {
+        try
+        {
+            // Parse "data:{contentType};base64,{base64Data}"
+            if (!dataUri.StartsWith("data:", StringComparison.Ordinal))
+                return null;
+
+            var commaIndex = dataUri.IndexOf(',');
+            if (commaIndex < 0) return null;
+
+            var header = dataUri[5..commaIndex]; // skip "data:"
+            if (!header.EndsWith(";base64", StringComparison.Ordinal))
+                return null;
+
+            var contentType = header[..^7]; // strip ";base64"
+            if (!AllowedContentTypePrefixes.Any(prefix => contentType.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
+                return null;
+
+            var base64Data = dataUri[(commaIndex + 1)..];
+            var imageData = Convert.FromBase64String(base64Data);
+
+            if (imageData.Length > MaxImageSizeBytes)
+            {
+                logger.LogWarning("Data URI image too large ({Size} bytes)", imageData.Length);
+                return null;
+            }
+
+            // Check if we already have this exact data cached (by source URL = hash of data)
+            var sourceKey = $"data-uri:{Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(imageData))}";
+            var existing = await cachedImageRepository.GetBySourceUrl(sourceKey);
+            if (existing is not null)
+                return existing;
+
+            var cached = new CachedImage
+            {
+                SourceUrl = sourceKey,
+                ImageData = imageData,
+                ContentType = contentType,
+                CachedAt = DateTimeOffset.UtcNow
+            };
+
+            return await cachedImageRepository.Save(cached);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to parse and cache data URI");
+            return null;
+        }
+    }
+
     private static bool IsAllowedUrl(string url)
     {
         return Uri.TryCreate(url, UriKind.Absolute, out var uri)
