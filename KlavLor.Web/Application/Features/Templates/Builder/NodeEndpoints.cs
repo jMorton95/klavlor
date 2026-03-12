@@ -181,9 +181,33 @@ public sealed class NodeEndpoints : IEndpoint
         var removedEdgeIds = edgeIdsBefore.Except(template.Edges.Select(e => e.Id)).ToList();
         var groupStillExists = groupId.HasValue && template.Groups.Any(g => g.Id == groupId.Value);
 
+        // Compute which group-pair connections were fully removed
+        var groupPairsBefore = new HashSet<(int, int)>();
+        foreach (var edge in templateBefore.Edges)
+        {
+            var fn = templateBefore.Nodes.FirstOrDefault(n => n.Id == edge.FromNodeId);
+            var tn = templateBefore.Nodes.FirstOrDefault(n => n.Id == edge.ToNodeId);
+            if (fn?.GroupId != null && tn?.GroupId != null && fn.GroupId != tn.GroupId)
+                groupPairsBefore.Add((fn.GroupId.Value, tn.GroupId.Value));
+        }
+
+        var groupPairsAfter = new HashSet<(int, int)>();
+        foreach (var edge in template.Edges)
+        {
+            var fn = template.Nodes.FirstOrDefault(n => n.Id == edge.FromNodeId);
+            var tn = template.Nodes.FirstOrDefault(n => n.Id == edge.ToNodeId);
+            if (fn?.GroupId != null && tn?.GroupId != null && fn.GroupId != tn.GroupId)
+                groupPairsAfter.Add((fn.GroupId.Value, tn.GroupId.Value));
+        }
+
+        var removedGroupPairs = groupPairsBefore.Except(groupPairsAfter)
+            .Select(p => new[] { p.Item1, p.Item2 })
+            .ToList();
+
         return Microsoft.AspNetCore.Http.Results.Json(new
         {
             removedEdgeIds,
+            removedGroupPairs,
             groupId,
             groupStillExists
         });

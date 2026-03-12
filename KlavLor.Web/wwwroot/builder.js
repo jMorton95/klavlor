@@ -549,8 +549,6 @@
     function recalculateBuilderEdges() {
         var canvas = document.getElementById('builder-canvas');
         if (!canvas) return;
-        var innerEl = canvas.firstElementChild;
-        if (!innerEl) return;
 
         document.querySelectorAll('.builder-edge').forEach(function (edge) {
             var fromGid = edge.dataset.fromGroup;
@@ -561,8 +559,8 @@
             var toGroup = canvas.querySelector('.builder-group[data-group-id="' + toGid + '"]');
             if (!fromGroup || !toGroup) return;
 
-            var from = getGroupRectFromDOM(innerEl, fromGroup);
-            var to = getGroupRectFromDOM(innerEl, toGroup);
+            var from = getGroupEdgePoints(fromGroup);
+            var to = getGroupEdgePoints(toGroup);
             var ep = computeEdgeEndpoints(from, to);
             setEdgePath(edge, calculateBezierPath(ep.x1, ep.y1, ep.x2, ep.y2));
         });
@@ -680,11 +678,18 @@
             return res.json();
         }).then(function (data) {
             if (!data) return;
-            // Remove edges that were deleted server-side
-            if (data.removedEdgeIds && data.removedEdgeIds.length > 0) {
-                removeEdgesByGroup(groupId);
-                // Re-insert edges that still exist (recalculate from DOM)
-                requestAnimationFrame(function () { recalculateBuilderEdges(); });
+            // Remove SVG edges for group connections that no longer exist
+            if (data.removedGroupPairs && data.removedGroupPairs.length > 0) {
+                data.removedGroupPairs.forEach(function (pair) {
+                    var fromGid = String(pair[0]);
+                    var toGid = String(pair[1]);
+                    document.querySelectorAll('.builder-edge-group').forEach(function (g) {
+                        var path = g.querySelector('.builder-edge');
+                        if (path && path.dataset.fromGroup === fromGid && path.dataset.toGroup === toGid) {
+                            g.remove();
+                        }
+                    });
+                });
             }
             // Refresh the group to show updated node list
             if (data.groupStillExists && groupId) {
@@ -692,6 +697,7 @@
                     target: '#builder-group-' + groupId,
                     swap: 'outerHTML'
                 });
+                // afterSettle will trigger recalculateBuilderEdges
             } else if (groupId) {
                 // Group was removed — remove it from DOM
                 var groupEl = document.getElementById('builder-group-' + groupId);
