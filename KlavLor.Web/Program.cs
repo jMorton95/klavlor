@@ -104,7 +104,7 @@ app.Use(async (context, next) =>
     context.Response.Headers.XContentTypeOptions = "nosniff";
     context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
     context.Response.Headers.ContentSecurityPolicy =
-        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'";
+        "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://oldschool.runescape.wiki; font-src 'self'; connect-src 'self'; frame-ancestors 'none'";
     context.Response.Headers["Permissions-Policy"] =
         "camera=(), microphone=(), geolocation=(), payment=()";
     await next();

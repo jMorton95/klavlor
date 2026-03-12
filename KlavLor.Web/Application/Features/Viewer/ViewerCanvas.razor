@@ -112,7 +112,7 @@
         @* Group layer *@
         @foreach (var group in Template.Groups)
         {
-            var groupNodes = Template.Nodes.Where(n => n.GroupId == group.Id).ToList();
+            var groupNodes = Template.Nodes.Where(n => n.GroupId == group.Id).OrderBy(n => n.Id).ToList();
             <ViewerGroup Group="@group" TemplateId="@Template.Id" GroupedNodes="@groupNodes"
                          CompletedNodeIds="@CompletedNodeIds" CanTrackCompletion="@CanTrackCompletion" />
         }

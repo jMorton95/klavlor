@@ -68,7 +68,7 @@ public sealed class NodeEndpoints : IEndpoint
         var node = result.Value!;
         var groupId = node.GroupId!.Value;
         var group = template.Groups.First(g => g.Id == groupId);
-        var groupNodes = template.Nodes.Where(n => n.GroupId == groupId).ToList();
+        var groupNodes = template.Nodes.Where(n => n.GroupId == groupId).OrderBy(n => n.Id).ToList();
 
         return IResultExtensions.Component<BuilderGroup>(new
         {
@@ -127,7 +127,7 @@ public sealed class NodeEndpoints : IEndpoint
         if (node?.GroupId is null) return Microsoft.AspNetCore.Http.Results.NotFound();
 
         var group = template.Groups.First(g => g.Id == node.GroupId.Value);
-        var groupNodes = template.Nodes.Where(n => n.GroupId == node.GroupId.Value).ToList();
+        var groupNodes = template.Nodes.Where(n => n.GroupId == node.GroupId.Value).OrderBy(n => n.Id).ToList();
 
         return IResultExtensions.Component<BuilderGroup>(new
         {

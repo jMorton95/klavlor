@@ -36,7 +36,7 @@ public sealed class GroupEndpoints : IEndpoint
         var group = template.Groups.FirstOrDefault(g => g.Id == groupId);
         if (group is null) return Microsoft.AspNetCore.Http.Results.NotFound();
 
-        var groupNodes = template.Nodes.Where(n => n.GroupId == groupId).ToList();
+        var groupNodes = template.Nodes.Where(n => n.GroupId == groupId).OrderBy(n => n.Id).ToList();
         return IResultExtensions.Component<BuilderGroup>(new
         {
             Group = group,
