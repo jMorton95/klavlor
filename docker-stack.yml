@@ -32,10 +32,9 @@ services:
       - "traefik.http.routers.web.rule=Host(`chart.joshuawoodward.dev`)"
       - "traefik.http.routers.web.entrypoints=websecure"
       - "traefik.http.routers.web.tls.certresolver=myresolver"
-      - "traefik.http.routers.web.middlewares=login-rate-limit"
-      - "traefik.http.middlewares.login-rate-limit.ratelimit.period=10s"
-      - "traefik.http.middlewares.login-rate-limit.rateLimit.average=50"
-      - "traefik.http.middlewares.login-rate-limit.rateLimit.burst=25"
+      - "traefik.http.routers.web.middlewares=global-rate-limit"
+      - "traefik.http.middlewares.global-rate-limit.rateLimit.average=100"
+      - "traefik.http.middlewares.global-rate-limit.rateLimit.burst=150"
     environment:
       - DatabaseSettings__Host=db
       - DatabaseSettings__Port=5432

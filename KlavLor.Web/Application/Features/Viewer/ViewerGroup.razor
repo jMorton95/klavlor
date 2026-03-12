@@ -35,7 +35,7 @@
                              hx-swap="outerHTML">
                             @if (!string.IsNullOrEmpty(node.IconUrl))
                             {
-                                <img src="@node.IconUrl" alt="" class="w-6 h-6 object-contain" onerror="this.style.display='none'" />
+                                <img src="@node.IconUrl" alt="" class="w-6 h-6 object-contain" loading="lazy" onerror="this.style.display='none'" />
                             }
                             else
                             {
@@ -56,7 +56,7 @@
                              title="@node.Label">
                             @if (!string.IsNullOrEmpty(node.IconUrl))
                             {
-                                <img src="@node.IconUrl" alt="" class="w-6 h-6 object-contain" onerror="this.style.display='none'" />
+                                <img src="@node.IconUrl" alt="" class="w-6 h-6 object-contain" loading="lazy" onerror="this.style.display='none'" />
                             }
                             else
                             {
