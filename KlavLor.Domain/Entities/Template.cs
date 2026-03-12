@@ -52,6 +52,8 @@ public sealed class Template : Entity
 
     public TemplateNode AddNode(string label, NodeType nodeType, double positionX, double positionY, int? gearItemId = null, string? metadata = null, string? iconUrl = null, int? groupId = null)
     {
+        ValidatePosition(positionX, positionY);
+
         if (groupId is not null && _groups.All(g => g.Id != groupId))
             throw new DomainException("Group not found.");
 
@@ -73,6 +75,8 @@ public sealed class Template : Entity
 
     public (TemplateNodeGroup group, TemplateNode node) AddNodeToNewGroup(string label, NodeType nodeType, double positionX, double positionY, int? gearItemId = null, string? metadata = null, string? iconUrl = null)
     {
+        ValidatePosition(positionX, positionY);
+
         var group = new TemplateNodeGroup
         {
             TemplateId = Id,
@@ -134,6 +138,8 @@ public sealed class Template : Entity
 
     public TemplateNodeGroup AddGroup(double positionX, double positionY)
     {
+        ValidatePosition(positionX, positionY);
+
         var group = new TemplateNodeGroup
         {
             TemplateId = Id,
@@ -173,6 +179,14 @@ public sealed class Template : Entity
     public void RegenerateShareToken()
     {
         ShareToken = GenerateShareToken();
+    }
+
+    private static void ValidatePosition(double x, double y)
+    {
+        if (double.IsNaN(x) || double.IsInfinity(x) || x < -10000 || x > 100000)
+            throw new DomainException("Position X is out of valid range.");
+        if (double.IsNaN(y) || double.IsInfinity(y) || y < -10000 || y > 100000)
+            throw new DomainException("Position Y is out of valid range.");
     }
 
     private static string GenerateShareToken()

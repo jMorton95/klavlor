@@ -4,10 +4,15 @@ using KlavLor.Domain.Interfaces.Repositories;
 namespace KlavLor.Application.Features.Builder.UpdateNodePosition;
 
 public sealed class UpdateNodePositionHandler(
-    ITemplateRepository templateRepository)
+    ITemplateRepository templateRepository,
+    UpdateNodePositionValidator validator)
 {
     public async Task<Result> Handle(UpdateNodePositionCommand command, int userId)
     {
+        var validationResult = await validator.ValidateAsync(command);
+        if (!validationResult.IsValid)
+            return Result.Failure("Validation failed.");
+
         var ownerId = await templateRepository.GetTemplateOwnerId(command.TemplateId);
 
         if (ownerId is null)

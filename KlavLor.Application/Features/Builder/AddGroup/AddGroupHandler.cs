@@ -4,10 +4,16 @@ using KlavLor.Domain.Interfaces.Repositories;
 
 namespace KlavLor.Application.Features.Builder.AddGroup;
 
-public sealed class AddGroupHandler(ITemplateRepository templateRepository)
+public sealed class AddGroupHandler(
+    ITemplateRepository templateRepository,
+    AddGroupValidator validator)
 {
     public async Task<Result<TemplateNodeGroup>> Handle(AddGroupCommand command, int userId)
     {
+        var validationResult = await validator.ValidateAsync(command);
+        if (!validationResult.IsValid)
+            return Result<TemplateNodeGroup>.Failure("Validation failed.");
+
         var template = await templateRepository.GetById(command.TemplateId);
 
         if (template is null)

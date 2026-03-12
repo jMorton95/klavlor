@@ -19,11 +19,13 @@ public abstract class PagedQueryValidator<T> : AbstractValidator<PagedQuery>
 
         RuleFor(x => x.PageSize)
             .GreaterThanOrEqualTo(1)
-            .WithMessage("PageSize must be greater than or equal to 1.");
+            .LessThanOrEqualTo(100)
+            .WithMessage("PageSize must be between 1 and 100.");
 
         RuleFor(x => x.PageNumber)
             .GreaterThanOrEqualTo(1)
-            .WithMessage("PageNumber must be greater than or equal to 1.");
+            .LessThanOrEqualTo(10000)
+            .WithMessage("PageNumber must be between 1 and 10000.");
 
         RuleFor(x => x.SearchTerm)
             .MaximumLength(255);

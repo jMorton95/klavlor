@@ -3,10 +3,16 @@ using KlavLor.Domain.Interfaces.Repositories;
 
 namespace KlavLor.Application.Features.Builder.UpdateGroupPosition;
 
-public sealed class UpdateGroupPositionHandler(ITemplateRepository templateRepository)
+public sealed class UpdateGroupPositionHandler(
+    ITemplateRepository templateRepository,
+    UpdateGroupPositionValidator validator)
 {
     public async Task<Result> Handle(UpdateGroupPositionCommand command, int userId)
     {
+        var validationResult = await validator.ValidateAsync(command);
+        if (!validationResult.IsValid)
+            return Result.Failure("Validation failed.");
+
         var ownerId = await templateRepository.GetTemplateOwnerId(command.TemplateId);
 
         if (ownerId is null)

@@ -31,9 +31,12 @@ public sealed class LoginHandler(
             return Result<User>.Success(result.Value);
         }
 
-        logger.LogWarning("Login attempt failed for user {Email}.", command.Email);
+        logger.LogWarning("Login attempt failed.");
         return Result<User>.Failure(result.ErrorMessage);
     }
+
+    // Pre-hashed dummy value to normalize timing on failed lookups
+    private static string? _dummyHash;
 
     private async Task<Result<User>> ValidateCredentialsAsync(LoginCommand command)
     {
@@ -43,7 +46,12 @@ public sealed class LoginHandler(
         var user = await userRepository.GetByEmail(command.Email);
 
         if (user == null)
+        {
+            // Perform dummy hash verification to normalize timing and prevent user enumeration
+            _dummyHash ??= passwordService.HashPassword(null!, "dummy-timing-normalization");
+            passwordService.CheckPassword(null!, command.Password, _dummyHash);
             return Result<User>.Failure(invalidCredentials);
+        }
 
         if (!user.IsActive)
             return Result<User>.Failure(invalidCredentials);
