@@ -9,4 +9,5 @@ public sealed class AddNodeCommand
     public double PositionY { get; set; }
     public string? IconUrl { get; set; }
     public int? GroupId { get; set; }
+    public string? Color { get; set; }
 }

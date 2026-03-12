@@ -10,13 +10,14 @@ namespace KlavLor.Infrastructure.Persistence.EntityFramework.Repositories.Templa
 
 internal sealed class TemplateQueryRepository(DataContext dataContext, ILogger<TemplateQueryRepository> logger) : ITemplateSearchRepository
 {
-    public async Task<PagedList<TemplateSearchResponse>> GetTemplatesBySearch(int? userId, PagedQuery pagedQuery)
+    public async Task<PagedList<TemplateSearchResponse>> GetTemplatesBySearch(int? userId, PagedQuery pagedQuery, bool isAdmin = false)
     {
         try
         {
-            var query = dataContext.Templates
-                .Where(t => (userId.HasValue && t.CreatedById == userId.Value) || t.IsPublic)
-                .AsQueryable();
+            var query = dataContext.Templates.AsQueryable();
+
+            if (!isAdmin)
+                query = query.Where(t => (userId.HasValue && t.CreatedById == userId.Value) || t.IsPublic);
 
             query = query.OrderByDescending(t => userId.HasValue && t.CreatedById == userId.Value)
                 .ThenByDescending(t => t.SavedAt);

@@ -35,7 +35,8 @@ public sealed class DuplicateTemplateHandler(ITemplateRepository templateReposit
             var newNode = newTemplate.AddNode(
                 sourceNode.Label, sourceNode.NodeType,
                 sourceNode.PositionX, sourceNode.PositionY,
-                sourceNode.GearItemId, sourceNode.Metadata, sourceNode.IconUrl);
+                sourceNode.GearItemId, sourceNode.Metadata, sourceNode.IconUrl, color: sourceNode.Color);
+            newNode.SortOrder = sourceNode.SortOrder;
 
             if (sourceNode.GroupId.HasValue && groupMap.TryGetValue(sourceNode.GroupId.Value, out var newGroup))
             {

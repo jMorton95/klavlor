@@ -42,29 +42,81 @@
         return { x: x, y: y, w: w, h: h, cx: x + w / 2, cy: y + h / 2 };
     }
 
-    function computeEdgeEndpoints(from, to) {
-        var x1, y1, x2, y2;
+    // Determine which side an edge connects on for a given group
+    function determineSide(from, to) {
         var dx = to.cx - from.cx;
         var dy = to.cy - from.cy;
-
         if (Math.abs(dx) >= Math.abs(dy)) {
-            if (dx >= 0) {
-                x1 = from.x + from.w; y1 = from.y + from.h / 2;
-                x2 = to.x; y2 = to.y + to.h / 2;
-            } else {
-                x1 = from.x; y1 = from.y + from.h / 2;
-                x2 = to.x + to.w; y2 = to.y + to.h / 2;
-            }
+            return dx >= 0 ? 'right' : 'left';
         } else {
-            if (dy >= 0) {
-                x1 = from.cx; y1 = from.y + from.h;
-                x2 = to.cx; y2 = to.y;
-            } else {
-                x1 = from.cx; y1 = from.y;
-                x2 = to.cx; y2 = to.y + to.h;
-            }
+            return dy >= 0 ? 'bottom' : 'top';
         }
-        return { x1, y1, x2, y2 };
+    }
+
+    // Compute attachment point on a group side with offset for multiple edges
+    function getSidePoint(group, side, index, total) {
+        var fraction = (index + 1) / (total + 1);
+        if (side === 'right') return { x: group.x + group.w, y: group.y + fraction * group.h };
+        if (side === 'left') return { x: group.x, y: group.y + fraction * group.h };
+        if (side === 'bottom') return { x: group.x + fraction * group.w, y: group.y + group.h };
+        /* top */ return { x: group.x + fraction * group.w, y: group.y };
+    }
+
+    // Collect all edges and compute distributed endpoints
+    function computeDistributedEdges(canvasSelector, edgeSelector, getGroupFn) {
+        var canvas = document.querySelector(canvasSelector);
+        if (!canvas) return [];
+
+        var edges = Array.from(canvas.querySelectorAll(edgeSelector));
+        if (!edges.length) return [];
+
+        // Build edge data
+        var edgeData = [];
+        edges.forEach(function(edge) {
+            var fromGid = edge.dataset.fromGroup;
+            var toGid = edge.dataset.toGroup;
+            if (!fromGid || !toGid) return;
+
+            var fromEl = canvas.querySelector('[data-group-id="' + fromGid + '"]');
+            var toEl = canvas.querySelector('[data-group-id="' + toGid + '"]');
+            if (!fromEl || !toEl) return;
+
+            var from = getGroupFn(fromEl);
+            var to = getGroupFn(toEl);
+            var fromSide = determineSide(from, to);
+            var toSide = determineSide(to, from);
+
+            edgeData.push({ edge: edge, from: from, to: to, fromGid: fromGid, toGid: toGid, fromSide: fromSide, toSide: toSide });
+        });
+
+        // Count edges per (groupId, side)
+        var sideMap = {};
+        edgeData.forEach(function(d, i) {
+            var fk = d.fromGid + ':' + d.fromSide;
+            var tk = d.toGid + ':' + d.toSide;
+            if (!sideMap[fk]) sideMap[fk] = [];
+            sideMap[fk].push(i);
+            if (!sideMap[tk]) sideMap[tk] = [];
+            sideMap[tk].push(i);
+        });
+
+        // Compute endpoints with offsets
+        edgeData.forEach(function(d, i) {
+            var fk = d.fromGid + ':' + d.fromSide;
+            var tk = d.toGid + ':' + d.toSide;
+            var fromList = sideMap[fk];
+            var toList = sideMap[tk];
+            var fromIdx = fromList.indexOf(i);
+            var toIdx = toList.indexOf(i);
+
+            var p1 = getSidePoint(d.from, d.fromSide, fromIdx, fromList.length);
+            var p2 = getSidePoint(d.to, d.toSide, toIdx, toList.length);
+
+            d.x1 = p1.x; d.y1 = p1.y;
+            d.x2 = p2.x; d.y2 = p2.y;
+        });
+
+        return edgeData;
     }
 
     function setEdgePath(edgePath, d) {
@@ -76,32 +128,9 @@
     function updateGroupEdgePaths(groupId, newX, newY) {
         var groupEl = document.querySelector(`.builder-group[data-group-id="${groupId}"]`);
         if (!groupEl) return;
-        var rect = groupEl.getBoundingClientRect();
-        var canvas = document.getElementById('builder-canvas');
-        var zoom = canvas ? (zoomLevels[canvas.id] || 1) : 1;
-        var gw = rect.width / zoom;
-        var gh = rect.height / zoom;
-        var fromPt = { x: newX, y: newY, w: gw, h: gh, cx: newX + gw / 2, cy: newY + gh / 2 };
 
-        document.querySelectorAll(`.builder-edge[data-from-group="${groupId}"]`).forEach(function (path) {
-            var toGroupId = path.dataset.toGroup;
-            if (!toGroupId) return;
-            var toGroupEl = document.querySelector(`.builder-group[data-group-id="${toGroupId}"]`);
-            if (!toGroupEl) return;
-            var toPt = getGroupEdgePoints(toGroupEl);
-            var ep = computeEdgeEndpoints(fromPt, toPt);
-            setEdgePath(path, calculateBezierPath(ep.x1, ep.y1, ep.x2, ep.y2));
-        });
-
-        document.querySelectorAll(`.builder-edge[data-to-group="${groupId}"]`).forEach(function (path) {
-            var fromGroupId = path.dataset.fromGroup;
-            if (!fromGroupId) return;
-            var fromGroupEl = document.querySelector(`.builder-group[data-group-id="${fromGroupId}"]`);
-            if (!fromGroupEl) return;
-            var srcPt = getGroupEdgePoints(fromGroupEl);
-            var ep = computeEdgeEndpoints(srcPt, fromPt);
-            setEdgePath(path, calculateBezierPath(ep.x1, ep.y1, ep.x2, ep.y2));
-        });
+        // After moving a group, recalculate all builder edges with distribution
+        recalculateBuilderEdges();
     }
 
     async function saveGroupPosition(templateId, groupId, x, y) {
@@ -127,8 +156,13 @@
 
         var from = getGroupEdgePoints(fromEl);
         var to = getGroupEdgePoints(toEl);
-        var ep = computeEdgeEndpoints(from, to);
-        var d = calculateBezierPath(ep.x1, ep.y1, ep.x2, ep.y2);
+
+        // Simple center-to-center for the initial insert; recalculation will distribute
+        var fromSide = determineSide(from, to);
+        var toSide = determineSide(to, from);
+        var p1 = getSidePoint(from, fromSide, 0, 1);
+        var p2 = getSidePoint(to, toSide, 0, 1);
+        var d = calculateBezierPath(p1.x, p1.y, p2.x, p2.y);
 
         var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         g.setAttribute('class', 'builder-edge-group');
@@ -158,6 +192,9 @@
         } else {
             svg.appendChild(g);
         }
+
+        // Recalculate all edges to distribute properly
+        requestAnimationFrame(function() { recalculateBuilderEdges(); });
     }
 
     function removeEdgesByGroup(groupId) {
@@ -385,8 +422,10 @@
                 var newY = Math.max(0, g.startY + dy);
                 g.el.style.left = newX + 'px';
                 g.el.style.top = newY + 'px';
-                updateGroupEdgePaths(g.id, newX, newY);
             });
+
+            // Recalculate all edges with distribution during drag
+            recalculateBuilderEdges();
 
             // Expand canvas if group is dragged near the edge
             var canvas = document.getElementById('builder-canvas');
@@ -514,7 +553,7 @@
         });
     }
 
-    // --- Edge Recalculation (DOM-measured) ---
+    // --- Edge Recalculation (DOM-measured, with distribution) ---
 
     function getGroupRectFromDOM(canvasInnerEl, groupEl) {
         var canvasRect = canvasInnerEl.getBoundingClientRect();
@@ -532,19 +571,12 @@
         var innerEl = canvas.firstElementChild;
         if (!innerEl) return;
 
-        document.querySelectorAll('.viewer-edge').forEach(function (edge) {
-            var fromGid = edge.dataset.fromGroup;
-            var toGid = edge.dataset.toGroup;
-            if (!fromGid || !toGid) return;
+        var edgeData = computeDistributedEdges('#viewer-canvas', '.viewer-edge', function(el) {
+            return getGroupRectFromDOM(innerEl, el);
+        });
 
-            var fromGroup = canvas.querySelector('.viewer-group[data-group-id="' + fromGid + '"]');
-            var toGroup = canvas.querySelector('.viewer-group[data-group-id="' + toGid + '"]');
-            if (!fromGroup || !toGroup) return;
-
-            var from = getGroupRectFromDOM(innerEl, fromGroup);
-            var to = getGroupRectFromDOM(innerEl, toGroup);
-            var ep = computeEdgeEndpoints(from, to);
-            edge.setAttribute('d', calculateBezierPath(ep.x1, ep.y1, ep.x2, ep.y2));
+        edgeData.forEach(function(d) {
+            d.edge.setAttribute('d', calculateBezierPath(d.x1, d.y1, d.x2, d.y2));
         });
     }
 
@@ -552,19 +584,12 @@
         var canvas = document.getElementById('builder-canvas');
         if (!canvas) return;
 
-        document.querySelectorAll('.builder-edge').forEach(function (edge) {
-            var fromGid = edge.dataset.fromGroup;
-            var toGid = edge.dataset.toGroup;
-            if (!fromGid || !toGid) return;
+        var edgeData = computeDistributedEdges('#builder-canvas', '.builder-edge', function(el) {
+            return getGroupEdgePoints(el);
+        });
 
-            var fromGroup = canvas.querySelector('.builder-group[data-group-id="' + fromGid + '"]');
-            var toGroup = canvas.querySelector('.builder-group[data-group-id="' + toGid + '"]');
-            if (!fromGroup || !toGroup) return;
-
-            var from = getGroupEdgePoints(fromGroup);
-            var to = getGroupEdgePoints(toGroup);
-            var ep = computeEdgeEndpoints(from, to);
-            setEdgePath(edge, calculateBezierPath(ep.x1, ep.y1, ep.x2, ep.y2));
+        edgeData.forEach(function(d) {
+            setEdgePath(d.edge, calculateBezierPath(d.x1, d.y1, d.x2, d.y2));
         });
     }
 
@@ -582,6 +607,8 @@
             requestAnimationFrame(function () {
                 recalculateViewerEdges();
                 recalculateBuilderEdges();
+                centerCanvasOnNodes('builder-canvas');
+                centerCanvasOnNodes('viewer-canvas');
             });
         }
 
@@ -711,28 +738,6 @@
         });
     });
 
-    // --- View Mode Toggle (icon-only vs icon+text) ---
-
-    document.addEventListener('click', function (e) {
-        var btn = e.target.closest('.view-mode-toggle');
-        if (!btn) return;
-        e.preventDefault();
-
-        // Toggle all groups on the page
-        document.querySelectorAll('.view-list').forEach(function (el) {
-            el.classList.toggle('hidden');
-        });
-        document.querySelectorAll('.view-icons').forEach(function (el) {
-            el.classList.toggle('hidden');
-        });
-
-        // Recalculate edge paths after DOM updates to new dimensions
-        requestAnimationFrame(function () {
-            recalculateViewerEdges();
-            recalculateBuilderEdges();
-        });
-    });
-
     // --- Edge Deletion (no confirm, just delete on click) ---
 
     document.addEventListener('click', function (e) {
@@ -748,6 +753,9 @@
 
         // Remove from DOM immediately
         if (edgeGroup) edgeGroup.remove();
+
+        // Recalculate remaining edges to redistribute
+        requestAnimationFrame(function() { recalculateBuilderEdges(); });
 
         // Persist to server
         if (edgeId) {
@@ -806,12 +814,43 @@
         }
     }, { passive: false });
 
-    // --- Initial edge recalculation on page load ---
+    // --- Auto-Center Canvas on Nodes ---
+
+    function centerCanvasOnNodes(canvasId) {
+        var canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        var groups = canvas.querySelectorAll('.builder-group, .viewer-group');
+        if (!groups.length) return;
+
+        var zoom = zoomLevels[canvasId] || 1;
+        var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        groups.forEach(function(g) {
+            var x = parseFloat(g.style.left);
+            var y = parseFloat(g.style.top);
+            var rect = g.getBoundingClientRect();
+            var w = rect.width / zoom;
+            var h = rect.height / zoom;
+            minX = Math.min(minX, x);
+            minY = Math.min(minY, y);
+            maxX = Math.max(maxX, x + w);
+            maxY = Math.max(maxY, y + h);
+        });
+
+        var contentCenterX = (minX + maxX) / 2;
+        var contentCenterY = (minY + maxY) / 2;
+
+        canvas.scrollLeft = contentCenterX * zoom - canvas.clientWidth / 2;
+        canvas.scrollTop = contentCenterY * zoom - canvas.clientHeight / 2;
+    }
+
+    // --- Initial edge recalculation and centering on page load ---
 
     document.addEventListener('DOMContentLoaded', function () {
         requestAnimationFrame(function () {
             recalculateViewerEdges();
             recalculateBuilderEdges();
+            centerCanvasOnNodes('builder-canvas');
+            centerCanvasOnNodes('viewer-canvas');
         });
     });
 })();

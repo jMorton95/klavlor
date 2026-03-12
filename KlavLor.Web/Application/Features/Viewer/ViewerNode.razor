@@ -52,7 +52,7 @@ else
                 else
                 {
                     <div class="flex items-center gap-1.5 mb-0.5">
-                        <span class="@($"text-[10px] font-bold uppercase tracking-wider {GetTypeTextColor()}")">@Node.NodeType</span>
+                        <span class="@($"text-[10px] font-bold uppercase tracking-wider {GetTypeTextColor()}")">@Node.Color</span>
                         @if (IsCompleted)
                         {
                             <svg class="w-3.5 h-3.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -69,28 +69,28 @@ else
     private string GetBorderColor()
     {
         if (IsCompleted) return "border-green-400";
-        return Node.NodeType switch
+        return Node.Color switch
         {
-            NodeType.Item => "border-amber-400",
-            NodeType.Skill => "border-blue-400",
-            NodeType.Prayer => "border-purple-400",
-            NodeType.Quest => "border-green-400",
-            NodeType.Construction => "border-orange-400",
-            NodeType.Slayer => "border-red-400",
-            NodeType.Spell => "border-indigo-400",
+            "amber" => "border-amber-400",
+            "blue" => "border-blue-400",
+            "purple" => "border-purple-400",
+            "green" => "border-green-400",
+            "orange" => "border-orange-400",
+            "red" => "border-red-400",
+            "indigo" => "border-indigo-400",
             _ => "border-slate-300"
         };
     }
 
-    private string GetTypeTextColor() => Node.NodeType switch
+    private string GetTypeTextColor() => Node.Color switch
     {
-        NodeType.Item => "text-amber-600",
-        NodeType.Skill => "text-blue-600",
-        NodeType.Prayer => "text-purple-600",
-        NodeType.Quest => "text-green-600",
-        NodeType.Construction => "text-orange-600",
-        NodeType.Slayer => "text-red-600",
-        NodeType.Spell => "text-indigo-600",
+        "amber" => "text-amber-600",
+        "blue" => "text-blue-600",
+        "purple" => "text-purple-600",
+        "green" => "text-green-600",
+        "orange" => "text-orange-600",
+        "red" => "text-red-600",
+        "indigo" => "text-indigo-600",
         _ => "text-slate-500"
     };
 }

@@ -37,4 +37,10 @@ public sealed class TemplateNode : Entity
 
     [Column(TypeName = "jsonb")]
     public string? Metadata { get; set; }
+
+    [Required]
+    public int SortOrder { get; set; }
+
+    [StringLength(20)]
+    public string Color { get; set; } = "amber";
 }

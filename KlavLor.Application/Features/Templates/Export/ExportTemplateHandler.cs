@@ -19,7 +19,8 @@ public sealed class ExportTemplateHandler(ITemplateRepository templateRepository
             template.Description,
             template.Nodes.Select(n => new ExportNode(
                 n.Id, n.Label, n.NodeType.ToString(),
-                n.PositionX, n.PositionY, n.Metadata, n.IconUrl
+                n.PositionX, n.PositionY, n.Metadata, n.IconUrl,
+                n.SortOrder, n.Color
             )).ToArray(),
             template.Edges.Select(e => new ExportEdge(
                 e.FromNodeId, e.ToNodeId

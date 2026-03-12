@@ -12,6 +12,8 @@
             <input type="hidden" name="NodeId" value="@NodeId" />
             <input type="hidden" name="Label" value="@Label" />
             <input type="hidden" name="IconUrl" value="@IconUrl" />
+            <input type="hidden" name="NodeType" value="@((int)CurrentNodeType)" />
+            <input type="hidden" name="Color" id="edit-color-input" value="@CurrentColor" />
             <div class="space-y-3">
                 @* OSRS Wiki Search *@
                 <div>
@@ -41,23 +43,23 @@
                     </div>
                 </div>
 
-                @* Node Type *@
+                @* Colour Picker *@
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Type</label>
-                    <select name="NodeType"
-                            class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none dark:bg-slate-800">
-                        @foreach (var type in Enum.GetValues<NodeType>())
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Colour</label>
+                    <div class="flex items-center gap-2" id="edit-color-swatch-picker">
+                        @foreach (var color in AvailableColors)
                         {
-                            if (type == CurrentNodeType)
-                            {
-                                <option value="@((int)type)" selected>@type</option>
-                            }
-                            else
-                            {
-                                <option value="@((int)type)">@type</option>
-                            }
+                            var isSelected = color == CurrentColor;
+                            var swatchClasses = GetSwatchClasses(color);
+                            var ringClass = isSelected ? GetRingClass(color) : "";
+                            <button type="button"
+                                    onclick="selectEditColor(this, '@color')"
+                                    class="edit-color-swatch w-6 h-6 rounded-full @swatchClasses cursor-pointer transition-all @ringClass"
+                                    data-color="@color"
+                                    data-ring-class="@GetRingClass(color)"
+                                    title="@color"></button>
                         }
-                    </select>
+                    </div>
                 </div>
             </div>
             <div class="flex justify-end gap-2 mt-5">
@@ -74,6 +76,18 @@
     </div>
 </div>
 
+<script>
+    function selectEditColor(btn, color) {
+        document.getElementById('edit-color-input').value = color;
+        document.querySelectorAll('#edit-color-swatch-picker .edit-color-swatch').forEach(function(s) {
+            var ring = s.dataset.ringClass;
+            if (ring) s.classList.remove(...ring.split(' '));
+        });
+        var ring = btn.dataset.ringClass;
+        if (ring) btn.classList.add(...ring.split(' '));
+    }
+</script>
+
 @code {
     [Parameter] public int TemplateId { get; set; }
     [Parameter] public int NodeId { get; set; }
@@ -81,4 +95,31 @@
     [Parameter] public string? IconUrl { get; set; }
     [Parameter] public NodeType CurrentNodeType { get; set; }
     [Parameter] public int? GroupId { get; set; }
+    [Parameter] public string CurrentColor { get; set; } = "amber";
+
+    private static readonly string[] AvailableColors = ["amber", "blue", "purple", "green", "orange", "red", "indigo"];
+
+    private static string GetSwatchClasses(string color) => color switch
+    {
+        "amber" => "bg-amber-400 border-2 border-amber-500",
+        "blue" => "bg-blue-400 border-2 border-blue-500",
+        "purple" => "bg-purple-400 border-2 border-purple-500",
+        "green" => "bg-green-400 border-2 border-green-500",
+        "orange" => "bg-orange-400 border-2 border-orange-500",
+        "red" => "bg-red-400 border-2 border-red-500",
+        "indigo" => "bg-indigo-400 border-2 border-indigo-500",
+        _ => "bg-slate-400 border-2 border-slate-500"
+    };
+
+    private static string GetRingClass(string color) => color switch
+    {
+        "amber" => "ring-2 ring-offset-2 ring-amber-400",
+        "blue" => "ring-2 ring-offset-2 ring-blue-400",
+        "purple" => "ring-2 ring-offset-2 ring-purple-400",
+        "green" => "ring-2 ring-offset-2 ring-green-400",
+        "orange" => "ring-2 ring-offset-2 ring-orange-400",
+        "red" => "ring-2 ring-offset-2 ring-red-400",
+        "indigo" => "ring-2 ring-offset-2 ring-indigo-400",
+        _ => "ring-2 ring-offset-2 ring-slate-400"
+    };
 }

@@ -7,4 +7,5 @@ public sealed class UpdateNodeCommand
     public string Label { get; set; } = "";
     public int NodeType { get; set; }
     public string? IconUrl { get; set; }
+    public string? Color { get; set; }
 }

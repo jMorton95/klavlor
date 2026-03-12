@@ -26,11 +26,11 @@ public sealed class AddNodeHandler(
         TemplateNode node;
         if (command.GroupId.HasValue)
         {
-            node = template.AddNode(command.Label, (NodeType)command.NodeType, command.PositionX, command.PositionY, iconUrl: command.IconUrl, groupId: command.GroupId);
+            node = template.AddNode(command.Label, (NodeType)command.NodeType, command.PositionX, command.PositionY, iconUrl: command.IconUrl, groupId: command.GroupId, color: command.Color);
         }
         else
         {
-            (_, node) = template.AddNodeToNewGroup(command.Label, (NodeType)command.NodeType, command.PositionX, command.PositionY, iconUrl: command.IconUrl);
+            (_, node) = template.AddNodeToNewGroup(command.Label, (NodeType)command.NodeType, command.PositionX, command.PositionY, iconUrl: command.IconUrl, color: command.Color);
         }
 
         await templateRepository.SaveTemplate(template);

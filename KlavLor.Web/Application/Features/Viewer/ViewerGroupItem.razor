@@ -2,7 +2,7 @@
 
 @{
     var completedClass = IsCompleted ? "bg-green-50 dark:bg-green-950" : "bg-white dark:bg-slate-800/90";
-    var borderColor = IsCompleted ? "border-green-400" : GetNodeBorderColor(Node.NodeType);
+    var borderColor = IsCompleted ? "border-green-400" : GetNodeBorderColor(Node.Color);
     var tooltip = IsCompleted && CompletedAt.HasValue
         ? $"{Node.Label} — Completed {CompletedAt.Value:MMM d, yyyy h:mm tt}"
         : Node.Label;
@@ -53,15 +53,15 @@ else
     [Parameter] public DateTimeOffset? CompletedAt { get; set; }
     [Parameter] public bool CanToggle { get; set; }
 
-    private static string GetNodeBorderColor(NodeType nodeType) => nodeType switch
+    private static string GetNodeBorderColor(string color) => color switch
     {
-        NodeType.Item => "border-amber-400",
-        NodeType.Skill => "border-blue-400",
-        NodeType.Prayer => "border-purple-400",
-        NodeType.Quest => "border-green-400",
-        NodeType.Construction => "border-orange-400",
-        NodeType.Slayer => "border-red-400",
-        NodeType.Spell => "border-indigo-400",
+        "amber" => "border-amber-400",
+        "blue" => "border-blue-400",
+        "purple" => "border-purple-400",
+        "green" => "border-green-400",
+        "orange" => "border-orange-400",
+        "red" => "border-red-400",
+        "indigo" => "border-indigo-400",
         _ => "border-slate-300"
     };
 }

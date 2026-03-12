@@ -93,6 +93,10 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
             .Property(n => n.NodeType)
             .HasConversion<string>();
 
+        modelBuilder.Entity<TemplateNode>()
+            .Property(n => n.Color)
+            .HasDefaultValue("amber");
+
         // TemplateEdge configuration
         modelBuilder.Entity<TemplateEdge>()
             .HasOne(e => e.Template)

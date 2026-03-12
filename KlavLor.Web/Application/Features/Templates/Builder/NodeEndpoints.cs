@@ -3,6 +3,7 @@ using KlavLor.Application.Features.Builder.AddNode;
 using KlavLor.Application.Features.Builder.UpdateNode;
 using KlavLor.Application.Features.Builder.UpdateNodePosition;
 using KlavLor.Application.Features.Builder.DeleteNode;
+using KlavLor.Application.Features.Builder.ReorderNode;
 using KlavLor.Application.Interfaces.Authentication;
 using KlavLor.Domain.Interfaces.Repositories;
 using KlavLor.Domain.Shared;
@@ -20,12 +21,12 @@ public sealed class NodeEndpoints : IEndpoint
         app.MapGet(AppRoutes.BuilderNodeEdit.FromApi(), GetEditModal).RequireAuthorization(nameof(RoleName.User));
         app.MapPut(AppRoutes.BuilderNode.FromApi(), UpdateNode).RequireAuthorization(nameof(RoleName.User));
         app.MapPut(AppRoutes.BuilderNodePosition.FromApi(), UpdateNodePosition).RequireAuthorization(nameof(RoleName.User));
+        app.MapPut(AppRoutes.BuilderNodeReorder.FromApi(), ReorderNode).RequireAuthorization(nameof(RoleName.User));
         return app.MapDelete(AppRoutes.BuilderNode.FromApi(), DeleteNode).RequireAuthorization(nameof(RoleName.User));
     }
 
     private static IResult GetCreateModal(
         int id,
-        [FromQuery] int nodeType,
         [FromQuery] double posX,
         [FromQuery] double posY,
         [FromQuery] int? groupId,
@@ -34,12 +35,9 @@ public sealed class NodeEndpoints : IEndpoint
         var userId = sessionManager.GetUserSessionId();
         if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
 
-        var nt = (Domain.Entities.NodeType)nodeType;
         return IResultExtensions.Component<NodeCreateModal>(new
         {
             TemplateId = id,
-            DefaultLabel = nt.ToString(),
-            DefaultNodeType = nt,
             PositionX = posX > 0 ? posX : 400,
             PositionY = posY > 0 ? posY : 300,
             GroupId = groupId
@@ -68,7 +66,7 @@ public sealed class NodeEndpoints : IEndpoint
         var node = result.Value!;
         var groupId = node.GroupId!.Value;
         var group = template.Groups.First(g => g.Id == groupId);
-        var groupNodes = template.Nodes.Where(n => n.GroupId == groupId).OrderBy(n => n.Id).ToList();
+        var groupNodes = template.Nodes.Where(n => n.GroupId == groupId).OrderBy(n => n.SortOrder).ThenBy(n => n.Id).ToList();
 
         return IResultExtensions.Component<BuilderGroup>(new
         {
@@ -100,7 +98,8 @@ public sealed class NodeEndpoints : IEndpoint
             Label = node.Label,
             IconUrl = node.IconUrl,
             CurrentNodeType = node.NodeType,
-            GroupId = node.GroupId
+            GroupId = node.GroupId,
+            CurrentColor = node.Color
         });
     }
 
@@ -127,7 +126,7 @@ public sealed class NodeEndpoints : IEndpoint
         if (node?.GroupId is null) return Microsoft.AspNetCore.Http.Results.NotFound();
 
         var group = template.Groups.First(g => g.Id == node.GroupId.Value);
-        var groupNodes = template.Nodes.Where(n => n.GroupId == node.GroupId.Value).OrderBy(n => n.Id).ToList();
+        var groupNodes = template.Nodes.Where(n => n.GroupId == node.GroupId.Value).OrderBy(n => n.SortOrder).ThenBy(n => n.Id).ToList();
 
         return IResultExtensions.Component<BuilderGroup>(new
         {
@@ -210,6 +209,37 @@ public sealed class NodeEndpoints : IEndpoint
             removedGroupPairs,
             groupId,
             groupStillExists
+        });
+    }
+
+    private static async Task<IResult> ReorderNode(
+        int id, int nodeId,
+        [FromQuery] string direction,
+        ISessionStateManager sessionManager,
+        ReorderNodeHandler handler,
+        ITemplateRepository templateRepository)
+    {
+        var userId = sessionManager.GetUserSessionId();
+        if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
+
+        var command = new ReorderNodeCommand { TemplateId = id, NodeId = nodeId, Direction = direction };
+        var result = await handler.Handle(command, userId.Value);
+        if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
+
+        var template = await templateRepository.GetById(id);
+        if (template is null) return Microsoft.AspNetCore.Http.Results.NotFound();
+
+        var node = template.Nodes.FirstOrDefault(n => n.Id == nodeId);
+        if (node?.GroupId is null) return Microsoft.AspNetCore.Http.Results.NotFound();
+
+        var group = template.Groups.First(g => g.Id == node.GroupId.Value);
+        var groupNodes = template.Nodes.Where(n => n.GroupId == node.GroupId.Value).OrderBy(n => n.SortOrder).ThenBy(n => n.Id).ToList();
+
+        return IResultExtensions.Component<BuilderGroup>(new
+        {
+            Group = group,
+            TemplateId = id,
+            GroupedNodes = groupNodes
         });
     }
 

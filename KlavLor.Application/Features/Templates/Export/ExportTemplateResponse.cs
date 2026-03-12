@@ -14,7 +14,9 @@ public sealed record ExportNode(
     double PositionX,
     double PositionY,
     string? Metadata,
-    string? IconUrl
+    string? IconUrl,
+    int SortOrder,
+    string Color
 );
 
 public sealed record ExportEdge(

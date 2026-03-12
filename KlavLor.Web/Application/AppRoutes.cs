@@ -40,6 +40,7 @@ public static class AppRoutes
     public const string BuilderNode = "/templates/{id:int}/builder/nodes/{nodeId:int}";
     public const string BuilderNodeEdit = "/templates/{id:int}/builder/nodes/{nodeId:int}/edit";
     public const string BuilderNodePosition = "/templates/{id:int}/builder/nodes/{nodeId:int}/position";
+    public const string BuilderNodeReorder = "/templates/{id:int}/builder/nodes/{nodeId:int}/reorder";
     public const string BuilderEdges = "/templates/{id:int}/builder/edges";
     public const string BuilderEdge = "/templates/{id:int}/builder/edges/{edgeId:int}";
 

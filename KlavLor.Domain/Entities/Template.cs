@@ -46,12 +46,14 @@ public sealed class Template : Entity
         IsPublic = isPublic;
     }
 
-    public TemplateNode AddNode(string label, NodeType nodeType, double positionX, double positionY, int? gearItemId = null, string? metadata = null, string? iconUrl = null, int? groupId = null)
+    public TemplateNode AddNode(string label, NodeType nodeType, double positionX, double positionY, int? gearItemId = null, string? metadata = null, string? iconUrl = null, int? groupId = null, string? color = null)
     {
         ValidatePosition(positionX, positionY);
 
         if (groupId is not null && _groups.All(g => g.Id != groupId))
             throw new DomainException("Group not found.");
+
+        var sortOrder = _nodes.Where(n => n.GroupId == groupId).Select(n => n.SortOrder).DefaultIfEmpty(-1).Max() + 1;
 
         var node = new TemplateNode
         {
@@ -63,13 +65,15 @@ public sealed class Template : Entity
             GearItemId = gearItemId,
             Metadata = metadata,
             IconUrl = iconUrl,
-            GroupId = groupId
+            GroupId = groupId,
+            SortOrder = sortOrder,
+            Color = color ?? "amber"
         };
         _nodes.Add(node);
         return node;
     }
 
-    public (TemplateNodeGroup group, TemplateNode node) AddNodeToNewGroup(string label, NodeType nodeType, double positionX, double positionY, int? gearItemId = null, string? metadata = null, string? iconUrl = null)
+    public (TemplateNodeGroup group, TemplateNode node) AddNodeToNewGroup(string label, NodeType nodeType, double positionX, double positionY, int? gearItemId = null, string? metadata = null, string? iconUrl = null, string? color = null)
     {
         ValidatePosition(positionX, positionY);
 
@@ -91,11 +95,39 @@ public sealed class Template : Entity
             GearItemId = gearItemId,
             Metadata = metadata,
             IconUrl = iconUrl,
-            Group = group
+            Group = group,
+            SortOrder = 0,
+            Color = color ?? "amber"
         };
         _nodes.Add(node);
 
         return (group, node);
+    }
+
+    public void MoveNodeUp(int nodeId)
+    {
+        var node = _nodes.SingleOrDefault(n => n.Id == nodeId);
+        if (node == null) throw new DomainException("Node not found.");
+
+        var groupNodes = _nodes.Where(n => n.GroupId == node.GroupId).OrderBy(n => n.SortOrder).ThenBy(n => n.Id).ToList();
+        var idx = groupNodes.IndexOf(node);
+        if (idx <= 0) return;
+
+        var prev = groupNodes[idx - 1];
+        (node.SortOrder, prev.SortOrder) = (prev.SortOrder, node.SortOrder);
+    }
+
+    public void MoveNodeDown(int nodeId)
+    {
+        var node = _nodes.SingleOrDefault(n => n.Id == nodeId);
+        if (node == null) throw new DomainException("Node not found.");
+
+        var groupNodes = _nodes.Where(n => n.GroupId == node.GroupId).OrderBy(n => n.SortOrder).ThenBy(n => n.Id).ToList();
+        var idx = groupNodes.IndexOf(node);
+        if (idx < 0 || idx >= groupNodes.Count - 1) return;
+
+        var next = groupNodes[idx + 1];
+        (node.SortOrder, next.SortOrder) = (next.SortOrder, node.SortOrder);
     }
 
     public TemplateEdge AddEdge(int fromNodeId, int toNodeId)

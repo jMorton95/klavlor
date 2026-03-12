@@ -5,8 +5,7 @@
      style="left: @(Group.PositionX)px; top: @(Group.PositionY)px; z-index: 2;">
 
     <div class="bg-white/90 dark:bg-slate-800/90 rounded-lg border-2 border-slate-400 dark:border-slate-500 shadow-md">
-        @* List view (icon + text) *@
-        <div class="view-list p-1.5 space-y-0.5">
+        <div class="p-1.5 space-y-0.5">
             @foreach (var node in GroupedNodes)
             {
                 var completedAt = CompletionDates.GetValueOrDefault(node.Id);
@@ -15,67 +14,6 @@
                                  CompletedAt="@(completedAt != default ? completedAt : null)"
                                  CanToggle="@CanTrackCompletion" />
             }
-        </div>
-
-        @* Icon-only view (compact grid) *@
-        <div class="view-icons hidden p-1.5">
-            <div class="flex flex-wrap gap-1">
-                @foreach (var node in GroupedNodes)
-                {
-                    var completedAt = CompletionDates.GetValueOrDefault(node.Id);
-                    var isCompleted = completedAt != default;
-                    var borderColor = isCompleted ? "border-green-400" : GetNodeBorderColor(node.NodeType);
-                    var bgColor = isCompleted ? "bg-green-50 dark:bg-green-950" : "bg-white dark:bg-slate-800";
-                    var tooltip = isCompleted ? $"{node.Label} — Completed {completedAt:MMM d, yyyy h:mm tt}" : node.Label;
-
-                    if (CanTrackCompletion)
-                    {
-                        <div id="viewer-icon-@node.Id"
-                             class="relative rounded border-2 @borderColor @bgColor shadow-sm w-8 h-8 flex items-center justify-center cursor-pointer"
-                             data-completed="@isCompleted.ToString().ToLower()"
-                             title="@tooltip"
-                             hx-post="@($"/api/templates/{TemplateId}/completion/{node.Id}")"
-                             hx-target="@($"#viewer-node-{node.Id}")"
-                             hx-swap="outerHTML">
-                            @if (!string.IsNullOrEmpty(node.IconUrl))
-                            {
-                                <img src="@node.IconUrl" alt="" class="w-6 h-6 object-contain" loading="lazy" onerror="this.style.display='none'" />
-                            }
-                            else
-                            {
-                                <span class="text-[8px] font-bold text-slate-500 dark:text-slate-400">@node.Label[..Math.Min(2, node.Label.Length)]</span>
-                            }
-                            @if (isCompleted)
-                            {
-                                <svg class="absolute -top-1 -right-1 w-3 h-3 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
-                                </svg>
-                            }
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="rounded border-2 @borderColor @bgColor shadow-sm w-8 h-8 flex items-center justify-center"
-                             data-completed="@isCompleted.ToString().ToLower()"
-                             title="@tooltip">
-                            @if (!string.IsNullOrEmpty(node.IconUrl))
-                            {
-                                <img src="@node.IconUrl" alt="" class="w-6 h-6 object-contain" loading="lazy" onerror="this.style.display='none'" />
-                            }
-                            else
-                            {
-                                <span class="text-[8px] font-bold text-slate-500 dark:text-slate-400">@node.Label[..Math.Min(2, node.Label.Length)]</span>
-                            }
-                            @if (isCompleted)
-                            {
-                                <svg class="absolute -top-1 -right-1 w-3 h-3 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
-                                </svg>
-                            }
-                        </div>
-                    }
-                }
-            </div>
         </div>
     </div>
 </div>
@@ -86,16 +24,4 @@
     [Parameter] public List<TemplateNode> GroupedNodes { get; set; } = [];
     [Parameter] public Dictionary<int, DateTimeOffset> CompletionDates { get; set; } = [];
     [Parameter] public bool CanTrackCompletion { get; set; }
-
-    private static string GetNodeBorderColor(NodeType nodeType) => nodeType switch
-    {
-        NodeType.Item => "border-amber-400",
-        NodeType.Skill => "border-blue-400",
-        NodeType.Prayer => "border-purple-400",
-        NodeType.Quest => "border-green-400",
-        NodeType.Construction => "border-orange-400",
-        NodeType.Slayer => "border-red-400",
-        NodeType.Spell => "border-indigo-400",
-        _ => "border-slate-300"
-    };
 }

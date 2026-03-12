@@ -31,6 +31,8 @@ public sealed class UpdateNodeHandler(
         node.Label = command.Label;
         node.NodeType = (NodeType)command.NodeType;
         node.IconUrl = command.IconUrl;
+        if (!string.IsNullOrEmpty(command.Color))
+            node.Color = command.Color;
         await templateRepository.SaveTemplate(template);
 
         return Result.Success();
