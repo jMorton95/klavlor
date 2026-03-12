@@ -12,8 +12,8 @@ public sealed class UpdateNodeValidator : AbstractValidator<UpdateNodeCommand>
         RuleFor(x => x.NodeType).InclusiveBetween(0, 6);
         RuleFor(x => x.IconUrl)
             .Must(url => string.IsNullOrEmpty(url)
-                || url.StartsWith("/api/images/")
+                || url.StartsWith("data:image/")
                 || (Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.Scheme == "https"))
-            .WithMessage("Icon URL must be a valid HTTPS URL or a cached image path.");
+            .WithMessage("Icon URL must be a valid HTTPS URL or an embedded image.");
     }
 }

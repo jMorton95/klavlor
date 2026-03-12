@@ -9,11 +9,30 @@ public sealed class ImageCacheService(
     ICachedImageRepository cachedImageRepository,
     ILogger<ImageCacheService> logger) : IImageCacheService
 {
+    private const int MaxImageSizeBytes = 4 * 1024 * 1024; // 4MB
+
+    private static readonly string[] AllowedHosts =
+    [
+        "oldschool.runescape.wiki",
+        "secure.runescape.com"
+    ];
+
+    private static readonly string[] AllowedContentTypePrefixes =
+    [
+        "image/"
+    ];
+
     public async Task<CachedImage?> GetOrCache(string sourceUrl)
     {
         var existing = await cachedImageRepository.GetBySourceUrl(sourceUrl);
         if (existing is not null)
             return existing;
+
+        if (!IsAllowedUrl(sourceUrl))
+        {
+            logger.LogWarning("Blocked image fetch from disallowed URL: {Url}", sourceUrl);
+            return null;
+        }
 
         try
         {
@@ -24,8 +43,26 @@ public sealed class ImageCacheService(
                 return null;
             }
 
+            var contentType = response.Content.Headers.ContentType?.MediaType ?? "";
+            if (!AllowedContentTypePrefixes.Any(prefix => contentType.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
+            {
+                logger.LogWarning("Blocked non-image content type {ContentType} from {Url}", contentType, sourceUrl);
+                return null;
+            }
+
+            var contentLength = response.Content.Headers.ContentLength;
+            if (contentLength > MaxImageSizeBytes)
+            {
+                logger.LogWarning("Image too large ({Size} bytes) from {Url}", contentLength, sourceUrl);
+                return null;
+            }
+
             var imageData = await response.Content.ReadAsByteArrayAsync();
-            var contentType = response.Content.Headers.ContentType?.MediaType ?? "image/png";
+            if (imageData.Length > MaxImageSizeBytes)
+            {
+                logger.LogWarning("Image too large ({Size} bytes) from {Url}", imageData.Length, sourceUrl);
+                return null;
+            }
 
             var cached = new CachedImage
             {
@@ -42,5 +79,12 @@ public sealed class ImageCacheService(
             logger.LogWarning(ex, "Failed to fetch and cache image from {Url}", sourceUrl);
             return null;
         }
+    }
+
+    private static bool IsAllowedUrl(string url)
+    {
+        return Uri.TryCreate(url, UriKind.Absolute, out var uri)
+               && uri.Scheme == "https"
+               && AllowedHosts.Any(host => uri.Host.Equals(host, StringComparison.OrdinalIgnoreCase));
     }
 }

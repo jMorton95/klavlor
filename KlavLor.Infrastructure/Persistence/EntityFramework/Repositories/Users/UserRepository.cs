@@ -89,12 +89,12 @@ internal sealed class UserRepository(DataContext dataContext, ILogger<UserReposi
         }
         catch (DbUpdateException ex)
         {
-            logger.LogError(ex, "Failed to save user {User}", user);
+            logger.LogError(ex, "Failed to save user {UserId}", user.Id);
             throw new RepositoryException("Failed to save user", ex);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Unexpected error saving user {User}", user);
+            logger.LogError(ex, "Unexpected error saving user {UserId}", user.Id);
             throw new RepositoryException("Unexpected error saving user", ex);
         }
     }

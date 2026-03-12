@@ -5,7 +5,7 @@ public sealed record TemplateSearchResponse(
     string Name,
     string? Description,
     bool IsPublic,
-    string ShareToken,
+    string? ShareToken,
     int NodeCount,
     DateTimeOffset SavedAt,
     string CreatedByName,

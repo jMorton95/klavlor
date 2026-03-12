@@ -8,7 +8,7 @@ public sealed class ImportTemplateValidator : AbstractValidator<ImportTemplateCo
     {
         RuleFor(x => x.Name).NotEmpty().MaximumLength(100)
             .WithMessage("Template name is required and must be 100 characters or less.");
-        RuleFor(x => x.JsonData).NotEmpty()
-            .WithMessage("Progression data is required.");
+        RuleFor(x => x.JsonData).NotEmpty().MaximumLength(5_000_000)
+            .WithMessage("Progression data is required and must be under 5MB.");
     }
 }

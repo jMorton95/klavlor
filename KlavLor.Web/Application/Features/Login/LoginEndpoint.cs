@@ -9,7 +9,7 @@ public sealed class LoginEndpoint : IEndpoint
 {
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
-        return app.MapPost(AppRoutes.Login.FromApi(), Endpoint).AllowAnonymous();
+        return app.MapPost(AppRoutes.Login.FromApi(), Endpoint).AllowAnonymous().RequireRateLimiting("login");
     }
 
     private static async Task<Results<HtmxRedirectResult, RazorComponentResult>> Endpoint(
