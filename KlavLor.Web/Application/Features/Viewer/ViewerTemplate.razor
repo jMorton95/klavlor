@@ -35,10 +35,10 @@
                         <span class="text-slate-300 dark:text-slate-600">|</span>
                         <div class="flex items-center gap-2 text-sm">
                             <span class="text-slate-500 dark:text-slate-400">Progress:</span>
-                            <span class="font-semibold text-amber-600 dark:text-amber-400">@_response.CompletedNodeIds.Count / @_response.Template.Nodes.Count</span>
+                            <span class="font-semibold text-amber-600 dark:text-amber-400">@_response.CompletionDates.Count / @_response.Template.Nodes.Count</span>
                             @if (_response.Template.Nodes.Count > 0)
                             {
-                                var pct = (int)(_response.CompletedNodeIds.Count * 100.0 / _response.Template.Nodes.Count);
+                                var pct = (int)(_response.CompletionDates.Count * 100.0 / _response.Template.Nodes.Count);
                                 <div class="w-24 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
                                     <div class="h-full bg-amber-500 rounded-full transition-all duration-300" style="width: @(pct)%"></div>
                                 </div>
@@ -59,7 +59,7 @@
                     }
                 </div>
             </div>
-            <ViewerCanvas Template="@_response.Template" CompletedNodeIds="@_response.CompletedNodeIds" CanTrackCompletion="@_response.CanTrackCompletion" />
+            <ViewerCanvas Template="@_response.Template" CompletionDates="@_response.CompletionDates" CanTrackCompletion="@_response.CanTrackCompletion" />
         </div>
     }
 </PageLayout>

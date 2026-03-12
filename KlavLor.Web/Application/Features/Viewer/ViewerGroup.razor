@@ -9,8 +9,10 @@
         <div class="view-list p-1.5 space-y-0.5">
             @foreach (var node in GroupedNodes)
             {
+                var completedAt = CompletionDates.GetValueOrDefault(node.Id);
                 <ViewerGroupItem Node="@node" TemplateId="@TemplateId"
-                                 IsCompleted="@CompletedNodeIds.Contains(node.Id)"
+                                 IsCompleted="@(completedAt != default)"
+                                 CompletedAt="@(completedAt != default ? completedAt : null)"
                                  CanToggle="@CanTrackCompletion" />
             }
         </div>
@@ -20,16 +22,18 @@
             <div class="flex flex-wrap gap-1">
                 @foreach (var node in GroupedNodes)
                 {
-                    var borderColor = CompletedNodeIds.Contains(node.Id) ? "border-green-400" : GetNodeBorderColor(node.NodeType);
-                    var bgColor = CompletedNodeIds.Contains(node.Id) ? "bg-green-50 dark:bg-green-950" : "bg-white dark:bg-slate-800";
-                    var isCompleted = CompletedNodeIds.Contains(node.Id);
+                    var completedAt = CompletionDates.GetValueOrDefault(node.Id);
+                    var isCompleted = completedAt != default;
+                    var borderColor = isCompleted ? "border-green-400" : GetNodeBorderColor(node.NodeType);
+                    var bgColor = isCompleted ? "bg-green-50 dark:bg-green-950" : "bg-white dark:bg-slate-800";
+                    var tooltip = isCompleted ? $"{node.Label} — Completed {completedAt:MMM d, yyyy h:mm tt}" : node.Label;
 
                     if (CanTrackCompletion)
                     {
                         <div id="viewer-icon-@node.Id"
                              class="relative rounded border-2 @borderColor @bgColor shadow-sm w-8 h-8 flex items-center justify-center cursor-pointer"
                              data-completed="@isCompleted.ToString().ToLower()"
-                             title="@node.Label"
+                             title="@tooltip"
                              hx-post="@($"/api/templates/{TemplateId}/completion/{node.Id}")"
                              hx-target="@($"#viewer-node-{node.Id}")"
                              hx-swap="outerHTML">
@@ -53,7 +57,7 @@
                     {
                         <div class="rounded border-2 @borderColor @bgColor shadow-sm w-8 h-8 flex items-center justify-center"
                              data-completed="@isCompleted.ToString().ToLower()"
-                             title="@node.Label">
+                             title="@tooltip">
                             @if (!string.IsNullOrEmpty(node.IconUrl))
                             {
                                 <img src="@node.IconUrl" alt="" class="w-6 h-6 object-contain" loading="lazy" onerror="this.style.display='none'" />
@@ -80,7 +84,7 @@
     [Parameter] public required TemplateNodeGroup Group { get; set; }
     [Parameter] public int TemplateId { get; set; }
     [Parameter] public List<TemplateNode> GroupedNodes { get; set; } = [];
-    [Parameter] public HashSet<int> CompletedNodeIds { get; set; } = [];
+    [Parameter] public Dictionary<int, DateTimeOffset> CompletionDates { get; set; } = [];
     [Parameter] public bool CanTrackCompletion { get; set; }
 
     private static string GetNodeBorderColor(NodeType nodeType) => nodeType switch

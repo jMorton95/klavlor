@@ -4,7 +4,7 @@ namespace KlavLor.Application.Features.Viewer.ViewerData;
 
 public sealed record ViewerDataResponse(
     Template Template,
-    HashSet<int> CompletedNodeIds,
+    Dictionary<int, DateTimeOffset> CompletionDates,
     bool IsOwner,
     bool CanTrackCompletion
 );

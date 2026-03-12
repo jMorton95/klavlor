@@ -37,6 +37,7 @@ public sealed class CompletionEndpoint : IEndpoint
         if (node is null) return Microsoft.AspNetCore.Http.Results.NotFound();
 
         var isCompleted = await completionRepository.IsCompleted(userId.Value, nodeId);
+        DateTimeOffset? completedAt = isCompleted ? DateTimeOffset.UtcNow : null;
 
         if (node.GroupId.HasValue)
         {
@@ -46,6 +47,7 @@ public sealed class CompletionEndpoint : IEndpoint
                 Node = node,
                 TemplateId = id,
                 IsCompleted = isCompleted,
+                CompletedAt = completedAt,
                 CanToggle = true
             });
         }
@@ -56,6 +58,7 @@ public sealed class CompletionEndpoint : IEndpoint
             Node = node,
             TemplateId = id,
             IsCompleted = isCompleted,
+            CompletedAt = completedAt,
             CanToggle = true
         });
     }

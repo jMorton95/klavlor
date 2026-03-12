@@ -33,7 +33,7 @@ public sealed class ViewerEndpoint : IEndpoint
         return IResultExtensions.Component<ViewerPage>(new
         {
             Template = template,
-            CompletedNodeIds = result.Value.CompletedNodeIds,
+            CompletionDates = result.Value.CompletionDates,
             IsOwner = result.Value.IsOwner,
             CanTrackCompletion = result.Value.CanTrackCompletion
         });

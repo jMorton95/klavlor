@@ -29,10 +29,10 @@
                 <span class="text-slate-300 dark:text-slate-600">|</span>
                 <div class="flex items-center gap-2 text-sm">
                     <span class="text-slate-500 dark:text-slate-400">Progress:</span>
-                    <span class="font-semibold text-amber-600 dark:text-amber-400">@CompletedNodeIds.Count / @Template.Nodes.Count</span>
+                    <span class="font-semibold text-amber-600 dark:text-amber-400">@CompletionDates.Count / @Template.Nodes.Count</span>
                     @if (Template.Nodes.Count > 0)
                     {
-                        var pct = (int)(CompletedNodeIds.Count * 100.0 / Template.Nodes.Count);
+                        var pct = (int)(CompletionDates.Count * 100.0 / Template.Nodes.Count);
                         <div class="w-24 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
                             <div class="h-full bg-amber-500 rounded-full transition-all duration-300" style="width: @(pct)%"></div>
                         </div>
@@ -55,12 +55,12 @@
     </div>
 
     @* Canvas *@
-    <ViewerCanvas Template="@Template" CompletedNodeIds="@CompletedNodeIds" CanTrackCompletion="@CanTrackCompletion" />
+    <ViewerCanvas Template="@Template" CompletionDates="@CompletionDates" CanTrackCompletion="@CanTrackCompletion" />
 </div>
 
 @code {
     [Parameter] public required Template Template { get; set; }
-    [Parameter] public HashSet<int> CompletedNodeIds { get; set; } = [];
+    [Parameter] public Dictionary<int, DateTimeOffset> CompletionDates { get; set; } = [];
     [Parameter] public bool IsOwner { get; set; }
     [Parameter] public bool CanTrackCompletion { get; set; }
 }

@@ -22,20 +22,25 @@ else
     [Parameter] public required TemplateNode Node { get; set; }
     [Parameter] public int TemplateId { get; set; }
     [Parameter] public bool IsCompleted { get; set; }
+    [Parameter] public DateTimeOffset? CompletedAt { get; set; }
     [Parameter] public bool CanToggle { get; set; }
+
+    private string Tooltip => IsCompleted && CompletedAt.HasValue
+        ? $"{Node.Label} — Completed {CompletedAt.Value:MMM d, yyyy h:mm tt}"
+        : Node.Label;
 
     private RenderFragment NodeContent => __builder =>
     {
         var completedClasses = IsCompleted ? "border-green-400 bg-green-50" : "bg-white";
 
-        <div class="@($"flex items-center rounded-lg shadow-sm border-2 {GetBorderColor()} {completedClasses} hover:shadow-md transition-all w-[140px]")">
+        <div class="@($"flex items-center rounded-lg shadow-sm border-2 {GetBorderColor()} {completedClasses} hover:shadow-md transition-all w-[140px]")" title="@Tooltip">
             <div class="flex-1 px-2 py-1.5 min-w-0">
                 @if (!string.IsNullOrEmpty(Node.IconUrl))
                 {
                     <div class="flex items-center gap-1.5">
                         <img src="@Node.IconUrl" alt="" class="w-7 h-7 object-contain flex-shrink-0"
                              onerror="this.style.display='none'" />
-                        <p class="text-xs font-medium text-slate-800 truncate" title="@Node.Label">@Node.Label</p>
+                        <p class="text-xs font-medium text-slate-800 truncate">@Node.Label</p>
                         @if (IsCompleted)
                         {
                             <svg class="w-3.5 h-3.5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -55,7 +60,7 @@ else
                             </svg>
                         }
                     </div>
-                    <p class="text-xs font-medium text-slate-800 truncate" title="@Node.Label">@Node.Label</p>
+                    <p class="text-xs font-medium text-slate-800 truncate">@Node.Label</p>
                 }
             </div>
         </div>

@@ -25,18 +25,18 @@ public sealed class ViewerDataHandler(
         if (!template.IsPublic && !isOwner)
             return Result<ViewerDataResponse>.Failure("Not authorized");
 
-        var completedNodeIds = new HashSet<int>();
+        var completionDates = new Dictionary<int, DateTimeOffset>();
         var canTrackCompletion = isOwner;
 
         if (userId.HasValue)
         {
             var completions = await completionRepository.GetByUserAndTemplate(userId.Value, template.Id);
-            completedNodeIds = completions.Select(c => c.TemplateNodeId).ToHashSet();
+            completionDates = completions.ToDictionary(c => c.TemplateNodeId, c => c.CompletedAt);
         }
 
         return Result<ViewerDataResponse>.Success(new ViewerDataResponse(
             template,
-            completedNodeIds,
+            completionDates,
             isOwner,
             canTrackCompletion
         ));

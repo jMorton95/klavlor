@@ -81,8 +81,8 @@
                     else { x1 = fx + fw / 2; y1 = fy; x2 = tx + tw / 2; y2 = ty + th; }
                 }
 
-                var allFromCompleted = nodesByGroup.GetValueOrDefault(fromGid!.Value)?.All(n => CompletedNodeIds.Contains(n.Id)) ?? false;
-                var allToCompleted = nodesByGroup.GetValueOrDefault(toGid!.Value)?.All(n => CompletedNodeIds.Contains(n.Id)) ?? false;
+                var allFromCompleted = nodesByGroup.GetValueOrDefault(fromGid!.Value)?.All(n => CompletionDates.ContainsKey(n.Id)) ?? false;
+                var allToCompleted = nodesByGroup.GetValueOrDefault(toGid!.Value)?.All(n => CompletionDates.ContainsKey(n.Id)) ?? false;
                 var isCompleted = allFromCompleted && allToCompleted;
                 var strokeColor = isCompleted ? "#22c55e" : "#94a3b8";
                 var markerRef = isCompleted ? "url(#viewer-arrowhead-completed)" : "url(#viewer-arrowhead)";
@@ -114,7 +114,7 @@
         {
             var groupNodes = Template.Nodes.Where(n => n.GroupId == group.Id).OrderBy(n => n.Id).ToList();
             <ViewerGroup Group="@group" TemplateId="@Template.Id" GroupedNodes="@groupNodes"
-                         CompletedNodeIds="@CompletedNodeIds" CanTrackCompletion="@CanTrackCompletion" />
+                         CompletionDates="@CompletionDates" CanTrackCompletion="@CanTrackCompletion" />
         }
 
         @if (!Template.Nodes.Any())
@@ -128,6 +128,6 @@
 
 @code {
     [Parameter] public required Template Template { get; set; }
-    [Parameter] public HashSet<int> CompletedNodeIds { get; set; } = [];
+    [Parameter] public Dictionary<int, DateTimeOffset> CompletionDates { get; set; } = [];
     [Parameter] public bool CanTrackCompletion { get; set; }
 }

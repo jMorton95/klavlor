@@ -25,7 +25,7 @@ public sealed class ShareEndpoint : IEndpoint
         return IResultExtensions.Component<ViewerPage>(new
         {
             Template = result.Value.Template,
-            CompletedNodeIds = result.Value.CompletedNodeIds,
+            CompletionDates = result.Value.CompletionDates,
             IsOwner = result.Value.IsOwner,
             CanTrackCompletion = result.Value.CanTrackCompletion
         });
