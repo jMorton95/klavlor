@@ -260,9 +260,10 @@
         const innerEl = canvas.firstElementChild;
         const canvasRect = innerEl.getBoundingClientRect();
         const portRect = port.getBoundingClientRect();
+        const zoom = zoomLevels[canvas.id] || 1;
 
-        const startX = portRect.left + portRect.width / 2 - canvasRect.left;
-        const startY = portRect.top + portRect.height / 2 - canvasRect.top;
+        const startX = (portRect.left + portRect.width / 2 - canvasRect.left) / zoom;
+        const startY = (portRect.top + portRect.height / 2 - canvasRect.top) / zoom;
 
         connectState = {
             fromGroupId: getPortId(port),
@@ -417,10 +418,11 @@
             if (!canvas) return;
             var innerEl = canvas.firstElementChild;
             var canvasRect = innerEl.getBoundingClientRect();
+            var zoom = zoomLevels[canvas.id] || 1;
             var tempLine = document.getElementById('temp-edge-line');
             if (tempLine) {
-                tempLine.setAttribute('x2', e.clientX - canvasRect.left);
-                tempLine.setAttribute('y2', e.clientY - canvasRect.top);
+                tempLine.setAttribute('x2', (e.clientX - canvasRect.left) / zoom);
+                tempLine.setAttribute('y2', (e.clientY - canvasRect.top) / zoom);
             }
         }
 
