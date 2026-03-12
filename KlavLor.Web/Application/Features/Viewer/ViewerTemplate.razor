@@ -13,38 +13,52 @@
 <PageLayout PageTitle="@($"KlavLor - {_response?.Template.Name}")" Title="@(_response?.Template.Name ?? "")" Description="@(_response?.Template.Description ?? "Gear Progression Template")">
     @if (_response is not null)
     {
-        <div class="space-y-4">
-            <div class="flex items-center justify-between bg-white rounded-lg border border-slate-200 px-4 py-3">
-                <div class="flex items-center gap-4">
-                    <div class="flex items-center gap-2">
-                        @if (_response.Template.IsPublic)
-                        {
-                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Public</span>
-                        }
-                        else
-                        {
-                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">Private</span>
-                        }
-                        <span class="text-sm text-slate-500">by @(_response.Template.CreatedBy?.FirstName ?? "Unknown") @(_response.Template.CreatedBy?.LastName ?? "")</span>
-                    </div>
+        <div class="flex flex-col h-[calc(100vh-8rem)] gap-4 overflow-hidden">
+            <div class="flex items-center justify-between bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-3">
+                <div class="flex items-center gap-3">
+                    <a hx-get="@AppRoutes.TemplatesSearch.FromApi()" hx-target="#hx-page-container" hx-push-url="@AppRoutes.TemplatesSearch" hx-swap="innerHTML transition:true"
+                       class="text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 flex items-center gap-1 cursor-pointer">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                        Back to Templates
+                    </a>
+                    <span class="text-slate-300 dark:text-slate-600">|</span>
+                    <span class="text-sm font-medium text-slate-700 dark:text-slate-300">@_response.Template.Name</span>
+                    @if (_response.Template.IsPublic)
+                    {
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300">Public</span>
+                    }
+                    else
+                    {
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">Private</span>
+                    }
+                    <span class="text-sm text-slate-500 dark:text-slate-400">by @(_response.Template.CreatedBy?.FirstName ?? "Unknown") @(_response.Template.CreatedBy?.LastName ?? "")</span>
                     @if (_response.CanTrackCompletion)
                     {
+                        <span class="text-slate-300 dark:text-slate-600">|</span>
                         <div class="flex items-center gap-2 text-sm">
-                            <span class="text-slate-500">Progress:</span>
-                            <span class="font-semibold text-amber-600">@_response.CompletedNodeIds.Count / @_response.Template.Nodes.Count</span>
+                            <span class="text-slate-500 dark:text-slate-400">Progress:</span>
+                            <span class="font-semibold text-amber-600 dark:text-amber-400">@_response.CompletedNodeIds.Count / @_response.Template.Nodes.Count</span>
+                            @if (_response.Template.Nodes.Count > 0)
+                            {
+                                var pct = (int)(_response.CompletedNodeIds.Count * 100.0 / _response.Template.Nodes.Count);
+                                <div class="w-24 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                                    <div class="h-full bg-amber-500 rounded-full transition-all duration-300" style="width: @(pct)%"></div>
+                                </div>
+                            }
                         </div>
                     }
                 </div>
                 <div class="flex items-center gap-2">
+                    <button type="button" class="view-mode-toggle inline-flex items-center px-2 py-1 text-xs font-medium rounded-md border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-400 cursor-pointer" title="Toggle icon-only view">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+                    </button>
                     @if (_response.IsOwner)
                     {
                         <a hx-get="@AppRoutes.Builder.WithId(_response.Template.Id).FromApi()" hx-target="#hx-page-container" hx-push-url="@AppRoutes.Builder.WithId(_response.Template.Id)" hx-swap="innerHTML transition:true"
-                           class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-amber-600 border border-amber-300 rounded-lg hover:bg-amber-50 transition-colors cursor-pointer">
+                           class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-amber-600 dark:text-amber-400 border border-amber-300 dark:border-amber-600 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950 transition-colors cursor-pointer">
                             Edit in Builder
                         </a>
                     }
-                    <a hx-get="@AppRoutes.TemplatesSearch.FromApi()" hx-target="#hx-page-container" hx-push-url="@AppRoutes.TemplatesSearch" hx-swap="innerHTML transition:true"
-                       class="text-sm text-slate-500 hover:text-slate-700 cursor-pointer">Back to Templates</a>
                 </div>
             </div>
             <ViewerCanvas Template="@_response.Template" CompletedNodeIds="@_response.CompletedNodeIds" CanTrackCompletion="@_response.CanTrackCompletion" />
