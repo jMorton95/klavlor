@@ -30,7 +30,7 @@
                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">Private</span>
                     }
                     <span class="text-sm text-slate-500 dark:text-slate-400">by @(_response.Template.CreatedBy?.FirstName ?? "Unknown") @(_response.Template.CreatedBy?.LastName ?? "")</span>
-                    @if (_response.CanTrackCompletion)
+                    @if (_response.CompletionDates.Count > 0 || _response.CanTrackCompletion)
                     {
                         <span class="text-slate-300 dark:text-slate-600">|</span>
                         <div class="flex items-center gap-2 text-sm">

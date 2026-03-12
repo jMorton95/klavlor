@@ -23,14 +23,12 @@ public sealed class ViewerDataHandler(
         if (!template.IsPublic && !isOwner)
             return Result<ViewerDataResponse>.Failure("Not authorized");
 
-        var completionDates = new Dictionary<int, DateTimeOffset>();
         var canTrackCompletion = isOwner;
 
-        if (userId.HasValue)
-        {
-            var completions = await completionRepository.GetByUserAndTemplate(userId.Value, template.Id);
-            completionDates = completions.ToDictionary(c => c.TemplateNodeId, c => c.CompletedAt);
-        }
+        // Always load the owner's completions so every viewer sees the template's
+        // progress state. Only the owner can toggle (enforced by ToggleCompletionHandler).
+        var completions = await completionRepository.GetByUserAndTemplate(template.CreatedById, template.Id);
+        var completionDates = completions.ToDictionary(c => c.TemplateNodeId, c => c.CompletedAt);
 
         return Result<ViewerDataResponse>.Success(new ViewerDataResponse(
             template,
