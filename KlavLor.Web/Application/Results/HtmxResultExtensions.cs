@@ -11,7 +11,7 @@ public static class HttpResultExtensions
         public static HtmxRefreshResult HtmxRefresh() => new();
 
         public static RazorComponentResult Component<T>(object? parameters = null) where T : ComponentBase
-            => new RazorComponentResult<T>(parameters!);
+            => parameters is null ? new RazorComponentResult<T>() : new RazorComponentResult<T>(parameters);
 
         public static HtmxRetargetResult HtmxRetargetResult<T>(string target, object? parameters = null, string? swapOverride = null) where T : ComponentBase =>
             new(target, Component<T>(parameters), swapOverride);
