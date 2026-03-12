@@ -9,15 +9,18 @@
                    hx-include="[name='sortBy'], [name='sortDirection']"
                    class="px-4 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
         </div>
-        <div class="flex items-center gap-2">
-            <a href="@AppRoutes.TemplatesCreate" hx-get="@AppRoutes.TemplatesCreate.FromApi()" hx-target="#hx-page-container" hx-push-url="@AppRoutes.TemplatesCreate" hx-swap="innerHTML transition:true"
-               class="inline-flex items-center px-4 py-2 bg-amber-600 text-white text-sm font-semibold rounded-lg hover:bg-amber-700 transition-colors">
-                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                </svg>
-                New Template
-            </a>
-        </div>
+        @if (IsAuthenticated)
+        {
+            <div class="flex items-center gap-2">
+                <a href="@AppRoutes.TemplatesCreate" hx-get="@AppRoutes.TemplatesCreate.FromApi()" hx-target="#hx-page-container" hx-push-url="@AppRoutes.TemplatesCreate" hx-swap="innerHTML transition:true"
+                   class="inline-flex items-center px-4 py-2 bg-amber-600 text-white text-sm font-semibold rounded-lg hover:bg-amber-700 transition-colors">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    New Template
+                </a>
+            </div>
+        }
     </div>
 
     @if (Result?.Items.Any() == true)
@@ -122,15 +125,23 @@
                     </svg>
                 </div>
             </div>
-            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">No templates yet</h3>
-            <p class="text-sm text-slate-500 dark:text-slate-400 mb-6">Create your first gear progression template to get started.</p>
-            <a href="@AppRoutes.TemplatesCreate" hx-get="@AppRoutes.TemplatesCreate.FromApi()" hx-target="#hx-page-container" hx-push-url="@AppRoutes.TemplatesCreate" hx-swap="innerHTML transition:true"
-               class="inline-flex items-center px-4 py-2 bg-amber-600 text-white text-sm font-semibold rounded-lg hover:bg-amber-700 transition-colors">
-                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                </svg>
-                Create Your First Template
-            </a>
+            @if (IsAuthenticated)
+            {
+                <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">No templates yet</h3>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mb-6">Create your first gear progression template to get started.</p>
+                <a href="@AppRoutes.TemplatesCreate" hx-get="@AppRoutes.TemplatesCreate.FromApi()" hx-target="#hx-page-container" hx-push-url="@AppRoutes.TemplatesCreate" hx-swap="innerHTML transition:true"
+                   class="inline-flex items-center px-4 py-2 bg-amber-600 text-white text-sm font-semibold rounded-lg hover:bg-amber-700 transition-colors">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    Create Your First Template
+                </a>
+            }
+            else
+            {
+                <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">No public templates found</h3>
+                <p class="text-sm text-slate-500 dark:text-slate-400">Sign in to create your own gear progression templates.</p>
+            }
         </div>
     }
 </div>
@@ -155,4 +166,5 @@
 
 @code {
     [Parameter] public PagedList<TemplateSearchResponse>? Result { get; set; }
+    [Parameter] public bool IsAuthenticated { get; set; }
 }

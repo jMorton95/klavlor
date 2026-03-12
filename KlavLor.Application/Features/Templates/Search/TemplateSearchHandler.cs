@@ -7,7 +7,7 @@ public sealed class TemplateSearchHandler(
     ITemplateSearchRepository templateSearchRepository,
     TemplateSearchValidator validator)
 {
-    public async Task<Result<PagedList<TemplateSearchResponse>>> Handle(TemplateSearchQuery query, int userId)
+    public async Task<Result<PagedList<TemplateSearchResponse>>> Handle(TemplateSearchQuery query, int? userId)
     {
         var validationResult = await validator.ValidateAsync(query);
 

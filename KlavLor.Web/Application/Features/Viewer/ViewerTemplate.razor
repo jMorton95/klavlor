@@ -1,6 +1,4 @@
 @page "/templates/{Id:int}"
-@attribute [Authorize]
-@using Microsoft.AspNetCore.Authorization
 @using KlavLor.Domain.Entities
 @using KlavLor.Application.Features.Viewer.ViewerData
 @using KlavLor.Application.Interfaces.Authentication
@@ -74,11 +72,6 @@
     protected override async Task OnInitializedAsync()
     {
         var userId = SessionStateManager.GetUserSessionId();
-        if (userId is null)
-        {
-            NavigationManager.NavigateTo(AppRoutes.Login);
-            return;
-        }
 
         var result = await ViewerDataHandler.Handle(new ViewerDataQuery { TemplateId = Id }, userId);
         if (result.IsSuccess)

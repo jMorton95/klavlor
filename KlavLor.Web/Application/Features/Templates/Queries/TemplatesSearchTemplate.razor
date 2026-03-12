@@ -1,6 +1,4 @@
 @page "/templates"
-@attribute [Authorize]
-@using Microsoft.AspNetCore.Authorization
 @using KlavLor.Application.Common
 @using KlavLor.Application.Features.Templates.Search
 @using KlavLor.Application.Interfaces.Authentication
@@ -8,28 +6,24 @@
 
 @inject TemplateSearchHandler SearchHandler
 @inject ISessionStateManager SessionStateManager
-@inject NavigationManager NavigationManager
 
-<PageLayout PageTitle="KlavLor - My Templates" Title="My Templates" Description="Manage your gear progression templates">
+<PageLayout PageTitle="KlavLor - Templates" Title="Templates" Description="Browse gear progression templates">
     @if (_result is not null)
     {
-        <TemplatesSearchGrid Result="@_result" />
+        <TemplatesSearchGrid Result="@_result" IsAuthenticated="@_isAuthenticated" />
     }
 </PageLayout>
 
 @code {
     private PagedList<TemplateSearchResponse>? _result;
+    private bool _isAuthenticated;
 
     protected override async Task OnInitializedAsync()
     {
         var userId = SessionStateManager.GetUserSessionId();
-        if (userId is null)
-        {
-            NavigationManager.NavigateTo(AppRoutes.Login);
-            return;
-        }
+        _isAuthenticated = userId.HasValue;
 
-        var result = await SearchHandler.Handle(new TemplateSearchQuery(), userId.Value);
+        var result = await SearchHandler.Handle(new TemplateSearchQuery(), userId);
         if (result.IsSuccess)
         {
             _result = result.Value;

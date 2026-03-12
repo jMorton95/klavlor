@@ -111,8 +111,7 @@ app.Use(async (context, next) =>
 });
 
 
-app.MapRazorComponents<App>()
-    .RequireAuthorization(nameof(RoleName.User));
+app.MapRazorComponents<App>();
 
 app.MapApplicationRequestHandlers();
 

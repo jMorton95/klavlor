@@ -1,5 +1,4 @@
 using KlavLor.Domain.Interfaces.Repositories;
-using KlavLor.Domain.Shared;
 
 namespace KlavLor.Web.Application.Features.Templates.Builder;
 
@@ -7,7 +6,7 @@ public sealed class ImageEndpoint : IEndpoint
 {
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
-        return app.MapGet(AppRoutes.CachedImage.FromApi(), GetImage).RequireAuthorization(nameof(RoleName.User));
+        return app.MapGet(AppRoutes.CachedImage.FromApi(), GetImage).AllowAnonymous();
     }
 
     private static async Task<IResult> GetImage(int imageId, ICachedImageRepository cachedImageRepository, HttpContext httpContext)

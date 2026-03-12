@@ -19,6 +19,7 @@ public static class ConfigureEndpoints
         var web = app.MapGroup("/");
 
         web.MapEndpoints<LoginEndpoint>()
+            .MapEndpoints<LoginModalEndpoint>()
             .MapEndpoints<LogoutEndpoint>()
             .MapEndpoints<HomePageEndpoint>();
 

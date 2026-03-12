@@ -10,15 +10,15 @@ namespace KlavLor.Infrastructure.Persistence.EntityFramework.Repositories.Templa
 
 internal sealed class TemplateQueryRepository(DataContext dataContext, ILogger<TemplateQueryRepository> logger) : ITemplateSearchRepository
 {
-    public async Task<PagedList<TemplateSearchResponse>> GetTemplatesBySearch(int userId, PagedQuery pagedQuery)
+    public async Task<PagedList<TemplateSearchResponse>> GetTemplatesBySearch(int? userId, PagedQuery pagedQuery)
     {
         try
         {
             var query = dataContext.Templates
-                .Where(t => t.CreatedById == userId || t.IsPublic)
+                .Where(t => (userId.HasValue && t.CreatedById == userId.Value) || t.IsPublic)
                 .AsQueryable();
 
-            query = query.OrderByDescending(t => t.CreatedById == userId)
+            query = query.OrderByDescending(t => userId.HasValue && t.CreatedById == userId.Value)
                 .ThenByDescending(t => t.SavedAt);
 
             if (!string.IsNullOrWhiteSpace(pagedQuery.SearchTerm))
@@ -39,11 +39,11 @@ internal sealed class TemplateQueryRepository(DataContext dataContext, ILogger<T
                 t.Name,
                 t.Description,
                 t.IsPublic,
-                t.CreatedById == userId ? t.ShareToken : null,
+                userId.HasValue && t.CreatedById == userId.Value ? t.ShareToken : null,
                 t.Nodes.Count,
                 t.SavedAt,
                 (t.CreatedBy != null ? t.CreatedBy.FirstName + " " + t.CreatedBy.LastName : "Unknown"),
-                t.CreatedById == userId
+                userId.HasValue && t.CreatedById == userId.Value
             )).ToListAsync();
 
             var pagination = new Pagination(count, pagedQuery.PageNumber, pagedQuery.PageSize);
