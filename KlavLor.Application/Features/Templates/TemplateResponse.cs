@@ -5,7 +5,6 @@ public sealed record TemplateResponse(
     string Name,
     string? Description,
     bool IsPublic,
-    string ShareToken,
     string CreatedByName,
     int NodeCount,
     int EdgeCount,

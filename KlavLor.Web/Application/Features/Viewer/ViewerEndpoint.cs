@@ -22,17 +22,9 @@ public sealed class ViewerEndpoint : IEndpoint
         var result = await handler.Handle(new ViewerDataQuery { TemplateId = id }, userId);
         if (!result.IsSuccess) return IResultExtensions.HtmxRedirect(AppRoutes.TemplatesSearch);
 
-        var template = result.Value.Template;
-
-        // Strip ShareToken for non-owners (defense-in-depth)
-        if (!result.Value.IsOwner)
-        {
-            template.ShareToken = null!;
-        }
-
         return IResultExtensions.Component<ViewerPage>(new
         {
-            Template = template,
+            Template = result.Value.Template,
             CompletionDates = result.Value.CompletionDates,
             IsOwner = result.Value.IsOwner,
             CanTrackCompletion = result.Value.CanTrackCompletion

@@ -10,12 +10,10 @@ public sealed class ViewerDataHandler(
 {
     public async Task<Result<ViewerDataResponse>> Handle(ViewerDataQuery query, int? userId)
     {
-        Template? template = null;
+        if (!query.TemplateId.HasValue)
+            return Result<ViewerDataResponse>.Failure("Template not found.");
 
-        if (query.TemplateId.HasValue)
-            template = await templateRepository.GetById(query.TemplateId.Value);
-        else if (!string.IsNullOrWhiteSpace(query.ShareToken))
-            template = await templateRepository.GetByShareToken(query.ShareToken);
+        var template = await templateRepository.GetById(query.TemplateId.Value);
 
         if (template is null)
             return Result<ViewerDataResponse>.Failure("Template not found.");

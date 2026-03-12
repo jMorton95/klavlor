@@ -27,25 +27,6 @@ internal sealed class TemplateRepository(DataContext dataContext, ILogger<Templa
         }
     }
 
-    public async Task<Template?> GetByShareToken(string shareToken)
-    {
-        try
-        {
-            return await dataContext.Templates
-                .Include(t => t.Nodes)
-                .Include(t => t.Edges)
-                .Include(t => t.Groups)
-                .Include(t => t.CreatedBy)
-                .AsSplitQuery()
-                .FirstOrDefaultAsync(t => t.ShareToken == shareToken);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to get template by share token");
-            throw new RepositoryException("Failed to get template by share token", ex);
-        }
-    }
-
     public async Task<bool> SaveTemplate(Template template)
     {
         try

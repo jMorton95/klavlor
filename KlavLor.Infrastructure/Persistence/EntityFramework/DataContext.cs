@@ -52,10 +52,6 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
 
         // Template configuration
         modelBuilder.Entity<Template>()
-            .HasIndex(t => t.ShareToken)
-            .IsUnique();
-
-        modelBuilder.Entity<Template>()
             .HasOne(t => t.CreatedBy)
             .WithMany()
             .HasForeignKey(t => t.CreatedById)

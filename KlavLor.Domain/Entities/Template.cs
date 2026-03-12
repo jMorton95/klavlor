@@ -12,7 +12,6 @@ public sealed class Template : Entity
         Name = name;
         Description = description;
         CreatedById = createdById;
-        ShareToken = GenerateShareToken();
     }
 
     [Required, StringLength(100)]
@@ -29,9 +28,6 @@ public sealed class Template : Entity
 
     [Required]
     public bool IsPublic { get; set; }
-
-    [Required, StringLength(22)]
-    public string ShareToken { get; set; }
 
     private readonly List<TemplateNode> _nodes = [];
     public IReadOnlyCollection<TemplateNode> Nodes => _nodes.AsReadOnly();
@@ -176,11 +172,6 @@ public sealed class Template : Entity
         node.GroupId = groupId;
     }
 
-    public void RegenerateShareToken()
-    {
-        ShareToken = GenerateShareToken();
-    }
-
     private static void ValidatePosition(double x, double y)
     {
         if (double.IsNaN(x) || double.IsInfinity(x) || x < -10000 || x > 100000)
@@ -189,11 +180,4 @@ public sealed class Template : Entity
             throw new DomainException("Position Y is out of valid range.");
     }
 
-    private static string GenerateShareToken()
-    {
-        var bytes = new byte[16];
-        System.Security.Cryptography.RandomNumberGenerator.Fill(bytes);
-        return Convert.ToBase64String(bytes)
-            .Replace("/", "_").Replace("+", "-").Replace("=", "")[..22];
-    }
 }

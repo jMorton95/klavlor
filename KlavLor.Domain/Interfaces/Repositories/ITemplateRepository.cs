@@ -5,7 +5,6 @@ namespace KlavLor.Domain.Interfaces.Repositories;
 public interface ITemplateRepository
 {
     Task<Template?> GetById(int id);
-    Task<Template?> GetByShareToken(string shareToken);
     Task<bool> SaveTemplate(Template template);
     Task<int> DeleteTemplate(int id);
     Task<int?> GetTemplateOwnerId(int templateId);

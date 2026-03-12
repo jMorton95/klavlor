@@ -39,7 +39,6 @@ internal sealed class TemplateQueryRepository(DataContext dataContext, ILogger<T
                 t.Name,
                 t.Description,
                 t.IsPublic,
-                userId.HasValue && t.CreatedById == userId.Value ? t.ShareToken : null,
                 t.Nodes.Count,
                 t.SavedAt,
                 (t.CreatedBy != null ? t.CreatedBy.FirstName + " " + t.CreatedBy.LastName : "Unknown"),

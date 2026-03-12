@@ -6,7 +6,7 @@ public static class RouteExtensions
     {
         public string FromApi() => $"/api{route}";
         public string WithId(int id) => route.Replace("{id:int}", id.ToString());
-        public string WithToken(string token) => route.Replace("{token}", token);
+
         public string WithQueryParameters(string queryParameters) => $"{route}?{queryParameters}";
     }
 }
@@ -29,7 +29,7 @@ public static class AppRoutes
     public const string TemplatesEdit = "/templates/edit/{id:int}";
     public const string TemplatesDelete = "/templates/delete/{id:int}";
     public const string TemplatesView = "/templates/{id:int}";
-    public const string TemplatesShare = "/share/{token}";
+
     public const string TemplatesImport = "/templates/import";
     public const string TemplatesDuplicate = "/templates/{id:int}/duplicate";
     public const string TemplatesExport = "/templates/{id:int}/export";

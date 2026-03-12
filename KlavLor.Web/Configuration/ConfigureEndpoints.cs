@@ -41,7 +41,6 @@ public static class ConfigureEndpoints
             .MapEndpoints<ImageEndpoint>();
 
         web.MapEndpoints<ViewerEndpoint>()
-            .MapEndpoints<ShareEndpoint>()
             .MapEndpoints<CompletionEndpoint>();
 
         web.MapEndpoints<HealthCheckEndpoint>();
