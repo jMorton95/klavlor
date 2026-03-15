@@ -10,7 +10,8 @@ public sealed class DuplicateEndpoint : IEndpoint
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
         return app.MapPost(AppRoutes.TemplatesDuplicate.FromApi(), Endpoint)
-            .RequireAuthorization(nameof(RoleName.User));
+            .RequireAuthorization(nameof(RoleName.User))
+            .RequireRateLimiting("mutation");
     }
 
     private static async Task<HtmxRedirectResult> Endpoint(

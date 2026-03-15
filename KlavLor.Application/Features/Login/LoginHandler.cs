@@ -48,7 +48,8 @@ public sealed class LoginHandler(
         if (user == null)
         {
             // Perform dummy hash verification to normalize timing and prevent user enumeration
-            _dummyHash ??= passwordService.HashPassword(null!, "dummy-timing-normalization");
+            if (_dummyHash is null)
+                Interlocked.CompareExchange(ref _dummyHash, passwordService.HashPassword(null!, "dummy-timing-normalization"), null);
             passwordService.CheckPassword(null!, command.Password, _dummyHash);
             return Result<User>.Failure(invalidCredentials);
         }

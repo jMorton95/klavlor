@@ -9,7 +9,8 @@ public sealed class ViewerEndpoint : IEndpoint
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
         return app.MapGet(AppRoutes.TemplatesView.FromApi(), Endpoint)
-            .AllowAnonymous();
+            .AllowAnonymous()
+            .RequireRateLimiting("anonymous");
     }
 
     private static async Task<IResult> Endpoint(

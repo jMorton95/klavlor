@@ -11,7 +11,8 @@ public sealed class CompletionEndpoint : IEndpoint
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
         return app.MapPost(AppRoutes.ViewerCompletion.FromApi(), Endpoint)
-            .RequireAuthorization(nameof(RoleName.User));
+            .RequireAuthorization(nameof(RoleName.User))
+            .RequireRateLimiting("mutation");
     }
 
     private static async Task<IResult> Endpoint(

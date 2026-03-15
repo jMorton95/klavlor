@@ -23,6 +23,9 @@ public sealed class AddNodeHandler(
         if (template.CreatedById != userId)
             return Result<TemplateNode>.Failure("You do not have permission to modify this template.");
 
+        if (template.Nodes.Count >= 500)
+            return Result<TemplateNode>.Failure("Maximum of 500 nodes per template.");
+
         TemplateNode node;
         if (command.GroupId.HasValue)
         {

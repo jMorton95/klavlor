@@ -10,7 +10,8 @@ public sealed class TemplateSearchEndpoint : IEndpoint
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
         return app.MapGet(AppRoutes.TemplatesSearch.FromApi(), Endpoint)
-            .AllowAnonymous();
+            .AllowAnonymous()
+            .RequireRateLimiting("anonymous");
     }
 
     private static async Task<RazorComponentResult> Endpoint(

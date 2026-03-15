@@ -13,7 +13,7 @@ public sealed class TemplateCreateEndpoint : IEndpoint
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
         app.MapGet(AppRoutes.TemplatesCreate.FromApi(), GetPage).RequireAuthorization(nameof(RoleName.User));
-        return app.MapPost(AppRoutes.TemplatesCreate.FromApi(), Endpoint).RequireAuthorization(nameof(RoleName.User));
+        return app.MapPost(AppRoutes.TemplatesCreate.FromApi(), Endpoint).RequireAuthorization(nameof(RoleName.User)).RequireRateLimiting("mutation");
     }
 
     private static async Task<IResult> GetPage(

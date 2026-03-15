@@ -15,10 +15,10 @@ public sealed class GroupEndpoints : IEndpoint
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
         app.MapGet(AppRoutes.BuilderGroup.FromApi(), GetGroup).RequireAuthorization(nameof(RoleName.User));
-        app.MapPost(AppRoutes.BuilderGroups.FromApi(), AddGroup).RequireAuthorization(nameof(RoleName.User));
-        app.MapDelete(AppRoutes.BuilderGroup.FromApi(), DeleteGroup).RequireAuthorization(nameof(RoleName.User));
-        app.MapPut(AppRoutes.BuilderGroupPosition.FromApi(), UpdateGroupPosition).RequireAuthorization(nameof(RoleName.User));
-        return app.MapPut(AppRoutes.BuilderNodeGroup.FromApi(), AssignNodeToGroup).RequireAuthorization(nameof(RoleName.User));
+        app.MapPost(AppRoutes.BuilderGroups.FromApi(), AddGroup).RequireAuthorization(nameof(RoleName.User)).RequireRateLimiting("mutation");
+        app.MapDelete(AppRoutes.BuilderGroup.FromApi(), DeleteGroup).RequireAuthorization(nameof(RoleName.User)).RequireRateLimiting("mutation");
+        app.MapPut(AppRoutes.BuilderGroupPosition.FromApi(), UpdateGroupPosition).RequireAuthorization(nameof(RoleName.User)).RequireRateLimiting("position");
+        return app.MapPut(AppRoutes.BuilderNodeGroup.FromApi(), AssignNodeToGroup).RequireAuthorization(nameof(RoleName.User)).RequireRateLimiting("mutation");
     }
 
     private static async Task<IResult> GetGroup(

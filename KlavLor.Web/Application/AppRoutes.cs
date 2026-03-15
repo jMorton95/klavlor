@@ -30,7 +30,6 @@ public static class AppRoutes
     public const string TemplatesDelete = "/templates/delete/{id:int}";
     public const string TemplatesView = "/templates/{id:int}";
 
-    public const string TemplatesImport = "/templates/import";
     public const string TemplatesDuplicate = "/templates/{id:int}/duplicate";
     public const string TemplatesExport = "/templates/{id:int}/export";
 

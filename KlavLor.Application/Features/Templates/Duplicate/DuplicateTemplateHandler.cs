@@ -15,6 +15,9 @@ public sealed class DuplicateTemplateHandler(ITemplateRepository templateReposit
         if (source.CreatedById != userId && !source.IsPublic)
             return Result<Template>.Failure("You do not have access to this template.");
 
+        if (source.Nodes.Count > 500 || source.Edges.Count > 2000)
+            return Result<Template>.Failure("Source template is too large to duplicate.");
+
         var newTemplate = new Template($"{source.Name} (Copy)", source.Description, userId)
         {
             IsPublic = false

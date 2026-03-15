@@ -22,6 +22,9 @@ public sealed class AddEdgeHandler(
         if (template.CreatedById != userId)
             return Result.Failure("You do not have permission to modify this template.");
 
+        if (template.Edges.Count >= 2000)
+            return Result.Failure("Maximum of 2,000 edges per template.");
+
         var fromNodeId = command.FromNodeId;
         var toNodeId = command.ToNodeId;
 

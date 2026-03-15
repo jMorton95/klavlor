@@ -17,12 +17,12 @@ public sealed class NodeEndpoints : IEndpoint
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
         app.MapGet(AppRoutes.BuilderNodeCreate.FromApi(), GetCreateModal).RequireAuthorization(nameof(RoleName.User));
-        app.MapPost(AppRoutes.BuilderNodes.FromApi(), AddNode).RequireAuthorization(nameof(RoleName.User));
+        app.MapPost(AppRoutes.BuilderNodes.FromApi(), AddNode).RequireAuthorization(nameof(RoleName.User)).RequireRateLimiting("mutation");
         app.MapGet(AppRoutes.BuilderNodeEdit.FromApi(), GetEditModal).RequireAuthorization(nameof(RoleName.User));
-        app.MapPut(AppRoutes.BuilderNode.FromApi(), UpdateNode).RequireAuthorization(nameof(RoleName.User));
-        app.MapPut(AppRoutes.BuilderNodePosition.FromApi(), UpdateNodePosition).RequireAuthorization(nameof(RoleName.User));
-        app.MapPut(AppRoutes.BuilderNodeReorder.FromApi(), ReorderNode).RequireAuthorization(nameof(RoleName.User));
-        return app.MapDelete(AppRoutes.BuilderNode.FromApi(), DeleteNode).RequireAuthorization(nameof(RoleName.User));
+        app.MapPut(AppRoutes.BuilderNode.FromApi(), UpdateNode).RequireAuthorization(nameof(RoleName.User)).RequireRateLimiting("mutation");
+        app.MapPut(AppRoutes.BuilderNodePosition.FromApi(), UpdateNodePosition).RequireAuthorization(nameof(RoleName.User)).RequireRateLimiting("position");
+        app.MapPut(AppRoutes.BuilderNodeReorder.FromApi(), ReorderNode).RequireAuthorization(nameof(RoleName.User)).RequireRateLimiting("mutation");
+        return app.MapDelete(AppRoutes.BuilderNode.FromApi(), DeleteNode).RequireAuthorization(nameof(RoleName.User)).RequireRateLimiting("mutation");
     }
 
     private static IResult GetCreateModal(

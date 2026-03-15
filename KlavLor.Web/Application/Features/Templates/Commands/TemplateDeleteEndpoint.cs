@@ -12,7 +12,7 @@ public sealed class TemplateDeleteEndpoint : IEndpoint
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
         app.MapGet(AppRoutes.TemplatesDelete.FromApi(), GetConfirmation).RequireAuthorization(nameof(RoleName.User));
-        return app.MapDelete(AppRoutes.TemplatesDelete.FromApi(), DeleteEndpoint).RequireAuthorization(nameof(RoleName.User));
+        return app.MapDelete(AppRoutes.TemplatesDelete.FromApi(), DeleteEndpoint).RequireAuthorization(nameof(RoleName.User)).RequireRateLimiting("mutation");
     }
 
     private static HtmxRetargetResult GetConfirmation(int id)

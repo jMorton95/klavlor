@@ -29,6 +29,9 @@ public sealed class TemplateCreateHandler(
             if (source.CreatedById != userId && !source.IsPublic)
                 return Result<Template>.Failure("You do not have access to this template.");
 
+            if (source.Nodes.Count > 500 || source.Edges.Count > 2000)
+                return Result<Template>.Failure("Source template is too large to clone.");
+
             // Copy groups
             var groupMap = new Dictionary<int, TemplateNodeGroup>();
             foreach (var sourceGroup in source.Groups)

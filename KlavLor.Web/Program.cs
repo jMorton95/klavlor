@@ -4,6 +4,8 @@ using KlavLor.Web.Components;
 using KlavLor.Web.Configuration;
 using Microsoft.AspNetCore.Hosting.StaticWebAssets;
 using Microsoft.AspNetCore.HttpOverrides;
+using System.Security.Claims;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
 using KlavLor.Application.Common.DependencyInjection;
 using KlavLor.Domain;
@@ -56,12 +58,30 @@ builder.Services.AddHostedService<ImageCacheBackfillService>();
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    options.AddFixedWindowLimiter("login", limiter =>
-    {
-        limiter.PermitLimit = 5;
-        limiter.Window = TimeSpan.FromMinutes(1);
-        limiter.QueueLimit = 0;
-    });
+
+    // Per-IP: login attempts
+    options.AddPolicy("login", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = 5, Window = TimeSpan.FromMinutes(1) }));
+
+    // Per-user: standard mutations (node/edge/group CRUD, template CRUD, completion)
+    options.AddPolicy("mutation", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "anonymous",
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = 60, Window = TimeSpan.FromMinutes(1) }));
+
+    // Per-user: high-frequency position updates during drag
+    options.AddPolicy("position", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "anonymous",
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = 300, Window = TimeSpan.FromMinutes(1) }));
+
+    // Per-IP: anonymous read endpoints
+    options.AddPolicy("anonymous", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = 120, Window = TimeSpan.FromMinutes(1) }));
 });
 
 if (builder.Environment.IsProduction()) { }

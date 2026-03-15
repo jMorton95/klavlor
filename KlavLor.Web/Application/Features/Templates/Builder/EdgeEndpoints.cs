@@ -10,8 +10,8 @@ public sealed class EdgeEndpoints : IEndpoint
 {
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
-        app.MapPost(AppRoutes.BuilderEdges.FromApi(), AddEdge).RequireAuthorization(nameof(RoleName.User));
-        return app.MapDelete(AppRoutes.BuilderEdge.FromApi(), DeleteEdge).RequireAuthorization(nameof(RoleName.User));
+        app.MapPost(AppRoutes.BuilderEdges.FromApi(), AddEdge).RequireAuthorization(nameof(RoleName.User)).RequireRateLimiting("mutation");
+        return app.MapDelete(AppRoutes.BuilderEdge.FromApi(), DeleteEdge).RequireAuthorization(nameof(RoleName.User)).RequireRateLimiting("mutation");
     }
 
     private static async Task<IResult> AddEdge(
