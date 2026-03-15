@@ -1,9 +1,12 @@
 @using KlavLor.Domain.Entities
 
 @{
-    var allPositions = Template.Groups.Select(g => (g.PositionX, g.PositionY)).ToList();
-    var maxX = allPositions.Any() ? allPositions.Max(p => p.PositionX) + 400 : 1200;
-    var maxY = allPositions.Any() ? allPositions.Max(p => p.PositionY) + 300 : 800;
+    var allGroupPositions = Template.Groups.Select(g => (g.PositionX, g.PositionY)).ToList();
+    var allAnnotationPositions = Template.Annotations.Select(a => (a.PositionX, a.PositionY)).ToList();
+    var allRegionPositions = Template.Regions.Select(r => (r.PositionX + r.Width, r.PositionY + r.Height)).ToList();
+    var allPositions = allGroupPositions.Concat(allAnnotationPositions).Concat(allRegionPositions).ToList();
+    var maxX = allPositions.Any() ? allPositions.Max(p => p.Item1) + 400 : 1200;
+    var maxY = allPositions.Any() ? allPositions.Max(p => p.Item2) + 300 : 800;
     var canvasW = Math.Max(maxX, 1200) + 1000;
     var canvasH = Math.Max(maxY, 800) + 1000;
 
@@ -150,11 +153,23 @@
             <line id="temp-edge-line" x1="0" y1="0" x2="0" y2="0" stroke="#d97706" stroke-width="2" stroke-dasharray="6,3" class="hidden" />
         </svg>
 
+        @* Region layer (z-index: 0, below edges and groups) *@
+        @foreach (var region in Template.Regions)
+        {
+            <BuilderRegion Region="@region" TemplateId="@Template.Id" />
+        }
+
         @* Group layer *@
         @foreach (var group in Template.Groups)
         {
             var groupNodes = Template.Nodes.Where(n => n.GroupId == group.Id).OrderBy(n => n.SortOrder).ThenBy(n => n.Id).ToList();
             <BuilderGroup Group="@group" TemplateId="@Template.Id" GroupedNodes="@groupNodes" />
+        }
+
+        @* Annotation layer (same z-index as groups) *@
+        @foreach (var annotation in Template.Annotations)
+        {
+            <BuilderAnnotation Annotation="@annotation" TemplateId="@Template.Id" />
         }
 
         @* Empty state *@

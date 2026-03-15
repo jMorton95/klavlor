@@ -1,9 +1,12 @@
 @using KlavLor.Domain.Entities
 
 @{
-    var allPositions = Template.Groups.Select(g => (g.PositionX, g.PositionY)).ToList();
-    var maxX = allPositions.Any() ? allPositions.Max(p => p.PositionX) + 250 : 400;
-    var maxY = allPositions.Any() ? allPositions.Max(p => p.PositionY) + 200 : 300;
+    var allGroupPositions = Template.Groups.Select(g => (g.PositionX, g.PositionY)).ToList();
+    var allAnnotationPositions = Template.Annotations.Select(a => (a.PositionX, a.PositionY)).ToList();
+    var allRegionPositions = Template.Regions.Select(r => (r.PositionX + r.Width, r.PositionY + r.Height)).ToList();
+    var allPositions = allGroupPositions.Concat(allAnnotationPositions).Concat(allRegionPositions).ToList();
+    var maxX = allPositions.Any() ? allPositions.Max(p => p.Item1) + 250 : 400;
+    var maxY = allPositions.Any() ? allPositions.Max(p => p.Item2) + 200 : 300;
     var canvasW = maxX;
     var canvasH = maxY;
 
@@ -142,12 +145,38 @@
             }
         </svg>
 
+        @* Region layer (read-only, below groups) *@
+        @foreach (var region in Template.Regions)
+        {
+            <div class="absolute select-none pointer-events-none"
+                 style="left: @(region.PositionX)px; top: @(region.PositionY)px; width: @(region.Width)px; height: @(region.Height)px; z-index: 0;">
+                <div class="w-full h-full rounded-lg border-2 @GetRegionBorderClass(region.Color)"
+                     style="background-color: @GetRegionBackground(region.Color, region.Opacity);">
+                    @if (!string.IsNullOrEmpty(region.Label))
+                    {
+                        <span class="absolute top-1 left-2 text-xs font-medium @GetRegionLabelClass(region.Color)">@region.Label</span>
+                    }
+                </div>
+            </div>
+        }
+
         @* Group layer *@
         @foreach (var group in Template.Groups)
         {
             var groupNodes = Template.Nodes.Where(n => n.GroupId == group.Id).OrderBy(n => n.SortOrder).ThenBy(n => n.Id).ToList();
             <ViewerGroup Group="@group" TemplateId="@Template.Id" GroupedNodes="@groupNodes"
                          CompletionDates="@CompletionDates" CanTrackCompletion="@CanTrackCompletion" />
+        }
+
+        @* Annotation layer (read-only) *@
+        @foreach (var annotation in Template.Annotations)
+        {
+            <div class="absolute select-none pointer-events-none"
+                 style="left: @(annotation.PositionX)px; top: @(annotation.PositionY)px; z-index: 2;">
+                <div class="px-2 py-1 rounded bg-white/60 dark:bg-slate-800/60 border border-dashed border-purple-300 dark:border-purple-600 max-w-[250px]">
+                    <p class="@GetAnnotationFontClass(annotation.FontSize) text-slate-700 dark:text-slate-300 whitespace-pre-wrap break-words">@annotation.Text</p>
+                </div>
+            </div>
         }
 
         @if (!Template.Nodes.Any())
@@ -163,4 +192,47 @@
     [Parameter] public required Template Template { get; set; }
     [Parameter] public Dictionary<int, DateTimeOffset> CompletionDates { get; set; } = [];
     [Parameter] public bool CanTrackCompletion { get; set; }
+
+    private static string GetAnnotationFontClass(string fontSize) => fontSize switch
+    {
+        "small" => "text-lg",
+        "large" => "text-2xl",
+        _ => "text-xl"
+    };
+
+    private static string GetRegionBorderClass(string color) => color switch
+    {
+        "amber" => "border-amber-400 dark:border-amber-600",
+        "blue" => "border-blue-400 dark:border-blue-600",
+        "purple" => "border-purple-400 dark:border-purple-600",
+        "green" => "border-green-400 dark:border-green-600",
+        "orange" => "border-orange-400 dark:border-orange-600",
+        "red" => "border-red-400 dark:border-red-600",
+        "indigo" => "border-indigo-400 dark:border-indigo-600",
+        _ => "border-slate-400 dark:border-slate-600"
+    };
+
+    private static string GetRegionLabelClass(string color) => color switch
+    {
+        "amber" => "text-amber-700 dark:text-amber-400",
+        "blue" => "text-blue-700 dark:text-blue-400",
+        "purple" => "text-purple-700 dark:text-purple-400",
+        "green" => "text-green-700 dark:text-green-400",
+        "orange" => "text-orange-700 dark:text-orange-400",
+        "red" => "text-red-700 dark:text-red-400",
+        "indigo" => "text-indigo-700 dark:text-indigo-400",
+        _ => "text-slate-700 dark:text-slate-400"
+    };
+
+    private static string GetRegionBackground(string color, double opacity) => color switch
+    {
+        "amber" => $"rgba(245, 158, 11, {opacity})",
+        "blue" => $"rgba(59, 130, 246, {opacity})",
+        "purple" => $"rgba(168, 85, 247, {opacity})",
+        "green" => $"rgba(34, 197, 94, {opacity})",
+        "orange" => $"rgba(249, 115, 22, {opacity})",
+        "red" => $"rgba(239, 68, 68, {opacity})",
+        "indigo" => $"rgba(99, 102, 241, {opacity})",
+        _ => $"rgba(100, 116, 139, {opacity})"
+    };
 }

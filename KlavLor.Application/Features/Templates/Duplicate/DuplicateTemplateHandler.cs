@@ -55,6 +55,18 @@ public sealed class DuplicateTemplateHandler(ITemplateRepository templateReposit
             nodeMap[sourceNode.Id] = newNode;
         }
 
+        // Copy annotations
+        foreach (var sourceAnnotation in source.Annotations)
+        {
+            newTemplate.AddAnnotation(sourceAnnotation.Text, sourceAnnotation.PositionX, sourceAnnotation.PositionY, sourceAnnotation.FontSize);
+        }
+
+        // Copy regions
+        foreach (var sourceRegion in source.Regions)
+        {
+            newTemplate.AddRegion(sourceRegion.PositionX, sourceRegion.PositionY, sourceRegion.Width, sourceRegion.Height, sourceRegion.Color, sourceRegion.Opacity, sourceRegion.Label);
+        }
+
         // Save to get IDs assigned
         await templateRepository.SaveTemplate(newTemplate);
 

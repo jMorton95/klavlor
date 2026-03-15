@@ -16,6 +16,9 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
     public virtual DbSet<TemplateNodeGroup> TemplateNodeGroups => Set<TemplateNodeGroup>();
     public virtual DbSet<UserNodeCompletion> UserNodeCompletions => Set<UserNodeCompletion>();
     public virtual DbSet<CachedImage> CachedImages => Set<CachedImage>();
+    public virtual DbSet<LayoutSnapshot> LayoutSnapshots => Set<LayoutSnapshot>();
+    public virtual DbSet<CanvasAnnotation> CanvasAnnotations => Set<CanvasAnnotation>();
+    public virtual DbSet<CanvasRegion> CanvasRegions => Set<CanvasRegion>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -155,6 +158,47 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
                 new Role { Id = 1, Name = RoleName.Admin },
                 new Role { Id = 2, Name = RoleName.User }
             ]);
+
+        // LayoutSnapshot configuration
+        modelBuilder.Entity<Template>()
+            .Navigation(t => t.LayoutSnapshots)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        modelBuilder.Entity<LayoutSnapshot>()
+            .HasOne(s => s.Template)
+            .WithMany(t => t.LayoutSnapshots)
+            .HasForeignKey(s => s.TemplateId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // CanvasAnnotation configuration
+        modelBuilder.Entity<Template>()
+            .Navigation(t => t.Annotations)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        modelBuilder.Entity<CanvasAnnotation>()
+            .HasOne(a => a.Template)
+            .WithMany(t => t.Annotations)
+            .HasForeignKey(a => a.TemplateId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // CanvasRegion configuration
+        modelBuilder.Entity<Template>()
+            .Navigation(t => t.Regions)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        modelBuilder.Entity<CanvasRegion>()
+            .HasOne(r => r.Template)
+            .WithMany(t => t.Regions)
+            .HasForeignKey(r => r.TemplateId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<CanvasRegion>()
+            .Property(r => r.Color)
+            .HasDefaultValue("slate");
+
+        modelBuilder.Entity<CanvasRegion>()
+            .Property(r => r.Opacity)
+            .HasDefaultValue(0.15);
 
         // CachedImage configuration
         modelBuilder.Entity<CachedImage>()

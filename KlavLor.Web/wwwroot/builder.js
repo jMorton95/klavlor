@@ -4,6 +4,9 @@
     let dragState = null;
     let connectState = null;
     let panState = null;
+    let annotationDragState = null;
+    let regionDragState = null;
+    let resizeState = null;
     var selectedGroupIds = new Set();
 
     // --- Helpers ---
@@ -384,13 +387,98 @@
         };
     });
 
+    // --- Annotation Dragging (pointerdown) ---
+
+    document.addEventListener('pointerdown', function (e) {
+        if (e.target.closest('button')) return;
+        var annotationEl = e.target.closest('.builder-annotation');
+        if (!annotationEl) return;
+
+        e.preventDefault();
+        annotationEl.setPointerCapture(e.pointerId);
+
+        var canvas = document.getElementById('builder-canvas');
+        var zoom = canvas ? (zoomLevels[canvas.id] || 1) : 1;
+
+        annotationDragState = {
+            el: annotationEl,
+            id: annotationEl.dataset.annotationId,
+            templateId: annotationEl.dataset.templateId || (canvas && canvas.dataset.templateId),
+            startX: parseFloat(annotationEl.style.left) || 0,
+            startY: parseFloat(annotationEl.style.top) || 0,
+            startClientX: e.clientX,
+            startClientY: e.clientY,
+            zoom: zoom,
+            moved: false
+        };
+    });
+
+    // --- Region Dragging (pointerdown, NOT on resize handles) ---
+
+    document.addEventListener('pointerdown', function (e) {
+        if (e.target.closest('.builder-resize-handle')) return;
+        if (e.target.closest('button')) return;
+        var regionEl = e.target.closest('.builder-region');
+        if (!regionEl) return;
+
+        e.preventDefault();
+        regionEl.setPointerCapture(e.pointerId);
+
+        var canvas = document.getElementById('builder-canvas');
+        var zoom = canvas ? (zoomLevels[canvas.id] || 1) : 1;
+
+        regionDragState = {
+            el: regionEl,
+            id: regionEl.dataset.regionId,
+            templateId: regionEl.dataset.templateId || (canvas && canvas.dataset.templateId),
+            startX: parseFloat(regionEl.style.left) || 0,
+            startY: parseFloat(regionEl.style.top) || 0,
+            startClientX: e.clientX,
+            startClientY: e.clientY,
+            zoom: zoom,
+            moved: false
+        };
+    });
+
+    // --- Region Resizing (pointerdown on resize handle) ---
+
+    document.addEventListener('pointerdown', function (e) {
+        var handle = e.target.closest('.builder-resize-handle');
+        if (!handle) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        var regionEl = handle.closest('.builder-region');
+        if (!regionEl) return;
+
+        handle.setPointerCapture(e.pointerId);
+
+        var canvas = document.getElementById('builder-canvas');
+        var zoom = canvas ? (zoomLevels[canvas.id] || 1) : 1;
+
+        resizeState = {
+            el: regionEl,
+            id: regionEl.dataset.regionId,
+            templateId: regionEl.dataset.templateId || (canvas && canvas.dataset.templateId),
+            corner: handle.dataset.corner,
+            startClientX: e.clientX,
+            startClientY: e.clientY,
+            startX: parseFloat(regionEl.style.left) || 0,
+            startY: parseFloat(regionEl.style.top) || 0,
+            startW: parseFloat(regionEl.style.width) || 300,
+            startH: parseFloat(regionEl.style.height) || 200,
+            zoom: zoom
+        };
+    }, true);
+
     // --- Canvas Panning (pointerdown on empty canvas) ---
 
     document.addEventListener('pointerdown', function (e) {
-        if (dragState || connectState) return;
+        if (dragState || connectState || annotationDragState || regionDragState || resizeState) return;
         var canvas = e.target.closest('#builder-canvas') || e.target.closest('#viewer-canvas');
         if (!canvas) return;
-        if (e.target.closest('.builder-group') || e.target.closest('.builder-edge') || e.target.closest('.builder-edge-hit') || e.target.closest('.viewer-group') || e.target.closest('.viewer-node')) return;
+        if (e.target.closest('.builder-group') || e.target.closest('.builder-annotation') || e.target.closest('.builder-region') || e.target.closest('.builder-edge') || e.target.closest('.builder-edge-hit') || e.target.closest('.viewer-group') || e.target.closest('.viewer-node')) return;
 
         // Clicking on empty canvas clears selection
         if (canvas.id === 'builder-canvas' && !(e.ctrlKey || e.metaKey)) {
@@ -451,6 +539,59 @@
             }
         }
 
+        if (annotationDragState) {
+            e.preventDefault();
+            var zoom = annotationDragState.zoom || 1;
+            var dx = (e.clientX - annotationDragState.startClientX) / zoom;
+            var dy = (e.clientY - annotationDragState.startClientY) / zoom;
+            annotationDragState.moved = true;
+            annotationDragState.el.style.left = Math.max(0, annotationDragState.startX + dx) + 'px';
+            annotationDragState.el.style.top = Math.max(0, annotationDragState.startY + dy) + 'px';
+        }
+
+        if (regionDragState) {
+            e.preventDefault();
+            var zoom = regionDragState.zoom || 1;
+            var dx = (e.clientX - regionDragState.startClientX) / zoom;
+            var dy = (e.clientY - regionDragState.startClientY) / zoom;
+            regionDragState.moved = true;
+            regionDragState.el.style.left = Math.max(0, regionDragState.startX + dx) + 'px';
+            regionDragState.el.style.top = Math.max(0, regionDragState.startY + dy) + 'px';
+        }
+
+        if (resizeState) {
+            e.preventDefault();
+            var zoom = resizeState.zoom || 1;
+            var dx = (e.clientX - resizeState.startClientX) / zoom;
+            var dy = (e.clientY - resizeState.startClientY) / zoom;
+            var corner = resizeState.corner;
+            var newW = resizeState.startW, newH = resizeState.startH;
+            var newX = resizeState.startX, newY = resizeState.startY;
+
+            if (corner === 'se') {
+                newW = Math.max(50, resizeState.startW + dx);
+                newH = Math.max(50, resizeState.startH + dy);
+            } else if (corner === 'sw') {
+                newW = Math.max(50, resizeState.startW - dx);
+                newH = Math.max(50, resizeState.startH + dy);
+                newX = resizeState.startX + (resizeState.startW - newW);
+            } else if (corner === 'ne') {
+                newW = Math.max(50, resizeState.startW + dx);
+                newH = Math.max(50, resizeState.startH - dy);
+                newY = resizeState.startY + (resizeState.startH - newH);
+            } else if (corner === 'nw') {
+                newW = Math.max(50, resizeState.startW - dx);
+                newH = Math.max(50, resizeState.startH - dy);
+                newX = resizeState.startX + (resizeState.startW - newW);
+                newY = resizeState.startY + (resizeState.startH - newH);
+            }
+
+            resizeState.el.style.left = Math.max(0, newX) + 'px';
+            resizeState.el.style.top = Math.max(0, newY) + 'px';
+            resizeState.el.style.width = newW + 'px';
+            resizeState.el.style.height = newH + 'px';
+        }
+
         if (connectState) {
             e.preventDefault();
             var canvas = document.getElementById('builder-canvas');
@@ -487,6 +628,57 @@
                 });
             }
             dragState = null;
+        }
+
+        if (annotationDragState) {
+            if (annotationDragState.moved) {
+                var x = parseFloat(annotationDragState.el.style.left);
+                var y = parseFloat(annotationDragState.el.style.top);
+                var token = getAntiforgeryToken();
+                fetch('/api/templates/' + annotationDragState.templateId + '/builder/annotations/' + annotationDragState.id + '/position', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token },
+                    body: JSON.stringify({ positionX: x, positionY: y })
+                }).catch(function (err) { console.error('Failed to save annotation position:', err); });
+            }
+            annotationDragState = null;
+        }
+
+        if (regionDragState) {
+            if (regionDragState.moved) {
+                var x = parseFloat(regionDragState.el.style.left);
+                var y = parseFloat(regionDragState.el.style.top);
+                var token = getAntiforgeryToken();
+                fetch('/api/templates/' + regionDragState.templateId + '/builder/regions/' + regionDragState.id + '/position', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token },
+                    body: JSON.stringify({ positionX: x, positionY: y })
+                }).catch(function (err) { console.error('Failed to save region position:', err); });
+            }
+            regionDragState = null;
+        }
+
+        if (resizeState) {
+            var w = parseFloat(resizeState.el.style.width);
+            var h = parseFloat(resizeState.el.style.height);
+            var x = parseFloat(resizeState.el.style.left);
+            var y = parseFloat(resizeState.el.style.top);
+            var token = getAntiforgeryToken();
+            // Save both size and position (position may change for nw/ne/sw corners)
+            fetch('/api/templates/' + resizeState.templateId + '/builder/regions/' + resizeState.id + '/size', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token },
+                body: JSON.stringify({ width: w, height: h })
+            }).catch(function (err) { console.error('Failed to save region size:', err); });
+            // Also save position if it changed
+            if (resizeState.corner !== 'se') {
+                fetch('/api/templates/' + resizeState.templateId + '/builder/regions/' + resizeState.id + '/position', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token },
+                    body: JSON.stringify({ positionX: x, positionY: y })
+                }).catch(function (err) { console.error('Failed to save region position:', err); });
+            }
+            resizeState = null;
         }
 
         if (connectState) {
@@ -776,6 +968,54 @@
                 console.error('Failed to delete edge:', err);
             });
         }
+    });
+
+    // --- Annotation Deletion ---
+
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('.builder-annotation-delete');
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        var templateId = btn.dataset.templateId;
+        var annotationId = btn.dataset.annotationId;
+        var annotationEl = document.getElementById('builder-annotation-' + annotationId);
+
+        showConfirmModal('Delete this annotation?', function () {
+            fetch('/api/templates/' + templateId + '/builder/annotations/' + annotationId, {
+                method: 'DELETE',
+                headers: { 'RequestVerificationToken': getAntiforgeryToken() }
+            }).then(function (res) {
+                if (res.ok && annotationEl) annotationEl.remove();
+            }).catch(function (err) {
+                console.error('Failed to delete annotation:', err);
+            });
+        });
+    });
+
+    // --- Region Deletion ---
+
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('.builder-region-delete');
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        var templateId = btn.dataset.templateId;
+        var regionId = btn.dataset.regionId;
+        var regionEl = document.getElementById('builder-region-' + regionId);
+
+        showConfirmModal('Delete this region?', function () {
+            fetch('/api/templates/' + templateId + '/builder/regions/' + regionId, {
+                method: 'DELETE',
+                headers: { 'RequestVerificationToken': getAntiforgeryToken() }
+            }).then(function (res) {
+                if (res.ok && regionEl) regionEl.remove();
+            }).catch(function (err) {
+                console.error('Failed to delete region:', err);
+            });
+        });
     });
 
     // --- Canvas Zoom & Scroll ---

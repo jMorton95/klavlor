@@ -9,18 +9,56 @@
             Back to Templates
         </a>
         <span class="text-slate-300 dark:text-slate-600">|</span>
-        <span class="text-sm font-medium text-slate-700 dark:text-slate-300">@TemplateName</span>
+        <span class="text-sm font-medium text-slate-700 dark:text-slate-300">@Template.Name</span>
     </div>
     <div class="flex items-center gap-2">
         <button type="button"
-                hx-get="@($"/api/templates/{TemplateId}/builder/nodes/create")"
+                hx-get="@($"/api/templates/{Template.Id}/builder/nodes/create")"
                 hx-target="#hx-modal-container"
                 hx-swap="innerHTML"
                 hx-vals="js:{posX: getCanvasViewportCenter().x, posY: getCanvasViewportCenter().y}"
                 class="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-md border border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950 transition-colors cursor-pointer">
             + Add Node
         </button>
-        <a hx-get="@AppRoutes.TemplatesView.WithId(TemplateId).FromApi()" hx-target="#hx-page-container" hx-push-url="@AppRoutes.TemplatesView.WithId(TemplateId)" hx-swap="innerHTML transition:true"
+        <button type="button"
+                hx-post="@($"/api/templates/{Template.Id}/builder/auto-layout")"
+                hx-target="#hx-page-container"
+                hx-swap="innerHTML"
+                hx-confirm="Auto-layout will rearrange all groups. Continue?"
+                class="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-md border border-blue-300 dark:border-blue-600 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950 transition-colors cursor-pointer">
+            <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
+            Auto-Layout
+        </button>
+        @if (Template.LayoutSnapshots.Any())
+        {
+            <button type="button"
+                    hx-post="@($"/api/templates/{Template.Id}/builder/undo-layout")"
+                    hx-target="#hx-page-container"
+                    hx-swap="innerHTML"
+                    class="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-md border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors cursor-pointer">
+                <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a5 5 0 015 5v2M3 10l4-4M3 10l4 4"/></svg>
+                Undo Layout
+            </button>
+        }
+        <button type="button"
+                hx-get="@($"/api/templates/{Template.Id}/builder/annotations/create")"
+                hx-target="#hx-modal-container"
+                hx-swap="innerHTML"
+                hx-vals="js:{posX: getCanvasViewportCenter().x, posY: getCanvasViewportCenter().y}"
+                class="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-md border border-purple-300 dark:border-purple-600 text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950 transition-colors cursor-pointer">
+            <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+            Add Text
+        </button>
+        <button type="button"
+                hx-post="@($"/api/templates/{Template.Id}/builder/regions")"
+                hx-target="#builder-canvas"
+                hx-swap="innerHTML"
+                hx-vals="js:{TemplateId: @Template.Id, PositionX: getCanvasViewportCenter().x, PositionY: getCanvasViewportCenter().y, Width: 300, Height: 200, Color: 'slate', Opacity: 0.15}"
+                class="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-md border border-green-300 dark:border-green-600 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950 transition-colors cursor-pointer">
+            <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5z"/></svg>
+            Add Region
+        </button>
+        <a hx-get="@AppRoutes.TemplatesView.WithId(Template.Id).FromApi()" hx-target="#hx-page-container" hx-push-url="@AppRoutes.TemplatesView.WithId(Template.Id)" hx-swap="innerHTML transition:true"
            class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-amber-600 dark:text-amber-400 border border-amber-300 dark:border-amber-600 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950 transition-colors cursor-pointer">
             View Template
         </a>
@@ -28,6 +66,5 @@
 </div>
 
 @code {
-    [Parameter] public int TemplateId { get; set; }
-    [Parameter] public string TemplateName { get; set; } = "";
+    [Parameter] public required Template Template { get; set; }
 }

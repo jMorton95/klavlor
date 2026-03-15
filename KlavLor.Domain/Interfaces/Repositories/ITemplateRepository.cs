@@ -11,4 +11,7 @@ public interface ITemplateRepository
     Task<bool> UpdateNodePosition(int nodeId, double positionX, double positionY);
     Task<bool> UpdateGroupPosition(int groupId, double positionX, double positionY);
     Task<bool> NodeBelongsToTemplate(int nodeId, int templateId);
+    Task<bool> UpdateAnnotationPosition(int annotationId, double positionX, double positionY);
+    Task<bool> UpdateRegionPosition(int regionId, double positionX, double positionY);
+    Task<bool> UpdateRegionSize(int regionId, double width, double height);
 }

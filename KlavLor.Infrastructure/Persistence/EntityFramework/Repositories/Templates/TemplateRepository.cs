@@ -16,6 +16,9 @@ internal sealed class TemplateRepository(DataContext dataContext, ILogger<Templa
                 .Include(t => t.Nodes)
                 .Include(t => t.Edges)
                 .Include(t => t.Groups)
+                .Include(t => t.Annotations)
+                .Include(t => t.Regions)
+                .Include(t => t.LayoutSnapshots)
                 .Include(t => t.CreatedBy)
                 .AsSplitQuery()
                 .FirstOrDefaultAsync(t => t.Id == id);
@@ -90,5 +93,35 @@ internal sealed class TemplateRepository(DataContext dataContext, ILogger<Templa
     {
         return await dataContext.TemplateNodes
             .AnyAsync(n => n.Id == nodeId && n.TemplateId == templateId);
+    }
+
+    public async Task<bool> UpdateAnnotationPosition(int annotationId, double positionX, double positionY)
+    {
+        var rows = await dataContext.CanvasAnnotations
+            .Where(a => a.Id == annotationId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(a => a.PositionX, positionX)
+                .SetProperty(a => a.PositionY, positionY));
+        return rows > 0;
+    }
+
+    public async Task<bool> UpdateRegionPosition(int regionId, double positionX, double positionY)
+    {
+        var rows = await dataContext.CanvasRegions
+            .Where(r => r.Id == regionId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(r => r.PositionX, positionX)
+                .SetProperty(r => r.PositionY, positionY));
+        return rows > 0;
+    }
+
+    public async Task<bool> UpdateRegionSize(int regionId, double width, double height)
+    {
+        var rows = await dataContext.CanvasRegions
+            .Where(r => r.Id == regionId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(r => r.Width, width)
+                .SetProperty(r => r.Height, height));
+        return rows > 0;
     }
 }

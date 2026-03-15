@@ -48,6 +48,21 @@ public static class AppRoutes
     public const string BuilderGroupPosition = "/templates/{id:int}/builder/groups/{groupId:int}/position";
     public const string BuilderNodeGroup = "/templates/{id:int}/builder/nodes/{nodeId:int}/group";
 
+    public const string BuilderAutoLayout = "/templates/{id:int}/builder/auto-layout";
+    public const string BuilderUndoLayout = "/templates/{id:int}/builder/undo-layout";
+
+    public const string BuilderAnnotations = "/templates/{id:int}/builder/annotations";
+    public const string BuilderAnnotationCreate = "/templates/{id:int}/builder/annotations/create";
+    public const string BuilderAnnotation = "/templates/{id:int}/builder/annotations/{annotationId:int}";
+    public const string BuilderAnnotationEdit = "/templates/{id:int}/builder/annotations/{annotationId:int}/edit";
+    public const string BuilderAnnotationPosition = "/templates/{id:int}/builder/annotations/{annotationId:int}/position";
+
+    public const string BuilderRegions = "/templates/{id:int}/builder/regions";
+    public const string BuilderRegion = "/templates/{id:int}/builder/regions/{regionId:int}";
+    public const string BuilderRegionEdit = "/templates/{id:int}/builder/regions/{regionId:int}/edit";
+    public const string BuilderRegionPosition = "/templates/{id:int}/builder/regions/{regionId:int}/position";
+    public const string BuilderRegionSize = "/templates/{id:int}/builder/regions/{regionId:int}/size";
+
     public const string ViewerCompletion = "/templates/{id:int}/completion/{nodeId:int}";
 
     public const string OsrsSearch = "/osrs/search";
