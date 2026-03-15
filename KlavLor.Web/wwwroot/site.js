@@ -147,6 +147,34 @@ window.getCanvasViewportCenter = function() {
     };
 };
 
+// --- Completion Popover ---
+window.openCompletionPopover = function(nodeId) {
+    // Close any other open popovers first
+    document.querySelectorAll('[id^="completion-popover-"]').forEach(function(p) {
+        p.classList.add('hidden');
+    });
+    var popover = document.getElementById('completion-popover-' + nodeId);
+    if (popover) {
+        popover.classList.remove('hidden');
+        var input = popover.querySelector('input[name="note"]');
+        if (input) input.focus();
+    }
+};
+
+window.closeCompletionPopover = function(nodeId) {
+    var popover = document.getElementById('completion-popover-' + nodeId);
+    if (popover) popover.classList.add('hidden');
+};
+
+// Close completion popover on outside click
+document.addEventListener('click', function(e) {
+    if (e.target.closest('[id^="completion-popover-"]')) return;
+    if (e.target.closest('[onclick^="openCompletionPopover"]')) return;
+    document.querySelectorAll('[id^="completion-popover-"]').forEach(function(p) {
+        p.classList.add('hidden');
+    });
+});
+
 // Include antiforgery token in all HTMX requests
 document.body.addEventListener('htmx:configRequest', function(e) {
     const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;

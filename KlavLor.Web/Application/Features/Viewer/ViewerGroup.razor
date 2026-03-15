@@ -1,4 +1,5 @@
 @using KlavLor.Domain.Entities
+@using KlavLor.Application.Features.Viewer.ViewerData
 
 <div class="viewer-group absolute select-none"
      data-group-id="@Group.Id"
@@ -8,10 +9,14 @@
         <div class="p-1.5 space-y-0.5">
             @foreach (var node in GroupedNodes)
             {
-                var completedAt = CompletionDates.GetValueOrDefault(node.Id);
+                var info = CompletionDates.GetValueOrDefault(node.Id);
+                var isCompleted = info is not null;
+                var isNext = !isCompleted && NextNodeIds.Contains(node.Id);
                 <ViewerGroupItem Node="@node" TemplateId="@TemplateId"
-                                 IsCompleted="@(completedAt != default)"
-                                 CompletedAt="@(completedAt != default ? completedAt : null)"
+                                 IsCompleted="@isCompleted"
+                                 CompletedAt="@info?.CompletedAt"
+                                 CompletionNote="@info?.Note"
+                                 IsNext="@isNext"
                                  CanToggle="@CanTrackCompletion" />
             }
         </div>
@@ -22,6 +27,7 @@
     [Parameter] public required TemplateNodeGroup Group { get; set; }
     [Parameter] public int TemplateId { get; set; }
     [Parameter] public List<TemplateNode> GroupedNodes { get; set; } = [];
-    [Parameter] public Dictionary<int, DateTimeOffset> CompletionDates { get; set; } = [];
+    [Parameter] public Dictionary<int, CompletionInfo> CompletionDates { get; set; } = [];
     [Parameter] public bool CanTrackCompletion { get; set; }
+    [Parameter] public HashSet<int> NextNodeIds { get; set; } = [];
 }

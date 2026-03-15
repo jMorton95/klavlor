@@ -1,4 +1,5 @@
 @using KlavLor.Domain.Entities
+@using KlavLor.Application.Features.Viewer.ViewerData
 @using KlavLor.Web.Application
 @using KlavLor.Web.Components.Layout
 
@@ -41,6 +42,8 @@
             }
         </div>
         <div class="flex items-center gap-2">
+            <input type="text" id="canvas-search-input" placeholder="Search nodes..."
+                   class="text-xs px-2 py-1 w-36 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-400" />
             @if (IsOwner)
             {
                 <a hx-get="@AppRoutes.Builder.WithId(Template.Id).FromApi()" hx-target="#hx-page-container" hx-push-url="@AppRoutes.Builder.WithId(Template.Id)" hx-swap="innerHTML transition:true"
@@ -57,7 +60,7 @@
 
 @code {
     [Parameter] public required Template Template { get; set; }
-    [Parameter] public Dictionary<int, DateTimeOffset> CompletionDates { get; set; } = [];
+    [Parameter] public Dictionary<int, CompletionInfo> CompletionDates { get; set; } = [];
     [Parameter] public bool IsOwner { get; set; }
     [Parameter] public bool CanTrackCompletion { get; set; }
 }

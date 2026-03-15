@@ -27,7 +27,7 @@ internal sealed class UserNodeCompletionRepository(DataContext dataContext, ILog
         }
     }
 
-    public async Task<bool> Toggle(int userId, int templateNodeId)
+    public async Task<bool> Toggle(int userId, int templateNodeId, string? note = null)
     {
         try
         {
@@ -44,7 +44,8 @@ internal sealed class UserNodeCompletionRepository(DataContext dataContext, ILog
                 {
                     UserId = userId,
                     TemplateNodeId = templateNodeId,
-                    CompletedAt = DateTimeOffset.UtcNow
+                    CompletedAt = DateTimeOffset.UtcNow,
+                    Note = note
                 });
             }
 
@@ -56,6 +57,12 @@ internal sealed class UserNodeCompletionRepository(DataContext dataContext, ILog
             logger.LogError(ex, "Failed to toggle completion for user {UserId} and node {NodeId}", userId, templateNodeId);
             throw new RepositoryException("Failed to toggle completion", ex);
         }
+    }
+
+    public async Task<UserNodeCompletion?> GetCompletion(int userId, int templateNodeId)
+    {
+        return await dataContext.UserNodeCompletions
+            .FirstOrDefaultAsync(c => c.UserId == userId && c.TemplateNodeId == templateNodeId);
     }
 
     public async Task<bool> IsCompleted(int userId, int templateNodeId)

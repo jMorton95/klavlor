@@ -28,7 +28,9 @@ public sealed class ViewerDataHandler(
         // Always load the owner's completions so every viewer sees the template's
         // progress state. Only the owner can toggle (enforced by ToggleCompletionHandler).
         var completions = await completionRepository.GetByUserAndTemplate(template.CreatedById, template.Id);
-        var completionDates = completions.ToDictionary(c => c.TemplateNodeId, c => c.CompletedAt);
+        var completionDates = completions.ToDictionary(
+            c => c.TemplateNodeId,
+            c => new CompletionInfo(c.CompletedAt, c.Note));
 
         return Result<ViewerDataResponse>.Success(new ViewerDataResponse(
             template,

@@ -19,4 +19,7 @@ public sealed class UserNodeCompletion
 
     [Required]
     public DateTimeOffset CompletedAt { get; set; }
+
+    [StringLength(500)]
+    public string? Note { get; set; }
 }

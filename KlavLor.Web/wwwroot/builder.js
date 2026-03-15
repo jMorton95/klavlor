@@ -16,6 +16,28 @@
         return input ? input.value : '';
     }
 
+    function expandCanvasForElement(el, zoom) {
+        var canvas = document.getElementById('builder-canvas');
+        if (!canvas) return;
+        var innerEl = canvas.firstElementChild;
+        if (!innerEl) return;
+        var padding = 300;
+        var ex = parseFloat(el.style.left) || 0;
+        var ey = parseFloat(el.style.top) || 0;
+        var rect = el.getBoundingClientRect();
+        var neededW = ex + rect.width / zoom + padding;
+        var neededH = ey + rect.height / zoom + padding;
+        if (neededW > parseFloat(innerEl.style.minWidth))
+            innerEl.style.minWidth = neededW + 'px';
+        if (neededH > parseFloat(innerEl.style.minHeight))
+            innerEl.style.minHeight = neededH + 'px';
+        var svg = innerEl.querySelector('svg');
+        if (svg) {
+            svg.style.minWidth = innerEl.style.minWidth;
+            svg.style.minHeight = innerEl.style.minHeight;
+        }
+    }
+
     function calculateBezierPath(x1, y1, x2, y2) {
         var dx = Math.abs(x2 - x1);
         var dy = Math.abs(y2 - y1);
@@ -547,6 +569,7 @@
             annotationDragState.moved = true;
             annotationDragState.el.style.left = Math.max(0, annotationDragState.startX + dx) + 'px';
             annotationDragState.el.style.top = Math.max(0, annotationDragState.startY + dy) + 'px';
+            expandCanvasForElement(annotationDragState.el, zoom);
         }
 
         if (regionDragState) {
@@ -557,6 +580,7 @@
             regionDragState.moved = true;
             regionDragState.el.style.left = Math.max(0, regionDragState.startX + dx) + 'px';
             regionDragState.el.style.top = Math.max(0, regionDragState.startY + dy) + 'px';
+            expandCanvasForElement(regionDragState.el, zoom);
         }
 
         if (resizeState) {
@@ -590,6 +614,7 @@
             resizeState.el.style.top = Math.max(0, newY) + 'px';
             resizeState.el.style.width = newW + 'px';
             resizeState.el.style.height = newH + 'px';
+            expandCanvasForElement(resizeState.el, zoom);
         }
 
         if (connectState) {
@@ -1092,6 +1117,87 @@
         canvas.scrollLeft = contentCenterX * zoom - canvas.clientWidth / 2;
         canvas.scrollTop = contentCenterY * zoom - canvas.clientHeight / 2;
     }
+
+    // --- Node Search ---
+
+    var searchDebounceTimer = null;
+
+    function searchAndHighlightNodes(query) {
+        // Clear previous highlights
+        document.querySelectorAll('.search-highlight').forEach(function(el) {
+            el.classList.remove('search-highlight');
+        });
+
+        if (!query || !query.trim()) return;
+
+        var lowerQuery = query.toLowerCase().trim();
+        var canvas = document.getElementById('builder-canvas') || document.getElementById('viewer-canvas');
+        if (!canvas) return;
+
+        var canvasId = canvas.id;
+        var groups = canvas.querySelectorAll('.builder-group, .viewer-group');
+        var firstMatch = null;
+
+        groups.forEach(function(group) {
+            var labels = group.querySelectorAll('.text-xs, .text-\\[11px\\]');
+            var found = false;
+            labels.forEach(function(label) {
+                if (label.textContent.toLowerCase().includes(lowerQuery)) {
+                    found = true;
+                }
+            });
+            if (found) {
+                group.classList.add('search-highlight');
+                if (!firstMatch) firstMatch = group;
+            }
+        });
+
+        // Scroll to first match
+        if (firstMatch && canvas) {
+            var zoom = zoomLevels[canvasId] || 1;
+            var x = parseFloat(firstMatch.style.left) || 0;
+            var y = parseFloat(firstMatch.style.top) || 0;
+            var rect = firstMatch.getBoundingClientRect();
+            var w = rect.width / zoom;
+            var h = rect.height / zoom;
+            canvas.scrollLeft = (x + w / 2) * zoom - canvas.clientWidth / 2;
+            canvas.scrollTop = (y + h / 2) * zoom - canvas.clientHeight / 2;
+        }
+    }
+
+    document.addEventListener('input', function(e) {
+        if (e.target.id !== 'canvas-search-input') return;
+        clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = setTimeout(function() {
+            searchAndHighlightNodes(e.target.value);
+        }, 250);
+    });
+
+    document.addEventListener('keydown', function(e) {
+        // Escape clears search
+        if (e.key === 'Escape') {
+            var input = document.getElementById('canvas-search-input');
+            if (input && (document.activeElement === input || input.value)) {
+                input.value = '';
+                searchAndHighlightNodes('');
+                input.blur();
+                e.preventDefault();
+                return;
+            }
+        }
+        // Ctrl+F / Cmd+F focuses search
+        if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+            var canvas = document.getElementById('builder-canvas') || document.getElementById('viewer-canvas');
+            if (canvas) {
+                var input = document.getElementById('canvas-search-input');
+                if (input) {
+                    e.preventDefault();
+                    input.focus();
+                    input.select();
+                }
+            }
+        }
+    });
 
     // --- Initial edge recalculation and centering on page load ---
 

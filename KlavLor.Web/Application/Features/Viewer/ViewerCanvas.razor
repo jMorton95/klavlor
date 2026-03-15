@@ -1,4 +1,5 @@
 @using KlavLor.Domain.Entities
+@using KlavLor.Application.Features.Viewer.ViewerData
 
 @{
     var allGroupPositions = Template.Groups.Select(g => (g.PositionX, g.PositionY)).ToList();
@@ -18,6 +19,55 @@
         .Where(n => n.GroupId.HasValue)
         .GroupBy(n => n.GroupId!.Value)
         .ToDictionary(g => g.Key, g => g.ToList());
+
+    // Build predecessor map: for each group, which groups feed into it
+    var predecessorGroups = new Dictionary<int, HashSet<int>>();
+    foreach (var group in Template.Groups)
+        predecessorGroups[group.Id] = [];
+    foreach (var edge in Template.Edges)
+    {
+        var fromNode = Template.Nodes.FirstOrDefault(n => n.Id == edge.FromNodeId);
+        var toNode = Template.Nodes.FirstOrDefault(n => n.Id == edge.ToNodeId);
+        if (fromNode?.GroupId != null && toNode?.GroupId != null && fromNode.GroupId != toNode.GroupId)
+        {
+            if (predecessorGroups.TryGetValue(toNode.GroupId.Value, out var preds))
+                preds.Add(fromNode.GroupId.Value);
+        }
+    }
+
+    // Compute "What's Next" node IDs
+    var nextNodeIds = new HashSet<int>();
+    foreach (var group in Template.Groups)
+    {
+        var gNodes = nodesByGroup.GetValueOrDefault(group.Id);
+        if (gNodes == null) continue;
+        var hasUncompletedInGroup = gNodes.Any(n => !CompletionDates.ContainsKey(n.Id));
+        if (!hasUncompletedInGroup) continue;
+
+        var preds2 = predecessorGroups.GetValueOrDefault(group.Id);
+        var allPredsCompleted = true;
+        if (preds2 != null && preds2.Count > 0)
+        {
+            foreach (var predGid in preds2)
+            {
+                var predNodes = nodesByGroup.GetValueOrDefault(predGid);
+                if (predNodes == null || !predNodes.All(n => CompletionDates.ContainsKey(n.Id)))
+                {
+                    allPredsCompleted = false;
+                    break;
+                }
+            }
+        }
+
+        if (allPredsCompleted)
+        {
+            foreach (var n in gNodes)
+            {
+                if (!CompletionDates.ContainsKey(n.Id))
+                    nextNodeIds.Add(n.Id);
+            }
+        }
+    }
 
     var renderedGroupEdges = new HashSet<(int, int)>();
 
@@ -165,7 +215,8 @@
         {
             var groupNodes = Template.Nodes.Where(n => n.GroupId == group.Id).OrderBy(n => n.SortOrder).ThenBy(n => n.Id).ToList();
             <ViewerGroup Group="@group" TemplateId="@Template.Id" GroupedNodes="@groupNodes"
-                         CompletionDates="@CompletionDates" CanTrackCompletion="@CanTrackCompletion" />
+                         CompletionDates="@CompletionDates" CanTrackCompletion="@CanTrackCompletion"
+                         NextNodeIds="@nextNodeIds" />
         }
 
         @* Annotation layer (read-only) *@
@@ -190,7 +241,7 @@
 
 @code {
     [Parameter] public required Template Template { get; set; }
-    [Parameter] public Dictionary<int, DateTimeOffset> CompletionDates { get; set; } = [];
+    [Parameter] public Dictionary<int, CompletionInfo> CompletionDates { get; set; } = [];
     [Parameter] public bool CanTrackCompletion { get; set; }
 
     private static string GetAnnotationFontClass(string fontSize) => fontSize switch

@@ -10,6 +10,9 @@
         </a>
         <span class="text-slate-300 dark:text-slate-600">|</span>
         <span class="text-sm font-medium text-slate-700 dark:text-slate-300">@Template.Name</span>
+        <span class="text-slate-300 dark:text-slate-600">|</span>
+        <input type="text" id="canvas-search-input" placeholder="Search nodes..."
+               class="text-xs px-2 py-1 w-36 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-400" />
     </div>
     <div class="flex items-center gap-2">
         <button type="button"
@@ -52,7 +55,7 @@
         <button type="button"
                 hx-post="@($"/api/templates/{Template.Id}/builder/regions")"
                 hx-target="#builder-canvas"
-                hx-swap="innerHTML"
+                hx-swap="outerHTML"
                 hx-vals="js:{TemplateId: @Template.Id, PositionX: getCanvasViewportCenter().x, PositionY: getCanvasViewportCenter().y, Width: 300, Height: 200, Color: 'slate', Opacity: 0.15}"
                 class="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-md border border-green-300 dark:border-green-600 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950 transition-colors cursor-pointer">
             <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5z"/></svg>

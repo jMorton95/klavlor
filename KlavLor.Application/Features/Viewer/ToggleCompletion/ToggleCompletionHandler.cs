@@ -20,7 +20,7 @@ public sealed class ToggleCompletionHandler(
         if (!nodeExists)
             return Result.Failure("Node does not belong to this template.");
 
-        await completionRepository.Toggle(userId, command.NodeId);
+        await completionRepository.Toggle(userId, command.NodeId, command.Note);
 
         return Result.Success();
     }

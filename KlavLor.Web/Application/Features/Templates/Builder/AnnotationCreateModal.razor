@@ -6,7 +6,7 @@
     <div class="relative bg-white dark:bg-slate-900 rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
         <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">Add Text Annotation</h3>
         <form hx-post="@($"/api/templates/{TemplateId}/builder/annotations")"
-              hx-target="#builder-canvas" hx-swap="innerHTML"
+              hx-target="#builder-canvas" hx-swap="outerHTML"
               hx-on::after-request="if(event.detail.elt===this) this.closest('#modal-element')?.remove()">
             <input type="hidden" name="TemplateId" value="@TemplateId" />
             <input type="hidden" name="PositionX" value="@PositionX" />

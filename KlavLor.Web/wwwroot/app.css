@@ -125,3 +125,22 @@ var {
     stroke: #ef4444;
     stroke-width: 3;
 }
+
+/* "What's Next" pulse animation */
+@keyframes next-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+    50% { box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.15); }
+}
+.animate-next-pulse { animation: next-pulse 2s ease-in-out infinite; }
+
+/* Node search highlight */
+.search-highlight > div {
+    outline: 2px solid #f59e0b;
+    outline-offset: 2px;
+    border-radius: 0.5rem;
+    animation: search-flash 1s ease-in-out 3;
+}
+@keyframes search-flash {
+    0%, 100% { outline-color: #f59e0b; }
+    50% { outline-color: transparent; }
+}

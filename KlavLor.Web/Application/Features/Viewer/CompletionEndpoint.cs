@@ -18,6 +18,7 @@ public sealed class CompletionEndpoint : IEndpoint
     private static async Task<IResult> Endpoint(
         int id,
         int nodeId,
+        [AsParameters] CompletionForm form,
         ISessionStateManager sessionManager,
         ToggleCompletionHandler toggleHandler,
         ITemplateRepository templateRepository,
@@ -26,41 +27,93 @@ public sealed class CompletionEndpoint : IEndpoint
         var userId = sessionManager.GetUserSessionId();
         if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
 
-        var command = new ToggleCompletionCommand { TemplateId = id, NodeId = nodeId };
+        var command = new ToggleCompletionCommand { TemplateId = id, NodeId = nodeId, Note = form.Note };
         var result = await toggleHandler.Handle(command, userId.Value);
         if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
 
-        // Load just the node to determine how to render it
         var template = await templateRepository.GetById(id);
         if (template is null) return Microsoft.AspNetCore.Http.Results.NotFound();
 
         var node = template.Nodes.FirstOrDefault(n => n.Id == nodeId);
         if (node is null) return Microsoft.AspNetCore.Http.Results.NotFound();
 
-        var isCompleted = await completionRepository.IsCompleted(userId.Value, nodeId);
-        DateTimeOffset? completedAt = isCompleted ? DateTimeOffset.UtcNow : null;
+        var completion = await completionRepository.GetCompletion(userId.Value, nodeId);
+        var isCompleted = completion is not null;
+        DateTimeOffset? completedAt = completion?.CompletedAt;
+        string? completionNote = completion?.Note;
+
+        // Compute "What's Next" for this node
+        var isNext = false;
+        if (!isCompleted && node.GroupId.HasValue)
+        {
+            var allCompletions = await completionRepository.GetByUserAndTemplate(userId.Value, id);
+            var completedNodeIds = allCompletions.Select(c => c.TemplateNodeId).ToHashSet();
+            var nodesByGroup = template.Nodes
+                .Where(n => n.GroupId.HasValue)
+                .GroupBy(n => n.GroupId!.Value)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            // Build predecessor groups
+            var predecessorGroups = new Dictionary<int, HashSet<int>>();
+            foreach (var group in template.Groups)
+                predecessorGroups[group.Id] = [];
+            foreach (var edge in template.Edges)
+            {
+                var fromNode = template.Nodes.FirstOrDefault(n => n.Id == edge.FromNodeId);
+                var toNode = template.Nodes.FirstOrDefault(n => n.Id == edge.ToNodeId);
+                if (fromNode?.GroupId != null && toNode?.GroupId != null && fromNode.GroupId != toNode.GroupId)
+                {
+                    if (predecessorGroups.TryGetValue(toNode.GroupId.Value, out var preds))
+                        preds.Add(fromNode.GroupId.Value);
+                }
+            }
+
+            var preds2 = predecessorGroups.GetValueOrDefault(node.GroupId.Value);
+            var allPredsCompleted = true;
+            if (preds2 is { Count: > 0 })
+            {
+                foreach (var predGid in preds2)
+                {
+                    var predNodes = nodesByGroup.GetValueOrDefault(predGid);
+                    if (predNodes == null || !predNodes.All(n => completedNodeIds.Contains(n.Id)))
+                    {
+                        allPredsCompleted = false;
+                        break;
+                    }
+                }
+            }
+            isNext = allPredsCompleted;
+        }
 
         if (node.GroupId.HasValue)
         {
-            // Grouped node — return just the row item
             return IResultExtensions.Component<ViewerGroupItem>(new
             {
                 Node = node,
                 TemplateId = id,
                 IsCompleted = isCompleted,
                 CompletedAt = completedAt,
+                CompletionNote = completionNote,
+                IsNext = isNext,
                 CanToggle = true
             });
         }
 
-        // Standalone node — return just the node
         return IResultExtensions.Component<ViewerNode>(new
         {
             Node = node,
             TemplateId = id,
             IsCompleted = isCompleted,
             CompletedAt = completedAt,
+            CompletionNote = completionNote,
+            IsNext = isNext,
             CanToggle = true
         });
+    }
+
+    private sealed class CompletionForm
+    {
+        [Microsoft.AspNetCore.Mvc.FromForm]
+        public string? Note { get; set; }
     }
 }
