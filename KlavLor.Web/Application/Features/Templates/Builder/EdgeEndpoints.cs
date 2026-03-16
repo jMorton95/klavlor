@@ -22,7 +22,7 @@ public sealed class EdgeEndpoints : IEndpoint
         var userId = sessionManager.GetUserSessionId();
         if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
 
-        var result = await handler.Handle(command, userId.Value);
+        var result = await handler.Handle(command);
         if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
 
         return Microsoft.AspNetCore.Http.Results.Ok(new { success = true });
@@ -37,7 +37,7 @@ public sealed class EdgeEndpoints : IEndpoint
         if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
 
         var command = new DeleteEdgeCommand { TemplateId = id, EdgeId = edgeId };
-        var result = await handler.Handle(command, userId.Value);
+        var result = await handler.Handle(command);
         if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
 
         return Microsoft.AspNetCore.Http.Results.NoContent();

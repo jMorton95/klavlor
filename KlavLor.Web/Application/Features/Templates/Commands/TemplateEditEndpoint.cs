@@ -23,7 +23,7 @@ public sealed class TemplateEditEndpoint : IEndpoint
 
         var template = await templateRepository.GetById(id);
 
-        if (template is null || template.CreatedById != userId.Value)
+        if (template is null || (template.CreatedById != userId.Value && !sessionManager.IsUserSessionAdministrator()))
             return IResultExtensions.HtmxRedirect(AppRoutes.TemplatesSearch);
 
         var command = new TemplateEditCommand
@@ -47,7 +47,7 @@ public sealed class TemplateEditEndpoint : IEndpoint
         if (userId is null) return IResultExtensions.HtmxRedirect(AppRoutes.Login);
 
         command.Id = id;
-        var result = await handler.Handle(command, userId.Value);
+        var result = await handler.Handle(command);
 
         return result switch
         {

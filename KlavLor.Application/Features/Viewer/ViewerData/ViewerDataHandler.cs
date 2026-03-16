@@ -1,4 +1,5 @@
 using KlavLor.Application.Common;
+using KlavLor.Application.Interfaces.Authentication;
 using KlavLor.Domain.Entities;
 using KlavLor.Domain.Interfaces.Repositories;
 
@@ -6,9 +7,10 @@ namespace KlavLor.Application.Features.Viewer.ViewerData;
 
 public sealed class ViewerDataHandler(
     ITemplateRepository templateRepository,
-    IUserNodeCompletionRepository completionRepository)
+    IUserNodeCompletionRepository completionRepository,
+    ICurrentUser currentUser)
 {
-    public async Task<Result<ViewerDataResponse>> Handle(ViewerDataQuery query, int? userId)
+    public async Task<Result<ViewerDataResponse>> Handle(ViewerDataQuery query)
     {
         if (!query.TemplateId.HasValue)
             return Result<ViewerDataResponse>.Failure("Template not found.");
@@ -18,12 +20,12 @@ public sealed class ViewerDataHandler(
         if (template is null)
             return Result<ViewerDataResponse>.Failure("Template not found.");
 
-        var isOwner = userId.HasValue && template.CreatedById == userId.Value;
+        var isOwner = currentUser.UserId.HasValue && template.CreatedById == currentUser.UserId.Value;
 
-        if (!template.IsPublic && !isOwner)
+        if (!template.IsPublic && !isOwner && !currentUser.IsAdmin)
             return Result<ViewerDataResponse>.Failure("Not authorized");
 
-        var canTrackCompletion = isOwner;
+        var canTrackCompletion = isOwner || currentUser.IsAdmin;
 
         // Always load the owner's completions so every viewer sees the template's
         // progress state. Only the owner can toggle (enforced by ToggleCompletionHandler).

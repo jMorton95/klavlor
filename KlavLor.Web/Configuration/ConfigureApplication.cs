@@ -102,6 +102,9 @@ public static class ConfigureApplication
                 .AddScoped<ISessionStateManager, AspNetSessionStateManager>();
 
             builder.Services
+                .AddScoped<ICurrentUser, CurrentUser>();
+
+            builder.Services
                 .AddTransient<IPasswordService, AspNetPasswordService>();
         }
     }

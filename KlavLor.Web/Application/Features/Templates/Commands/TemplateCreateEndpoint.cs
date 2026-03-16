@@ -39,7 +39,7 @@ public sealed class TemplateCreateEndpoint : IEndpoint
         var userId = sessionManager.GetUserSessionId();
         if (userId is null) return IResultExtensions.HtmxRedirect(AppRoutes.Login);
 
-        var result = await handler.Handle(command, userId.Value);
+        var result = await handler.Handle(command);
 
         return result switch
         {

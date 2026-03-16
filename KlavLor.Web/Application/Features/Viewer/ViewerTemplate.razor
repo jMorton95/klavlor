@@ -71,9 +71,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var userId = SessionStateManager.GetUserSessionId();
-
-        var result = await ViewerDataHandler.Handle(new ViewerDataQuery { TemplateId = Id }, userId);
+        var result = await ViewerDataHandler.Handle(new ViewerDataQuery { TemplateId = Id });
         if (result.IsSuccess)
         {
             _response = result.Value;

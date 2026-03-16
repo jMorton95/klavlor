@@ -57,7 +57,7 @@ public sealed class NodeEndpoints : IEndpoint
         // Cache wiki image and use local URL
         command.IconUrl = await CacheIconUrl(command.IconUrl, imageCacheService);
 
-        var result = await handler.Handle(command, userId.Value);
+        var result = await handler.Handle(command);
         if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
 
         var template = await templateRepository.GetById(command.TemplateId);
@@ -85,7 +85,7 @@ public sealed class NodeEndpoints : IEndpoint
         if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
 
         var template = await templateRepository.GetById(id);
-        if (template is null || template.CreatedById != userId.Value)
+        if (template is null || (template.CreatedById != userId.Value && !sessionManager.IsUserSessionAdministrator()))
             return Microsoft.AspNetCore.Http.Results.NotFound();
 
         var node = template.Nodes.FirstOrDefault(n => n.Id == nodeId);
@@ -116,7 +116,7 @@ public sealed class NodeEndpoints : IEndpoint
         // Cache wiki image and use local URL
         command.IconUrl = await CacheIconUrl(command.IconUrl, imageCacheService);
 
-        var result = await handler.Handle(command, userId.Value);
+        var result = await handler.Handle(command);
         if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
 
         var template = await templateRepository.GetById(command.TemplateId);
@@ -147,7 +147,7 @@ public sealed class NodeEndpoints : IEndpoint
 
         command.TemplateId = id;
         command.NodeId = nodeId;
-        var result = await handler.Handle(command, userId.Value);
+        var result = await handler.Handle(command);
 
         return result.IsSuccess
             ? Microsoft.AspNetCore.Http.Results.NoContent()
@@ -171,7 +171,7 @@ public sealed class NodeEndpoints : IEndpoint
         var edgeIdsBefore = templateBefore.Edges.Select(e => e.Id).ToHashSet();
 
         var command = new DeleteNodeCommand { TemplateId = id, NodeId = nodeId };
-        var result = await handler.Handle(command, userId.Value);
+        var result = await handler.Handle(command);
         if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
 
         var template = await templateRepository.GetById(id);
@@ -223,7 +223,7 @@ public sealed class NodeEndpoints : IEndpoint
         if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
 
         var command = new ReorderNodeCommand { TemplateId = id, NodeId = nodeId, Direction = direction };
-        var result = await handler.Handle(command, userId.Value);
+        var result = await handler.Handle(command);
         if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
 
         var template = await templateRepository.GetById(id);

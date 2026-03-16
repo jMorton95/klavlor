@@ -43,7 +43,7 @@ internal sealed class TemplateQueryRepository(DataContext dataContext, ILogger<T
                 t.Nodes.Count,
                 t.SavedAt,
                 (t.CreatedBy != null ? t.CreatedBy.FirstName + " " + t.CreatedBy.LastName : "Unknown"),
-                userId.HasValue && t.CreatedById == userId.Value
+                isAdmin || (userId.HasValue && t.CreatedById == userId.Value)
             )).ToListAsync();
 
             var pagination = new Pagination(count, pagedQuery.PageNumber, pagedQuery.PageSize);

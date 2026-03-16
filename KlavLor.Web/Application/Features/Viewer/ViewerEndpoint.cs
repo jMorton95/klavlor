@@ -18,9 +18,7 @@ public sealed class ViewerEndpoint : IEndpoint
         ISessionStateManager sessionManager,
         ViewerDataHandler handler)
     {
-        var userId = sessionManager.GetUserSessionId();
-
-        var result = await handler.Handle(new ViewerDataQuery { TemplateId = id }, userId);
+        var result = await handler.Handle(new ViewerDataQuery { TemplateId = id });
         if (!result.IsSuccess) return IResultExtensions.HtmxRedirect(AppRoutes.TemplatesSearch);
 
         return IResultExtensions.Component<ViewerPage>(new

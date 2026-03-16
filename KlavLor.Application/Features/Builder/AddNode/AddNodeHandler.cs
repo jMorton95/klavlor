@@ -1,4 +1,5 @@
 using KlavLor.Application.Common;
+using KlavLor.Application.Interfaces.Authentication;
 using KlavLor.Domain.Entities;
 using KlavLor.Domain.Interfaces.Repositories;
 
@@ -6,9 +7,10 @@ namespace KlavLor.Application.Features.Builder.AddNode;
 
 public sealed class AddNodeHandler(
     ITemplateRepository templateRepository,
-    AddNodeValidator validator)
+    AddNodeValidator validator,
+    ICurrentUser currentUser)
 {
-    public async Task<Result<TemplateNode>> Handle(AddNodeCommand command, int userId)
+    public async Task<Result<TemplateNode>> Handle(AddNodeCommand command)
     {
         var validationResult = await validator.ValidateAsync(command);
 
@@ -20,7 +22,7 @@ public sealed class AddNodeHandler(
         if (template is null)
             return Result<TemplateNode>.Failure("Template not found.");
 
-        if (template.CreatedById != userId)
+        if (template.CreatedById != currentUser.UserId && !currentUser.IsAdmin)
             return Result<TemplateNode>.Failure("You do not have permission to modify this template.");
 
         if (template.Nodes.Count >= 500)

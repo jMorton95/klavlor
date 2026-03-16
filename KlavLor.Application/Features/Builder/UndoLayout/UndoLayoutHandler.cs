@@ -1,14 +1,16 @@
 using System.Text.Json;
 using KlavLor.Application.Common;
+using KlavLor.Application.Interfaces.Authentication;
 using KlavLor.Domain.Interfaces.Repositories;
 
 namespace KlavLor.Application.Features.Builder.UndoLayout;
 
 public sealed class UndoLayoutHandler(
     ITemplateRepository templateRepository,
-    UndoLayoutValidator validator)
+    UndoLayoutValidator validator,
+    ICurrentUser currentUser)
 {
-    public async Task<Result> Handle(UndoLayoutCommand command, int userId)
+    public async Task<Result> Handle(UndoLayoutCommand command)
     {
         var validationResult = await validator.ValidateAsync(command);
         if (!validationResult.IsValid)
@@ -18,7 +20,7 @@ public sealed class UndoLayoutHandler(
         if (template is null)
             return Result.Failure("Template not found.");
 
-        if (template.CreatedById != userId)
+        if (template.CreatedById != currentUser.UserId && !currentUser.IsAdmin)
             return Result.Failure("You do not have permission to modify this template.");
 
         var snapshot = template.GetLatestLayoutSnapshot();

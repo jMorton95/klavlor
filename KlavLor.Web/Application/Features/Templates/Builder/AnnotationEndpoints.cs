@@ -48,7 +48,7 @@ public sealed class AnnotationEndpoints : IEndpoint
         var userId = sessionManager.GetUserSessionId();
         if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
 
-        var result = await handler.Handle(command, userId.Value);
+        var result = await handler.Handle(command);
         if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
 
         var template = await templateRepository.GetById(command.TemplateId);
@@ -64,7 +64,7 @@ public sealed class AnnotationEndpoints : IEndpoint
         if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
 
         var template = await templateRepository.GetById(id);
-        if (template is null || template.CreatedById != userId.Value)
+        if (template is null || (template.CreatedById != userId.Value && !sessionManager.IsUserSessionAdministrator()))
             return Microsoft.AspNetCore.Http.Results.NotFound();
 
         var annotation = template.Annotations.FirstOrDefault(a => a.Id == annotationId);
@@ -88,7 +88,7 @@ public sealed class AnnotationEndpoints : IEndpoint
         var userId = sessionManager.GetUserSessionId();
         if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
 
-        var result = await handler.Handle(command, userId.Value);
+        var result = await handler.Handle(command);
         if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
 
         var template = await templateRepository.GetById(command.TemplateId);
@@ -115,7 +115,7 @@ public sealed class AnnotationEndpoints : IEndpoint
 
         command.TemplateId = id;
         command.AnnotationId = annotationId;
-        var result = await handler.Handle(command, userId.Value);
+        var result = await handler.Handle(command);
 
         return result.IsSuccess
             ? Microsoft.AspNetCore.Http.Results.NoContent()
@@ -131,7 +131,7 @@ public sealed class AnnotationEndpoints : IEndpoint
         if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
 
         var command = new DeleteAnnotationCommand { TemplateId = id, AnnotationId = annotationId };
-        var result = await handler.Handle(command, userId.Value);
+        var result = await handler.Handle(command);
 
         return result.IsSuccess
             ? Microsoft.AspNetCore.Http.Results.NoContent()

@@ -1,13 +1,15 @@
 using KlavLor.Application.Common;
+using KlavLor.Application.Interfaces.Authentication;
 using KlavLor.Domain.Interfaces.Repositories;
 
 namespace KlavLor.Application.Features.Templates.Delete;
 
 public sealed class TemplateDeleteHandler(
     ITemplateRepository templateRepository,
-    TemplateDeleteValidator validator)
+    TemplateDeleteValidator validator,
+    ICurrentUser currentUser)
 {
-    public async Task<Result> Handle(TemplateDeleteCommand command, int userId)
+    public async Task<Result> Handle(TemplateDeleteCommand command)
     {
         var validationResult = await validator.ValidateAsync(command);
 
@@ -19,7 +21,7 @@ public sealed class TemplateDeleteHandler(
         if (template is null)
             return Result.Failure("Template not found.");
 
-        if (template.CreatedById != userId)
+        if (template.CreatedById != currentUser.UserId && !currentUser.IsAdmin)
             return Result.Failure("You do not have permission to delete this template.");
 
         var result = await templateRepository.DeleteTemplate(command.Id!.Value);

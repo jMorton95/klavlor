@@ -1,24 +1,25 @@
 using KlavLor.Application.Common;
+using KlavLor.Application.Interfaces.Authentication;
 using KlavLor.Domain.Entities;
 using KlavLor.Domain.Interfaces.Repositories;
 
 namespace KlavLor.Application.Features.Templates.Duplicate;
 
-public sealed class DuplicateTemplateHandler(ITemplateRepository templateRepository)
+public sealed class DuplicateTemplateHandler(ITemplateRepository templateRepository, ICurrentUser currentUser)
 {
-    public async Task<Result<Template>> Handle(DuplicateTemplateCommand command, int userId)
+    public async Task<Result<Template>> Handle(DuplicateTemplateCommand command)
     {
         var source = await templateRepository.GetById(command.SourceTemplateId);
         if (source is null)
             return Result<Template>.Failure("Template not found.");
 
-        if (source.CreatedById != userId && !source.IsPublic)
+        if (source.CreatedById != currentUser.UserId && !source.IsPublic && !currentUser.IsAdmin)
             return Result<Template>.Failure("You do not have access to this template.");
 
         if (source.Nodes.Count > 500 || source.Edges.Count > 2000)
             return Result<Template>.Failure("Source template is too large to duplicate.");
 
-        var newTemplate = new Template($"{source.Name} (Copy)", source.Description, userId)
+        var newTemplate = new Template($"{source.Name} (Copy)", source.Description, currentUser.UserId!.Value)
         {
             IsPublic = false
         };

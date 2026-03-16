@@ -32,7 +32,7 @@ public sealed class RegionEndpoints : IEndpoint
         var userId = sessionManager.GetUserSessionId();
         if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
 
-        var result = await handler.Handle(command, userId.Value);
+        var result = await handler.Handle(command);
         if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
 
         var template = await templateRepository.GetById(command.TemplateId);
@@ -48,7 +48,7 @@ public sealed class RegionEndpoints : IEndpoint
         if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
 
         var template = await templateRepository.GetById(id);
-        if (template is null || template.CreatedById != userId.Value)
+        if (template is null || (template.CreatedById != userId.Value && !sessionManager.IsUserSessionAdministrator()))
             return Microsoft.AspNetCore.Http.Results.NotFound();
 
         var region = template.Regions.FirstOrDefault(r => r.Id == regionId);
@@ -73,7 +73,7 @@ public sealed class RegionEndpoints : IEndpoint
         var userId = sessionManager.GetUserSessionId();
         if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
 
-        var result = await handler.Handle(command, userId.Value);
+        var result = await handler.Handle(command);
         if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
 
         var template = await templateRepository.GetById(command.TemplateId);
@@ -100,7 +100,7 @@ public sealed class RegionEndpoints : IEndpoint
 
         command.TemplateId = id;
         command.RegionId = regionId;
-        var result = await handler.Handle(command, userId.Value);
+        var result = await handler.Handle(command);
 
         return result.IsSuccess
             ? Microsoft.AspNetCore.Http.Results.NoContent()
@@ -118,7 +118,7 @@ public sealed class RegionEndpoints : IEndpoint
 
         command.TemplateId = id;
         command.RegionId = regionId;
-        var result = await handler.Handle(command, userId.Value);
+        var result = await handler.Handle(command);
 
         return result.IsSuccess
             ? Microsoft.AspNetCore.Http.Results.NoContent()
@@ -134,7 +134,7 @@ public sealed class RegionEndpoints : IEndpoint
         if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
 
         var command = new DeleteRegionCommand { TemplateId = id, RegionId = regionId };
-        var result = await handler.Handle(command, userId.Value);
+        var result = await handler.Handle(command);
 
         return result.IsSuccess
             ? Microsoft.AspNetCore.Http.Results.NoContent()

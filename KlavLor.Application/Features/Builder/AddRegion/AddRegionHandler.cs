@@ -1,4 +1,5 @@
 using KlavLor.Application.Common;
+using KlavLor.Application.Interfaces.Authentication;
 using KlavLor.Domain.Entities;
 using KlavLor.Domain.Interfaces.Repositories;
 
@@ -6,9 +7,10 @@ namespace KlavLor.Application.Features.Builder.AddRegion;
 
 public sealed class AddRegionHandler(
     ITemplateRepository templateRepository,
-    AddRegionValidator validator)
+    AddRegionValidator validator,
+    ICurrentUser currentUser)
 {
-    public async Task<Result<CanvasRegion>> Handle(AddRegionCommand command, int userId)
+    public async Task<Result<CanvasRegion>> Handle(AddRegionCommand command)
     {
         var validationResult = await validator.ValidateAsync(command);
         if (!validationResult.IsValid)
@@ -18,7 +20,7 @@ public sealed class AddRegionHandler(
         if (template is null)
             return Result<CanvasRegion>.Failure("Template not found.");
 
-        if (template.CreatedById != userId)
+        if (template.CreatedById != currentUser.UserId && !currentUser.IsAdmin)
             return Result<CanvasRegion>.Failure("You do not have permission to modify this template.");
 
         var region = template.AddRegion(

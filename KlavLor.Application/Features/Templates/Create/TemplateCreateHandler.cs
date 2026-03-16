@@ -1,4 +1,5 @@
 using KlavLor.Application.Common;
+using KlavLor.Application.Interfaces.Authentication;
 using KlavLor.Domain.Entities;
 using KlavLor.Domain.Interfaces.Repositories;
 
@@ -6,16 +7,17 @@ namespace KlavLor.Application.Features.Templates.Create;
 
 public sealed class TemplateCreateHandler(
     ITemplateRepository templateRepository,
-    TemplateCreateValidator validator)
+    TemplateCreateValidator validator,
+    ICurrentUser currentUser)
 {
-    public async Task<Result<Template>> Handle(TemplateCreateCommand command, int userId)
+    public async Task<Result<Template>> Handle(TemplateCreateCommand command)
     {
         var validationResult = await validator.ValidateAsync(command);
 
         if (!validationResult.IsValid)
             return Result<Template>.ValidationFailure(validationResult.ToDictionary());
 
-        var template = new Template(command.Name, command.Description, userId)
+        var template = new Template(command.Name, command.Description, currentUser.UserId!.Value)
         {
             IsPublic = command.IsPublic
         };
@@ -26,7 +28,7 @@ public sealed class TemplateCreateHandler(
             if (source is null)
                 return Result<Template>.Failure("Source template not found.");
 
-            if (source.CreatedById != userId && !source.IsPublic)
+            if (source.CreatedById != currentUser.UserId && !source.IsPublic && !currentUser.IsAdmin)
                 return Result<Template>.Failure("You do not have access to this template.");
 
             if (source.Nodes.Count > 500 || source.Edges.Count > 2000)

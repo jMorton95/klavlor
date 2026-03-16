@@ -25,7 +25,7 @@ public sealed class LayoutEndpoints : IEndpoint
         if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
 
         var command = new ApplyAutoLayoutCommand { TemplateId = id };
-        var result = await handler.Handle(command, userId.Value);
+        var result = await handler.Handle(command);
         if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
 
         var template = await templateRepository.GetById(id);
@@ -44,7 +44,7 @@ public sealed class LayoutEndpoints : IEndpoint
         if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
 
         var command = new UndoLayoutCommand { TemplateId = id };
-        var result = await handler.Handle(command, userId.Value);
+        var result = await handler.Handle(command);
         if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
 
         var template = await templateRepository.GetById(id);

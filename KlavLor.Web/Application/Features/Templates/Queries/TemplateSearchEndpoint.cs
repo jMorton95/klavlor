@@ -19,11 +19,9 @@ public sealed class TemplateSearchEndpoint : IEndpoint
         ISessionStateManager sessionManager,
         TemplateSearchHandler handler)
     {
-        var userId = sessionManager.GetUserSessionId();
-        var isAuthenticated = userId.HasValue;
-        var isAdmin = sessionManager.IsUserSessionAdministrator();
+        var isAuthenticated = sessionManager.IsAuthenticated();
 
-        var result = await handler.Handle(query, userId, isAdmin);
+        var result = await handler.Handle(query);
 
         return IResultExtensions.Component<TemplatesSearchGrid>(new { Result = result.Value, IsAuthenticated = isAuthenticated });
     }

@@ -24,7 +24,7 @@ public sealed class BuilderEndpoint : IEndpoint
         var template = await templateRepository.GetById(id);
         if (template is null) return IResultExtensions.HtmxRedirect(AppRoutes.TemplatesSearch);
 
-        if (template.CreatedById != userId.Value)
+        if (template.CreatedById != userId.Value && !sessionManager.IsUserSessionAdministrator())
             return IResultExtensions.HtmxRedirect(AppRoutes.TemplatesSearch);
 
         return IResultExtensions.Component<BuilderPage>(new { Template = template });

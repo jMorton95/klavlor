@@ -22,7 +22,7 @@ public sealed class DuplicateEndpoint : IEndpoint
         var userId = sessionManager.GetUserSessionId();
         if (userId is null) return IResultExtensions.HtmxRedirect(AppRoutes.Login);
 
-        var result = await handler.Handle(new DuplicateTemplateCommand { SourceTemplateId = id }, userId.Value);
+        var result = await handler.Handle(new DuplicateTemplateCommand { SourceTemplateId = id });
 
         return result.IsSuccess
             ? IResultExtensions.HtmxRedirect(AppRoutes.Builder.WithId(result.Value.Id))

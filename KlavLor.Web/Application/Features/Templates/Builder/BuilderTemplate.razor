@@ -35,7 +35,7 @@
         }
 
         _template = await TemplateRepository.GetById(Id);
-        if (_template is null || _template.CreatedById != userId.Value)
+        if (_template is null || (_template.CreatedById != userId.Value && !SessionStateManager.IsUserSessionAdministrator()))
         {
             NavigationManager.NavigateTo(AppRoutes.TemplatesSearch);
         }

@@ -41,7 +41,7 @@ public sealed class TemplateDeleteEndpoint : IEndpoint
         var userId = sessionManager.GetUserSessionId();
         if (userId is null) return IResultExtensions.HtmxRedirect(AppRoutes.Login);
 
-        await handler.Handle(new TemplateDeleteCommand(id), userId.Value);
+        await handler.Handle(new TemplateDeleteCommand(id));
 
         return IResultExtensions.HtmxRedirect(AppRoutes.TemplatesSearch);
     }

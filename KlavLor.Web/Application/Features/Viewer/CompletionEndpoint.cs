@@ -28,7 +28,7 @@ public sealed class CompletionEndpoint : IEndpoint
         if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
 
         var command = new ToggleCompletionCommand { TemplateId = id, NodeId = nodeId, Note = form.Note };
-        var result = await toggleHandler.Handle(command, userId.Value);
+        var result = await toggleHandler.Handle(command);
         if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
 
         var template = await templateRepository.GetById(id);

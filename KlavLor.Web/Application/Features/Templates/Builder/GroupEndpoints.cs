@@ -30,7 +30,7 @@ public sealed class GroupEndpoints : IEndpoint
         if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
 
         var template = await templateRepository.GetById(id);
-        if (template is null || template.CreatedById != userId.Value)
+        if (template is null || (template.CreatedById != userId.Value && !sessionManager.IsUserSessionAdministrator()))
             return Microsoft.AspNetCore.Http.Results.NotFound();
 
         var group = template.Groups.FirstOrDefault(g => g.Id == groupId);
@@ -54,7 +54,7 @@ public sealed class GroupEndpoints : IEndpoint
         var userId = sessionManager.GetUserSessionId();
         if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
 
-        var result = await handler.Handle(command, userId.Value);
+        var result = await handler.Handle(command);
         if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
 
         var template = await templateRepository.GetById(command.TemplateId);
@@ -70,7 +70,7 @@ public sealed class GroupEndpoints : IEndpoint
         if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
 
         var command = new DeleteGroupCommand { TemplateId = id, GroupId = groupId };
-        var result = await handler.Handle(command, userId.Value);
+        var result = await handler.Handle(command);
         if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
 
         return Microsoft.AspNetCore.Http.Results.NoContent();
@@ -87,7 +87,7 @@ public sealed class GroupEndpoints : IEndpoint
 
         command.TemplateId = id;
         command.GroupId = groupId;
-        var result = await handler.Handle(command, userId.Value);
+        var result = await handler.Handle(command);
 
         return result.IsSuccess
             ? Microsoft.AspNetCore.Http.Results.NoContent()
@@ -106,7 +106,7 @@ public sealed class GroupEndpoints : IEndpoint
 
         command.TemplateId = id;
         command.NodeId = nodeId;
-        var result = await handler.Handle(command, userId.Value);
+        var result = await handler.Handle(command);
         if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
 
         var template = await templateRepository.GetById(id);

@@ -21,7 +21,7 @@ public sealed class ExportEndpoint : IEndpoint
         var userId = sessionManager.GetUserSessionId();
         if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
 
-        var result = await handler.Handle(id, userId.Value);
+        var result = await handler.Handle(id);
         if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.NotFound();
 
         var json = JsonSerializer.Serialize(result.Value, new JsonSerializerOptions { WriteIndented = true });

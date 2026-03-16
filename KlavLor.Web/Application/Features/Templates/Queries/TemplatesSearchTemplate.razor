@@ -20,10 +20,9 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var userId = SessionStateManager.GetUserSessionId();
-        _isAuthenticated = userId.HasValue;
+        _isAuthenticated = SessionStateManager.IsAuthenticated();
 
-        var result = await SearchHandler.Handle(new TemplateSearchQuery(), userId);
+        var result = await SearchHandler.Handle(new TemplateSearchQuery());
         if (result.IsSuccess)
         {
             _result = result.Value;
