@@ -63,7 +63,7 @@ public static class ConfigureApplication
                     options.Cookie.IsEssential = true;
                     options.Cookie.SameSite = SameSiteMode.Strict;
                     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-                    options.ExpireTimeSpan = TimeSpan.FromHours(3);
+                    options.ExpireTimeSpan = TimeSpan.FromDays(30);
                     options.SlidingExpiration = true;
                     options.LoginPath = "/login";
                     options.AccessDeniedPath = "/login";

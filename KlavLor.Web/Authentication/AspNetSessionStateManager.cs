@@ -34,7 +34,7 @@ public class AspNetSessionStateManager(IHttpContextAccessor httpContextAccessor,
         var authProperties = new AuthenticationProperties
         {
             IsPersistent = persistSession,
-            ExpiresUtc = persistSession ? timeProvider.GetUtcNow().Add(TimeSpan.FromHours(3)) : null,
+            ExpiresUtc = persistSession ? timeProvider.GetUtcNow().Add(TimeSpan.FromDays(30)) : null,
             IssuedUtc = timeProvider.GetUtcNow(),
         };
 
