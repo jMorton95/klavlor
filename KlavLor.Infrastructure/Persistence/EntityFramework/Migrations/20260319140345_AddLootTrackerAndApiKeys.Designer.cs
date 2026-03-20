@@ -3,6 +3,7 @@ using System;
 using KlavLor.Infrastructure.Persistence.EntityFramework;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace KlavLor.Infrastructure.Persistence.EntityFramework.Migrations
 {
     [DbContext(typeof(DataContext))]
-    partial class DataContextModelSnapshot : ModelSnapshot
+    [Migration("20260319140345_AddLootTrackerAndApiKeys")]
+    partial class AddLootTrackerAndApiKeys
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -328,16 +331,9 @@ namespace KlavLor.Infrastructure.Persistence.EntityFramework.Migrations
                     b.Property<int?>("CombatLevel")
                         .HasColumnType("integer");
 
-                    b.Property<string>("ContentHash")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
                     b.Property<string>("DropsJson")
                         .IsRequired()
                         .HasColumnType("jsonb");
-
-                    b.Property<bool>("IsImported")
-                        .HasColumnType("boolean");
 
                     b.Property<int?>("KillCount")
                         .HasColumnType("integer");
@@ -377,10 +373,6 @@ namespace KlavLor.Infrastructure.Persistence.EntityFramework.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("SavedById");
-
-                    b.HasIndex("UserId", "ContentHash")
-                        .IsUnique()
-                        .HasFilter("\"ContentHash\" IS NOT NULL");
 
                     b.HasIndex("UserId", "OccurredAt");
 

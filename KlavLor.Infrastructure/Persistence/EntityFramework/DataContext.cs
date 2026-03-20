@@ -19,6 +19,8 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
     public virtual DbSet<LayoutSnapshot> LayoutSnapshots => Set<LayoutSnapshot>();
     public virtual DbSet<CanvasAnnotation> CanvasAnnotations => Set<CanvasAnnotation>();
     public virtual DbSet<CanvasRegion> CanvasRegions => Set<CanvasRegion>();
+    public virtual DbSet<LootRecord> LootRecords => Set<LootRecord>();
+    public virtual DbSet<ApiKey> ApiKeys => Set<ApiKey>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -209,6 +211,54 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
             .Property(c => c.CachedAt)
             .HasColumnType("timestamp with time zone")
             .HasDefaultValueSql("now() AT TIME ZONE 'UTC'");
+
+        // LootRecord configuration
+        modelBuilder.Entity<LootRecord>()
+            .HasOne(l => l.User)
+            .WithMany()
+            .HasForeignKey(l => l.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<LootRecord>()
+            .Property(l => l.SourceType)
+            .HasConversion<string>();
+
+        modelBuilder.Entity<LootRecord>()
+            .Property(l => l.OccurredAt)
+            .HasColumnType("timestamp with time zone");
+
+        modelBuilder.Entity<LootRecord>()
+            .HasIndex(l => new { l.UserId, l.SourceName });
+
+        modelBuilder.Entity<LootRecord>()
+            .HasIndex(l => new { l.UserId, l.SourceType });
+
+        modelBuilder.Entity<LootRecord>()
+            .HasIndex(l => new { l.UserId, l.OccurredAt });
+
+        modelBuilder.Entity<LootRecord>()
+            .HasIndex(l => new { l.UserId, l.ContentHash })
+            .IsUnique()
+            .HasFilter("\"ContentHash\" IS NOT NULL");
+
+        // ApiKey configuration
+        modelBuilder.Entity<ApiKey>()
+            .HasOne(k => k.User)
+            .WithMany()
+            .HasForeignKey(k => k.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ApiKey>()
+            .HasIndex(k => k.KeyHash)
+            .IsUnique();
+
+        modelBuilder.Entity<ApiKey>()
+            .Property(k => k.CreatedAt)
+            .HasColumnType("timestamp with time zone");
+
+        modelBuilder.Entity<ApiKey>()
+            .Property(k => k.LastUsedAt)
+            .HasColumnType("timestamp with time zone");
 
         // Entity base class configuration (timestamps and row versions)
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
