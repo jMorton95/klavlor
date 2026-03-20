@@ -485,5 +485,27 @@ PVT.Web/wwwroot/styles.css
 PVT.Worker/appsettings.Local.json
 PVT.Web/appsettings.Local.json
 KlavLor.Web/appsettings.Local.json
-KlavLor.Web/wwwroot/styles.css
 .claude/
+
+# Scratch / notes files
+review.md
+scripts.md
+
+# Images / screenshots not part of the app
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+!KlavLor.Web/wwwroot/**
+# Re-assert styles.css ignore after the wwwroot negation
+KlavLor.Web/wwwroot/styles.css
+
+# Go build output
+*.exe
+
+# Secrets / config that may contain API keys
+config.toml
+state.json
+*.secret
+*.key
