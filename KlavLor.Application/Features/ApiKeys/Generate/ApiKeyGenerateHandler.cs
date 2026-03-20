@@ -40,10 +40,7 @@ public sealed class ApiKeyGenerateHandler(IApiKeyRepository apiKeyRepository)
 
     private static string GenerateApiKey()
     {
-        var bytes = RandomNumberGenerator.GetBytes(36);
-        return "klav_" + Convert.ToBase64String(bytes)
-            .Replace("+", "")
-            .Replace("/", "")
-            .Replace("=", "")[..48];
+        const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        return "klav_" + RandomNumberGenerator.GetString(chars, 48);
     }
 }
