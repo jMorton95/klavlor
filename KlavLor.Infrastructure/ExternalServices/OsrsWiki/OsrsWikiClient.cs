@@ -8,7 +8,6 @@ namespace KlavLor.Infrastructure.ExternalServices.OsrsWiki;
 public sealed class OsrsWikiClient(HttpClient httpClient, ILogger<OsrsWikiClient> logger) : IOsrsWikiClient
 {
     private const string WikiApiBase = "https://oldschool.runescape.wiki/api.php";
-    private const string WikiImagesBase = "https://oldschool.runescape.wiki/images/";
     private const string WikiBaseUrl = "https://oldschool.runescape.wiki/w/";
 
     public async Task<List<OsrsSearchResult>> SearchItems(string searchTerm, int limit = 10)
@@ -23,16 +22,29 @@ public sealed class OsrsWikiClient(HttpClient httpClient, ILogger<OsrsWikiClient
             if (response?.Query?.Pages is null)
                 return [];
 
-            return response.Query.Pages
-                .OrderBy(p => p.Index)
-                .Select(page =>
-                {
-                    var iconUrl = DeriveIconUrl(page.Title, page.PageImage);
-                    var wikiUrl = $"{WikiBaseUrl}{page.Title?.Replace(" ", "_")}";
-                    return new OsrsSearchResult(page.Title ?? "", iconUrl, wikiUrl);
-                })
-                .Where(r => !string.IsNullOrEmpty(r.Name))
-                .ToList();
+            var results = new List<OsrsSearchResult>();
+
+            foreach (var page in response.Query.Pages.OrderBy(p => p.Index))
+            {
+                if (string.IsNullOrEmpty(page.Title))
+                    continue;
+
+                // Derive the expected inventory icon filename from the page image or title.
+                var iconFilename = DeriveIconFilename(page.Title, page.PageImage);
+
+                // Resolve via imageinfo API (follows wiki file redirects, returns CDN URL).
+                var iconUrl = iconFilename is not null
+                    ? await ResolveImageUrl(iconFilename)
+                    : null;
+
+                // Fall back to the search thumbnail if the inventory icon doesn't exist.
+                iconUrl ??= page.Thumbnail?.Source;
+
+                var wikiUrl = $"{WikiBaseUrl}{page.Title.Replace(" ", "_")}";
+                results.Add(new OsrsSearchResult(page.Title, iconUrl, wikiUrl));
+            }
+
+            return results;
         }
         catch (Exception ex)
         {
@@ -41,21 +53,46 @@ public sealed class OsrsWikiClient(HttpClient httpClient, ILogger<OsrsWikiClient
         }
     }
 
-    private static string? DeriveIconUrl(string? title, string? pageImage)
+    /// <summary>
+    /// Resolves a wiki filename to its actual CDN URL via the imageinfo API.
+    /// Handles file redirects (e.g. "Pharaoh's sceptre.png" → "Pharaoh's sceptre (uncharged).png").
+    /// Returns null if the file does not exist.
+    /// </summary>
+    private async Task<string?> ResolveImageUrl(string filename)
+    {
+        try
+        {
+            var encoded = HttpUtility.UrlEncode($"File:{filename}");
+            var url = $"{WikiApiBase}?action=query&titles={encoded}&prop=imageinfo&iiprop=url&format=json&formatversion=2";
+
+            var response = await httpClient.GetFromJsonAsync<WikiImageInfoResponse>(url);
+
+            var page = response?.Query?.Pages?.FirstOrDefault();
+            if (page is null or { Missing: true })
+                return null;
+
+            return page.ImageInfo?.FirstOrDefault()?.Url;
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Failed to resolve image URL for {Filename}", filename);
+            return null;
+        }
+    }
+
+    private static string? DeriveIconFilename(string? title, string? pageImage)
     {
         if (pageImage is not null)
         {
             // Strip _detail suffix to get the inventory icon filename
-            var iconFile = pageImage
+            return pageImage
                 .Replace("_detail_animated.gif", ".png")
                 .Replace("_detail.png", ".png");
-            return $"{WikiImagesBase}{iconFile}";
         }
 
         if (title is not null)
         {
-            // Fallback: construct from page title
-            return $"{WikiImagesBase}{title.Replace(" ", "_")}.png";
+            return $"{title.Replace(" ", "_")}.png";
         }
 
         return null;
@@ -87,4 +124,47 @@ internal sealed class WikiGeneratorPage
 
     [JsonPropertyName("pageimage")]
     public string? PageImage { get; set; }
+
+    [JsonPropertyName("thumbnail")]
+    public WikiThumbnail? Thumbnail { get; set; }
+}
+
+internal sealed class WikiThumbnail
+{
+    [JsonPropertyName("source")]
+    public string? Source { get; set; }
+}
+
+// Response models for the imageinfo API
+internal sealed class WikiImageInfoResponse
+{
+    [JsonPropertyName("query")]
+    public WikiImageInfoQuery? Query { get; set; }
+}
+
+internal sealed class WikiImageInfoQuery
+{
+    [JsonPropertyName("pages")]
+    public List<WikiImageInfoPage>? Pages { get; set; }
+}
+
+internal sealed class WikiImageInfoPage
+{
+    [JsonPropertyName("pageid")]
+    public int? PageId { get; set; }
+
+    [JsonPropertyName("title")]
+    public string? Title { get; set; }
+
+    [JsonPropertyName("missing")]
+    public bool Missing { get; set; }
+
+    [JsonPropertyName("imageinfo")]
+    public List<WikiImageInfo>? ImageInfo { get; set; }
+}
+
+internal sealed class WikiImageInfo
+{
+    [JsonPropertyName("url")]
+    public string? Url { get; set; }
 }
