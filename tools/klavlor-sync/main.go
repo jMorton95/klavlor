@@ -34,7 +34,7 @@ func main() {
 	switch mode {
 	case "install":
 		install.Install()
-		return
+		// Fall through to start syncing immediately.
 	case "uninstall":
 		install.Uninstall()
 		return

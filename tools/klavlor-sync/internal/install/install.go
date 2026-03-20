@@ -103,10 +103,11 @@ func Install() {
 	}
 
 	fmt.Println()
-	fmt.Println("Done! KlavLor Sync will start automatically on your next login.")
-	fmt.Println("You can safely delete this downloaded file.")
-	fmt.Println()
+	fmt.Println("Install complete! Sync will also start automatically on login.")
 	fmt.Println("To uninstall later: klavlor-sync.exe --uninstall")
+	fmt.Println()
+	fmt.Println("Starting sync now...")
+	fmt.Println()
 }
 
 // Uninstall removes the startup entry and optionally the config/state.
@@ -142,6 +143,6 @@ func Uninstall() {
 }
 
 func fatal(format string, args ...any) {
-	fmt.Fprintf(os.Stderr, "Error: "+format+"\n", args...)
+	fmt.Printf("\n  ✗ Error: "+format+"\n", args...)
 	os.Exit(1)
 }

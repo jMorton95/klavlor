@@ -137,6 +137,8 @@ func Load() (Config, error) {
 	syncAll := fs.Bool("sync-all", false, "Sync all historical data from offset 0")
 	tail := fs.Bool("tail", false, "Skip to current file ends (no historical sync)")
 	_ = fs.Bool("background", false, "Run in background mode (log to file)")
+	_ = fs.Bool("install", false, "")
+	_ = fs.Bool("uninstall", false, "")
 
 	if err := fs.Parse(os.Args[1:]); err != nil {
 		return cfg, err

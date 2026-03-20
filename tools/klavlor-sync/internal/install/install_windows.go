@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -50,8 +51,10 @@ func copyExe(src, dst string) error {
 		return nil // already in place
 	}
 
-	// Kill any running instance (ignore errors — may not be running).
-	_ = exec.Command("taskkill", "/F", "/IM", filepath.Base(dst)).Run()
+	// Kill any previously-installed instance (ignore errors — may not be running).
+	// Exclude our own PID so the installer doesn't kill itself.
+	_ = exec.Command("taskkill", "/F", "/IM", filepath.Base(dst),
+		"/FI", "PID ne "+strconv.Itoa(os.Getpid())).Run()
 
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return err
