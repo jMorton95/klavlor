@@ -1,0 +1,18 @@
+@page "/loot/feed"
+@using KlavLor.Application.Interfaces.Services
+@using KlavLor.Web.Components.Layout
+
+@inject ILootFeedService FeedService
+
+<PageLayout PageTitle="KlavLor - Loot Feed" Title="Loot Feed" Description="Real-time loot drops from all users">
+    <LootFeedGrid Entries="@_entries" />
+</PageLayout>
+
+@code {
+    private IReadOnlyList<KlavLor.Application.Features.Loot.Feed.LootFeedEntry> _entries = [];
+
+    protected override void OnInitialized()
+    {
+        _entries = FeedService.GetCurrentEntries();
+    }
+}

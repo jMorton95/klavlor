@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 using KlavLor.Application.Common.DependencyInjection;
 using KlavLor.Application.Common.Settings;
 using KlavLor.Domain.Entities;
+using KlavLor.Application.Interfaces.Services;
 using KlavLor.Infrastructure.ExternalServices.OsrsWiki;
 using KlavLor.Infrastructure.Persistence.EntityFramework;
 using KlavLor.Infrastructure.Persistence.EntityFramework.Interceptors;
@@ -49,6 +50,8 @@ public static class InfrastructureDependencyConfiguration
 
             services.AddScoped<IDatabaseConnector, EntityFrameworkDatabaseConnector>();
             services.AddScoped<IMigrationService, EntityFrameworkMigrator>();
+
+            services.AddSingleton<ILootFeedService, LootFeedService>();
 
             services.AddOsrsWikiClient();
             services.AddImageCacheService();

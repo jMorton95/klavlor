@@ -1,0 +1,78 @@
+@using KlavLor.Application.Features.Loot.Feed
+
+<div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-amber-200 dark:hover:border-amber-700 transition-all duration-200">
+    <div class="flex items-start justify-between mb-2">
+        <div class="flex items-center gap-2">
+            <span class="text-sm font-semibold text-slate-900 dark:text-slate-100">@Entry.UserName</span>
+            <span class="text-xs text-slate-400 dark:text-slate-400">@(Entry.SourceType == KlavLor.Domain.Entities.LootSourceType.Event ? "rolled" : "killed")</span>
+            <span class="text-sm font-medium text-amber-600 dark:text-amber-400">@Entry.SourceName</span>
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium @GetSourceTypeBadgeClasses()">
+                @Entry.SourceType
+            </span>
+        </div>
+        <span class="text-xs text-slate-400 dark:text-slate-400 whitespace-nowrap ml-2">@FormatTime(Entry.OccurredAt)</span>
+    </div>
+
+    @if (Entry.Drops.Count > 0)
+    {
+        <div class="flex flex-wrap gap-2 mt-2">
+            @foreach (var drop in Entry.Drops.OrderByDescending(d => (long)d.Quantity * d.Price).Take(8))
+            {
+                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200">
+                    @if (drop.Quantity > 1)
+                    {
+                        <span class="font-medium text-amber-600 dark:text-amber-400">@drop.Quantity.ToString("N0")x</span>
+                    }
+                    <span>@drop.Name</span>
+                    @if (drop.Price > 0)
+                    {
+                        <span class="text-slate-400 dark:text-slate-400">(@FormatGold((long)drop.Quantity * drop.Price))</span>
+                    }
+                </span>
+            }
+            @if (Entry.Drops.Count > 8)
+            {
+                <span class="inline-flex items-center px-2 py-1 rounded-lg text-xs bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                    +@(Entry.Drops.Count - 8) more
+                </span>
+            }
+        </div>
+    }
+
+    @if (Entry.TotalValue > 0)
+    {
+        <div class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+            Total: <span class="font-medium text-amber-600 dark:text-amber-400">@FormatGold(Entry.TotalValue) gp</span>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public required LootFeedEntry Entry { get; set; }
+
+    private string GetSourceTypeBadgeClasses() => Entry.SourceType switch
+    {
+        KlavLor.Domain.Entities.LootSourceType.Npc => "bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300",
+        KlavLor.Domain.Entities.LootSourceType.Event => "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300",
+        KlavLor.Domain.Entities.LootSourceType.Pickpocket => "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300",
+        KlavLor.Domain.Entities.LootSourceType.Player => "bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300",
+        _ => "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+    };
+
+    private static string FormatGold(long value)
+    {
+        if (value >= 1_000_000_000) return $"{value / 1_000_000_000.0:F1}B";
+        if (value >= 1_000_000) return $"{value / 1_000_000.0:F1}M";
+        if (value >= 1_000) return $"{value / 1_000.0:F1}K";
+        return value.ToString("N0");
+    }
+
+    private static string FormatTime(DateTimeOffset time)
+    {
+        var ago = DateTimeOffset.UtcNow - time;
+        if (ago.TotalMinutes < 1) return "just now";
+        if (ago.TotalMinutes < 60) return $"{(int)ago.TotalMinutes}m ago";
+        if (ago.TotalHours < 24) return $"{(int)ago.TotalHours}h ago";
+        return time.ToString("MMM dd, HH:mm");
+    }
+}

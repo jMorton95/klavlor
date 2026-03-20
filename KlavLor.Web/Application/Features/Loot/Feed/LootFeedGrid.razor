@@ -1,0 +1,49 @@
+@using KlavLor.Application.Features.Loot.Feed
+
+<div class="space-y-4">
+    <div id="loot-feed-container"
+         hx-ext="sse"
+         sse-connect="@AppRoutes.LootFeedStream.FromApi()"
+         sse-swap="message"
+         hx-swap="afterbegin"
+         hx-on::after-settle="if(this.children.length > 50) { while(this.children.length > 50) this.removeChild(this.lastElementChild); }"
+         class="space-y-3">
+        @if (Entries is not null && Entries.Count > 0)
+        {
+            @foreach (var entry in Entries)
+            {
+                <LootFeedItem Entry="@entry" />
+            }
+        }
+        else
+        {
+            <div id="feed-empty-state" class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-12 text-center">
+                <div class="flex justify-center mb-4">
+                    <div class="p-4 bg-amber-50 dark:bg-amber-950 rounded-full">
+                        <svg class="w-8 h-8 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                        </svg>
+                    </div>
+                </div>
+                <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">No loot drops yet</h3>
+                <p class="text-sm text-slate-500 dark:text-slate-400">Loot drops will appear here in real-time as they are synced.</p>
+            </div>
+        }
+    </div>
+</div>
+
+<script>
+    (function() {
+        var container = document.getElementById('loot-feed-container');
+        if (!container) return;
+        var observer = new MutationObserver(function() {
+            var empty = document.getElementById('feed-empty-state');
+            if (empty && container.children.length > 1) empty.remove();
+        });
+        observer.observe(container, { childList: true });
+    })();
+</script>
+
+@code {
+    [Parameter] public IReadOnlyList<LootFeedEntry>? Entries { get; set; }
+}
