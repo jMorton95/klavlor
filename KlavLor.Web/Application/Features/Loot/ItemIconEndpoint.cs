@@ -11,7 +11,9 @@ public sealed class ItemIconEndpoint : IEndpoint
 
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
-        return app.MapGet(AppRoutes.ItemIcon.FromApi(), GetItemIcon).AllowAnonymous();
+        return app.MapGet(AppRoutes.ItemIcon.FromApi(), GetItemIcon)
+            .AllowAnonymous()
+            .RequireRateLimiting("anonymous");
     }
 
     private static async Task<IResult> GetItemIcon(
@@ -47,6 +49,7 @@ public sealed class ItemIconEndpoint : IEndpoint
         if (image is null)
         {
             memoryCache.Set(cacheKey, new CachedIconResult(null, null), TimeSpan.FromMinutes(5));
+            httpContext.Response.Headers.CacheControl = "no-cache";
             return Microsoft.AspNetCore.Http.Results.NotFound();
         }
 
