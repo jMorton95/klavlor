@@ -194,6 +194,14 @@ function trackLastViewedTemplate() {
 document.body.addEventListener('htmx:afterSettle', function() {
     updateSidebarActive();
     trackLastViewedTemplate();
+
+    // Auto-close mobile sidebar after navigation
+    var sidebar = document.getElementById('mobile-sidebar');
+    var backdrop = document.getElementById('sidebar-backdrop');
+    if (sidebar && !sidebar.classList.contains('-translate-x-full')) {
+        sidebar.classList.add('-translate-x-full');
+        backdrop.classList.add('hidden');
+    }
 });
 window.addEventListener('popstate', updateSidebarActive);
 

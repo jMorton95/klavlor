@@ -8,6 +8,7 @@ using KlavLor.Web.Application.Features.Templates.Commands;
 using KlavLor.Web.Application.Features.Templates.Queries;
 using KlavLor.Web.Application.Features.Users.Commands;
 using KlavLor.Web.Application.Features.Users.Queries;
+using KlavLor.Web.Application.Features.Loot;
 using KlavLor.Web.Application.Features.Loot.Feed;
 using KlavLor.Web.Application.Features.Loot.Ingest;
 using KlavLor.Web.Application.Features.Loot.Log;
@@ -51,7 +52,8 @@ public static class ConfigureEndpoints
 
         web.MapEndpoints<LootIngestEndpoint>()
             .MapEndpoints<LootFeedEndpoint>()
-            .MapEndpoints<LootLogEndpoint>();
+            .MapEndpoints<LootLogEndpoint>()
+            .MapEndpoints<ItemIconEndpoint>();
 
         web.MapEndpoints<ApiKeyManageEndpoint>();
 

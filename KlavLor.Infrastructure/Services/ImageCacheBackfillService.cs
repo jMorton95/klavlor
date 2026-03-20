@@ -68,7 +68,8 @@ public sealed class ImageCacheBackfillService(IServiceScopeFactory scopeFactory,
                 }
                 else
                 {
-                    logger.LogWarning("Failed to cache image: {Url}", node.IconUrl);
+                    logger.LogWarning("Permanently skipping unfetchable image, clearing URL: {Url}", node.IconUrl);
+                    node.IconUrl = null;
                 }
 
                 await Task.Delay(TimeSpan.FromMilliseconds(500), stoppingToken);

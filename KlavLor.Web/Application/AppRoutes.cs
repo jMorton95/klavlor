@@ -67,6 +67,7 @@ public static class AppRoutes
 
     public const string OsrsSearch = "/osrs/search";
     public const string CachedImage = "/images/{imageId:int}";
+    public const string ItemIcon = "/images/item-icon";
 
     public const string LootIngest = "/loot/ingest";
     public const string LootIngestBatch = "/loot/ingest/batch";

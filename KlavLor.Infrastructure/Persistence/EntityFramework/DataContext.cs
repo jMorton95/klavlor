@@ -21,6 +21,7 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
     public virtual DbSet<CanvasRegion> CanvasRegions => Set<CanvasRegion>();
     public virtual DbSet<LootRecord> LootRecords => Set<LootRecord>();
     public virtual DbSet<ApiKey> ApiKeys => Set<ApiKey>();
+    public virtual DbSet<ItemIcon> ItemIcons => Set<ItemIcon>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -211,6 +212,21 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
             .Property(c => c.CachedAt)
             .HasColumnType("timestamp with time zone")
             .HasDefaultValueSql("now() AT TIME ZONE 'UTC'");
+
+        // ItemIcon configuration
+        modelBuilder.Entity<ItemIcon>()
+            .HasIndex(i => i.ItemName)
+            .IsUnique();
+
+        modelBuilder.Entity<ItemIcon>()
+            .HasOne(i => i.CachedImage)
+            .WithMany()
+            .HasForeignKey(i => i.CachedImageId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<ItemIcon>()
+            .Property(i => i.LastAttemptAt)
+            .HasColumnType("timestamp with time zone");
 
         // LootRecord configuration
         modelBuilder.Entity<LootRecord>()

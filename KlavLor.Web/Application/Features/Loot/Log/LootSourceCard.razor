@@ -32,7 +32,11 @@
                 @foreach (var drop in Source.TopDrops)
                 {
                     <div class="flex items-center justify-between text-xs">
-                        <span class="text-slate-700 dark:text-slate-100 truncate mr-2">
+                        <span class="text-slate-700 dark:text-slate-100 truncate mr-2 inline-flex items-center gap-1">
+                            <img src="/api/images/item-icon?name=@Uri.EscapeDataString(drop.Name)"
+                                 class="w-4 h-4 inline-block"
+                                 loading="lazy"
+                                 onerror="this.style.display='none'" />
                             @drop.Name
                             @if (drop.TotalQuantity > 1)
                             {

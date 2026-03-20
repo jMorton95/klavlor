@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/klavlor/klavlor-sync/internal/config"
+	"github.com/klavlor/klavlor-sync/internal/install"
 	"github.com/klavlor/klavlor-sync/internal/model"
 	"github.com/klavlor/klavlor-sync/internal/sender"
 	"github.com/klavlor/klavlor-sync/internal/state"
@@ -22,6 +23,27 @@ func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	})))
+
+	// Check for install/uninstall mode before loading config.
+	mode, err := config.ParseMode()
+	if err != nil {
+		slog.Error("parsing mode", "error", err)
+		os.Exit(1)
+	}
+
+	switch mode {
+	case "install":
+		install.Install()
+		return
+	case "uninstall":
+		install.Uninstall()
+		return
+	}
+
+	// Background mode: redirect logs to file.
+	if config.HasBackgroundFlag() {
+		setupFileLogging()
+	}
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -131,6 +153,18 @@ func main() {
 	slog.Info("state saved. goodbye.")
 }
 
+func setupFileLogging() {
+	logPath := config.LogPath()
+	f, err := os.Create(logPath)
+	if err != nil {
+		slog.Error("cannot open log file, continuing with stderr", "path", logPath, "error", err)
+		return
+	}
+	slog.SetDefault(slog.New(slog.NewTextHandler(f, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	})))
+}
+
 func handleFirstRun(cfg config.Config, store *state.Store, w *watcher.Watcher) error {
 	switch {
 	case cfg.SyncAll:
@@ -142,6 +176,11 @@ func handleFirstRun(cfg config.Config, store *state.Store, w *watcher.Watcher) e
 		return tailToEnd(store, w)
 
 	default:
+		// In background mode, skip interactive prompt — default to sync all.
+		if config.HasBackgroundFlag() {
+			slog.Info("background mode first run: syncing all historical data")
+			return nil
+		}
 		return promptFirstRun(store, w)
 	}
 }

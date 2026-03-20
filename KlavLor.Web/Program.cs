@@ -46,6 +46,7 @@ builder.ConfigureLoggingProviders();
 builder.AddAuditInterceptors();
 builder.AddAuthenticationServices();
 
+builder.Services.AddMemoryCache();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddRazorComponents();
 
@@ -54,6 +55,7 @@ builder.Services.AddApplication();
 builder.Services.AddInfrastructure();
 
 builder.Services.AddHostedService<ImageCacheBackfillService>();
+builder.Services.AddHostedService<ItemIconBackfillService>();
 
 builder.Services.AddRateLimiter(options =>
 {

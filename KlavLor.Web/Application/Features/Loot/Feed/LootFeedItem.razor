@@ -19,6 +19,10 @@
             @foreach (var drop in Entry.Drops.OrderByDescending(d => (long)d.Quantity * d.Price).Take(8))
             {
                 <span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200">
+                    <img src="/api/images/item-icon?name=@Uri.EscapeDataString(drop.Name)"
+                         class="w-4 h-4 inline-block"
+                         loading="lazy"
+                         onerror="this.style.display='none'" />
                     @if (drop.Quantity > 1)
                     {
                         <span class="font-medium text-amber-600 dark:text-amber-400">@drop.Quantity.ToString("N0")x</span>
