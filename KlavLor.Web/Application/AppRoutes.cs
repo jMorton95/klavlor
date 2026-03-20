@@ -68,5 +68,17 @@ public static class AppRoutes
     public const string OsrsSearch = "/osrs/search";
     public const string CachedImage = "/images/{imageId:int}";
 
+    public const string LootIngest = "/loot/ingest";
+    public const string LootIngestBatch = "/loot/ingest/batch";
+    public const string LootFeed = "/loot/feed";
+    public const string LootFeedStream = "/loot/feed/stream";
+    public const string LootLog = "/loot/log";
+    public const string LootLogUser = "/loot/log/{id:int}";
+    public const string LootLogSource = "/loot/log/{id:int}/source";
+
+    public const string UserApiKeySection = "/admin/users/{id:int}/api-key";
+    public const string UserApiKeyGenerate = "/admin/users/{id:int}/api-key/generate";
+    public const string UserApiKeyRevoke = "/admin/users/{id:int}/api-key/revoke";
+
     public const string HealthCheck = "/healthcheck";
 }
