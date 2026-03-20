@@ -53,6 +53,7 @@ public static class InfrastructureDependencyConfiguration
 
             services.AddSingleton<ILootFeedService, LootFeedService>();
 
+            services.AddTransient<OsrsWikiRateLimitHandler>();
             services.AddOsrsWikiClient();
             services.AddImageCacheService();
         }
@@ -82,7 +83,8 @@ public static class InfrastructureDependencyConfiguration
             {
                 client.DefaultRequestHeaders.UserAgent.ParseAdd("KlavLor/1.0 (OSRS Gear Progression Builder)");
                 client.Timeout = TimeSpan.FromSeconds(10);
-            });
+            })
+            .AddHttpMessageHandler<OsrsWikiRateLimitHandler>();
         }
 
         private void AddImageCacheService()
@@ -91,7 +93,8 @@ public static class InfrastructureDependencyConfiguration
             {
                 client.DefaultRequestHeaders.UserAgent.ParseAdd("KlavLor/1.0 (OSRS Gear Progression Builder)");
                 client.Timeout = TimeSpan.FromSeconds(30);
-            });
+            })
+            .AddHttpMessageHandler<OsrsWikiRateLimitHandler>();
         }
 
         private void AddApplicationRepositories()
