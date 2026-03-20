@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.ResponseCompression;
 using KlavLor.Application.Common.Settings;
@@ -56,6 +57,8 @@ public static class ConfigureApplication
         public void ConfigureAuthenticationCookies()
         {
             builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+                .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(
+                    ApiKeyAuthenticationHandler.SchemeName, null)
                 .AddCookie(options =>
                 {
                     options.Cookie.Name = "KlavLor.Web.Auth";
@@ -86,8 +89,17 @@ public static class ConfigureApplication
         public void ConfigureAuthorizationPolicies()
         {
             builder.Services.AddAuthorizationBuilder()
-                .AddPolicy(nameof(RoleName.User), policy => policy.RequireAuthenticatedUser())
-                .AddPolicy(nameof(RoleName.Admin), policy => policy.RequireAuthenticatedUser().RequireRole(nameof(RoleName.Admin)));
+                .SetDefaultPolicy(new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder(
+                        CookieAuthenticationDefaults.AuthenticationScheme, ApiKeyAuthenticationHandler.SchemeName)
+                    .RequireAuthenticatedUser()
+                    .Build())
+                .AddPolicy(nameof(RoleName.User), policy => policy
+                    .AddAuthenticationSchemes(CookieAuthenticationDefaults.AuthenticationScheme, ApiKeyAuthenticationHandler.SchemeName)
+                    .RequireAuthenticatedUser())
+                .AddPolicy(nameof(RoleName.Admin), policy => policy
+                    .AddAuthenticationSchemes(CookieAuthenticationDefaults.AuthenticationScheme, ApiKeyAuthenticationHandler.SchemeName)
+                    .RequireAuthenticatedUser()
+                    .RequireRole(nameof(RoleName.Admin)));
         }
 
         public void ConfigureLoggingProviders()

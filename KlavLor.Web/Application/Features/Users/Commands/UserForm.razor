@@ -34,6 +34,11 @@
                 <a href="@AppRoutes.UsersSearch" hx-get="@AppRoutes.UsersSearch.FromApi()" hx-target="#hx-page-container" hx-push-url="@AppRoutes.UsersSearch" class="px-6 py-2.5 text-slate-600 dark:text-slate-400 text-sm font-medium border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">Cancel</a>
             </div>
         </EditForm>
+
+        <div hx-get="@(AppRoutes.UserApiKeySection.WithId(editCommand!.Id).FromApi())"
+             hx-trigger="load" hx-swap="outerHTML">
+            <p class="max-w-2xl mt-8 text-sm text-slate-500 dark:text-slate-400">Loading API key...</p>
+        </div>
     }
     else
     {
