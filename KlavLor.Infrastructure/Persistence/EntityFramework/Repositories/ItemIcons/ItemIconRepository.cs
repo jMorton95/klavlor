@@ -95,14 +95,12 @@ internal sealed class ItemIconRepository(DataContext dataContext, ILogger<ItemIc
 
             foreach (var icon in newIcons)
             {
-                await dataContext.Database.ExecuteSqlRawAsync(
-                    """
+                await dataContext.Database.ExecuteSqlAsync(
+                    $"""
                     INSERT INTO "ItemIcons" ("ItemName", "ItemId", "CachedImageId", "FailCount", "LastAttemptAt")
-                    VALUES ({0}, {1}, {2}, {3}, {4})
+                    VALUES ({icon.ItemName}, {icon.ItemId}, {icon.CachedImageId}, {icon.FailCount}, {icon.LastAttemptAt})
                     ON CONFLICT ("ItemName") DO NOTHING
-                    """,
-                    icon.ItemName, icon.ItemId, (object?)icon.CachedImageId ?? DBNull.Value,
-                    icon.FailCount, (object?)icon.LastAttemptAt ?? DBNull.Value);
+                    """);
             }
 
             if (existingIcons.Count > 0)
