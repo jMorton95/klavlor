@@ -1,0 +1,25 @@
+@page "/loot/log"
+@using KlavLor.Application.Features.Loot.Log
+@using KlavLor.Web.Components.Layout
+
+@inject LootLogHandler LogHandler
+
+<PageLayout PageTitle="KlavLor - Drop Logs" Title="Drop Logs" Description="Browse loot history by player">
+    @if (_users is not null)
+    {
+        <LootLogUsersGrid Users="@_users" />
+    }
+</PageLayout>
+
+@code {
+    private List<LootLogUserSummary>? _users;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await LogHandler.HandleUsers();
+        if (result.IsSuccess)
+        {
+            _users = result.Value;
+        }
+    }
+}

@@ -1,0 +1,17 @@
+<div id="@Id"
+     class="flex justify-center py-2"
+     hx-get="@Url"
+     hx-target="@TargetSelector"
+     hx-swap="beforeend"
+     hx-trigger="click">
+    <button type="button"
+            class="px-6 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer">
+        Show More
+    </button>
+</div>
+
+@code {
+    [Parameter] public required string Url { get; set; }
+    [Parameter] public string Id { get; set; } = "show-more-sources";
+    [Parameter] public string TargetSelector { get; set; } = "#source-cards";
+}

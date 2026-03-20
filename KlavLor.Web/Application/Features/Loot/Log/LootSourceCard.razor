@@ -1,0 +1,70 @@
+@using KlavLor.Application.Features.Loot.Log
+@using KlavLor.Domain.Entities
+
+<a hx-get="@(AppRoutes.LootLogSource.WithId(UserId).FromApi() + "?name=" + Uri.EscapeDataString(Source.SourceName))"
+   hx-target="#hx-page-container"
+   hx-push-url="@(AppRoutes.LootLogSource.WithId(UserId) + "?name=" + Uri.EscapeDataString(Source.SourceName))"
+   hx-swap="innerHTML transition:true"
+   class="block bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden hover:shadow-md hover:border-amber-200 dark:hover:border-amber-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200 cursor-pointer">
+    <div class="p-4">
+        <div class="flex items-start justify-between mb-2">
+            <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate">@Source.SourceName</h3>
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ml-2 shrink-0 @GetSourceTypeBadgeClasses()">
+                @Source.SourceType
+            </span>
+        </div>
+
+        <div class="flex items-center gap-4 text-sm text-slate-500 dark:text-slate-400 mb-3">
+            <span class="flex items-center gap-1">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/>
+                </svg>
+                @Source.TotalKills.ToString("N0") @(Source.SourceType == LootSourceType.Event ? "rolls" : "kills")
+            </span>
+            <span class="flex items-center gap-1 font-medium text-amber-600 dark:text-amber-400">
+                @FormatGold(Source.TotalValue) gp
+            </span>
+        </div>
+
+        @if (Source.TopDrops.Count > 0)
+        {
+            <div class="space-y-1.5">
+                @foreach (var drop in Source.TopDrops)
+                {
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="text-slate-700 dark:text-slate-100 truncate mr-2">
+                            @drop.Name
+                            @if (drop.TotalQuantity > 1)
+                            {
+                                <span class="ml-1 text-slate-400 dark:text-slate-400">x@(drop.TotalQuantity.ToString("N0"))</span>
+                            }
+                        </span>
+                        <span class="text-amber-600 dark:text-amber-400 font-medium whitespace-nowrap">@FormatGold(drop.TotalValue)</span>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</a>
+
+@code {
+    [Parameter] public required LootSourceSummary Source { get; set; }
+    [Parameter] public int UserId { get; set; }
+
+    private string GetSourceTypeBadgeClasses() => Source.SourceType switch
+    {
+        LootSourceType.Npc => "bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300",
+        LootSourceType.Event => "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300",
+        LootSourceType.Pickpocket => "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300",
+        LootSourceType.Player => "bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300",
+        _ => "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+    };
+
+    private static string FormatGold(long value)
+    {
+        if (value >= 1_000_000_000) return $"{value / 1_000_000_000.0:F1}B";
+        if (value >= 1_000_000) return $"{value / 1_000_000.0:F1}M";
+        if (value >= 1_000) return $"{value / 1_000.0:F1}K";
+        return value.ToString("N0");
+    }
+}

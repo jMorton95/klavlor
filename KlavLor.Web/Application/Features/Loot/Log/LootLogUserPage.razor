@@ -1,0 +1,27 @@
+@page "/loot/log/{Id:int}"
+@using KlavLor.Application.Features.Loot.Log
+@using KlavLor.Web.Components.Layout
+
+@inject LootLogHandler LogHandler
+
+<PageLayout PageTitle="KlavLor - Drop Log" Title="Drop Log" Description="Loot history">
+    @if (_result is not null)
+    {
+        <LootLogGrid Result="@_result" UserId="@Id" />
+    }
+</PageLayout>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private LootLogSearchResult? _result;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await LogHandler.Handle(Id, new LootLogQuery());
+        if (result.IsSuccess)
+        {
+            _result = result.Value;
+        }
+    }
+}

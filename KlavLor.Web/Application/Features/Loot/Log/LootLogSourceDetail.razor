@@ -1,0 +1,95 @@
+@using KlavLor.Application.Features.Loot.Log
+@using KlavLor.Domain.Entities
+
+<div class="space-y-6">
+    <a hx-get="@AppRoutes.LootLogUser.WithId(UserId).FromApi()"
+       hx-target="#hx-page-container"
+       hx-push-url="@AppRoutes.LootLogUser.WithId(UserId)"
+       hx-swap="innerHTML transition:true"
+       class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-amber-600 dark:text-slate-400 dark:hover:text-amber-400 cursor-pointer transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+        Back to Sources
+    </a>
+
+    @if (Detail is not null)
+    {
+        <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">@Detail.SourceName</h2>
+                    <div class="flex items-center gap-4 mt-1 text-sm text-slate-500 dark:text-slate-400">
+                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium @GetSourceTypeBadgeClasses()">@Detail.SourceType</span>
+                        <span>@Detail.TotalKills.ToString("N0") @(Detail.SourceType == LootSourceType.Event ? "rolls" : "kills")</span>
+                        <span class="font-medium text-amber-600 dark:text-amber-400">@FormatGold(Detail.TotalValue) gp total</span>
+                    </div>
+                </div>
+            </div>
+
+            @if (Detail.AllDrops.Count > 0)
+            {
+                <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">All Drops (aggregated)</h3>
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+                    @foreach (var drop in Detail.AllDrops)
+                    {
+                        <div class="flex items-center justify-between text-xs bg-slate-50 dark:bg-slate-800 rounded-lg px-3 py-2">
+                            <span class="text-slate-700 dark:text-slate-100 truncate mr-2">
+                                @drop.Name
+                                @if (drop.TotalQuantity > 1)
+                                {
+                                    <span class="ml-1 text-slate-400 dark:text-slate-400">x@(drop.TotalQuantity.ToString("N0"))</span>
+                                }
+                            </span>
+                            <span class="text-amber-600 dark:text-amber-400 font-medium whitespace-nowrap">@FormatGold(drop.TotalValue)</span>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        @if (Detail.Kills.Count > 0)
+        {
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Kill Log</h3>
+            <div id="kill-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                @foreach (var kill in Detail.Kills)
+                {
+                    <LootLogKillEntry Kill="@kill" />
+                }
+            </div>
+            @if (Detail.HasMore)
+            {
+                <LootLogShowMore Url="@GetShowMoreUrl(2)" Id="show-more-kills" TargetSelector="#kill-list" />
+            }
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public LootSourceDetail? Detail { get; set; }
+    [Parameter] public int UserId { get; set; }
+    [Parameter] public int PageSize { get; set; } = 25;
+
+    private string GetShowMoreUrl(int page)
+    {
+        return AppRoutes.LootLogSource.WithId(UserId).FromApi()
+            + $"?name={Uri.EscapeDataString(Detail?.SourceName ?? "")}&pageNumber={page}&pageSize={PageSize}";
+    }
+
+    private string GetSourceTypeBadgeClasses() => Detail?.SourceType switch
+    {
+        LootSourceType.Npc => "bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300",
+        LootSourceType.Event => "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300",
+        LootSourceType.Pickpocket => "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300",
+        LootSourceType.Player => "bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300",
+        _ => "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+    };
+
+    private static string FormatGold(long value)
+    {
+        if (value >= 1_000_000_000) return $"{value / 1_000_000_000.0:F1}B";
+        if (value >= 1_000_000) return $"{value / 1_000_000.0:F1}M";
+        if (value >= 1_000) return $"{value / 1_000.0:F1}K";
+        return value.ToString("N0");
+    }
+}

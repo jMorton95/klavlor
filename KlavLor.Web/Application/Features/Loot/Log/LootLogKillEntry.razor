@@ -1,0 +1,53 @@
+@using KlavLor.Application.Features.Loot.Log
+
+<div class="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+    <div class="flex items-center justify-between mb-2">
+        <span class="text-xs text-slate-400 dark:text-slate-400">@FormatTime(Kill.OccurredAt)</span>
+        @if (Kill.TotalValue > 0)
+        {
+            <span class="text-xs font-medium text-amber-600 dark:text-amber-400">@FormatGold(Kill.TotalValue) gp</span>
+        }
+    </div>
+    <div class="flex flex-wrap gap-1.5">
+        @foreach (var drop in Kill.Drops)
+        {
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200">
+                @if (drop.Quantity > 1)
+                {
+                    <span class="font-medium text-amber-600 dark:text-amber-400">@(drop.Quantity.ToString("N0"))x</span>
+                }
+                @drop.Name
+                @if (drop.Price > 0)
+                {
+                    <span class="text-slate-400 dark:text-slate-400">(@FormatGold((long)drop.Quantity * drop.Price))</span>
+                }
+            </span>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public required LootKillEntry Kill { get; set; }
+
+    private static string FormatGold(long value)
+    {
+        if (value >= 1_000_000_000) return $"{value / 1_000_000_000.0:F1}B";
+        if (value >= 1_000_000) return $"{value / 1_000_000.0:F1}M";
+        if (value >= 1_000) return $"{value / 1_000.0:F1}K";
+        return value.ToString("N0");
+    }
+
+    private static string FormatTime(DateTimeOffset time)
+    {
+        var ago = DateTimeOffset.UtcNow - time;
+        if (ago.TotalMinutes < 1) return "just now";
+        if (ago.TotalMinutes < 60) return $"{(int)ago.TotalMinutes}m ago";
+        if (ago.TotalHours < 24)
+        {
+            var hours = (int)ago.TotalHours;
+            var minutes = (int)(ago.TotalMinutes % 60);
+            return minutes > 0 ? $"{hours}h {minutes}m ago" : $"{hours}h ago";
+        }
+        return time.ToString("MMM dd, HH:mm");
+    }
+}

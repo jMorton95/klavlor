@@ -1,0 +1,35 @@
+@page "/loot/log/{Id:int}/source"
+@using KlavLor.Application.Features.Loot.Log
+@using KlavLor.Web.Components.Layout
+@using Microsoft.AspNetCore.WebUtilities
+
+@inject LootLogHandler LogHandler
+@inject IHttpContextAccessor HttpContextAccessor
+
+<PageLayout PageTitle="KlavLor - Source Detail" Title="Source Detail" Description="Individual drop log for a source">
+    @if (_detail is not null)
+    {
+        <LootLogSourceDetail Detail="@_detail" UserId="@Id" />
+    }
+</PageLayout>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private LootSourceDetail? _detail;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var query = HttpContextAccessor.HttpContext?.Request.Query;
+        var sourceName = query?["name"].ToString() ?? "";
+
+        if (!string.IsNullOrEmpty(sourceName))
+        {
+            var result = await LogHandler.HandleSource(Id, sourceName);
+            if (result.IsSuccess)
+            {
+                _detail = result.Value;
+            }
+        }
+    }
+}
