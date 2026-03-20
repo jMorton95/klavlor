@@ -16,7 +16,7 @@ public sealed class ItemIconBackfillService(IServiceScopeFactory scopeFactory, I
         // Wait for app startup
         await Task.Delay(TimeSpan.FromSeconds(15), stoppingToken);
 
-        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(10));
+        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(2));
 
         try
         {
@@ -61,7 +61,7 @@ public sealed class ItemIconBackfillService(IServiceScopeFactory scopeFactory, I
             }
 
             // Step 2: Resolve pending icons (no cached image yet, under fail threshold)
-            var pending = await itemIconRepo.GetPendingIcons(20);
+            var pending = await itemIconRepo.GetPendingIcons(50);
             if (pending.Count == 0)
             {
                 if (uncatalogued.Count == 0)
@@ -131,7 +131,7 @@ public sealed class ItemIconBackfillService(IServiceScopeFactory scopeFactory, I
                     break;
                 }
 
-                await Task.Delay(TimeSpan.FromMilliseconds(500), stoppingToken);
+                // Rate limiter handles pacing — no artificial delay needed
             }
         }
         catch (OperationCanceledException)
