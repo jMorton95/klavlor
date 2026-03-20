@@ -77,6 +77,12 @@ builder.Services.AddRateLimiter(options =>
             context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "anonymous",
             _ => new FixedWindowRateLimiterOptions { PermitLimit = 300, Window = TimeSpan.FromMinutes(1) }));
 
+    // Per-user: loot ingestion from RuneLite plugin
+    options.AddPolicy("loot-ingest", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "anonymous",
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = 120, Window = TimeSpan.FromMinutes(1) }));
+
     // Per-IP: anonymous read endpoints
     options.AddPolicy("anonymous", context =>
         RateLimitPartition.GetFixedWindowLimiter(
