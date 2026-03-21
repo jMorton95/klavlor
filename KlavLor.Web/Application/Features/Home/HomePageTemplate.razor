@@ -4,21 +4,11 @@
 @inject NavigationManager NavigationManager
 
 <PageLayout PageTitle="KlavLor" Title="" Description="">
-    <script>
-        (function() {
-            var lastId = localStorage.getItem('lastViewedTemplate');
-            if (lastId) {
-                window.location.replace('/templates/' + lastId);
-            } else {
-                window.location.replace('/templates');
-            }
-        })();
-    </script>
 </PageLayout>
 
 @code {
     protected override void OnInitialized()
     {
-        NavigationManager.NavigateTo(AppRoutes.TemplatesSearch);
+        NavigationManager.NavigateTo(AppRoutes.LootFeed);
     }
 }

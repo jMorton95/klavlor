@@ -12,6 +12,6 @@ public class HomePageEndpoint : IEndpoint
 
     private static Task<HtmxRedirectResult> Endpoint()
     {
-        return Task.FromResult(IResultExtensions.HtmxRedirect(AppRoutes.TemplatesSearch));
+        return Task.FromResult(IResultExtensions.HtmxRedirect(AppRoutes.LootFeed));
     }
 }
