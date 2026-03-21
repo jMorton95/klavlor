@@ -1,11 +1,19 @@
 @using KlavLor.Application.Features.Loot.Feed
 
-<div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-amber-200 dark:hover:border-amber-700 transition-all duration-200">
+<div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border @GetValueTierClasses() p-4 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-amber-200 dark:hover:border-amber-700 transition-all duration-200">
     <div class="flex items-start justify-between mb-2">
         <div class="flex items-center gap-2">
-            <span class="text-sm font-semibold text-slate-900 dark:text-slate-100">@Entry.UserName</span>
+            <a hx-get="@AppRoutes.LootLogUser.WithId(Entry.UserId).FromApi()"
+               hx-target="#hx-page-container"
+               hx-push-url="@AppRoutes.LootLogUser.WithId(Entry.UserId)"
+               hx-swap="innerHTML transition:true"
+               class="text-sm font-semibold text-slate-900 dark:text-slate-100 hover:underline cursor-pointer">@Entry.UserName</a>
             <span class="text-xs text-slate-400 dark:text-slate-400">@(Entry.SourceType == KlavLor.Domain.Entities.LootSourceType.Event ? "rolled" : "killed")</span>
-            <span class="text-sm font-medium text-amber-600 dark:text-amber-400">@Entry.SourceName</span>
+            <a hx-get="@(AppRoutes.LootLogSource.WithId(Entry.UserId).FromApi() + "?name=" + Uri.EscapeDataString(Entry.SourceName))"
+               hx-target="#hx-page-container"
+               hx-push-url="@(AppRoutes.LootLogSource.WithId(Entry.UserId) + "?name=" + Uri.EscapeDataString(Entry.SourceName))"
+               hx-swap="innerHTML transition:true"
+               class="text-sm font-medium text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">@Entry.SourceName</a>
             <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium @GetSourceTypeBadgeClasses()">
                 @Entry.SourceType
             </span>
@@ -15,10 +23,11 @@
 
     @if (Entry.Drops.Count > 0)
     {
+        var grouped = GroupDrops(Entry.Drops);
         <div class="flex flex-wrap gap-2 mt-2">
-            @foreach (var drop in Entry.Drops.OrderByDescending(d => (long)d.Quantity * d.Price).Take(8))
+            @foreach (var drop in grouped.Take(8))
             {
-                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200">
+                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs border @GetDropTierClasses((long)drop.Quantity * drop.Price) text-slate-700 dark:text-slate-200">
                     <img src="/api/images/item-icon?name=@Uri.EscapeDataString(drop.Name)"
                          class="w-4 h-4 inline-block"
                          loading="lazy"
@@ -30,14 +39,14 @@
                     <span>@drop.Name</span>
                     @if (drop.Price > 0)
                     {
-                        <span class="text-slate-400 dark:text-slate-400">(@FormatGold((long)drop.Quantity * drop.Price))</span>
+                        <span class="text-slate-700 dark:text-slate-200">(@FormatGold((long)drop.Quantity * drop.Price))</span>
                     }
                 </span>
             }
-            @if (Entry.Drops.Count > 8)
+            @if (grouped.Count > 8)
             {
                 <span class="inline-flex items-center px-2 py-1 rounded-lg text-xs bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
-                    +@(Entry.Drops.Count - 8) more
+                    +@(grouped.Count - 8) more
                 </span>
             }
         </div>
@@ -54,6 +63,22 @@
 @code {
     [Parameter] public required LootFeedEntry Entry { get; set; }
 
+    private string GetValueTierClasses() => Entry.TotalValue switch
+    {
+        >= 10_000_000 => "border-amber-400 ring-2 ring-amber-400/40",
+        >= 1_000_000 => "border-purple-400 ring-1 ring-purple-400/30",
+        >= 100_000 => "border-green-400",
+        _ => "border-slate-200 dark:border-slate-700"
+    };
+
+    private static string GetDropTierClasses(long dropValue) => dropValue switch
+    {
+        >= 10_000_000 => "bg-amber-50 dark:bg-amber-950 border-amber-400",
+        >= 1_000_000 => "bg-purple-50 dark:bg-purple-950 border-purple-400",
+        >= 100_000 => "bg-green-50 dark:bg-green-950 border-green-400",
+        _ => "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+    };
+
     private string GetSourceTypeBadgeClasses() => Entry.SourceType switch
     {
         KlavLor.Domain.Entities.LootSourceType.Npc => "bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300",
@@ -62,6 +87,13 @@
         KlavLor.Domain.Entities.LootSourceType.Player => "bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300",
         _ => "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
     };
+
+    private static List<LootFeedDrop> GroupDrops(List<LootFeedDrop> drops) =>
+        drops
+            .GroupBy(d => d.Name)
+            .Select(g => new LootFeedDrop(g.Key, g.Sum(d => d.Quantity), g.First().Price))
+            .OrderByDescending(d => (long)d.Quantity * d.Price)
+            .ToList();
 
     private static string FormatGold(long value)
     {
