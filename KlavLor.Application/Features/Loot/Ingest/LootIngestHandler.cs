@@ -3,6 +3,7 @@ using System.Text.Json;
 using KlavLor.Application.Common;
 using KlavLor.Application.Features.Loot.Feed;
 using KlavLor.Application.Interfaces.Authentication;
+using KlavLor.Application.Interfaces.Repositories;
 using KlavLor.Application.Interfaces.Services;
 using KlavLor.Domain.Entities;
 using KlavLor.Domain.Interfaces.Repositories;
@@ -11,6 +12,7 @@ namespace KlavLor.Application.Features.Loot.Ingest;
 
 public sealed class LootIngestHandler(
     ILootRecordRepository lootRecordRepository,
+    IGameCharacterRepository gameCharacterRepository,
     LootIngestValidator validator,
     ICurrentUser currentUser,
     ILootFeedService lootFeedService,
@@ -34,7 +36,9 @@ public sealed class LootIngestHandler(
         if (userId is null)
             return Result.Failure("User not authenticated.");
 
-        var record = MapToLootRecord(command, userId.Value);
+        var character = await ResolveCharacter(userId.Value, command.CharacterId);
+
+        var record = MapToLootRecord(command, userId.Value, character?.Id);
         if (record is null)
             return Result.Failure("Failed to parse loot data.");
 
@@ -46,8 +50,8 @@ public sealed class LootIngestHandler(
         }
 
         await lootRecordRepository.SaveLootRecord(record);
-        if (!record.IsImported)
-            await PublishToFeed(userId.Value, record);
+        if (!record.IsImported && IsCharacterVisible(character))
+            await PublishToFeed(userId.Value, record, character);
         return Result.Success();
     }
 
@@ -57,23 +61,35 @@ public sealed class LootIngestHandler(
         if (userId is null)
             return Result.Failure("User not authenticated.");
 
-        var records = new List<LootRecord>();
+        // Resolve characters for all unique characterIds in the batch.
+        var characterCache = new Dictionary<string, GameCharacter?>();
+        foreach (var charId in commands.Select(c => c.CharacterId).Where(c => !string.IsNullOrEmpty(c)).Distinct())
+        {
+            characterCache[charId!] = await ResolveCharacter(userId.Value, charId);
+        }
+
+        var records = new List<(LootRecord Record, GameCharacter? Character)>();
         foreach (var command in commands)
         {
             var validationResult = await validator.ValidateAsync(command);
             if (!validationResult.IsValid)
                 continue;
 
-            var record = MapToLootRecord(command, userId.Value);
+            var character = command.CharacterId is not null && characterCache.TryGetValue(command.CharacterId, out var cached)
+                ? cached : null;
+
+            var record = MapToLootRecord(command, userId.Value, character?.Id);
             if (record is not null)
-                records.Add(record);
+                records.Add((record, character));
         }
 
         if (records.Count == 0)
             return Result.Failure("No valid records to import.");
 
+        var allRecords = records.Select(r => r.Record).ToList();
+
         // Deduplicate: find which content hashes already exist in the database.
-        var hashes = records
+        var hashes = allRecords
             .Where(r => r.ContentHash is not null)
             .Select(r => r.ContentHash!)
             .ToList();
@@ -83,36 +99,64 @@ public sealed class LootIngestHandler(
             var existing = await lootRecordRepository.FindExistingHashes(userId.Value, hashes);
             if (existing.Count > 0)
             {
-                records = records.Where(r => r.ContentHash is null || !existing.Contains(r.ContentHash)).ToList();
-                if (records.Count == 0)
+                records = records.Where(r => r.Record.ContentHash is null || !existing.Contains(r.Record.ContentHash)).ToList();
+                allRecords = records.Select(r => r.Record).ToList();
+                if (allRecords.Count == 0)
                     return Result.Success(); // all duplicates, nothing to insert
             }
         }
 
-        await lootRecordRepository.SaveLootRecords(records);
+        await lootRecordRepository.SaveLootRecords(allRecords);
 
-        var liveRecords = records.Where(r => !r.IsImported).ToList();
+        var liveRecords = records.Where(r => !r.Record.IsImported && IsCharacterVisible(r.Character)).ToList();
         if (liveRecords.Count > 0)
         {
             var user = await userRepository.GetById(userId.Value);
             var userName = user is not null ? $"{user.FirstName} {user.LastName}" : "Unknown";
-            foreach (var record in liveRecords)
+            foreach (var (record, character) in liveRecords)
             {
-                PublishRecordToFeed(userName, record);
+                PublishRecordToFeed(userName, record, character);
             }
         }
 
         return Result.Success();
     }
 
-    private async Task PublishToFeed(int userId, LootRecord record)
+    private async Task<GameCharacter?> ResolveCharacter(int userId, string? characterId)
+    {
+        if (string.IsNullOrEmpty(characterId))
+            return null;
+
+        var existing = await gameCharacterRepository.GetByUserAndRuneLiteId(userId, characterId);
+        if (existing is not null)
+            return existing;
+
+        var newCharacter = new GameCharacter
+        {
+            UserId = userId,
+            RuneLiteId = characterId
+        };
+
+        return await gameCharacterRepository.Save(newCharacter);
+    }
+
+    private static bool IsCharacterVisible(GameCharacter? character)
+    {
+        // Records without a character are always visible (legacy data).
+        if (character is null)
+            return true;
+
+        return character.IsVisible && !character.IsAdminHidden;
+    }
+
+    private async Task PublishToFeed(int userId, LootRecord record, GameCharacter? character)
     {
         var user = await userRepository.GetById(userId);
         var userName = user is not null ? $"{user.FirstName} {user.LastName}" : "Unknown";
-        PublishRecordToFeed(userName, record);
+        PublishRecordToFeed(userName, record, character);
     }
 
-    private void PublishRecordToFeed(string userName, LootRecord record)
+    private void PublishRecordToFeed(string userName, LootRecord record, GameCharacter? character)
     {
         var drops = JsonSerializer.Deserialize<List<LootDrop>>(record.DropsJson) ?? [];
         var feedDrops = drops.Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price)).ToList();
@@ -124,10 +168,12 @@ public sealed class LootIngestHandler(
             record.SourceType,
             record.TotalValue,
             feedDrops,
-            record.OccurredAt));
+            record.OccurredAt,
+            character?.EffectiveName,
+            character?.Id));
     }
 
-    private static LootRecord? MapToLootRecord(LootIngestCommand command, int userId)
+    private static LootRecord? MapToLootRecord(LootIngestCommand command, int userId, int? gameCharacterId)
     {
         if (!Enum.TryParse<LootSourceType>(command.Type, ignoreCase: true, out var sourceType))
             sourceType = LootSourceType.Unknown;
@@ -154,7 +200,8 @@ public sealed class LootIngestHandler(
             DropsJson = dropsJson,
             OccurredAt = occurredAt,
             ContentHash = command.ContentHash,
-            IsImported = command.Imported
+            IsImported = command.Imported,
+            GameCharacterId = gameCharacterId
         };
     }
 }

@@ -1,9 +1,9 @@
 @using KlavLor.Application.Features.Loot.Log
 @using KlavLor.Domain.Entities
 
-<a hx-get="@(AppRoutes.LootLogSource.WithId(UserId).FromApi() + "?name=" + Uri.EscapeDataString(Source.SourceName))"
+<a hx-get="@(AppRoutes.LootLogSource.WithId(CharacterId).FromApi() + "?name=" + Uri.EscapeDataString(Source.SourceName))"
    hx-target="#hx-page-container"
-   hx-push-url="@(AppRoutes.LootLogSource.WithId(UserId) + "?name=" + Uri.EscapeDataString(Source.SourceName))"
+   hx-push-url="@(AppRoutes.LootLogSource.WithId(CharacterId) + "?name=" + Uri.EscapeDataString(Source.SourceName))"
    hx-swap="innerHTML transition:true"
    class="block bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden hover:shadow-md hover:border-amber-200 dark:hover:border-amber-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200 cursor-pointer">
     <div class="p-4">
@@ -59,7 +59,7 @@
 
 @code {
     [Parameter] public required LootSourceSummary Source { get; set; }
-    [Parameter] public int UserId { get; set; }
+    [Parameter] public int CharacterId { get; set; }
 
     private string GetSourceTypeBadgeClasses() => Source.SourceType switch
     {

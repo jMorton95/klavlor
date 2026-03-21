@@ -55,6 +55,12 @@ func (w *Watcher) Poll(ctx context.Context) {
 		relPath, _ := filepath.Rel(w.lootsDir, path)
 		startLine := w.store.GetLineCount(path)
 
+		// Extract character ID from the first path component (e.g., "MyAccount/Slayer.log" → "MyAccount").
+		characterId := ""
+		if parts := strings.SplitN(filepath.ToSlash(relPath), "/", 2); len(parts) == 2 {
+			characterId = parts[0]
+		}
+
 		result, err := tailer.ReadNewLines(path, offset, relPath, startLine)
 		if err != nil {
 			slog.Debug("read failed, will retry next cycle", "file", path, "error", err)
@@ -68,6 +74,7 @@ func (w *Watcher) Poll(ctx context.Context) {
 			if rec.ContentHash != "" && w.store.HasHash(rec.ContentHash) {
 				continue
 			}
+			rec.CharacterId = characterId
 			filtered = append(filtered, rec)
 			if rec.ContentHash != "" {
 				newHashes = append(newHashes, rec.ContentHash)

@@ -34,4 +34,9 @@ public sealed class LootRecord : Entity
     public string? ContentHash { get; set; }
 
     public bool IsImported { get; set; }
+
+    public int? GameCharacterId { get; set; }
+
+    [ForeignKey(nameof(GameCharacterId))]
+    public GameCharacter? GameCharacter { get; set; }
 }

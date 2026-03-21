@@ -9,6 +9,8 @@ public sealed record LootFeedEntry(
     LootSourceType SourceType,
     long TotalValue,
     List<LootFeedDrop> Drops,
-    DateTimeOffset OccurredAt);
+    DateTimeOffset OccurredAt,
+    string? CharacterName = null,
+    int? GameCharacterId = null);
 
 public sealed record LootFeedDrop(string Name, int Quantity, int Price);

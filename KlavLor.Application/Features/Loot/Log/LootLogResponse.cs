@@ -2,8 +2,9 @@ using KlavLor.Domain.Entities;
 
 namespace KlavLor.Application.Features.Loot.Log;
 
-public sealed record LootLogUserSummary(
-    int UserId,
+public sealed record LootLogCharacterSummary(
+    int GameCharacterId,
+    string CharacterName,
     string UserName,
     int TotalSources,
     long TotalKills,

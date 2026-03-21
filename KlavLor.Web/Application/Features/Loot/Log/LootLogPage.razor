@@ -4,22 +4,22 @@
 
 @inject LootLogHandler LogHandler
 
-<PageLayout PageTitle="KlavLor - Drop Logs" Title="Drop Logs" Description="Browse loot history by player">
-    @if (_users is not null)
+<PageLayout PageTitle="KlavLor - Drop Logs" Title="Drop Logs" Description="Browse loot history by character">
+    @if (_characters is not null)
     {
-        <LootLogUsersGrid Users="@_users" UpdateHeader="false" />
+        <LootLogUsersGrid Characters="@_characters" UpdateHeader="false" />
     }
 </PageLayout>
 
 @code {
-    private List<LootLogUserSummary>? _users;
+    private List<LootLogCharacterSummary>? _characters;
 
     protected override async Task OnInitializedAsync()
     {
-        var result = await LogHandler.HandleUsers();
+        var result = await LogHandler.HandleCharacters();
         if (result.IsSuccess)
         {
-            _users = result.Value;
+            _characters = result.Value;
         }
     }
 }

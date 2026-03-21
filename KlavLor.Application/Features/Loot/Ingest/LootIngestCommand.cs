@@ -10,4 +10,5 @@ public sealed class LootIngestCommand
     public string Date { get; set; } = "";
     public string? ContentHash { get; set; }
     public bool Imported { get; set; }
+    public string? CharacterId { get; set; }
 }

@@ -13,7 +13,7 @@ namespace KlavLor.Infrastructure.Persistence.EntityFramework.Repositories.Loot;
 internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLogRepository> logger)
     : ILootLogRepository
 {
-    public async Task<List<LootLogUserSummary>> GetUsersWithLoot()
+    public async Task<List<LootLogCharacterSummary>> GetCharactersWithLoot(bool includeHidden = false)
     {
         try
         {
@@ -21,48 +21,57 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             if (connection.State != System.Data.ConnectionState.Open)
                 await connection.OpenAsync();
 
-            const string sql = """
-                SELECT lr."UserId",
+            var visibilityFilter = includeHidden
+                ? ""
+                : """AND gc."IsVisible" = true AND gc."IsAdminHidden" = false""";
+
+            var sql = $"""
+                SELECT gc."Id",
+                       COALESCE(gc."DisplayName", gc."RuneLiteId") as "CharacterName",
                        u."FirstName" || ' ' || u."LastName" as "UserName",
                        COUNT(DISTINCT lr."SourceName")::int as "TotalSources",
                        COUNT(*)::bigint as "TotalKills",
                        SUM(lr."TotalValue") as "TotalValue"
                 FROM "LootRecords" lr
-                JOIN "Users" u ON u."Id" = lr."UserId"
-                GROUP BY lr."UserId", u."FirstName", u."LastName"
+                JOIN "GameCharacters" gc ON gc."Id" = lr."GameCharacterId"
+                JOIN "Users" u ON u."Id" = gc."UserId"
+                WHERE lr."GameCharacterId" IS NOT NULL
+                {visibilityFilter}
+                GROUP BY gc."Id", gc."DisplayName", gc."RuneLiteId", u."FirstName", u."LastName"
                 ORDER BY "TotalValue" DESC
                 """;
 
             await using var cmd = connection.CreateCommand();
             cmd.CommandText = sql;
 
-            var users = new List<LootLogUserSummary>();
+            var characters = new List<LootLogCharacterSummary>();
             await using var reader = await cmd.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
-                users.Add(new LootLogUserSummary(
+                characters.Add(new LootLogCharacterSummary(
                     reader.GetInt32(0),
                     reader.GetString(1),
-                    reader.GetInt32(2),
-                    reader.GetInt64(3),
-                    reader.GetInt64(4)));
+                    reader.GetString(2),
+                    reader.GetInt32(3),
+                    reader.GetInt64(4),
+                    reader.GetInt64(5)));
             }
 
-            return users;
+            return characters;
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to get users with loot");
-            throw new RepositoryException("Failed to get users with loot", ex);
+            logger.LogError(ex, "Failed to get characters with loot");
+            throw new RepositoryException("Failed to get characters with loot", ex);
         }
     }
 
-    public async Task<LootLogSearchResult> SearchLootLog(int userId, LootLogQuery query)
+    public async Task<LootLogSearchResult> SearchLootLog(int characterId, LootLogQuery query)
     {
         try
         {
             var baseQuery = dataContext.LootRecords
-                .Where(r => r.UserId == userId);
+                .Where(r => r.GameCharacterId == characterId);
 
             if (!string.IsNullOrWhiteSpace(query.SearchTerm))
             {
@@ -74,7 +83,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 .GroupBy(r => new { r.SourceName, r.SourceType })
                 .CountAsync();
 
-            var sourceMatchesRaw = await GetSourceMatches(userId, query, fetchExtra: true);
+            var sourceMatchesRaw = await GetSourceMatches(characterId, query, fetchExtra: true);
             var hasMore = sourceMatchesRaw.Count > query.PageSize;
             var sourceMatches = sourceMatchesRaw.Take(query.PageSize).ToList();
 
@@ -83,22 +92,22 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             if (!string.IsNullOrWhiteSpace(query.SearchTerm))
             {
                 var matchedSourceNames = sourceMatches.Select(s => s.SourceName).ToHashSet();
-                itemMatches = await GetItemMatches(userId, query.SearchTerm, matchedSourceNames);
+                itemMatches = await GetItemMatches(characterId, query.SearchTerm, matchedSourceNames);
             }
 
             return new LootLogSearchResult(sourceMatches, itemMatches, hasMore, query.SearchTerm, totalCount);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to search loot log for user {UserId}", userId);
+            logger.LogError(ex, "Failed to search loot log for character {CharacterId}", characterId);
             throw new RepositoryException("Failed to search loot log", ex);
         }
     }
 
-    private async Task<List<LootSourceSummary>> GetSourceMatches(int userId, LootLogQuery query, bool fetchExtra = false)
+    private async Task<List<LootSourceSummary>> GetSourceMatches(int characterId, LootLogQuery query, bool fetchExtra = false)
     {
         var baseQuery = dataContext.LootRecords
-            .Where(r => r.UserId == userId);
+            .Where(r => r.GameCharacterId == characterId);
 
         if (!string.IsNullOrWhiteSpace(query.SearchTerm))
         {
@@ -126,7 +135,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
 
         foreach (var group in grouped)
         {
-            var topDrops = await GetTopDropsForSource(userId, group.SourceName);
+            var topDrops = await GetTopDropsForSource(characterId, group.SourceName);
             summaries.Add(new LootSourceSummary(
                 group.SourceName,
                 group.SourceType,
@@ -138,7 +147,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
         return summaries;
     }
 
-    private async Task<List<LootDropSummary>> GetTopDropsForSource(int userId, string sourceName, int? limit = 5)
+    private async Task<List<LootDropSummary>> GetTopDropsForSource(int characterId, string sourceName, int? limit = 5)
     {
         var connection = dataContext.Database.GetDbConnection();
         if (connection.State != System.Data.ConnectionState.Open)
@@ -150,7 +159,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                    SUM((drop_elem->>'Quantity')::bigint * (drop_elem->>'Price')::bigint) as "TotalValue"
             FROM "LootRecords" lr,
                  jsonb_array_elements(lr."DropsJson") AS drop_elem
-            WHERE lr."UserId" = @userId
+            WHERE lr."GameCharacterId" = @characterId
               AND lr."SourceName" = @sourceName
             GROUP BY drop_elem->>'Name'
             ORDER BY "TotalValue" DESC
@@ -159,7 +168,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
 
         await using var cmd = connection.CreateCommand();
         cmd.CommandText = sql;
-        cmd.Parameters.Add(new NpgsqlParameter("@userId", userId));
+        cmd.Parameters.Add(new NpgsqlParameter("@characterId", characterId));
         cmd.Parameters.Add(new NpgsqlParameter("@sourceName", sourceName));
 
         var drops = new List<LootDropSummary>();
@@ -176,7 +185,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
     }
 
     private async Task<List<LootItemMatch>> GetItemMatches(
-        int userId, string searchTerm, HashSet<string> excludeSourceNames)
+        int characterId, string searchTerm, HashSet<string> excludeSourceNames)
     {
         var connection = dataContext.Database.GetDbConnection();
         if (connection.State != System.Data.ConnectionState.Open)
@@ -190,7 +199,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                    SUM((drop_elem->>'Quantity')::bigint * (drop_elem->>'Price')::bigint) as "TotalItemValue"
             FROM "LootRecords" lr,
                  jsonb_array_elements(lr."DropsJson") AS drop_elem
-            WHERE lr."UserId" = @userId
+            WHERE lr."GameCharacterId" = @characterId
               AND drop_elem->>'Name' ILIKE '%' || @searchTerm || '%'
               AND lr."SourceName" NOT ILIKE '%' || @searchTerm || '%'
             GROUP BY lr."SourceName", lr."SourceType", drop_elem->>'Name'
@@ -200,7 +209,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
 
         await using var cmd = connection.CreateCommand();
         cmd.CommandText = sql;
-        cmd.Parameters.Add(new NpgsqlParameter("@userId", userId));
+        cmd.Parameters.Add(new NpgsqlParameter("@characterId", characterId));
         cmd.Parameters.Add(new NpgsqlParameter("@searchTerm", searchTerm));
 
         var items = new List<LootItemMatch>();
@@ -223,12 +232,12 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
         return items;
     }
 
-    public async Task<LootSourceDetail> GetSourceDetail(int userId, string sourceName, int pageNumber, int pageSize)
+    public async Task<LootSourceDetail> GetSourceDetail(int characterId, string sourceName, int pageNumber, int pageSize)
     {
         try
         {
             var summary = await dataContext.LootRecords
-                .Where(r => r.UserId == userId && r.SourceName == sourceName)
+                .Where(r => r.GameCharacterId == characterId && r.SourceName == sourceName)
                 .GroupBy(r => new { r.SourceName, r.SourceType })
                 .Select(g => new
                 {
@@ -242,11 +251,11 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             if (summary is null)
                 return new LootSourceDetail(sourceName, LootSourceType.Unknown, 0, 0, [], [], false);
 
-            var allDrops = await GetTopDropsForSource(userId, sourceName, limit: null);
+            var allDrops = await GetTopDropsForSource(characterId, sourceName, limit: null);
 
             // Notable drops: top 5 kills by value
             var notableRaw = await dataContext.LootRecords
-                .Where(r => r.UserId == userId && r.SourceName == sourceName)
+                .Where(r => r.GameCharacterId == characterId && r.SourceName == sourceName)
                 .OrderByDescending(r => r.TotalValue)
                 .Take(5)
                 .Select(r => new { r.OccurredAt, r.KillCount, r.TotalValue, r.DropsJson })
@@ -267,7 +276,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 }).ToList();
 
             var kills = await dataContext.LootRecords
-                .Where(r => r.UserId == userId && r.SourceName == sourceName)
+                .Where(r => r.GameCharacterId == characterId && r.SourceName == sourceName)
                 .OrderByDescending(r => r.OccurredAt)
                 .Skip((pageNumber - 1) * pageSize)
                 .Take(pageSize + 1)
@@ -300,21 +309,21 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to get source detail for user {UserId}, source {Source}", userId, sourceName);
+            logger.LogError(ex, "Failed to get source detail for character {CharacterId}, source {Source}", characterId, sourceName);
             throw new RepositoryException("Failed to get source detail", ex);
         }
     }
 
-    public async Task<LootSourceDetail> GetSourceDetailKillsPage(int userId, string sourceName, int pageNumber, int pageSize)
+    public async Task<LootSourceDetail> GetSourceDetailKillsPage(int characterId, string sourceName, int pageNumber, int pageSize)
     {
         try
         {
             var totalKills = await dataContext.LootRecords
-                .Where(r => r.UserId == userId && r.SourceName == sourceName)
+                .Where(r => r.GameCharacterId == characterId && r.SourceName == sourceName)
                 .CountAsync();
 
             var kills = await dataContext.LootRecords
-                .Where(r => r.UserId == userId && r.SourceName == sourceName)
+                .Where(r => r.GameCharacterId == characterId && r.SourceName == sourceName)
                 .OrderByDescending(r => r.OccurredAt)
                 .Skip((pageNumber - 1) * pageSize)
                 .Take(pageSize + 1)
@@ -346,7 +355,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to get source detail kills page for user {UserId}, source {Source}", userId, sourceName);
+            logger.LogError(ex, "Failed to get source detail kills page for character {CharacterId}, source {Source}", characterId, sourceName);
             throw new RepositoryException("Failed to get source detail kills page", ex);
         }
     }
@@ -356,7 +365,10 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
         try
         {
             var query = dataContext.LootRecords
-                .Join(dataContext.Users, r => r.UserId, u => u.Id, (r, u) => new { Record = r, User = u });
+                .Where(r => r.GameCharacterId != null)
+                .Join(dataContext.GameCharacters, r => r.GameCharacterId, gc => gc.Id, (r, gc) => new { Record = r, Character = gc })
+                .Where(x => x.Character.IsVisible && !x.Character.IsAdminHidden)
+                .Join(dataContext.Users, x => x.Character.UserId, u => u.Id, (x, u) => new { x.Record, x.Character, User = u });
 
             if (minValue.HasValue)
                 query = query.Where(x => x.Record.TotalValue >= minValue.Value);
@@ -374,7 +386,9 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                     x.Record.SourceType,
                     x.Record.TotalValue,
                     x.Record.DropsJson,
-                    x.Record.OccurredAt
+                    x.Record.OccurredAt,
+                    CharacterName = x.Character.DisplayName ?? x.Character.RuneLiteId,
+                    x.Character.Id
                 })
                 .ToListAsync();
 
@@ -388,13 +402,45 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                     r.SourceType,
                     r.TotalValue,
                     drops.Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price)).ToList(),
-                    r.OccurredAt);
+                    r.OccurredAt,
+                    r.CharacterName,
+                    r.Id);
             }).ToList();
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to get recent feed entries");
             throw new RepositoryException("Failed to get recent feed entries", ex);
+        }
+    }
+
+    public async Task DeleteAllForCharacter(int characterId)
+    {
+        try
+        {
+            await dataContext.LootRecords
+                .Where(r => r.GameCharacterId == characterId)
+                .ExecuteDeleteAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to delete loot records for character {CharacterId}", characterId);
+            throw new RepositoryException("Failed to delete loot records for character", ex);
+        }
+    }
+
+    public async Task DeleteAllForUser(int userId)
+    {
+        try
+        {
+            await dataContext.LootRecords
+                .Where(r => r.UserId == userId)
+                .ExecuteDeleteAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to delete loot records for user {UserId}", userId);
+            throw new RepositoryException("Failed to delete loot records for user", ex);
         }
     }
 }

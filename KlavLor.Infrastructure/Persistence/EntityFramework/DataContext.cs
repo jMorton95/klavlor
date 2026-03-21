@@ -23,6 +23,7 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
     public virtual DbSet<ApiKey> ApiKeys => Set<ApiKey>();
     public virtual DbSet<ItemIcon> ItemIcons => Set<ItemIcon>();
     public virtual DbSet<SourceIcon> SourceIcons => Set<SourceIcon>();
+    public virtual DbSet<GameCharacter> GameCharacters => Set<GameCharacter>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -272,6 +273,29 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
             .HasIndex(l => new { l.UserId, l.ContentHash })
             .IsUnique()
             .HasFilter("\"ContentHash\" IS NOT NULL");
+
+        modelBuilder.Entity<LootRecord>()
+            .HasOne(l => l.GameCharacter)
+            .WithMany()
+            .HasForeignKey(l => l.GameCharacterId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<LootRecord>()
+            .HasIndex(l => new { l.GameCharacterId, l.SourceName });
+
+        modelBuilder.Entity<LootRecord>()
+            .HasIndex(l => new { l.GameCharacterId, l.OccurredAt });
+
+        // GameCharacter configuration
+        modelBuilder.Entity<GameCharacter>()
+            .HasOne(gc => gc.User)
+            .WithMany()
+            .HasForeignKey(gc => gc.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<GameCharacter>()
+            .HasIndex(gc => new { gc.UserId, gc.RuneLiteId })
+            .IsUnique();
 
         // ApiKey configuration
         modelBuilder.Entity<ApiKey>()

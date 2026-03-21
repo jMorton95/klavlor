@@ -7,7 +7,7 @@
 <PageLayout PageTitle="KlavLor - Source Detail" Title="Source Detail" Description="Individual drop log for a source">
     @if (_detail is not null)
     {
-        <LootLogSourceDetail Detail="@_detail" UserId="@Id" PageSize="@(PageSizeParam ?? 25)" UpdateHeader="false" />
+        <LootLogSourceDetail Detail="@_detail" CharacterId="@Id" PageSize="@(PageSizeParam ?? 25)" UpdateHeader="false" />
     }
 </PageLayout>
 

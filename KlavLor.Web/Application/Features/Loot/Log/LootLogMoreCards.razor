@@ -2,7 +2,7 @@
 
 @foreach (var source in Result.SourceMatches)
 {
-    <LootSourceCard Source="@source" UserId="@UserId" />
+    <LootSourceCard Source="@source" CharacterId="@CharacterId" />
 }
 
 @if (Result.HasMore)
@@ -30,12 +30,12 @@ else
 
 @code {
     [Parameter] public required LootLogSearchResult Result { get; set; }
-    [Parameter] public int UserId { get; set; }
+    [Parameter] public int CharacterId { get; set; }
     [Parameter] public int PageNumber { get; set; }
 
     private string GetNextUrl()
     {
-        var url = AppRoutes.LootLogUser.WithId(UserId).FromApi() + $"?pageNumber={PageNumber + 1}";
+        var url = AppRoutes.LootLogCharacter.WithId(CharacterId).FromApi() + $"?pageNumber={PageNumber + 1}";
         if (!string.IsNullOrEmpty(Result.SearchTerm))
             url += $"&searchTerm={Uri.EscapeDataString(Result.SearchTerm)}";
         return url;

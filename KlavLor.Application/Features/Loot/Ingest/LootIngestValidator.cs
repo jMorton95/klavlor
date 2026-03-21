@@ -16,5 +16,6 @@ public sealed class LootIngestValidator : AbstractValidator<LootIngestCommand>
             .WithMessage("Type must be a valid loot source type.");
         RuleFor(x => x.Drops).NotEmpty();
         RuleFor(x => x.Date).NotEmpty();
+        RuleFor(x => x.CharacterId).MaximumLength(100);
     }
 }

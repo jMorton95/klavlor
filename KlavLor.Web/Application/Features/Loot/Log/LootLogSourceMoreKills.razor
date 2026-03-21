@@ -30,13 +30,13 @@ else
 
 @code {
     [Parameter] public required LootSourceDetail Detail { get; set; }
-    [Parameter] public int UserId { get; set; }
+    [Parameter] public int CharacterId { get; set; }
     [Parameter] public int PageNumber { get; set; }
     [Parameter] public int PageSize { get; set; }
 
     private string GetNextUrl()
     {
-        return AppRoutes.LootLogSource.WithId(UserId).FromApi()
+        return AppRoutes.LootLogSource.WithId(CharacterId).FromApi()
             + $"?name={Uri.EscapeDataString(Detail.SourceName)}&pageNumber={PageNumber + 1}&pageSize={PageSize}";
     }
 }

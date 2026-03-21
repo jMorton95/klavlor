@@ -78,7 +78,7 @@ public static class AppRoutes
     public const string LootFeedStreamEpic = "/loot/feed/stream/epic";
     public const string LootFeedStreamLegendary = "/loot/feed/stream/legendary";
     public const string LootLog = "/loot/log";
-    public const string LootLogUser = "/loot/log/{id:int}";
+    public const string LootLogCharacter = "/loot/log/{id:int}";
     public const string LootLogSource = "/loot/log/{id:int}/source";
 
     public const string UserApiKeySection = "/admin/users/{id:int}/api-key";

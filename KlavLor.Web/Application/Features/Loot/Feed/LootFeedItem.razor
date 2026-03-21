@@ -3,15 +3,22 @@
 <div class="@(Animate ? "loot-feed-new " : "")bg-white dark:bg-slate-900 rounded-xl shadow border @GetValueTierClasses() p-4 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-amber-200 dark:hover:border-amber-700 transition-all duration-200">
     <div class="flex items-start justify-between mb-2">
         <div class="flex items-center gap-2">
-            <a hx-get="@AppRoutes.LootLogUser.WithId(Entry.UserId).FromApi()"
-               hx-target="#hx-page-container"
-               hx-push-url="@AppRoutes.LootLogUser.WithId(Entry.UserId)"
-               hx-swap="innerHTML transition:true"
-               class="text-sm font-semibold text-slate-900 dark:text-slate-100 hover:underline cursor-pointer">@Entry.UserName</a>
+            @if (Entry.GameCharacterId is not null)
+            {
+                <a hx-get="@AppRoutes.LootLogCharacter.WithId(Entry.GameCharacterId.Value).FromApi()"
+                   hx-target="#hx-page-container"
+                   hx-push-url="@AppRoutes.LootLogCharacter.WithId(Entry.GameCharacterId.Value)"
+                   hx-swap="innerHTML transition:true"
+                   class="text-sm font-semibold text-slate-900 dark:text-slate-100 hover:underline cursor-pointer">@(Entry.CharacterName ?? Entry.UserName)</a>
+            }
+            else
+            {
+                <span class="text-sm font-semibold text-slate-900 dark:text-slate-100">@Entry.UserName</span>
+            }
             <span class="text-xs text-slate-400 dark:text-slate-400">@(Entry.SourceType switch { KlavLor.Domain.Entities.LootSourceType.Event => "rolled", KlavLor.Domain.Entities.LootSourceType.Pickpocket => "pickpocketed", _ => "killed" })</span>
-            <a hx-get="@(AppRoutes.LootLogSource.WithId(Entry.UserId).FromApi() + "?name=" + Uri.EscapeDataString(Entry.SourceName))"
+            <a hx-get="@(Entry.GameCharacterId is not null ? AppRoutes.LootLogSource.WithId(Entry.GameCharacterId.Value).FromApi() : "#")"
                hx-target="#hx-page-container"
-               hx-push-url="@(AppRoutes.LootLogSource.WithId(Entry.UserId) + "?name=" + Uri.EscapeDataString(Entry.SourceName))"
+               hx-push-url="@(Entry.GameCharacterId is not null ? AppRoutes.LootLogSource.WithId(Entry.GameCharacterId.Value) + "?name=" + Uri.EscapeDataString(Entry.SourceName) : "#")"
                hx-swap="innerHTML transition:true"
                class="inline-flex items-center gap-1.5 text-sm font-medium text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">
                 <img src="/api/images/source-icon?name=@Uri.EscapeDataString(Entry.SourceName)"

@@ -8,9 +8,9 @@
 }
 
 <div class="space-y-6">
-    <a hx-get="@AppRoutes.LootLogUser.WithId(UserId).FromApi()"
+    <a hx-get="@AppRoutes.LootLogCharacter.WithId(CharacterId).FromApi()"
        hx-target="#hx-page-container"
-       hx-push-url="@AppRoutes.LootLogUser.WithId(UserId)"
+       hx-push-url="@AppRoutes.LootLogCharacter.WithId(CharacterId)"
        hx-swap="innerHTML transition:true"
        class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-amber-600 dark:text-slate-400 dark:hover:text-amber-400 cursor-pointer transition-colors">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -101,13 +101,13 @@
 
 @code {
     [Parameter] public LootSourceDetail? Detail { get; set; }
-    [Parameter] public int UserId { get; set; }
+    [Parameter] public int CharacterId { get; set; }
     [Parameter] public int PageSize { get; set; } = 25;
     [Parameter] public bool UpdateHeader { get; set; } = true;
 
     private string GetShowMoreUrl(int page)
     {
-        return AppRoutes.LootLogSource.WithId(UserId).FromApi()
+        return AppRoutes.LootLogSource.WithId(CharacterId).FromApi()
             + $"?name={Uri.EscapeDataString(Detail?.SourceName ?? "")}&pageNumber={page}&pageSize={PageSize}";
     }
 

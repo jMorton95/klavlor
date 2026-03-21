@@ -5,9 +5,11 @@ namespace KlavLor.Application.Interfaces.Repositories;
 
 public interface ILootLogRepository
 {
-    Task<List<LootLogUserSummary>> GetUsersWithLoot();
-    Task<LootLogSearchResult> SearchLootLog(int userId, LootLogQuery query);
-    Task<LootSourceDetail> GetSourceDetail(int userId, string sourceName, int pageNumber, int pageSize);
-    Task<LootSourceDetail> GetSourceDetailKillsPage(int userId, string sourceName, int pageNumber, int pageSize);
+    Task<List<LootLogCharacterSummary>> GetCharactersWithLoot(bool includeHidden = false);
+    Task<LootLogSearchResult> SearchLootLog(int characterId, LootLogQuery query);
+    Task<LootSourceDetail> GetSourceDetail(int characterId, string sourceName, int pageNumber, int pageSize);
+    Task<LootSourceDetail> GetSourceDetailKillsPage(int characterId, string sourceName, int pageNumber, int pageSize);
     Task<List<LootFeedEntry>> GetRecentFeedEntries(int count, long? minValue = null, long? maxValue = null);
+    Task DeleteAllForCharacter(int characterId);
+    Task DeleteAllForUser(int userId);
 }

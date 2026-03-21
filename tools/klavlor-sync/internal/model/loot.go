@@ -10,6 +10,7 @@ type LootRecord struct {
 	Date        string     `json:"date"`
 	ContentHash string     `json:"contentHash,omitempty"`
 	Imported    bool       `json:"imported,omitempty"`
+	CharacterId string     `json:"characterId,omitempty"`
 }
 
 // LootDrop mirrors the KlavLor LootDropDto.

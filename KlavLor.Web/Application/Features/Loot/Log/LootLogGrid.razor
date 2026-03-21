@@ -16,11 +16,11 @@
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
             </svg>
-            All Players
+            All Characters
         </a>
         <input type="text" name="searchTerm" placeholder="Search sources or items..." value="@Result?.SearchTerm"
                autofocus onfocus="this.setSelectionRange(this.value.length, this.value.length)"
-               hx-get="@AppRoutes.LootLogUser.WithId(UserId).FromApi()" hx-trigger="keyup changed delay:300ms" hx-target="#hx-page-container" hx-swap="innerHTML transition:true"
+               hx-get="@AppRoutes.LootLogCharacter.WithId(CharacterId).FromApi()" hx-trigger="keyup changed delay:300ms" hx-target="#hx-page-container" hx-swap="innerHTML transition:true"
                class="px-4 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none w-full max-w-md" />
     </div>
 
@@ -33,7 +33,7 @@
                 <div id="source-cards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
                     @foreach (var source in Result.SourceMatches)
                     {
-                        <LootSourceCard Source="@source" UserId="@UserId" />
+                        <LootSourceCard Source="@source" CharacterId="@CharacterId" />
                     }
                 </div>
                 @if (Result.HasMore)
@@ -87,12 +87,12 @@
 
 @code {
     [Parameter] public LootLogSearchResult? Result { get; set; }
-    [Parameter] public int UserId { get; set; }
+    [Parameter] public int CharacterId { get; set; }
     [Parameter] public bool UpdateHeader { get; set; } = true;
 
     private string GetShowMoreUrl(int page)
     {
-        var url = AppRoutes.LootLogUser.WithId(UserId).FromApi() + $"?pageNumber={page}";
+        var url = AppRoutes.LootLogCharacter.WithId(CharacterId).FromApi() + $"?pageNumber={page}";
         if (!string.IsNullOrEmpty(Result?.SearchTerm))
             url += $"&searchTerm={Uri.EscapeDataString(Result.SearchTerm)}";
         return url;

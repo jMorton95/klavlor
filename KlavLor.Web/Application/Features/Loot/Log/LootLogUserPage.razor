@@ -8,7 +8,7 @@
 <PageLayout PageTitle="KlavLor - Drop Log" Title="Drop Log" Description="Loot history">
     @if (_result is not null)
     {
-        <LootLogGrid Result="@_result" UserId="@Id" UpdateHeader="false" />
+        <LootLogGrid Result="@_result" CharacterId="@Id" UpdateHeader="false" />
     }
 </PageLayout>
 

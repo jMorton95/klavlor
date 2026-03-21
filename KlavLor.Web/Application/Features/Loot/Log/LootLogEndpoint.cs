@@ -9,10 +9,10 @@ public sealed class LootLogEndpoint : IEndpoint
 {
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
-        app.MapGet(AppRoutes.LootLog.FromApi(), GetUsers)
+        app.MapGet(AppRoutes.LootLog.FromApi(), GetCharacters)
             .AllowAnonymous();
 
-        app.MapGet(AppRoutes.LootLogUser.FromApi(), GetUserLog)
+        app.MapGet(AppRoutes.LootLogCharacter.FromApi(), GetCharacterLog)
             .AllowAnonymous()
             .AddEndpointFilter<HtmxNavigationFilter>();
 
@@ -21,13 +21,13 @@ public sealed class LootLogEndpoint : IEndpoint
             .AddEndpointFilter<HtmxNavigationFilter>();
     }
 
-    private static async Task<RazorComponentResult> GetUsers(LootLogHandler handler)
+    private static async Task<RazorComponentResult> GetCharacters(LootLogHandler handler)
     {
-        var result = await handler.HandleUsers();
-        return IResultExtensions.Component<LootLogUsersGrid>(new { Users = result.Value });
+        var result = await handler.HandleCharacters();
+        return IResultExtensions.Component<LootLogUsersGrid>(new { Characters = result.Value });
     }
 
-    private static async Task<RazorComponentResult> GetUserLog(
+    private static async Task<RazorComponentResult> GetCharacterLog(
         int id,
         [AsParameters] LootLogQuery query,
         LootLogHandler handler)
@@ -38,14 +38,14 @@ public sealed class LootLogEndpoint : IEndpoint
             return IResultExtensions.Component<LootLogMoreCards>(new
             {
                 Result = result.Value,
-                UserId = id,
+                CharacterId = id,
                 PageNumber = query.PageNumber
             });
 
         return IResultExtensions.Component<LootLogGrid>(new
         {
             Result = result.Value,
-            UserId = id
+            CharacterId = id
         });
     }
 
@@ -62,7 +62,7 @@ public sealed class LootLogEndpoint : IEndpoint
             return IResultExtensions.Component<LootLogSourceMoreKills>(new
             {
                 Detail = result.Value,
-                UserId = id,
+                CharacterId = id,
                 PageNumber = pageNumber,
                 PageSize = pageSize
             });
@@ -70,7 +70,7 @@ public sealed class LootLogEndpoint : IEndpoint
         return IResultExtensions.Component<LootLogSourceDetail>(new
         {
             Detail = result.Value,
-            UserId = id,
+            CharacterId = id,
             PageSize = pageSize
         });
     }
