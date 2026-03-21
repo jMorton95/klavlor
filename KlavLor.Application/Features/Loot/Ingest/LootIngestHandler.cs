@@ -119,6 +119,7 @@ public sealed class LootIngestHandler(
 
         lootFeedService.Publish(new LootFeedEntry(
             userName,
+            record.UserId,
             record.SourceName,
             record.SourceType,
             record.TotalValue,

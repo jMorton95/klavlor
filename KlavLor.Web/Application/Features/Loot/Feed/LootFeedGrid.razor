@@ -1,49 +1,119 @@
 @using KlavLor.Application.Features.Loot.Feed
+@using KlavLor.Web.Components.Layout
 
-<div class="space-y-4">
-    <div id="loot-feed-container"
-         hx-ext="sse"
-         sse-connect="@AppRoutes.LootFeedStream.FromApi()"
-         sse-swap="message"
-         hx-swap="afterbegin"
-         hx-on::after-settle="if(this.children.length > 50) { while(this.children.length > 50) this.removeChild(this.lastElementChild); }"
-         class="space-y-3">
-        @if (Entries is not null && Entries.Count > 0)
-        {
-            @foreach (var entry in Entries)
+@if (UpdateHeader)
+{
+    <TopBarMetaData PageTitle="KlavLor - Loot Feed" Title="Loot Feed" Description="Real-time loot drops from all users" />
+}
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    @* Standard Column *@
+    <div>
+        <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 px-1">
+            Standard
+            <span class="text-xs font-normal text-slate-400 dark:text-slate-500">&lt; 100K</span>
+        </h2>
+        <div id="feed-col-standard"
+             hx-ext="sse"
+             sse-connect="@AppRoutes.LootFeedStreamStandard.FromApi()"
+             sse-swap="message"
+             hx-swap="afterbegin"
+             hx-on::after-settle="if(this.children.length > 50) { while(this.children.length > 50) this.removeChild(this.lastElementChild); }"
+             class="space-y-3">
+            @if (StandardEntries is not null && StandardEntries.Count > 0)
             {
-                <LootFeedItem Entry="@entry" />
+                @foreach (var entry in StandardEntries)
+                {
+                    <LootFeedItem Entry="@entry" />
+                }
             }
-        }
-        else
-        {
-            <div id="feed-empty-state" class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-12 text-center">
-                <div class="flex justify-center mb-4">
-                    <div class="p-4 bg-amber-50 dark:bg-amber-950 rounded-full">
-                        <svg class="w-8 h-8 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                        </svg>
-                    </div>
+            else
+            {
+                <div class="feed-empty-state bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-8 text-center">
+                    <p class="text-sm text-slate-500 dark:text-slate-400">No standard drops yet.</p>
                 </div>
-                <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">No loot drops yet</h3>
-                <p class="text-sm text-slate-500 dark:text-slate-400">Loot drops will appear here in real-time as they are synced.</p>
-            </div>
-        }
+            }
+        </div>
+    </div>
+
+    @* Notable Column *@
+    <div>
+        <h2 class="text-sm font-semibold text-green-600 dark:text-green-400 mb-3 px-1">
+            Notable
+            <span class="text-xs font-normal text-slate-400 dark:text-slate-500">100K – 1M</span>
+        </h2>
+        <div id="feed-col-notable"
+             hx-ext="sse"
+             sse-connect="@AppRoutes.LootFeedStreamNotable.FromApi()"
+             sse-swap="message"
+             hx-swap="afterbegin"
+             hx-on::after-settle="if(this.children.length > 50) { while(this.children.length > 50) this.removeChild(this.lastElementChild); }"
+             class="space-y-3">
+            @if (NotableEntries is not null && NotableEntries.Count > 0)
+            {
+                @foreach (var entry in NotableEntries)
+                {
+                    <LootFeedItem Entry="@entry" />
+                }
+            }
+            else
+            {
+                <div class="feed-empty-state bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-green-200 dark:border-green-900 p-8 text-center">
+                    <p class="text-sm text-slate-500 dark:text-slate-400">No notable drops yet.</p>
+                </div>
+            }
+        </div>
+    </div>
+
+    @* Mega Column *@
+    <div>
+        <h2 class="text-sm font-semibold text-purple-600 dark:text-purple-400 mb-3 px-1">
+            Mega
+            <span class="text-xs font-normal text-slate-400 dark:text-slate-500">1M+</span>
+        </h2>
+        <div id="feed-col-mega"
+             hx-ext="sse"
+             sse-connect="@AppRoutes.LootFeedStreamMega.FromApi()"
+             sse-swap="message"
+             hx-swap="afterbegin"
+             hx-on::after-settle="if(this.children.length > 50) { while(this.children.length > 50) this.removeChild(this.lastElementChild); }"
+             class="space-y-3">
+            @if (MegaEntries is not null && MegaEntries.Count > 0)
+            {
+                @foreach (var entry in MegaEntries)
+                {
+                    <LootFeedItem Entry="@entry" />
+                }
+            }
+            else
+            {
+                <div class="feed-empty-state bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-purple-200 dark:border-purple-900 p-8 text-center">
+                    <p class="text-sm text-slate-500 dark:text-slate-400">No mega drops yet.</p>
+                </div>
+            }
+        </div>
     </div>
 </div>
 
 <script>
-    (function() {
-        var container = document.getElementById('loot-feed-container');
-        if (!container) return;
-        var observer = new MutationObserver(function() {
-            var empty = document.getElementById('feed-empty-state');
-            if (empty && container.children.length > 1) empty.remove();
-        });
-        observer.observe(container, { childList: true });
+    (() => {
+        // Empty state removal when items arrive via SSE
+        for (const col of ['standard', 'notable', 'mega']) {
+            const container = document.getElementById(`feed-col-${col}`);
+            if (!container) continue;
+
+            const observer = new MutationObserver(() => {
+                const empty = container.querySelector('.feed-empty-state');
+                if (empty && container.children.length > 1) empty.remove();
+            });
+            observer.observe(container, { childList: true });
+        }
     })();
 </script>
 
 @code {
-    [Parameter] public IReadOnlyList<LootFeedEntry>? Entries { get; set; }
+    [Parameter] public IReadOnlyList<LootFeedEntry>? StandardEntries { get; set; }
+    [Parameter] public IReadOnlyList<LootFeedEntry>? NotableEntries { get; set; }
+    [Parameter] public IReadOnlyList<LootFeedEntry>? MegaEntries { get; set; }
+    [Parameter] public bool UpdateHeader { get; set; } = true;
 }

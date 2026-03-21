@@ -72,7 +72,9 @@ public static class AppRoutes
     public const string LootIngest = "/loot/ingest";
     public const string LootIngestBatch = "/loot/ingest/batch";
     public const string LootFeed = "/loot/feed";
-    public const string LootFeedStream = "/loot/feed/stream";
+    public const string LootFeedStreamStandard = "/loot/feed/stream/standard";
+    public const string LootFeedStreamNotable = "/loot/feed/stream/notable";
+    public const string LootFeedStreamMega = "/loot/feed/stream/mega";
     public const string LootLog = "/loot/log";
     public const string LootLogUser = "/loot/log/{id:int}";
     public const string LootLogSource = "/loot/log/{id:int}/source";

@@ -11,16 +11,21 @@ internal sealed class LootFeedService : ILootFeedService
     private const int BufferCapacity = 50;
     private const int ChannelCapacity = 10;
 
-    private readonly ConcurrentQueue<LootFeedEntry> _buffer = new();
-    private readonly ConcurrentDictionary<Guid, Channel<LootFeedEntry>> _subscribers = new();
-    private int _bufferCount;
+    private static readonly LootFeedTier[] AllTiers = [LootFeedTier.Standard, LootFeedTier.Notable, LootFeedTier.Mega];
 
-    public IReadOnlyList<LootFeedEntry> GetCurrentEntries()
+    private readonly ConcurrentDictionary<LootFeedTier, ConcurrentQueue<LootFeedEntry>> _buffers = new(
+        AllTiers.Select(t => new KeyValuePair<LootFeedTier, ConcurrentQueue<LootFeedEntry>>(t, new())));
+
+    private readonly ConcurrentDictionary<LootFeedTier, ConcurrentDictionary<Guid, Channel<LootFeedEntry>>> _subscribers = new(
+        AllTiers.Select(t => new KeyValuePair<LootFeedTier, ConcurrentDictionary<Guid, Channel<LootFeedEntry>>>(t, new())));
+
+    public IReadOnlyList<LootFeedEntry> GetCurrentEntries(LootFeedTier tier)
     {
-        return _buffer.OrderByDescending(e => e.OccurredAt).ToArray();
+        return _buffers[tier].OrderByDescending(e => e.OccurredAt).ToArray();
     }
 
     public async IAsyncEnumerable<LootFeedEntry> SubscribeAsync(
+        LootFeedTier tier,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var id = Guid.NewGuid();
@@ -29,7 +34,7 @@ internal sealed class LootFeedService : ILootFeedService
             FullMode = BoundedChannelFullMode.DropOldest
         });
 
-        _subscribers.TryAdd(id, channel);
+        _subscribers[tier].TryAdd(id, channel);
 
         try
         {
@@ -40,22 +45,32 @@ internal sealed class LootFeedService : ILootFeedService
         }
         finally
         {
-            _subscribers.TryRemove(id, out _);
+            _subscribers[tier].TryRemove(id, out _);
             channel.Writer.TryComplete();
+        }
+    }
+
+    public void SeedBuffer(IEnumerable<LootFeedEntry> entries)
+    {
+        foreach (var entry in entries)
+        {
+            var tier = ILootFeedService.GetTier(entry.TotalValue);
+            _buffers[tier].Enqueue(entry);
         }
     }
 
     public void Publish(LootFeedEntry entry)
     {
-        _buffer.Enqueue(entry);
-        var count = Interlocked.Increment(ref _bufferCount);
+        var tier = ILootFeedService.GetTier(entry.TotalValue);
+        var buffer = _buffers[tier];
 
-        while (count > BufferCapacity && _buffer.TryDequeue(out _))
+        buffer.Enqueue(entry);
+
+        while (buffer.Count > BufferCapacity && buffer.TryDequeue(out _))
         {
-            count = Interlocked.Decrement(ref _bufferCount);
         }
 
-        foreach (var (_, channel) in _subscribers)
+        foreach (var (_, channel) in _subscribers[tier])
         {
             channel.Writer.TryWrite(entry);
         }

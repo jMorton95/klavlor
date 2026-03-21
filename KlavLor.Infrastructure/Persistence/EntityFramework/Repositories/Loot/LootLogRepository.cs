@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 using KlavLor.Application.Common.Exceptions;
+using KlavLor.Application.Features.Loot.Feed;
 using KlavLor.Application.Features.Loot.Log;
 using KlavLor.Application.Interfaces.Repositories;
 using KlavLor.Domain.Entities;
@@ -341,6 +342,53 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
         {
             logger.LogError(ex, "Failed to get source detail kills page for user {UserId}, source {Source}", userId, sourceName);
             throw new RepositoryException("Failed to get source detail kills page", ex);
+        }
+    }
+
+    public async Task<List<LootFeedEntry>> GetRecentFeedEntries(int count, long? minValue = null, long? maxValue = null)
+    {
+        try
+        {
+            var query = dataContext.LootRecords
+                .Join(dataContext.Users, r => r.UserId, u => u.Id, (r, u) => new { Record = r, User = u });
+
+            if (minValue.HasValue)
+                query = query.Where(x => x.Record.TotalValue >= minValue.Value);
+            if (maxValue.HasValue)
+                query = query.Where(x => x.Record.TotalValue < maxValue.Value);
+
+            var records = await query
+                .OrderByDescending(x => x.Record.OccurredAt)
+                .Take(count)
+                .Select(x => new
+                {
+                    UserName = x.User.FirstName + " " + x.User.LastName,
+                    x.Record.UserId,
+                    x.Record.SourceName,
+                    x.Record.SourceType,
+                    x.Record.TotalValue,
+                    x.Record.DropsJson,
+                    x.Record.OccurredAt
+                })
+                .ToListAsync();
+
+            return records.Select(r =>
+            {
+                var drops = JsonSerializer.Deserialize<List<LootDrop>>(r.DropsJson) ?? [];
+                return new LootFeedEntry(
+                    r.UserName,
+                    r.UserId,
+                    r.SourceName,
+                    r.SourceType,
+                    r.TotalValue,
+                    drops.Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price)).ToList(),
+                    r.OccurredAt);
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get recent feed entries");
+            throw new RepositoryException("Failed to get recent feed entries", ex);
         }
     }
 }

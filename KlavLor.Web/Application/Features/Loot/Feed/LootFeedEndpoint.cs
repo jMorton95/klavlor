@@ -12,21 +12,39 @@ public sealed class LootFeedEndpoint : IEndpoint
         app.MapGet(AppRoutes.LootFeed.FromApi(), GetPage)
             .AllowAnonymous();
 
-        return app.MapGet(AppRoutes.LootFeedStream.FromApi(), StreamFeed)
+        app.MapGet(AppRoutes.LootFeedStreamStandard.FromApi(), (HttpContext ctx, ILootFeedService svc, IServiceProvider sp, ILoggerFactory lf) =>
+                StreamFeed(ctx, svc, sp, lf, LootFeedTier.Standard))
+            .AllowAnonymous();
+
+        app.MapGet(AppRoutes.LootFeedStreamNotable.FromApi(), (HttpContext ctx, ILootFeedService svc, IServiceProvider sp, ILoggerFactory lf) =>
+                StreamFeed(ctx, svc, sp, lf, LootFeedTier.Notable))
+            .AllowAnonymous();
+
+        return app.MapGet(AppRoutes.LootFeedStreamMega.FromApi(), (HttpContext ctx, ILootFeedService svc, IServiceProvider sp, ILoggerFactory lf) =>
+                StreamFeed(ctx, svc, sp, lf, LootFeedTier.Mega))
             .AllowAnonymous();
     }
 
     private static IResult GetPage(ILootFeedService feedService)
     {
-        var entries = feedService.GetCurrentEntries();
-        return IResultExtensions.Component<LootFeedGrid>(new { Entries = entries });
+        var standard = feedService.GetCurrentEntries(LootFeedTier.Standard);
+        var notable = feedService.GetCurrentEntries(LootFeedTier.Notable);
+        var mega = feedService.GetCurrentEntries(LootFeedTier.Mega);
+
+        return IResultExtensions.Component<LootFeedGrid>(new
+        {
+            StandardEntries = standard,
+            NotableEntries = notable,
+            MegaEntries = mega
+        });
     }
 
     private static async Task StreamFeed(
         HttpContext context,
         ILootFeedService feedService,
         IServiceProvider serviceProvider,
-        ILoggerFactory loggerFactory)
+        ILoggerFactory loggerFactory,
+        LootFeedTier tier)
     {
         context.Response.ContentType = "text/event-stream";
         context.Response.Headers.CacheControl = "no-cache";
@@ -34,7 +52,7 @@ public sealed class LootFeedEndpoint : IEndpoint
 
         var ct = context.RequestAborted;
 
-        await foreach (var entry in feedService.SubscribeAsync(ct))
+        await foreach (var entry in feedService.SubscribeAsync(tier, ct))
         {
             var html = await RenderComponentToString<LootFeedItem>(
                 serviceProvider, loggerFactory,

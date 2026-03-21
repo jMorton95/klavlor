@@ -4,6 +4,7 @@ namespace KlavLor.Application.Features.Loot.Feed;
 
 public sealed record LootFeedEntry(
     string UserName,
+    int UserId,
     string SourceName,
     LootSourceType SourceType,
     long TotalValue,

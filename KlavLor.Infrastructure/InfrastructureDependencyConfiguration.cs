@@ -52,6 +52,7 @@ public static class InfrastructureDependencyConfiguration
             services.AddScoped<IMigrationService, EntityFrameworkMigrator>();
 
             services.AddSingleton<ILootFeedService, LootFeedService>();
+            services.AddHostedService<LootFeedSeederService>();
 
             services.AddTransient<OsrsWikiRateLimitHandler>();
             services.AddOsrsWikiClient();
