@@ -503,6 +503,7 @@ KlavLor.Web/wwwroot/styles.css
 
 # Go build output
 *.exe
+*.zip
 
 # Secrets / config that may contain API keys
 config.toml

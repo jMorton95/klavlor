@@ -13,9 +13,10 @@ public sealed class LootFeedSeederService(
 {
     private static readonly (long? Min, long? Max)[] TierRanges =
     [
-        (null, 100_000),       // Standard: < 100K
-        (100_000, 1_000_000),  // Notable: 100K – 1M
-        (1_000_000, null)      // Mega: 1M+
+        (10_000, 100_000),         // Standard: 10K – 100K
+        (100_000, 1_000_000),      // Notable: 100K – 1M
+        (1_000_000, 10_000_000),   // Epic: 1M – 10M
+        (10_000_000, null)         // Legendary: 10M+
     ];
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

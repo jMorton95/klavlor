@@ -6,12 +6,12 @@
     <TopBarMetaData PageTitle="KlavLor - Loot Feed" Title="Loot Feed" Description="Real-time loot drops from all users" />
 }
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
     @* Standard Column *@
     <div>
         <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 px-1">
             Standard
-            <span class="text-xs font-normal text-slate-400 dark:text-slate-500">&lt; 100K</span>
+            <span class="text-xs font-normal text-slate-400 dark:text-slate-500">10K – 100K</span>
         </h2>
         <div id="feed-col-standard"
              hx-ext="sse"
@@ -65,22 +65,22 @@
         </div>
     </div>
 
-    @* Mega Column *@
+    @* Epic Column *@
     <div>
         <h2 class="text-sm font-semibold text-purple-600 dark:text-purple-400 mb-3 px-1">
-            Mega
-            <span class="text-xs font-normal text-slate-400 dark:text-slate-500">1M+</span>
+            Epic
+            <span class="text-xs font-normal text-slate-400 dark:text-slate-500">1M – 10M</span>
         </h2>
-        <div id="feed-col-mega"
+        <div id="feed-col-epic"
              hx-ext="sse"
-             sse-connect="@AppRoutes.LootFeedStreamMega.FromApi()"
+             sse-connect="@AppRoutes.LootFeedStreamEpic.FromApi()"
              sse-swap="message"
              hx-swap="afterbegin"
              hx-on::after-settle="if(this.children.length > 50) { while(this.children.length > 50) this.removeChild(this.lastElementChild); }"
              class="space-y-3">
-            @if (MegaEntries is not null && MegaEntries.Count > 0)
+            @if (EpicEntries is not null && EpicEntries.Count > 0)
             {
-                @foreach (var entry in MegaEntries)
+                @foreach (var entry in EpicEntries)
                 {
                     <LootFeedItem Entry="@entry" />
                 }
@@ -88,7 +88,36 @@
             else
             {
                 <div class="feed-empty-state bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-purple-200 dark:border-purple-900 p-8 text-center">
-                    <p class="text-sm text-slate-500 dark:text-slate-400">No mega drops yet.</p>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">No epic drops yet.</p>
+                </div>
+            }
+        </div>
+    </div>
+
+    @* Legendary Column *@
+    <div>
+        <h2 class="text-sm font-semibold text-amber-600 dark:text-amber-400 mb-3 px-1">
+            Legendary
+            <span class="text-xs font-normal text-slate-400 dark:text-slate-500">10M+</span>
+        </h2>
+        <div id="feed-col-legendary"
+             hx-ext="sse"
+             sse-connect="@AppRoutes.LootFeedStreamLegendary.FromApi()"
+             sse-swap="message"
+             hx-swap="afterbegin"
+             hx-on::after-settle="if(this.children.length > 50) { while(this.children.length > 50) this.removeChild(this.lastElementChild); }"
+             class="space-y-3">
+            @if (LegendaryEntries is not null && LegendaryEntries.Count > 0)
+            {
+                @foreach (var entry in LegendaryEntries)
+                {
+                    <LootFeedItem Entry="@entry" />
+                }
+            }
+            else
+            {
+                <div class="feed-empty-state bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-amber-200 dark:border-amber-900 p-8 text-center">
+                    <p class="text-sm text-slate-500 dark:text-slate-400">No legendary drops yet.</p>
                 </div>
             }
         </div>
@@ -98,7 +127,7 @@
 <script>
     (() => {
         // Empty state removal when items arrive via SSE
-        for (const col of ['standard', 'notable', 'mega']) {
+        for (const col of ['standard', 'notable', 'epic', 'legendary']) {
             const container = document.getElementById(`feed-col-${col}`);
             if (!container) continue;
 
@@ -131,6 +160,7 @@
 @code {
     [Parameter] public IReadOnlyList<LootFeedEntry>? StandardEntries { get; set; }
     [Parameter] public IReadOnlyList<LootFeedEntry>? NotableEntries { get; set; }
-    [Parameter] public IReadOnlyList<LootFeedEntry>? MegaEntries { get; set; }
+    [Parameter] public IReadOnlyList<LootFeedEntry>? EpicEntries { get; set; }
+    [Parameter] public IReadOnlyList<LootFeedEntry>? LegendaryEntries { get; set; }
     [Parameter] public bool UpdateHeader { get; set; } = true;
 }

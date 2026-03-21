@@ -8,7 +8,7 @@
                hx-push-url="@AppRoutes.LootLogUser.WithId(Entry.UserId)"
                hx-swap="innerHTML transition:true"
                class="text-sm font-semibold text-slate-900 dark:text-slate-100 hover:underline cursor-pointer">@Entry.UserName</a>
-            <span class="text-xs text-slate-400 dark:text-slate-400">@(Entry.SourceType == KlavLor.Domain.Entities.LootSourceType.Event ? "rolled" : "killed")</span>
+            <span class="text-xs text-slate-400 dark:text-slate-400">@(Entry.SourceType switch { KlavLor.Domain.Entities.LootSourceType.Event => "rolled", KlavLor.Domain.Entities.LootSourceType.Pickpocket => "pickpocketed", _ => "killed" })</span>
             <a hx-get="@(AppRoutes.LootLogSource.WithId(Entry.UserId).FromApi() + "?name=" + Uri.EscapeDataString(Entry.SourceName))"
                hx-target="#hx-page-container"
                hx-push-url="@(AppRoutes.LootLogSource.WithId(Entry.UserId) + "?name=" + Uri.EscapeDataString(Entry.SourceName))"

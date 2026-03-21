@@ -20,8 +20,12 @@ public sealed class LootFeedEndpoint : IEndpoint
                 StreamFeed(ctx, svc, sp, lf, LootFeedTier.Notable))
             .AllowAnonymous();
 
-        return app.MapGet(AppRoutes.LootFeedStreamMega.FromApi(), (HttpContext ctx, ILootFeedService svc, IServiceProvider sp, ILoggerFactory lf) =>
-                StreamFeed(ctx, svc, sp, lf, LootFeedTier.Mega))
+        app.MapGet(AppRoutes.LootFeedStreamEpic.FromApi(), (HttpContext ctx, ILootFeedService svc, IServiceProvider sp, ILoggerFactory lf) =>
+                StreamFeed(ctx, svc, sp, lf, LootFeedTier.Epic))
+            .AllowAnonymous();
+
+        return app.MapGet(AppRoutes.LootFeedStreamLegendary.FromApi(), (HttpContext ctx, ILootFeedService svc, IServiceProvider sp, ILoggerFactory lf) =>
+                StreamFeed(ctx, svc, sp, lf, LootFeedTier.Legendary))
             .AllowAnonymous();
     }
 
@@ -29,13 +33,15 @@ public sealed class LootFeedEndpoint : IEndpoint
     {
         var standard = feedService.GetCurrentEntries(LootFeedTier.Standard);
         var notable = feedService.GetCurrentEntries(LootFeedTier.Notable);
-        var mega = feedService.GetCurrentEntries(LootFeedTier.Mega);
+        var epic = feedService.GetCurrentEntries(LootFeedTier.Epic);
+        var legendary = feedService.GetCurrentEntries(LootFeedTier.Legendary);
 
         return IResultExtensions.Component<LootFeedGrid>(new
         {
             StandardEntries = standard,
             NotableEntries = notable,
-            MegaEntries = mega
+            EpicEntries = epic,
+            LegendaryEntries = legendary
         });
     }
 

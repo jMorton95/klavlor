@@ -11,7 +11,7 @@ internal sealed class LootFeedService : ILootFeedService
     private const int BufferCapacity = 50;
     private const int ChannelCapacity = 10;
 
-    private static readonly LootFeedTier[] AllTiers = [LootFeedTier.Standard, LootFeedTier.Notable, LootFeedTier.Mega];
+    private static readonly LootFeedTier[] AllTiers = [LootFeedTier.Standard, LootFeedTier.Notable, LootFeedTier.Epic, LootFeedTier.Legendary];
 
     private readonly ConcurrentDictionary<LootFeedTier, ConcurrentQueue<LootFeedEntry>> _buffers = new(
         AllTiers.Select(t => new KeyValuePair<LootFeedTier, ConcurrentQueue<LootFeedEntry>>(t, new())));
@@ -55,14 +55,17 @@ internal sealed class LootFeedService : ILootFeedService
         foreach (var entry in entries)
         {
             var tier = ILootFeedService.GetTier(entry.TotalValue);
-            _buffers[tier].Enqueue(entry);
+            if (tier is null) continue;
+            _buffers[tier.Value].Enqueue(entry);
         }
     }
 
     public void Publish(LootFeedEntry entry)
     {
         var tier = ILootFeedService.GetTier(entry.TotalValue);
-        var buffer = _buffers[tier];
+        if (tier is null) return;
+
+        var buffer = _buffers[tier.Value];
 
         buffer.Enqueue(entry);
 
@@ -70,7 +73,7 @@ internal sealed class LootFeedService : ILootFeedService
         {
         }
 
-        foreach (var (_, channel) in _subscribers[tier])
+        foreach (var (_, channel) in _subscribers[tier.Value])
         {
             channel.Writer.TryWrite(entry);
         }

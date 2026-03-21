@@ -8,19 +8,22 @@
 <PageLayout PageTitle="KlavLor - Loot Feed" Title="Loot Feed" Description="Real-time loot drops from all users">
     <LootFeedGrid StandardEntries="@_standard"
                   NotableEntries="@_notable"
-                  MegaEntries="@_mega"
+                  EpicEntries="@_epic"
+                  LegendaryEntries="@_legendary"
                   UpdateHeader="false" />
 </PageLayout>
 
 @code {
     private IReadOnlyList<LootFeedEntry> _standard = [];
     private IReadOnlyList<LootFeedEntry> _notable = [];
-    private IReadOnlyList<LootFeedEntry> _mega = [];
+    private IReadOnlyList<LootFeedEntry> _epic = [];
+    private IReadOnlyList<LootFeedEntry> _legendary = [];
 
     protected override void OnInitialized()
     {
         _standard = FeedService.GetCurrentEntries(LootFeedTier.Standard);
         _notable = FeedService.GetCurrentEntries(LootFeedTier.Notable);
-        _mega = FeedService.GetCurrentEntries(LootFeedTier.Mega);
+        _epic = FeedService.GetCurrentEntries(LootFeedTier.Epic);
+        _legendary = FeedService.GetCurrentEntries(LootFeedTier.Legendary);
     }
 }

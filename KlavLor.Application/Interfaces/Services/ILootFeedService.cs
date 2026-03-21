@@ -6,16 +6,19 @@ public enum LootFeedTier
 {
     Standard,
     Notable,
-    Mega
+    Epic,
+    Legendary
 }
 
 public interface ILootFeedService
 {
-    static LootFeedTier GetTier(long totalValue) => totalValue switch
+    static LootFeedTier? GetTier(long totalValue) => totalValue switch
     {
-        >= 1_000_000 => LootFeedTier.Mega,
+        >= 10_000_000 => LootFeedTier.Legendary,
+        >= 1_000_000 => LootFeedTier.Epic,
         >= 100_000 => LootFeedTier.Notable,
-        _ => LootFeedTier.Standard
+        >= 10_000 => LootFeedTier.Standard,
+        _ => null
     };
 
     IReadOnlyList<LootFeedEntry> GetCurrentEntries(LootFeedTier tier);
