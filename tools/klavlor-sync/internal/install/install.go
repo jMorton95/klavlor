@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/klavlor/klavlor-sync/internal/config"
@@ -129,11 +130,22 @@ func Uninstall() {
 
 	if input == "y" || input == "yes" {
 		dir := config.ConfigDir()
-		if err := os.RemoveAll(dir); err != nil {
-			fmt.Printf("  ⚠ Could not remove %s: %v\n", dir, err)
-		} else {
-			fmt.Printf("  ✓ Removed %s\n", dir)
+
+		// Delete individual files first — the exe is locked by this process.
+		for _, name := range []string{"config.toml", "state.json", "klavlor-sync.log"} {
+			p := filepath.Join(dir, name)
+			if err := os.Remove(p); err != nil && !os.IsNotExist(err) {
+				fmt.Printf("  ⚠ Could not remove %s: %v\n", p, err)
+			}
 		}
+		fmt.Println("  ✓ Config and state removed")
+
+		// Try to remove the exe and directory — will fail if we're running from it.
+		exePath := config.ExePath()
+		if err := os.Remove(exePath); err != nil && !os.IsNotExist(err) {
+			fmt.Printf("  ⚠ Could not remove %s (in use). Delete manually or it will be cleaned up on reinstall.\n", exePath)
+		}
+		_ = os.Remove(dir) // remove dir if now empty
 	} else {
 		fmt.Printf("  Config kept at %s\n", config.ConfigDir())
 	}
