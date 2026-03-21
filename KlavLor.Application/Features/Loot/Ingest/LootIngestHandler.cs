@@ -50,7 +50,7 @@ public sealed class LootIngestHandler(
         }
 
         await lootRecordRepository.SaveLootRecord(record);
-        if (!record.IsImported && IsCharacterVisible(character))
+        if (ShouldPublishToFeed(record, character))
             await PublishToFeed(userId.Value, record, character);
         return Result.Success();
     }
@@ -108,7 +108,7 @@ public sealed class LootIngestHandler(
 
         await lootRecordRepository.SaveLootRecords(allRecords);
 
-        var liveRecords = records.Where(r => !r.Record.IsImported && IsCharacterVisible(r.Character)).ToList();
+        var liveRecords = records.Where(r => ShouldPublishToFeed(r.Record, r.Character)).ToList();
         if (liveRecords.Count > 0)
         {
             var user = await userRepository.GetById(userId.Value);
@@ -140,6 +140,18 @@ public sealed class LootIngestHandler(
         return await gameCharacterRepository.Save(newCharacter);
     }
 
+    private static bool ShouldPublishToFeed(LootRecord record, GameCharacter? character)
+    {
+        if (!IsCharacterVisible(character))
+            return false;
+
+        // Imported records are excluded from the feed unless they're legendary (10M+).
+        if (record.IsImported && record.TotalValue < 10_000_000)
+            return false;
+
+        return true;
+    }
+
     private static bool IsCharacterVisible(GameCharacter? character)
     {
         // Records without a character are always visible (legacy data).
@@ -169,7 +181,7 @@ public sealed class LootIngestHandler(
             record.TotalValue,
             feedDrops,
             record.OccurredAt,
-            character?.EffectiveName,
+            character?.GetEffectiveName(userName),
             character?.Id));
     }
 

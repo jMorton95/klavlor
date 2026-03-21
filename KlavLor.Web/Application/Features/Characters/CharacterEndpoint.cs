@@ -33,9 +33,13 @@ public sealed class CharacterEndpoint : IEndpoint
         [FromForm] string? displayName,
         CharacterHandler handler)
     {
-        await handler.HandleUpdateName(id, displayName);
+        var updateResult = await handler.HandleUpdateName(id, displayName);
         var result = await handler.HandleList();
-        return IResultExtensions.Component<CharacterList>(new { Characters = result.Value });
+        return IResultExtensions.Component<CharacterList>(new
+        {
+            Characters = result.Value,
+            ErrorMessage = updateResult.IsSuccess ? (string?)null : updateResult.ErrorMessage
+        });
     }
 
     private static async Task<RazorComponentResult> ToggleVisibility(

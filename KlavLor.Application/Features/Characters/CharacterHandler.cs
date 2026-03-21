@@ -41,7 +41,16 @@ public sealed class CharacterHandler(
         if (!currentUser.IsAdmin && character.UserId != currentUser.UserId)
             return Result.Failure("Not authorized.");
 
-        character.DisplayName = string.IsNullOrWhiteSpace(displayName) ? null : displayName.Trim();
+        var trimmed = string.IsNullOrWhiteSpace(displayName) ? null : displayName.Trim();
+
+        if (trimmed is not null)
+        {
+            var taken = await characterRepository.IsDisplayNameTaken(trimmed, characterId);
+            if (taken)
+                return Result.Failure("That display name is already in use.");
+        }
+
+        character.DisplayName = trimmed;
         await characterRepository.Save(character);
         return Result.Success();
     }

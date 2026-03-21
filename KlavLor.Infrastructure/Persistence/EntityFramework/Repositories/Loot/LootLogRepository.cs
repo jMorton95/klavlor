@@ -27,7 +27,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
 
             var sql = $"""
                 SELECT gc."Id",
-                       COALESCE(gc."DisplayName", gc."RuneLiteId") as "CharacterName",
+                       COALESCE(gc."DisplayName", u."FirstName" || ' ' || u."LastName") as "CharacterName",
                        u."FirstName" || ' ' || u."LastName" as "UserName",
                        COUNT(DISTINCT lr."SourceName")::int as "TotalSources",
                        COUNT(*)::bigint as "TotalKills",
@@ -387,7 +387,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                     x.Record.TotalValue,
                     x.Record.DropsJson,
                     x.Record.OccurredAt,
-                    CharacterName = x.Character.DisplayName ?? x.Character.RuneLiteId,
+                    CharacterName = x.Character.DisplayName ?? x.User.FirstName + " " + x.User.LastName,
                     x.Character.Id
                 })
                 .ToListAsync();

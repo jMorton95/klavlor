@@ -51,6 +51,25 @@ internal sealed class GameCharacterRepository(DataContext dataContext, ILogger<G
         }
     }
 
+    public async Task<bool> IsDisplayNameTaken(string displayName, int? excludeCharacterId = null)
+    {
+        try
+        {
+            var query = dataContext.GameCharacters
+                .Where(gc => gc.DisplayName == displayName);
+
+            if (excludeCharacterId.HasValue)
+                query = query.Where(gc => gc.Id != excludeCharacterId.Value);
+
+            return await query.AnyAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to check display name availability for {Name}", displayName);
+            throw new RepositoryException("Failed to check display name", ex);
+        }
+    }
+
     public async Task<GameCharacter> Save(GameCharacter character)
     {
         try

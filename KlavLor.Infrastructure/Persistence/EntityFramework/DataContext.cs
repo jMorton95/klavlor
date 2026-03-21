@@ -297,6 +297,11 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
             .HasIndex(gc => new { gc.UserId, gc.RuneLiteId })
             .IsUnique();
 
+        modelBuilder.Entity<GameCharacter>()
+            .HasIndex(gc => gc.DisplayName)
+            .IsUnique()
+            .HasFilter("\"DisplayName\" IS NOT NULL");
+
         // ApiKey configuration
         modelBuilder.Entity<ApiKey>()
             .HasOne(k => k.User)
