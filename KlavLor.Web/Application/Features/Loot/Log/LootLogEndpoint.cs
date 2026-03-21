@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using KlavLor.Application.Features.Loot.Log;
+using KlavLor.Web.Application.Filters;
 using KlavLor.Web.Application.Results;
 
 namespace KlavLor.Web.Application.Features.Loot.Log;
@@ -12,10 +13,12 @@ public sealed class LootLogEndpoint : IEndpoint
             .AllowAnonymous();
 
         app.MapGet(AppRoutes.LootLogUser.FromApi(), GetUserLog)
-            .AllowAnonymous();
+            .AllowAnonymous()
+            .AddEndpointFilter<HtmxNavigationFilter>();
 
         return app.MapGet(AppRoutes.LootLogSource.FromApi(), GetSourceDetail)
-            .AllowAnonymous();
+            .AllowAnonymous()
+            .AddEndpointFilter<HtmxNavigationFilter>();
     }
 
     private static async Task<RazorComponentResult> GetUsers(LootLogHandler handler)

@@ -25,7 +25,9 @@ public sealed class LootLogHandler(
 
     public async Task<Result<LootSourceDetail>> HandleSource(int userId, string sourceName, int pageNumber = 1, int pageSize = 25)
     {
-        var result = await lootLogRepository.GetSourceDetail(userId, sourceName, pageNumber, pageSize);
+        var result = pageNumber > 1
+            ? await lootLogRepository.GetSourceDetailKillsPage(userId, sourceName, pageNumber, pageSize)
+            : await lootLogRepository.GetSourceDetail(userId, sourceName, pageNumber, pageSize);
         return Result<LootSourceDetail>.Success(result);
     }
 }

@@ -60,6 +60,19 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
     {
         try
         {
+            var baseQuery = dataContext.LootRecords
+                .Where(r => r.UserId == userId);
+
+            if (!string.IsNullOrWhiteSpace(query.SearchTerm))
+            {
+                var term = query.SearchTerm;
+                baseQuery = baseQuery.Where(r => EF.Functions.ILike(r.SourceName, $"%{term}%"));
+            }
+
+            var totalCount = await baseQuery
+                .GroupBy(r => new { r.SourceName, r.SourceType })
+                .CountAsync();
+
             var sourceMatchesRaw = await GetSourceMatches(userId, query, fetchExtra: true);
             var hasMore = sourceMatchesRaw.Count > query.PageSize;
             var sourceMatches = sourceMatchesRaw.Take(query.PageSize).ToList();
@@ -72,7 +85,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 itemMatches = await GetItemMatches(userId, query.SearchTerm, matchedSourceNames);
             }
 
-            return new LootLogSearchResult(sourceMatches, itemMatches, hasMore, query.SearchTerm);
+            return new LootLogSearchResult(sourceMatches, itemMatches, hasMore, query.SearchTerm, totalCount);
         }
         catch (Exception ex)
         {
@@ -230,6 +243,26 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
 
             var allDrops = await GetTopDropsForSource(userId, sourceName, limit: null);
 
+            // Notable drops: top 5 kills by value
+            var notableRaw = await dataContext.LootRecords
+                .Where(r => r.UserId == userId && r.SourceName == sourceName)
+                .OrderByDescending(r => r.TotalValue)
+                .Take(5)
+                .Select(r => new { r.OccurredAt, r.KillCount, r.TotalValue, r.DropsJson })
+                .ToListAsync();
+
+            var notableDrops = notableRaw
+                .Where(k => k.TotalValue > 0)
+                .Select(k =>
+                {
+                    var drops = JsonSerializer.Deserialize<List<LootDrop>>(k.DropsJson) ?? [];
+                    return new LootKillEntry(
+                        k.OccurredAt,
+                        k.KillCount,
+                        k.TotalValue,
+                        drops.Select(d => new LootKillDrop(d.Name, d.Quantity, d.Price)).ToList());
+                }).ToList();
+
             var kills = await dataContext.LootRecords
                 .Where(r => r.UserId == userId && r.SourceName == sourceName)
                 .OrderByDescending(r => r.OccurredAt)
@@ -256,12 +289,58 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 summary.TotalValue,
                 allDrops,
                 killEntries,
-                hasMore);
+                hasMore,
+                summary.TotalKills,
+                notableDrops);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to get source detail for user {UserId}, source {Source}", userId, sourceName);
             throw new RepositoryException("Failed to get source detail", ex);
+        }
+    }
+
+    public async Task<LootSourceDetail> GetSourceDetailKillsPage(int userId, string sourceName, int pageNumber, int pageSize)
+    {
+        try
+        {
+            var totalKills = await dataContext.LootRecords
+                .Where(r => r.UserId == userId && r.SourceName == sourceName)
+                .CountAsync();
+
+            var kills = await dataContext.LootRecords
+                .Where(r => r.UserId == userId && r.SourceName == sourceName)
+                .OrderByDescending(r => r.OccurredAt)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize + 1)
+                .Select(r => new { r.OccurredAt, r.KillCount, r.TotalValue, r.DropsJson })
+                .ToListAsync();
+
+            var hasMore = kills.Count > pageSize;
+            var killEntries = kills.Take(pageSize).Select(k =>
+            {
+                var drops = JsonSerializer.Deserialize<List<LootDrop>>(k.DropsJson) ?? [];
+                return new LootKillEntry(
+                    k.OccurredAt,
+                    k.KillCount,
+                    k.TotalValue,
+                    drops.Select(d => new LootKillDrop(d.Name, d.Quantity, d.Price)).ToList());
+            }).ToList();
+
+            return new LootSourceDetail(
+                sourceName,
+                LootSourceType.Unknown,
+                totalKills,
+                0,
+                [],
+                killEntries,
+                hasMore,
+                totalKills);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get source detail kills page for user {UserId}, source {Source}", userId, sourceName);
+            throw new RepositoryException("Failed to get source detail kills page", ex);
         }
     }
 }

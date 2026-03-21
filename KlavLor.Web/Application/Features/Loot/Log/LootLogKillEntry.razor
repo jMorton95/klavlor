@@ -1,8 +1,14 @@
 @using KlavLor.Application.Features.Loot.Log
 
-<div class="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
-    <div class="flex items-center justify-between mb-2">
+<div class="bg-white dark:bg-slate-900 rounded-lg border p-3 @(Highlighted ? "border-amber-300 dark:border-amber-600 ring-1 ring-amber-300/30 dark:ring-amber-600/30" : "border-slate-200 dark:border-slate-700")"
+    <div class="flex items-center justify-between gap-2 mb-2">
         <span class="text-xs text-slate-400 dark:text-slate-400">@FormatTime(Kill.OccurredAt)</span>
+        @if (Kill.KillCount is not null)
+        {
+            <span class="text-xs font-medium text-slate-500 dark:text-slate-400">
+                KC #@Kill.KillCount.Value.ToString("N0")
+            </span>
+        }
         @if (Kill.TotalValue > 0)
         {
             <span class="text-xs font-medium text-amber-600 dark:text-amber-400">@FormatGold(Kill.TotalValue) gp</span>
@@ -32,6 +38,7 @@
 
 @code {
     [Parameter] public required LootKillEntry Kill { get; set; }
+    [Parameter] public bool Highlighted { get; set; }
 
     private static string FormatGold(long value)
     {

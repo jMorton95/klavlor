@@ -6,7 +6,14 @@
      hx-trigger="click">
     <button type="button"
             class="px-6 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer">
-        Show More
+        @if (TotalCount > 0)
+        {
+            <span>Showing @CurrentlyShown of @TotalCount</span>
+        }
+        else
+        {
+            <span>Show More</span>
+        }
     </button>
 </div>
 
@@ -14,4 +21,6 @@
     [Parameter] public required string Url { get; set; }
     [Parameter] public string Id { get; set; } = "show-more-sources";
     [Parameter] public string TargetSelector { get; set; } = "#source-cards";
+    [Parameter] public int TotalCount { get; set; }
+    [Parameter] public int CurrentlyShown { get; set; }
 }

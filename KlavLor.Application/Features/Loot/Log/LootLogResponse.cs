@@ -13,7 +13,8 @@ public sealed record LootLogSearchResult(
     List<LootSourceSummary> SourceMatches,
     List<LootItemMatch> ItemMatches,
     bool HasMore = false,
-    string? SearchTerm = null);
+    string? SearchTerm = null,
+    int TotalCount = 0);
 
 public sealed record LootSourceSummary(
     string SourceName,
@@ -42,7 +43,9 @@ public sealed record LootSourceDetail(
     long TotalValue,
     List<LootDropSummary> AllDrops,
     List<LootKillEntry> Kills,
-    bool HasMore);
+    bool HasMore,
+    int TotalCount = 0,
+    List<LootKillEntry>? NotableDrops = null);
 
 public sealed record LootKillEntry(
     DateTimeOffset OccurredAt,

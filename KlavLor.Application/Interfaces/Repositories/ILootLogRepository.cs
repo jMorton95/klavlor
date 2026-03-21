@@ -7,4 +7,5 @@ public interface ILootLogRepository
     Task<List<LootLogUserSummary>> GetUsersWithLoot();
     Task<LootLogSearchResult> SearchLootLog(int userId, LootLogQuery query);
     Task<LootSourceDetail> GetSourceDetail(int userId, string sourceName, int pageNumber, int pageSize);
+    Task<LootSourceDetail> GetSourceDetailKillsPage(int userId, string sourceName, int pageNumber, int pageSize);
 }

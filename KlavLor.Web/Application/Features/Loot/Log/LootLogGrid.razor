@@ -1,4 +1,7 @@
 @using KlavLor.Application.Features.Loot.Log
+@using KlavLor.Web.Components.Layout
+
+<TopBarMetaData PageTitle="KlavLor - Drop Log" Title="Drop Log" Description="Loot history" />
 
 <div class="space-y-6">
     <div class="flex items-center gap-3">
@@ -31,7 +34,7 @@
                 </div>
                 @if (Result.HasMore)
                 {
-                    <LootLogShowMore Url="@GetShowMoreUrl(2)" />
+                    <LootLogShowMore Url="@GetShowMoreUrl(2)" TotalCount="@Result.TotalCount" CurrentlyShown="@Result.SourceMatches.Count" />
                 }
             </div>
         }
