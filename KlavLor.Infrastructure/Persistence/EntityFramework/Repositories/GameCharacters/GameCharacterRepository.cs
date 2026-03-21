@@ -118,6 +118,21 @@ internal sealed class GameCharacterRepository(DataContext dataContext, ILogger<G
         }
     }
 
+    public async Task<int> GetUnassignedRecordCount(int userId)
+    {
+        try
+        {
+            return await dataContext.LootRecords
+                .Where(r => r.UserId == userId && r.GameCharacterId == null)
+                .CountAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to count unassigned records for user {UserId}", userId);
+            throw new RepositoryException("Failed to count unassigned records", ex);
+        }
+    }
+
     public async Task<int> AssignUnassignedRecords(int userId, int gameCharacterId, string runeLiteId)
     {
         try

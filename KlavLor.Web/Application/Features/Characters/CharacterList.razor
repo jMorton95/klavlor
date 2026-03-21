@@ -76,15 +76,22 @@
                         </div>
                     </form>
 
-                    <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
-                        <button hx-post="@AppRoutes.AdminCharacterAssign.WithId(character.Id).FromApi()"
-                                hx-target="#hx-page-container"
-                                hx-swap="innerHTML transition:true"
-                                class="text-xs text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 cursor-pointer transition-colors"
-                                title="Assign any loot records without a character to this one">
-                            Assign unassigned records
-                        </button>
-                    </div>
+                    @if (UnassignedCount > 0)
+                    {
+                        <div class="pt-3 border-t border-slate-100 dark:border-slate-800">
+                            <div class="flex items-center justify-between">
+                                <p class="text-xs text-slate-500 dark:text-slate-400">
+                                    You have <span class="font-medium text-amber-600 dark:text-amber-400">@UnassignedCount.ToString("N0")</span> loot record@(UnassignedCount != 1 ? "s" : "") from before character tracking was enabled.
+                                </p>
+                                <button hx-post="@AppRoutes.AdminCharacterAssign.WithId(character.Id).FromApi()"
+                                        hx-target="#hx-page-container"
+                                        hx-swap="innerHTML transition:true"
+                                        class="ml-3 shrink-0 px-3 py-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-700 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950 transition-colors cursor-pointer">
+                                    Assign to this character
+                                </button>
+                            </div>
+                        </div>
+                    }
                 </div>
             }
         </div>
@@ -107,6 +114,7 @@
 
 @code {
     [Parameter] public List<CharacterSummary>? Characters { get; set; }
+    [Parameter] public int UnassignedCount { get; set; }
     [Parameter] public bool UpdateHeader { get; set; } = true;
     [Parameter] public string? ErrorMessage { get; set; }
 }

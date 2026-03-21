@@ -25,7 +25,8 @@ public sealed class CharacterEndpoint : IEndpoint
     private static async Task<RazorComponentResult> GetCharacters(CharacterHandler handler)
     {
         var result = await handler.HandleList();
-        return IResultExtensions.Component<CharacterList>(new { Characters = result.Value });
+        var unassigned = await handler.HandleUnassignedCount();
+        return IResultExtensions.Component<CharacterList>(new { Characters = result.Value, UnassignedCount = unassigned });
     }
 
     private static async Task<RazorComponentResult> UpdateName(
@@ -35,9 +36,11 @@ public sealed class CharacterEndpoint : IEndpoint
     {
         var updateResult = await handler.HandleUpdateName(id, displayName);
         var result = await handler.HandleList();
+        var unassigned = await handler.HandleUnassignedCount();
         return IResultExtensions.Component<CharacterList>(new
         {
             Characters = result.Value,
+            UnassignedCount = unassigned,
             ErrorMessage = updateResult.IsSuccess ? (string?)null : updateResult.ErrorMessage
         });
     }
@@ -48,7 +51,8 @@ public sealed class CharacterEndpoint : IEndpoint
     {
         await handler.HandleToggleVisibility(id);
         var result = await handler.HandleList();
-        return IResultExtensions.Component<CharacterList>(new { Characters = result.Value });
+        var unassigned = await handler.HandleUnassignedCount();
+        return IResultExtensions.Component<CharacterList>(new { Characters = result.Value, UnassignedCount = unassigned });
     }
 
     private static async Task<RazorComponentResult> AssignUnassigned(
@@ -57,6 +61,7 @@ public sealed class CharacterEndpoint : IEndpoint
     {
         await handler.HandleAssignUnassigned(id);
         var result = await handler.HandleList();
-        return IResultExtensions.Component<CharacterList>(new { Characters = result.Value });
+        var unassigned = await handler.HandleUnassignedCount();
+        return IResultExtensions.Component<CharacterList>(new { Characters = result.Value, UnassignedCount = unassigned });
     }
 }

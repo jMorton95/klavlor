@@ -23,6 +23,13 @@ public sealed class CharacterHandler(
         return Result<List<CharacterSummary>>.Success(summaries);
     }
 
+    public async Task<int> HandleUnassignedCount()
+    {
+        var userId = currentUser.UserId;
+        if (userId is null) return 0;
+        return await characterRepository.GetUnassignedRecordCount(userId.Value);
+    }
+
     public async Task<Result<List<CharacterSummary>>> HandleListForUser(int userId)
     {
         var characters = await characterRepository.GetByUserId(userId);

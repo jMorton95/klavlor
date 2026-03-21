@@ -5,15 +5,16 @@
 
 @inject CharacterHandler Handler
 
-<PageLayout PageTitle="KlavLor - Characters" Title="My Characters" Description="Manage your RuneLite characters">
+<PageLayout PageTitle="KlavLor - Characters" Title="My Characters" Description="Manage your game characters">
     @if (_characters is not null)
     {
-        <CharacterList Characters="@_characters" UpdateHeader="false" />
+        <CharacterList Characters="@_characters" UnassignedCount="@_unassignedCount" UpdateHeader="false" />
     }
 </PageLayout>
 
 @code {
     private List<CharacterSummary>? _characters;
+    private int _unassignedCount;
 
     protected override async Task OnInitializedAsync()
     {
@@ -22,5 +23,6 @@
         {
             _characters = result.Value;
         }
+        _unassignedCount = await Handler.HandleUnassignedCount();
     }
 }

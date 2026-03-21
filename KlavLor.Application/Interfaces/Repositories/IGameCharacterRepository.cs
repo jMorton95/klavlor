@@ -11,5 +11,6 @@ public interface IGameCharacterRepository
     Task<GameCharacter> Save(GameCharacter character);
     Task Delete(GameCharacter character);
     Task DeleteAllForUser(int userId);
+    Task<int> GetUnassignedRecordCount(int userId);
     Task<int> AssignUnassignedRecords(int userId, int gameCharacterId, string runeLiteId);
 }
