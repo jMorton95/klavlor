@@ -1,6 +1,6 @@
 @using KlavLor.Application.Features.Loot.Log
 
-<div class="bg-white dark:bg-slate-900 rounded-lg border p-3 @(Highlighted ? "border-amber-300 dark:border-amber-600 ring-1 ring-amber-300/30 dark:ring-amber-600/30" : "border-slate-200 dark:border-slate-700")"
+<div class="bg-white dark:bg-slate-900 rounded-lg border p-3 @(Highlighted ? "border-amber-300 dark:border-amber-600 ring-1 ring-amber-300/30 dark:ring-amber-600/30" : "border-slate-200 dark:border-slate-700")">
     <div class="flex items-center justify-between gap-2 mb-2">
         <span class="text-xs text-slate-400 dark:text-slate-400">@FormatTime(Kill.OccurredAt)</span>
         @if (Kill.KillCount is not null)
