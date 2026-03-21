@@ -104,6 +104,8 @@
         if (ago.TotalMinutes < 1) return "just now";
         if (ago.TotalMinutes < 60) return $"{(int)ago.TotalMinutes}m ago";
         if (ago.TotalHours < 24) return $"{(int)ago.TotalHours}h ago";
-        return time.ToString("MMM dd, HH:mm");
+        return time.Year != DateTimeOffset.UtcNow.Year
+            ? time.ToString("MMM dd yyyy, HH:mm")
+            : time.ToString("MMM dd, HH:mm");
     }
 }

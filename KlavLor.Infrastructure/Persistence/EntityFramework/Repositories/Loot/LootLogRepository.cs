@@ -261,7 +261,9 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                         k.OccurredAt,
                         k.KillCount,
                         k.TotalValue,
-                        drops.Select(d => new LootKillDrop(d.Name, d.Quantity, d.Price)).ToList());
+                        drops.Select(d => new LootKillDrop(d.Name, d.Quantity, d.Price))
+                            .OrderByDescending(d => (long)d.Quantity * d.Price)
+                            .ToList());
                 }).ToList();
 
             var kills = await dataContext.LootRecords
@@ -280,7 +282,9 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                     k.OccurredAt,
                     k.KillCount,
                     k.TotalValue,
-                    drops.Select(d => new LootKillDrop(d.Name, d.Quantity, d.Price)).ToList());
+                    drops.Select(d => new LootKillDrop(d.Name, d.Quantity, d.Price))
+                        .OrderByDescending(d => (long)d.Quantity * d.Price)
+                        .ToList());
             }).ToList();
 
             return new LootSourceDetail(
@@ -325,7 +329,9 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                     k.OccurredAt,
                     k.KillCount,
                     k.TotalValue,
-                    drops.Select(d => new LootKillDrop(d.Name, d.Quantity, d.Price)).ToList());
+                    drops.Select(d => new LootKillDrop(d.Name, d.Quantity, d.Price))
+                        .OrderByDescending(d => (long)d.Quantity * d.Price)
+                        .ToList());
             }).ToList();
 
             return new LootSourceDetail(

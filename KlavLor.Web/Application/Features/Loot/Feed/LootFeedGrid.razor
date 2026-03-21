@@ -150,7 +150,10 @@
                 else {
                     const d = new Date(dt);
                     const mon = d.toLocaleString('en', { month: 'short' });
-                    el.textContent = `${mon} ${String(d.getDate()).padStart(2, '0')}, ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+                    const day = String(d.getDate()).padStart(2, '0');
+                    const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+                    const year = d.getFullYear() !== new Date().getFullYear() ? ` ${d.getFullYear()}` : '';
+                    el.textContent = `${mon} ${day}${year}, ${time}`;
                 }
             }
         }, 30000);
