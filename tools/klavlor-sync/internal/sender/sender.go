@@ -158,6 +158,7 @@ func (s *Sender) sendBatch(ctx context.Context, records []model.LootRecord) erro
 		}
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", "Bearer "+s.apiKey)
+		req.Header.Set("X-Sync-Version", "2")
 
 		resp, err := s.client.Do(req)
 		if err != nil {
@@ -186,6 +187,11 @@ func (s *Sender) sendBatch(ctx context.Context, records []model.LootRecord) erro
 			}
 			lastErr = fmt.Errorf("rate limited (429)")
 			continue
+		case resp.StatusCode == http.StatusUpgradeRequired:
+			// Client version too old — fatal, cannot continue.
+			slog.Error("sync client is outdated, server requires a newer version — please update klavlor-sync",
+				"response", string(respBody))
+			return fmt.Errorf("client outdated: server requires newer sync version (426)")
 		case resp.StatusCode == http.StatusBadRequest:
 			// Validation error — retrying won't help, skip this batch.
 			slog.Error("batch rejected by server (400), dropping",

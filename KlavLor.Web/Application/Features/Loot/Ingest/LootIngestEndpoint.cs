@@ -1,4 +1,5 @@
 using KlavLor.Application.Features.Loot.Ingest;
+using KlavLor.Web.Application.Filters;
 using KlavLor.Web.Authentication;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,11 +12,13 @@ public sealed class LootIngestEndpoint : IEndpoint
         app.MapPost(AppRoutes.LootIngest.FromApi(), Ingest)
             .RequireAuthorization()
             .RequireRateLimiting("loot-ingest")
+            .AddEndpointFilter<SyncVersionFilter>()
             .DisableAntiforgery();
 
         return app.MapPost(AppRoutes.LootIngestBatch.FromApi(), IngestBatch)
             .RequireAuthorization()
             .RequireRateLimiting("loot-ingest")
+            .AddEndpointFilter<SyncVersionFilter>()
             .DisableAntiforgery();
     }
 
