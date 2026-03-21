@@ -367,8 +367,10 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             var query = dataContext.LootRecords
                 .Where(r => r.GameCharacterId != null)
                 .Join(dataContext.GameCharacters, r => r.GameCharacterId, gc => gc.Id, (r, gc) => new { Record = r, Character = gc })
-                .Where(x => x.Character.IsVisible && !x.Character.IsAdminHidden)
-                .Join(dataContext.Users, x => x.Character.UserId, u => u.Id, (x, u) => new { x.Record, x.Character, User = u });
+                .Join(dataContext.Users, x => x.Character.UserId, u => u.Id, (x, u) => new { x.Record, x.Character, User = u })
+                // Show records from visible characters, or imported 1M+ records from any character
+                .Where(x => (x.Character.IsVisible && !x.Character.IsAdminHidden)
+                    || (x.Record.IsImported && x.Record.TotalValue >= 1_000_000));
 
             if (minValue.HasValue)
                 query = query.Where(x => x.Record.TotalValue >= minValue.Value);

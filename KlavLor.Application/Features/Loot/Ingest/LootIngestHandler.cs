@@ -144,14 +144,15 @@ public sealed class LootIngestHandler(
 
     private static bool ShouldPublishToFeed(LootRecord record, GameCharacter? character)
     {
+        // Imported epic/legendary records (1M+) always publish to the feed
+        // regardless of character visibility — they're high-value historical highlights.
+        if (record.IsImported && record.TotalValue >= 1_000_000)
+            return true;
+
         if (!IsCharacterVisible(character))
             return false;
 
-        // Imported records are excluded from the feed unless they're legendary (10M+).
-        if (record.IsImported && record.TotalValue < 10_000_000)
-            return false;
-
-        return true;
+        return !record.IsImported;
     }
 
     private static bool IsCharacterVisible(GameCharacter? character)
