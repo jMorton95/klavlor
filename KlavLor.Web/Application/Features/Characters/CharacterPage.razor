@@ -1,0 +1,26 @@
+@page "/characters"
+@using KlavLor.Application.Features.Characters
+@using KlavLor.Web.Components.Layout
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+
+@inject CharacterHandler Handler
+
+<PageLayout PageTitle="KlavLor - Characters" Title="My Characters" Description="Manage your RuneLite characters">
+    @if (_characters is not null)
+    {
+        <CharacterList Characters="@_characters" UpdateHeader="false" />
+    }
+</PageLayout>
+
+@code {
+    private List<CharacterSummary>? _characters;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Handler.HandleList();
+        if (result.IsSuccess)
+        {
+            _characters = result.Value;
+        }
+    }
+}

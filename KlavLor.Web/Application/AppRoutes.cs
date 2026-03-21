@@ -85,5 +85,15 @@ public static class AppRoutes
     public const string UserApiKeyGenerate = "/admin/users/{id:int}/api-key/generate";
     public const string UserApiKeyRevoke = "/admin/users/{id:int}/api-key/revoke";
 
+    public const string Characters = "/characters";
+    public const string CharacterUpdateName = "/characters/{id:int}/name";
+    public const string CharacterToggleVisibility = "/characters/{id:int}/visibility";
+
+    public const string AdminCharacterSection = "/admin/users/{id:int}/characters";
+    public const string AdminCharacterToggleHidden = "/admin/users/{id:int}/characters/{characterId:int}/hidden";
+    public const string AdminCharacterDelete = "/admin/users/{id:int}/characters/{characterId:int}/delete";
+    public const string AdminUserDeleteLoot = "/admin/users/{id:int}/delete-loot";
+    public const string AdminCharacterAssign = "/characters/{id:int}/assign";
+
     public const string HealthCheck = "/healthcheck";
 }

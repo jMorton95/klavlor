@@ -2,6 +2,7 @@ using KlavLor.Web.Application;
 using KlavLor.Web.Application.Features.HealthCheck;
 using KlavLor.Web.Application.Features.Home;
 using KlavLor.Web.Application.Features.Login;
+using KlavLor.Web.Application.Features.Characters;
 using KlavLor.Web.Application.Features.Logout;
 using KlavLor.Web.Application.Features.Templates.Builder;
 using KlavLor.Web.Application.Features.Templates.Commands;
@@ -56,7 +57,10 @@ public static class ConfigureEndpoints
             .MapEndpoints<ItemIconEndpoint>()
             .MapEndpoints<SourceIconEndpoint>();
 
-        web.MapEndpoints<ApiKeyManageEndpoint>();
+        web.MapEndpoints<ApiKeyManageEndpoint>()
+            .MapEndpoints<AdminCharacterEndpoint>();
+
+        web.MapEndpoints<CharacterEndpoint>();
 
         web.MapEndpoints<HealthCheckEndpoint>();
     }
