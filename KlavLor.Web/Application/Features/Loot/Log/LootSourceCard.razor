@@ -8,7 +8,13 @@
    class="block bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden hover:shadow-md hover:border-amber-200 dark:hover:border-amber-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200 cursor-pointer">
     <div class="p-4">
         <div class="flex items-start justify-between mb-2">
-            <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate">@Source.SourceName</h3>
+            <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate inline-flex items-center gap-1.5">
+                <img src="/api/images/source-icon?name=@Uri.EscapeDataString(Source.SourceName)"
+                     class="w-5 h-5 inline-block rounded shrink-0"
+                     loading="lazy"
+                     onerror="this.style.display='none'" />
+                @Source.SourceName
+            </h3>
             <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ml-2 shrink-0 @GetSourceTypeBadgeClasses()">
                 @Source.SourceType
             </span>

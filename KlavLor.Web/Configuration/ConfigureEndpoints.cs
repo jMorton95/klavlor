@@ -53,7 +53,8 @@ public static class ConfigureEndpoints
         web.MapEndpoints<LootIngestEndpoint>()
             .MapEndpoints<LootFeedEndpoint>()
             .MapEndpoints<LootLogEndpoint>()
-            .MapEndpoints<ItemIconEndpoint>();
+            .MapEndpoints<ItemIconEndpoint>()
+            .MapEndpoints<SourceIconEndpoint>();
 
         web.MapEndpoints<ApiKeyManageEndpoint>();
 

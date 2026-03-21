@@ -62,7 +62,7 @@ public sealed class LootFeedEndpoint : IEndpoint
         {
             var html = await RenderComponentToString<LootFeedItem>(
                 serviceProvider, loggerFactory,
-                new Dictionary<string, object?> { ["Entry"] = entry });
+                new Dictionary<string, object?> { ["Entry"] = entry, ["Animate"] = true });
 
             var ssePayload = string.Join("\n", html.Split('\n').Select(line => $"data: {line}"));
             await context.Response.WriteAsync($"{ssePayload}\n\n", ct);

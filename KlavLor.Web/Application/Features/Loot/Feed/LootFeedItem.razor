@@ -1,6 +1,6 @@
 @using KlavLor.Application.Features.Loot.Feed
 
-<div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border @GetValueTierClasses() p-4 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-amber-200 dark:hover:border-amber-700 transition-all duration-200">
+<div class="@(Animate ? "loot-feed-new " : "")bg-white dark:bg-slate-900 rounded-xl shadow border @GetValueTierClasses() p-4 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-amber-200 dark:hover:border-amber-700 transition-all duration-200">
     <div class="flex items-start justify-between mb-2">
         <div class="flex items-center gap-2">
             <a hx-get="@AppRoutes.LootLogUser.WithId(Entry.UserId).FromApi()"
@@ -13,10 +13,13 @@
                hx-target="#hx-page-container"
                hx-push-url="@(AppRoutes.LootLogSource.WithId(Entry.UserId) + "?name=" + Uri.EscapeDataString(Entry.SourceName))"
                hx-swap="innerHTML transition:true"
-               class="text-sm font-medium text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">@Entry.SourceName</a>
-            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium @GetSourceTypeBadgeClasses()">
-                @Entry.SourceType
-            </span>
+               class="inline-flex items-center gap-1.5 text-sm font-medium text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">
+                <img src="/api/images/source-icon?name=@Uri.EscapeDataString(Entry.SourceName)"
+                     class="w-5 h-5 inline-block rounded"
+                     loading="lazy"
+                     onerror="this.style.display='none'" />
+                @Entry.SourceName
+            </a>
         </div>
         <time datetime="@Entry.OccurredAt.UtcDateTime.ToString("o")" class="text-xs text-slate-400 dark:text-slate-400 whitespace-nowrap ml-2 loot-timestamp">@FormatTime(Entry.OccurredAt)</time>
     </div>
@@ -62,6 +65,7 @@
 
 @code {
     [Parameter] public required LootFeedEntry Entry { get; set; }
+    [Parameter] public bool Animate { get; set; }
 
     private string GetValueTierClasses() => Entry.TotalValue switch
     {
@@ -77,15 +81,6 @@
         >= 1_000_000 => "bg-purple-50 dark:bg-purple-950 border-purple-400",
         >= 100_000 => "bg-green-50 dark:bg-green-950 border-green-400",
         _ => "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
-    };
-
-    private string GetSourceTypeBadgeClasses() => Entry.SourceType switch
-    {
-        KlavLor.Domain.Entities.LootSourceType.Npc => "bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300",
-        KlavLor.Domain.Entities.LootSourceType.Event => "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300",
-        KlavLor.Domain.Entities.LootSourceType.Pickpocket => "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300",
-        KlavLor.Domain.Entities.LootSourceType.Player => "bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300",
-        _ => "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
     };
 
     private static List<LootFeedDrop> GroupDrops(List<LootFeedDrop> drops) =>

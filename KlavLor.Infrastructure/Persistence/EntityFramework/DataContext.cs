@@ -22,6 +22,7 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
     public virtual DbSet<LootRecord> LootRecords => Set<LootRecord>();
     public virtual DbSet<ApiKey> ApiKeys => Set<ApiKey>();
     public virtual DbSet<ItemIcon> ItemIcons => Set<ItemIcon>();
+    public virtual DbSet<SourceIcon> SourceIcons => Set<SourceIcon>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -226,6 +227,21 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
 
         modelBuilder.Entity<ItemIcon>()
             .Property(i => i.LastAttemptAt)
+            .HasColumnType("timestamp with time zone");
+
+        // SourceIcon configuration
+        modelBuilder.Entity<SourceIcon>()
+            .HasIndex(s => s.SourceName)
+            .IsUnique();
+
+        modelBuilder.Entity<SourceIcon>()
+            .HasOne(s => s.CachedImage)
+            .WithMany()
+            .HasForeignKey(s => s.CachedImageId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<SourceIcon>()
+            .Property(s => s.LastAttemptAt)
             .HasColumnType("timestamp with time zone");
 
         // LootRecord configuration

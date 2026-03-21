@@ -133,6 +133,30 @@ var {
 }
 .animate-next-pulse { animation: next-pulse 2s ease-in-out infinite; }
 
+/* Loot feed entry animations */
+@keyframes feed-slide-in {
+    from { opacity: 0; transform: translateY(-12px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes feed-highlight-fade {
+    0% { background-color: rgba(245, 158, 11, 0.08); }
+    100% { background-color: transparent; }
+}
+
+:where(.dark, .dark *) .loot-feed-new {
+    animation: feed-slide-in 0.4s ease-out, feed-highlight-fade-dark 60s ease-out 0.4s forwards;
+}
+
+@keyframes feed-highlight-fade-dark {
+    0% { background-color: rgba(245, 158, 11, 0.1); }
+    100% { background-color: transparent; }
+}
+
+.loot-feed-new {
+    animation: feed-slide-in 0.4s ease-out, feed-highlight-fade 60s ease-out 0.4s forwards;
+}
+
 /* Node search highlight */
 .search-highlight > div {
     outline: 2px solid #f59e0b;
