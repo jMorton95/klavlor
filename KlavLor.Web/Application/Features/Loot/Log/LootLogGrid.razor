@@ -1,7 +1,10 @@
 @using KlavLor.Application.Features.Loot.Log
 @using KlavLor.Web.Components.Layout
 
-<TopBarMetaData PageTitle="KlavLor - Drop Log" Title="Drop Log" Description="Loot history" />
+@if (UpdateHeader)
+{
+    <TopBarMetaData PageTitle="KlavLor - Drop Log" Title="Drop Log" Description="Loot history" />
+}
 
 <div class="space-y-6">
     <div class="flex items-center gap-3">
@@ -16,6 +19,7 @@
             All Players
         </a>
         <input type="text" name="searchTerm" placeholder="Search sources or items..." value="@Result?.SearchTerm"
+               autofocus onfocus="this.setSelectionRange(this.value.length, this.value.length)"
                hx-get="@AppRoutes.LootLogUser.WithId(UserId).FromApi()" hx-trigger="keyup changed delay:300ms" hx-target="#hx-page-container" hx-swap="innerHTML transition:true"
                class="px-4 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none w-full max-w-md" />
     </div>
@@ -84,6 +88,7 @@
 @code {
     [Parameter] public LootLogSearchResult? Result { get; set; }
     [Parameter] public int UserId { get; set; }
+    [Parameter] public bool UpdateHeader { get; set; } = true;
 
     private string GetShowMoreUrl(int page)
     {

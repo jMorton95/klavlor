@@ -18,7 +18,7 @@
                 @Entry.SourceType
             </span>
         </div>
-        <span class="text-xs text-slate-400 dark:text-slate-400 whitespace-nowrap ml-2">@FormatTime(Entry.OccurredAt)</span>
+        <time datetime="@Entry.OccurredAt.UtcDateTime.ToString("o")" class="text-xs text-slate-400 dark:text-slate-400 whitespace-nowrap ml-2 loot-timestamp">@FormatTime(Entry.OccurredAt)</time>
     </div>
 
     @if (Entry.Drops.Count > 0)

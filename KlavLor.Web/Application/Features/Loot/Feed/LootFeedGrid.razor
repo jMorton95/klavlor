@@ -108,6 +108,23 @@
             });
             observer.observe(container, { childList: true });
         }
+
+        // Live-update relative timestamps every 30 seconds
+        setInterval(() => {
+            for (const el of document.querySelectorAll('.loot-timestamp')) {
+                const dt = el.getAttribute('datetime');
+                if (!dt) continue;
+                const diff = (Date.now() - new Date(dt).getTime()) / 1000;
+                if (diff < 60) el.textContent = 'just now';
+                else if (diff < 3600) el.textContent = Math.floor(diff / 60) + 'm ago';
+                else if (diff < 86400) el.textContent = Math.floor(diff / 3600) + 'h ago';
+                else {
+                    const d = new Date(dt);
+                    const mon = d.toLocaleString('en', { month: 'short' });
+                    el.textContent = `${mon} ${String(d.getDate()).padStart(2, '0')}, ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+                }
+            }
+        }, 30000);
     })();
 </script>
 
