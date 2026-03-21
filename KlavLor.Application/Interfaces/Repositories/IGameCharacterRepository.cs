@@ -7,6 +7,7 @@ public interface IGameCharacterRepository
     Task<GameCharacter?> GetById(int id);
     Task<GameCharacter?> GetByUserAndRuneLiteId(int userId, string runeLiteId);
     Task<List<GameCharacter>> GetByUserId(int userId);
+    Task<Dictionary<int, (int Sources, long Kills, long Value)>> GetCharacterStats(int userId);
     Task<bool> IsDisplayNameTaken(string displayName, int? excludeCharacterId = null);
     Task<GameCharacter> Save(GameCharacter character);
     Task Delete(GameCharacter character);

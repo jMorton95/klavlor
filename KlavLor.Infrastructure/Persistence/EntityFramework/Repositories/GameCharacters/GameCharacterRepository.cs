@@ -51,6 +51,31 @@ internal sealed class GameCharacterRepository(DataContext dataContext, ILogger<G
         }
     }
 
+    public async Task<Dictionary<int, (int Sources, long Kills, long Value)>> GetCharacterStats(int userId)
+    {
+        try
+        {
+            var stats = await dataContext.LootRecords
+                .Where(r => r.GameCharacterId != null && r.UserId == userId)
+                .GroupBy(r => r.GameCharacterId!.Value)
+                .Select(g => new
+                {
+                    CharacterId = g.Key,
+                    Sources = g.Select(r => r.SourceName).Distinct().Count(),
+                    Kills = g.LongCount(),
+                    Value = g.Sum(r => r.TotalValue)
+                })
+                .ToListAsync();
+
+            return stats.ToDictionary(s => s.CharacterId, s => (s.Sources, s.Kills, s.Value));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get character stats for user {UserId}", userId);
+            throw new RepositoryException("Failed to get character stats", ex);
+        }
+    }
+
     public async Task<bool> IsDisplayNameTaken(string displayName, int? excludeCharacterId = null)
     {
         try

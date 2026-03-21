@@ -17,8 +17,8 @@ public sealed class CharacterHandler(
             return Result<List<CharacterSummary>>.Failure("Not authenticated.");
 
         var characters = await characterRepository.GetByUserId(userId.Value);
-        var summaries = characters.Select(c => new CharacterSummary(
-            c.Id, c.RuneLiteId, c.DisplayName, c.IsVisible, c.IsAdminHidden)).ToList();
+        var stats = await characterRepository.GetCharacterStats(userId.Value);
+        var summaries = characters.Select(c => MapSummary(c, stats)).ToList();
 
         return Result<List<CharacterSummary>>.Success(summaries);
     }
@@ -33,8 +33,8 @@ public sealed class CharacterHandler(
     public async Task<Result<List<CharacterSummary>>> HandleListForUser(int userId)
     {
         var characters = await characterRepository.GetByUserId(userId);
-        var summaries = characters.Select(c => new CharacterSummary(
-            c.Id, c.RuneLiteId, c.DisplayName, c.IsVisible, c.IsAdminHidden)).ToList();
+        var stats = await characterRepository.GetCharacterStats(userId);
+        var summaries = characters.Select(c => MapSummary(c, stats)).ToList();
 
         return Result<List<CharacterSummary>>.Success(summaries);
     }
@@ -126,6 +126,12 @@ public sealed class CharacterHandler(
         await characterRepository.AssignUnassignedRecords(character.UserId, character.Id, character.RuneLiteId);
         return Result.Success();
     }
+
+    private static CharacterSummary MapSummary(GameCharacter c, Dictionary<int, (int Sources, long Kills, long Value)> stats)
+    {
+        stats.TryGetValue(c.Id, out var s);
+        return new CharacterSummary(c.Id, c.RuneLiteId, c.DisplayName, c.IsVisible, c.IsAdminHidden, s.Sources, s.Kills, s.Value);
+    }
 }
 
 public sealed record CharacterSummary(
@@ -133,4 +139,7 @@ public sealed record CharacterSummary(
     string RuneLiteId,
     string? DisplayName,
     bool IsVisible,
-    bool IsAdminHidden);
+    bool IsAdminHidden,
+    int TotalSources = 0,
+    long TotalKills = 0,
+    long TotalValue = 0);
