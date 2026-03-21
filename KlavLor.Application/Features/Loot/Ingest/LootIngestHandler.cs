@@ -134,7 +134,9 @@ public sealed class LootIngestHandler(
         var newCharacter = new GameCharacter
         {
             UserId = userId,
-            RuneLiteId = characterId
+            RuneLiteId = characterId,
+            DisplayName = Guid.NewGuid().ToString(),
+            IsVisible = false
         };
 
         return await gameCharacterRepository.Save(newCharacter);

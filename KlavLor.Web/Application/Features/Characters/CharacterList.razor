@@ -27,10 +27,10 @@
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-3">
                             <div class="w-10 h-10 bg-linear-to-br from-amber-500 to-orange-600 rounded-full flex items-center justify-center">
-                                <span class="text-white font-bold text-sm">@((character.DisplayName ?? "?")[0])</span>
+                                <span class="text-white font-bold text-sm">@(IsPlaceholderName(character.DisplayName) ? "?" : character.DisplayName![0])</span>
                             </div>
                             <div>
-                                <h3 class="font-semibold text-slate-900 dark:text-slate-100">@(character.DisplayName ?? "Unnamed Character")</h3>
+                                <h3 class="font-semibold @(IsPlaceholderName(character.DisplayName) ? "text-slate-400 dark:text-slate-500 italic" : "text-slate-900 dark:text-slate-100")">@(IsPlaceholderName(character.DisplayName) ? "Set a display name" : character.DisplayName)</h3>
                                 <p class="text-xs text-slate-400 dark:text-slate-500 font-mono">@character.RuneLiteId</p>
                             </div>
                         </div>
@@ -69,7 +69,7 @@
                           class="space-y-2">
                         <label class="block text-xs font-medium text-slate-500 dark:text-slate-400">Display Name</label>
                         <div class="flex gap-2">
-                            <input type="text" name="displayName" value="@character.DisplayName"
+                            <input type="text" name="displayName" value="@(IsPlaceholderName(character.DisplayName) ? "" : character.DisplayName)"
                                    placeholder="Enter a name for this character..."
                                    class="flex-1 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
                             <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors cursor-pointer">Save</button>
@@ -117,4 +117,7 @@
     [Parameter] public int UnassignedCount { get; set; }
     [Parameter] public bool UpdateHeader { get; set; } = true;
     [Parameter] public string? ErrorMessage { get; set; }
+
+    private static bool IsPlaceholderName(string? name) =>
+        string.IsNullOrEmpty(name) || Guid.TryParse(name, out _);
 }

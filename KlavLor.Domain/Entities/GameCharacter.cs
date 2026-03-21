@@ -17,7 +17,7 @@ public sealed class GameCharacter : Entity
     [StringLength(100)]
     public string? DisplayName { get; set; }
 
-    public bool IsVisible { get; set; } = true;
+    public bool IsVisible { get; set; }
 
     public bool IsAdminHidden { get; set; }
 
