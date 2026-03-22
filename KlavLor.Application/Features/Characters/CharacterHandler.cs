@@ -1,6 +1,7 @@
 using KlavLor.Application.Common;
 using KlavLor.Application.Interfaces.Authentication;
 using KlavLor.Application.Interfaces.Repositories;
+using KlavLor.Application.Interfaces.Services;
 using KlavLor.Domain.Entities;
 
 namespace KlavLor.Application.Features.Characters;
@@ -8,6 +9,7 @@ namespace KlavLor.Application.Features.Characters;
 public sealed class CharacterHandler(
     IGameCharacterRepository characterRepository,
     ILootLogRepository lootLogRepository,
+    ILootFeedService lootFeedService,
     ICurrentUser currentUser)
 {
     public async Task<Result<List<CharacterSummary>>> HandleList()
@@ -73,6 +75,11 @@ public sealed class CharacterHandler(
 
         character.IsVisible = !character.IsVisible;
         await characterRepository.Save(character);
+
+        // When a character becomes visible, seed the feed with their historical epic/legendary data.
+        if (character.IsVisible)
+            await SeedFeedForCharacter(character.Id);
+
         return Result.Success();
     }
 
@@ -87,6 +94,11 @@ public sealed class CharacterHandler(
 
         character.IsAdminHidden = !character.IsAdminHidden;
         await characterRepository.Save(character);
+
+        // When admin un-hides a character that is also user-visible, seed the feed.
+        if (!character.IsAdminHidden && character.IsVisible)
+            await SeedFeedForCharacter(character.Id);
+
         return Result.Success();
     }
 
@@ -125,6 +137,13 @@ public sealed class CharacterHandler(
 
         await characterRepository.AssignUnassignedRecords(character.UserId, character.Id, character.RuneLiteId);
         return Result.Success();
+    }
+
+    private async Task SeedFeedForCharacter(int characterId)
+    {
+        var entries = await lootLogRepository.GetFeedEntriesForCharacter(characterId, 50);
+        if (entries.Count > 0)
+            lootFeedService.SeedBuffer(entries);
     }
 
     private static CharacterSummary MapSummary(GameCharacter c, Dictionary<int, (int Sources, long Kills, long Value)> stats)

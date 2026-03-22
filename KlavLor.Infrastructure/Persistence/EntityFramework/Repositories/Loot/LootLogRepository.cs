@@ -414,6 +414,52 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
         }
     }
 
+    public async Task<List<LootFeedEntry>> GetFeedEntriesForCharacter(int characterId, int count, long minValue = 1_000_000)
+    {
+        try
+        {
+            var records = await dataContext.LootRecords
+                .Where(r => r.GameCharacterId == characterId && r.TotalValue >= minValue)
+                .Join(dataContext.GameCharacters, r => r.GameCharacterId, gc => gc.Id, (r, gc) => new { Record = r, Character = gc })
+                .Join(dataContext.Users, x => x.Character.UserId, u => u.Id, (x, u) => new { x.Record, x.Character, User = u })
+                .OrderByDescending(x => x.Record.OccurredAt)
+                .Take(count)
+                .Select(x => new
+                {
+                    UserName = x.User.FirstName + " " + x.User.LastName,
+                    x.Record.UserId,
+                    x.Record.SourceName,
+                    x.Record.SourceType,
+                    x.Record.TotalValue,
+                    x.Record.DropsJson,
+                    x.Record.OccurredAt,
+                    CharacterName = x.Character.DisplayName ?? x.User.FirstName + " " + x.User.LastName,
+                    x.Character.Id
+                })
+                .ToListAsync();
+
+            return records.Select(r =>
+            {
+                var drops = JsonSerializer.Deserialize<List<LootDrop>>(r.DropsJson) ?? [];
+                return new LootFeedEntry(
+                    r.UserName,
+                    r.UserId,
+                    r.SourceName,
+                    r.SourceType,
+                    r.TotalValue,
+                    drops.Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price)).ToList(),
+                    r.OccurredAt,
+                    r.CharacterName,
+                    r.Id);
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get feed entries for character {CharacterId}", characterId);
+            throw new RepositoryException("Failed to get feed entries for character", ex);
+        }
+    }
+
     public async Task DeleteAllForCharacter(int characterId)
     {
         try
