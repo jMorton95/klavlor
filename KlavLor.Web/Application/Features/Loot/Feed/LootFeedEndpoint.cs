@@ -1,3 +1,5 @@
+using KlavLor.Application.Features.Loot.Feed;
+using KlavLor.Application.Interfaces.Repositories;
 using KlavLor.Application.Interfaces.Services;
 using KlavLor.Web.Application.Results;
 using Microsoft.AspNetCore.Components;
@@ -29,19 +31,19 @@ public sealed class LootFeedEndpoint : IEndpoint
             .AllowAnonymous();
     }
 
-    private static IResult GetPage(ILootFeedService feedService)
+    private static async Task<IResult> GetPage(ILootLogRepository lootLogRepository)
     {
-        var standard = feedService.GetCurrentEntries(LootFeedTier.Standard);
-        var notable = feedService.GetCurrentEntries(LootFeedTier.Notable);
-        var epic = feedService.GetCurrentEntries(LootFeedTier.Epic);
-        var legendary = feedService.GetCurrentEntries(LootFeedTier.Legendary);
+        var standard = await lootLogRepository.GetRecentFeedEntries(50, 10_000, 100_000);
+        var notable = await lootLogRepository.GetRecentFeedEntries(50, 100_000, 1_000_000);
+        var epic = await lootLogRepository.GetRecentFeedEntries(50, 1_000_000, 10_000_000);
+        var legendary = await lootLogRepository.GetRecentFeedEntries(50, 10_000_000);
 
         return IResultExtensions.Component<LootFeedGrid>(new
         {
-            StandardEntries = standard,
-            NotableEntries = notable,
-            EpicEntries = epic,
-            LegendaryEntries = legendary
+            StandardEntries = (IReadOnlyList<LootFeedEntry>)standard,
+            NotableEntries = (IReadOnlyList<LootFeedEntry>)notable,
+            EpicEntries = (IReadOnlyList<LootFeedEntry>)epic,
+            LegendaryEntries = (IReadOnlyList<LootFeedEntry>)legendary
         });
     }
 

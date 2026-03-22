@@ -1,9 +1,9 @@
 @page "/loot/feed"
 @using KlavLor.Application.Features.Loot.Feed
-@using KlavLor.Application.Interfaces.Services
+@using KlavLor.Application.Interfaces.Repositories
 @using KlavLor.Web.Components.Layout
 
-@inject ILootFeedService FeedService
+@inject ILootLogRepository LootLogRepository
 
 <PageLayout PageTitle="KlavLor - Loot Feed" Title="Loot Feed" Description="Real-time loot drops from all users">
     <LootFeedGrid StandardEntries="@_standard"
@@ -19,11 +19,11 @@
     private IReadOnlyList<LootFeedEntry> _epic = [];
     private IReadOnlyList<LootFeedEntry> _legendary = [];
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        _standard = FeedService.GetCurrentEntries(LootFeedTier.Standard);
-        _notable = FeedService.GetCurrentEntries(LootFeedTier.Notable);
-        _epic = FeedService.GetCurrentEntries(LootFeedTier.Epic);
-        _legendary = FeedService.GetCurrentEntries(LootFeedTier.Legendary);
+        _standard = await LootLogRepository.GetRecentFeedEntries(50, 10_000, 100_000);
+        _notable = await LootLogRepository.GetRecentFeedEntries(50, 100_000, 1_000_000);
+        _epic = await LootLogRepository.GetRecentFeedEntries(50, 1_000_000, 10_000_000);
+        _legendary = await LootLogRepository.GetRecentFeedEntries(50, 10_000_000);
     }
 }
