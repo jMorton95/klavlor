@@ -33,17 +33,14 @@ public sealed class LootFeedEndpoint : IEndpoint
 
     private static async Task<IResult> GetPage(ILootLogRepository lootLogRepository)
     {
-        var standard = await lootLogRepository.GetRecentFeedEntries(50, 10_000, 100_000);
-        var notable = await lootLogRepository.GetRecentFeedEntries(50, 100_000, 1_000_000);
-        var epic = await lootLogRepository.GetRecentFeedEntries(50, 1_000_000, 10_000_000);
-        var legendary = await lootLogRepository.GetRecentFeedEntries(50, 10_000_000);
+        var tiers = await lootLogRepository.GetAllFeedTiers(50);
 
         return IResultExtensions.Component<LootFeedGrid>(new
         {
-            StandardEntries = (IReadOnlyList<LootFeedEntry>)standard,
-            NotableEntries = (IReadOnlyList<LootFeedEntry>)notable,
-            EpicEntries = (IReadOnlyList<LootFeedEntry>)epic,
-            LegendaryEntries = (IReadOnlyList<LootFeedEntry>)legendary
+            StandardEntries = (IReadOnlyList<LootFeedEntry>)tiers[LootFeedTier.Standard],
+            NotableEntries = (IReadOnlyList<LootFeedEntry>)tiers[LootFeedTier.Notable],
+            EpicEntries = (IReadOnlyList<LootFeedEntry>)tiers[LootFeedTier.Epic],
+            LegendaryEntries = (IReadOnlyList<LootFeedEntry>)tiers[LootFeedTier.Legendary]
         });
     }
 

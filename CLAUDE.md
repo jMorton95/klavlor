@@ -83,12 +83,14 @@ New endpoints must use one of these existing policies (applied via `.RequireRate
 
 Code is organized by feature, not by technical concern. Both Application and Web layers mirror the same feature folders:
 
-- `Builder/` — Node, edge, group, annotation, region, and layout CRUD for template canvas
+- `Characters/` — Character profile pages
+- `Home/` — Home/landing page
+- `Login/` / `Logout/` — Authentication
+- `Loot/` — RuneLite drop ingest (`Ingest/`), live feed streams (`Feed/`), loot log (`Log/`)
+- `Templates/` — Template CRUD (`Commands/`, `Queries/`), import/export/duplication (`ImportExport/`), visual canvas builder (`Builder/` — nodes, edges, groups, annotations, regions, layouts)
+- `Users/` — Admin user management, API key generation/revocation, character assignment
 - `Viewer/` — Read-only template viewing, completion tracking
-- `Templates/` — Template CRUD, import/export, duplication
-- `Login/` — Authentication
-- `Users/` — Admin user management, API key generation/revocation
-- `Loot/` — RuneLite drop ingest, feed streams (standard/notable/mega), loot log
+- `HealthCheck/` — Health check endpoint
 
 ### Frontend
 
@@ -115,6 +117,8 @@ All entities extend `Entity` base class (Id, RowVersion, SavedAt, SavedById audi
 
 - `ImageCacheBackfillService` — Backfills OSRS Wiki image cache
 - `ItemIconBackfillService` — Backfills item icon data
+- `SourceIconBackfillService` — Backfills source (monster/boss) icon data
+- `LootFeedSeederService` — Seeds feed with historical data on startup
 
 These are the only places where manual DI scopes are acceptable (via `IServiceScopeFactory`).
 

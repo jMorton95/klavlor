@@ -1,6 +1,7 @@
 @page "/loot/feed"
 @using KlavLor.Application.Features.Loot.Feed
 @using KlavLor.Application.Interfaces.Repositories
+@using KlavLor.Application.Interfaces.Services
 @using KlavLor.Web.Components.Layout
 
 @inject ILootLogRepository LootLogRepository
@@ -21,9 +22,10 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _standard = await LootLogRepository.GetRecentFeedEntries(50, 10_000, 100_000);
-        _notable = await LootLogRepository.GetRecentFeedEntries(50, 100_000, 1_000_000);
-        _epic = await LootLogRepository.GetRecentFeedEntries(50, 1_000_000, 10_000_000);
-        _legendary = await LootLogRepository.GetRecentFeedEntries(50, 10_000_000);
+        var tiers = await LootLogRepository.GetAllFeedTiers(50);
+        _standard = tiers[LootFeedTier.Standard];
+        _notable = tiers[LootFeedTier.Notable];
+        _epic = tiers[LootFeedTier.Epic];
+        _legendary = tiers[LootFeedTier.Legendary];
     }
 }

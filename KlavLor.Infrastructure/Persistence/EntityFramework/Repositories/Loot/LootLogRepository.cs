@@ -6,6 +6,7 @@ using KlavLor.Application.Common.Exceptions;
 using KlavLor.Application.Features.Loot.Feed;
 using KlavLor.Application.Features.Loot.Log;
 using KlavLor.Application.Interfaces.Repositories;
+using KlavLor.Application.Interfaces.Services;
 using KlavLor.Domain.Entities;
 
 namespace KlavLor.Infrastructure.Persistence.EntityFramework.Repositories.Loot;
@@ -414,6 +415,82 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
         }
     }
 
+    public async Task<Dictionary<LootFeedTier, List<LootFeedEntry>>> GetAllFeedTiers(int countPerTier)
+    {
+        try
+        {
+            var baseQuery = dataContext.LootRecords
+                .Where(r => r.GameCharacterId != null)
+                .Join(dataContext.GameCharacters, r => r.GameCharacterId, gc => gc.Id, (r, gc) => new { Record = r, Character = gc })
+                .Where(x => x.Character.IsVisible && !x.Character.IsAdminHidden)
+                .Join(dataContext.Users, x => x.Character.UserId, u => u.Id, (x, u) => new { x.Record, x.Character, User = u });
+
+            IQueryable<FeedTierProjection> BuildTierQuery(long minValue, long? maxValue)
+            {
+                var q = baseQuery.Where(x => x.Record.TotalValue >= minValue);
+                if (maxValue.HasValue)
+                    q = q.Where(x => x.Record.TotalValue < maxValue.Value);
+
+                return q.OrderByDescending(x => x.Record.OccurredAt)
+                    .Take(countPerTier)
+                    .Select(x => new FeedTierProjection
+                    {
+                        UserName = x.User.FirstName + " " + x.User.LastName,
+                        UserId = x.Record.UserId,
+                        SourceName = x.Record.SourceName,
+                        SourceType = x.Record.SourceType,
+                        TotalValue = x.Record.TotalValue,
+                        DropsJson = x.Record.DropsJson,
+                        OccurredAt = x.Record.OccurredAt,
+                        CharacterName = x.Character.DisplayName ?? x.User.FirstName + " " + x.User.LastName,
+                        GameCharacterId = x.Character.Id
+                    });
+            }
+
+            var combined = BuildTierQuery(10_000, 100_000)
+                .Concat(BuildTierQuery(100_000, 1_000_000))
+                .Concat(BuildTierQuery(1_000_000, 10_000_000))
+                .Concat(BuildTierQuery(10_000_000, null));
+
+            var records = await combined.ToListAsync();
+
+            var result = new Dictionary<LootFeedTier, List<LootFeedEntry>>
+            {
+                [LootFeedTier.Standard] = [],
+                [LootFeedTier.Notable] = [],
+                [LootFeedTier.Epic] = [],
+                [LootFeedTier.Legendary] = []
+            };
+
+            foreach (var r in records)
+            {
+                var tier = ILootFeedService.GetTier(r.TotalValue);
+                if (tier is null) continue;
+
+                var drops = JsonSerializer.Deserialize<List<LootDrop>>(r.DropsJson) ?? [];
+                var entry = new LootFeedEntry(
+                    r.UserName,
+                    r.UserId,
+                    r.SourceName,
+                    r.SourceType,
+                    r.TotalValue,
+                    drops.Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price)).ToList(),
+                    r.OccurredAt,
+                    r.CharacterName,
+                    r.GameCharacterId);
+
+                result[tier.Value].Add(entry);
+            }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get all feed tiers");
+            throw new RepositoryException("Failed to get all feed tiers", ex);
+        }
+    }
+
     public async Task<List<LootFeedEntry>> GetFeedEntriesForCharacter(int characterId, int count, long minValue = 1_000_000)
     {
         try
@@ -488,5 +565,18 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             logger.LogError(ex, "Failed to delete loot records for user {UserId}", userId);
             throw new RepositoryException("Failed to delete loot records for user", ex);
         }
+    }
+
+    private sealed class FeedTierProjection
+    {
+        public required string UserName { get; init; }
+        public required int UserId { get; init; }
+        public required string SourceName { get; init; }
+        public required LootSourceType SourceType { get; init; }
+        public required long TotalValue { get; init; }
+        public required string DropsJson { get; init; }
+        public required DateTimeOffset OccurredAt { get; init; }
+        public required string CharacterName { get; init; }
+        public required int GameCharacterId { get; init; }
     }
 }

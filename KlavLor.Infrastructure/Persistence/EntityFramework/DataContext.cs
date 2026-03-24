@@ -286,6 +286,10 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
         modelBuilder.Entity<LootRecord>()
             .HasIndex(l => new { l.GameCharacterId, l.OccurredAt });
 
+        modelBuilder.Entity<LootRecord>()
+            .HasIndex(l => new { l.GameCharacterId, l.TotalValue, l.OccurredAt })
+            .HasDatabaseName("IX_LootRecords_GameCharacterId_TotalValue_OccurredAt");
+
         // GameCharacter configuration
         modelBuilder.Entity<GameCharacter>()
             .HasOne(gc => gc.User)
