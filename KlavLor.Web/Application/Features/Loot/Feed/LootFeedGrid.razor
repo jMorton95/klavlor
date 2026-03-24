@@ -12,15 +12,15 @@
     var colCount = activeTiers.Count;
 
     var containerClass = colCount >= 5
-        ? "flex flex-wrap gap-4 justify-center xl:justify-start"
-        : "flex flex-wrap gap-4 justify-center";
+        ? "flex flex-wrap gap-3 justify-center xl:justify-start"
+        : "flex flex-wrap gap-3 justify-center";
     var colClass = colCount switch
     {
-        >= 5 => "w-full md:w-[calc(50%-0.5rem)] xl:w-[calc(20%-0.8rem)]",
-        4    => "w-full md:w-[calc(50%-0.5rem)] xl:w-[calc(25%-0.75rem)]",
-        3    => "w-full md:w-[calc(50%-0.5rem)] xl:w-[calc(33.333%-0.67rem)]",
-        2    => "w-full md:w-[calc(50%-0.5rem)] xl:w-[calc(40%-0.5rem)]",
-        _    => "w-full md:w-[calc(50%-0.5rem)] xl:w-[min(50%,32rem)]"
+        >= 5 => "w-full md:w-[calc(50%-0.375rem)] xl:w-[calc(20%-0.6rem)]",
+        4    => "w-full md:w-[calc(50%-0.375rem)] xl:w-[calc(25%-0.5625rem)]",
+        3    => "w-full md:w-[calc(50%-0.375rem)] xl:w-[calc(33.333%-0.5rem)]",
+        2    => "w-full md:w-[calc(50%-0.375rem)] xl:w-[calc(40%-0.375rem)]",
+        _    => "w-full md:w-[calc(50%-0.375rem)] xl:w-[min(50%,32rem)]"
     };
 }
 
@@ -28,9 +28,9 @@
     @if (activeTiers.Contains(LootFeedTier.Standard))
     {
         <div class="@colClass">
-            <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 px-1">
+            <h2 class="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 px-0.5">
                 Standard
-                <span class="text-xs font-normal text-slate-400 dark:text-slate-500">10K – 100K</span>
+                <span class="text-[10px] font-normal text-slate-400 dark:text-slate-500">10K – 100K</span>
             </h2>
             <div id="feed-col-standard"
                  hx-ext="sse"
@@ -38,7 +38,7 @@
                  sse-swap="message"
                  hx-swap="afterbegin"
                  hx-on::after-settle="if(this.children.length > 50) { while(this.children.length > 50) this.removeChild(this.lastElementChild); }"
-                 class="space-y-3">
+                 class="space-y-2">
                 @if (StandardEntries is not null && StandardEntries.Count > 0)
                 {
                     @foreach (var entry in StandardEntries)
@@ -48,8 +48,8 @@
                 }
                 else
                 {
-                    <div class="feed-empty-state bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-8 text-center">
-                        <p class="text-sm text-slate-500 dark:text-slate-400">No standard drops yet.</p>
+                    <div class="feed-empty-state bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 p-5 text-center">
+                        <p class="text-xs text-slate-500 dark:text-slate-400">No standard drops yet.</p>
                     </div>
                 }
             </div>
@@ -59,9 +59,9 @@
     @if (activeTiers.Contains(LootFeedTier.Uncommon))
     {
         <div class="@colClass">
-            <h2 class="text-sm font-semibold text-green-600 dark:text-green-400 mb-3 px-1">
+            <h2 class="text-xs font-semibold text-green-600 dark:text-green-400 mb-2 px-0.5">
                 Uncommon
-                <span class="text-xs font-normal text-slate-400 dark:text-slate-500">100K – 1M</span>
+                <span class="text-[10px] font-normal text-slate-400 dark:text-slate-500">100K – 1M</span>
             </h2>
             <div id="feed-col-uncommon"
                  hx-ext="sse"
@@ -69,7 +69,7 @@
                  sse-swap="message"
                  hx-swap="afterbegin"
                  hx-on::after-settle="if(this.children.length > 50) { while(this.children.length > 50) this.removeChild(this.lastElementChild); }"
-                 class="space-y-3">
+                 class="space-y-2">
                 @if (UncommonEntries is not null && UncommonEntries.Count > 0)
                 {
                     @foreach (var entry in UncommonEntries)
@@ -79,8 +79,8 @@
                 }
                 else
                 {
-                    <div class="feed-empty-state bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-green-200 dark:border-green-900 p-8 text-center">
-                        <p class="text-sm text-slate-500 dark:text-slate-400">No uncommon drops yet.</p>
+                    <div class="feed-empty-state bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-green-200 dark:border-green-900 p-5 text-center">
+                        <p class="text-xs text-slate-500 dark:text-slate-400">No uncommon drops yet.</p>
                     </div>
                 }
             </div>
@@ -90,9 +90,9 @@
     @if (activeTiers.Contains(LootFeedTier.Rare))
     {
         <div class="@colClass">
-            <h2 class="text-sm font-semibold text-blue-600 dark:text-blue-400 mb-3 px-1">
+            <h2 class="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-2 px-0.5">
                 Rare
-                <span class="text-xs font-normal text-slate-400 dark:text-slate-500">1M – 10M</span>
+                <span class="text-[10px] font-normal text-slate-400 dark:text-slate-500">1M – 10M</span>
             </h2>
             <div id="feed-col-rare"
                  hx-ext="sse"
@@ -100,7 +100,7 @@
                  sse-swap="message"
                  hx-swap="afterbegin"
                  hx-on::after-settle="if(this.children.length > 50) { while(this.children.length > 50) this.removeChild(this.lastElementChild); }"
-                 class="space-y-3">
+                 class="space-y-2">
                 @if (RareEntries is not null && RareEntries.Count > 0)
                 {
                     @foreach (var entry in RareEntries)
@@ -110,8 +110,8 @@
                 }
                 else
                 {
-                    <div class="feed-empty-state bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-blue-200 dark:border-blue-900 p-8 text-center">
-                        <p class="text-sm text-slate-500 dark:text-slate-400">No rare drops yet.</p>
+                    <div class="feed-empty-state bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-blue-200 dark:border-blue-900 p-5 text-center">
+                        <p class="text-xs text-slate-500 dark:text-slate-400">No rare drops yet.</p>
                     </div>
                 }
             </div>
@@ -121,9 +121,9 @@
     @if (activeTiers.Contains(LootFeedTier.Epic))
     {
         <div class="@colClass">
-            <h2 class="text-sm font-semibold text-purple-600 dark:text-purple-400 mb-3 px-1">
+            <h2 class="text-xs font-semibold text-purple-600 dark:text-purple-400 mb-2 px-0.5">
                 Epic
-                <span class="text-xs font-normal text-slate-400 dark:text-slate-500">10M – 100M</span>
+                <span class="text-[10px] font-normal text-slate-400 dark:text-slate-500">10M – 100M</span>
             </h2>
             <div id="feed-col-epic"
                  hx-ext="sse"
@@ -131,7 +131,7 @@
                  sse-swap="message"
                  hx-swap="afterbegin"
                  hx-on::after-settle="if(this.children.length > 50) { while(this.children.length > 50) this.removeChild(this.lastElementChild); }"
-                 class="space-y-3">
+                 class="space-y-2">
                 @if (EpicEntries is not null && EpicEntries.Count > 0)
                 {
                     @foreach (var entry in EpicEntries)
@@ -141,8 +141,8 @@
                 }
                 else
                 {
-                    <div class="feed-empty-state bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-purple-200 dark:border-purple-900 p-8 text-center">
-                        <p class="text-sm text-slate-500 dark:text-slate-400">No epic drops yet.</p>
+                    <div class="feed-empty-state bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-purple-200 dark:border-purple-900 p-5 text-center">
+                        <p class="text-xs text-slate-500 dark:text-slate-400">No epic drops yet.</p>
                     </div>
                 }
             </div>
@@ -152,9 +152,9 @@
     @if (activeTiers.Contains(LootFeedTier.Legendary))
     {
         <div class="@colClass">
-            <h2 class="text-sm font-semibold text-amber-600 dark:text-amber-400 mb-3 px-1">
+            <h2 class="text-xs font-semibold text-amber-600 dark:text-amber-400 mb-2 px-0.5">
                 Legendary
-                <span class="text-xs font-normal text-slate-400 dark:text-slate-500">100M+</span>
+                <span class="text-[10px] font-normal text-slate-400 dark:text-slate-500">100M+</span>
             </h2>
             <div id="feed-col-legendary"
                  hx-ext="sse"
@@ -162,7 +162,7 @@
                  sse-swap="message"
                  hx-swap="afterbegin"
                  hx-on::after-settle="if(this.children.length > 50) { while(this.children.length > 50) this.removeChild(this.lastElementChild); }"
-                 class="space-y-3">
+                 class="space-y-2">
                 @if (LegendaryEntries is not null && LegendaryEntries.Count > 0)
                 {
                     @foreach (var entry in LegendaryEntries)
@@ -172,8 +172,8 @@
                 }
                 else
                 {
-                    <div class="feed-empty-state bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-amber-200 dark:border-amber-900 p-8 text-center">
-                        <p class="text-sm text-slate-500 dark:text-slate-400">No legendary drops yet.</p>
+                    <div class="feed-empty-state bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-amber-200 dark:border-amber-900 p-5 text-center">
+                        <p class="text-xs text-slate-500 dark:text-slate-400">No legendary drops yet.</p>
                     </div>
                 }
             </div>
