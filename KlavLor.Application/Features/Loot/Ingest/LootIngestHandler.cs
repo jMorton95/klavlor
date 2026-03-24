@@ -147,9 +147,12 @@ public sealed class LootIngestHandler(
         if (!IsCharacterVisible(character))
             return false;
 
-        // Imported records only publish if epic/legendary (1M+) to avoid flooding.
+        // Imported records only publish if any single drop qualifies for Rare+ (1M+) to avoid flooding.
         if (record.IsImported)
-            return record.TotalValue >= 1_000_000;
+        {
+            var drops = JsonSerializer.Deserialize<List<LootDrop>>(record.DropsJson) ?? [];
+            return drops.Any(d => (long)d.Quantity * d.Price >= 1_000_000);
+        }
 
         return true;
     }
@@ -174,17 +177,27 @@ public sealed class LootIngestHandler(
     {
         var drops = JsonSerializer.Deserialize<List<LootDrop>>(record.DropsJson) ?? [];
         var feedDrops = drops.Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price)).ToList();
+        var dropsByTier = ILootFeedService.ClassifyDropsByTier(feedDrops);
 
-        lootFeedService.Publish(new LootFeedEntry(
-            userName,
-            record.UserId,
-            record.SourceName,
-            record.SourceType,
-            record.TotalValue,
-            feedDrops,
-            record.OccurredAt,
-            character?.GetEffectiveName(userName),
-            character?.Id));
+        foreach (var (tier, tierDrops) in dropsByTier)
+        {
+            // Skip Standard/Uncommon tiers for imported records to avoid flooding.
+            if (record.IsImported && tier is LootFeedTier.Standard or LootFeedTier.Uncommon)
+                continue;
+
+            var tierTotal = tierDrops.Sum(d => (long)d.Quantity * d.Price);
+            lootFeedService.Publish(new LootFeedEntry(
+                userName,
+                record.UserId,
+                record.SourceName,
+                record.SourceType,
+                tierTotal,
+                tierDrops,
+                record.OccurredAt,
+                tier,
+                character?.GetEffectiveName(userName),
+                character?.Id));
+        }
     }
 
     private static LootRecord? MapToLootRecord(LootIngestCommand command, int userId, int? gameCharacterId)

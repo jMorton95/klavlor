@@ -11,14 +11,6 @@ public sealed class LootFeedSeederService(
     ILootFeedService feedService,
     ILogger<LootFeedSeederService> logger) : BackgroundService
 {
-    private static readonly (long? Min, long? Max)[] TierRanges =
-    [
-        (10_000, 100_000),         // Standard: 10K – 100K
-        (100_000, 1_000_000),      // Notable: 100K – 1M
-        (1_000_000, 10_000_000),   // Epic: 1M – 10M
-        (10_000_000, null)         // Legendary: 10M+
-    ];
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         try
@@ -26,10 +18,11 @@ public sealed class LootFeedSeederService(
             using var scope = scopeFactory.CreateScope();
             var repository = scope.ServiceProvider.GetRequiredService<ILootLogRepository>();
 
+            var tiers = await repository.GetAllFeedTiers(50);
             var totalSeeded = 0;
-            foreach (var (min, max) in TierRanges)
+
+            foreach (var (_, entries) in tiers)
             {
-                var entries = await repository.GetRecentFeedEntries(50, min, max);
                 if (entries.Count > 0)
                 {
                     feedService.SeedBuffer(entries);

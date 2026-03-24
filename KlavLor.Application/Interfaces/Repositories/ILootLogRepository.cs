@@ -10,9 +10,7 @@ public interface ILootLogRepository
     Task<LootLogSearchResult> SearchLootLog(int characterId, LootLogQuery query);
     Task<LootSourceDetail> GetSourceDetail(int characterId, string sourceName, int pageNumber, int pageSize);
     Task<LootSourceDetail> GetSourceDetailKillsPage(int characterId, string sourceName, int pageNumber, int pageSize);
-    Task<List<LootFeedEntry>> GetRecentFeedEntries(int count, long? minValue = null, long? maxValue = null);
-    Task<List<LootFeedEntry>> GetFeedEntriesForCharacter(int characterId, int count, long minValue = 1_000_000);
-    Task<Dictionary<LootFeedTier, List<LootFeedEntry>>> GetAllFeedTiers(int countPerTier);
+    Task<Dictionary<LootFeedTier, List<LootFeedEntry>>> GetAllFeedTiers(int countPerTier, IReadOnlySet<LootFeedTier>? requestedTiers = null);
     Task DeleteAllForCharacter(int characterId);
     Task DeleteAllForUser(int userId);
 }

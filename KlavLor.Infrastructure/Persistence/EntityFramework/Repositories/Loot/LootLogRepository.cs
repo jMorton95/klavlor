@@ -361,78 +361,32 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
         }
     }
 
-    public async Task<List<LootFeedEntry>> GetRecentFeedEntries(int count, long? minValue = null, long? maxValue = null)
+    public async Task<Dictionary<LootFeedTier, List<LootFeedEntry>>> GetAllFeedTiers(
+        int countPerTier, IReadOnlySet<LootFeedTier>? requestedTiers = null)
     {
         try
         {
-            var query = dataContext.LootRecords
-                .Where(r => r.GameCharacterId != null)
-                .Join(dataContext.GameCharacters, r => r.GameCharacterId, gc => gc.Id, (r, gc) => new { Record = r, Character = gc })
-                .Where(x => x.Character.IsVisible && !x.Character.IsAdminHidden)
-                .Join(dataContext.Users, x => x.Character.UserId, u => u.Id, (x, u) => new { x.Record, x.Character, User = u });
+            var tiers = requestedTiers ?? new HashSet<LootFeedTier>(ILootFeedService.AllTiers);
+            var result = new Dictionary<LootFeedTier, List<LootFeedEntry>>();
+            foreach (var tier in ILootFeedService.AllTiers)
+                result[tier] = [];
 
-            if (minValue.HasValue)
-                query = query.Where(x => x.Record.TotalValue >= minValue.Value);
-            if (maxValue.HasValue)
-                query = query.Where(x => x.Record.TotalValue < maxValue.Value);
-
-            var records = await query
-                .OrderByDescending(x => x.Record.OccurredAt)
-                .Take(count)
-                .Select(x => new
-                {
-                    UserName = x.User.FirstName + " " + x.User.LastName,
-                    x.Record.UserId,
-                    x.Record.SourceName,
-                    x.Record.SourceType,
-                    x.Record.TotalValue,
-                    x.Record.DropsJson,
-                    x.Record.OccurredAt,
-                    CharacterName = x.Character.DisplayName ?? x.User.FirstName + " " + x.User.LastName,
-                    x.Character.Id
-                })
-                .ToListAsync();
-
-            return records.Select(r =>
-            {
-                var drops = JsonSerializer.Deserialize<List<LootDrop>>(r.DropsJson) ?? [];
-                return new LootFeedEntry(
-                    r.UserName,
-                    r.UserId,
-                    r.SourceName,
-                    r.SourceType,
-                    r.TotalValue,
-                    drops.Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price)).ToList(),
-                    r.OccurredAt,
-                    r.CharacterName,
-                    r.Id);
-            }).ToList();
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to get recent feed entries");
-            throw new RepositoryException("Failed to get recent feed entries", ex);
-        }
-    }
-
-    public async Task<Dictionary<LootFeedTier, List<LootFeedEntry>>> GetAllFeedTiers(int countPerTier)
-    {
-        try
-        {
             var baseQuery = dataContext.LootRecords
                 .Where(r => r.GameCharacterId != null)
                 .Join(dataContext.GameCharacters, r => r.GameCharacterId, gc => gc.Id, (r, gc) => new { Record = r, Character = gc })
                 .Where(x => x.Character.IsVisible && !x.Character.IsAdminHidden)
                 .Join(dataContext.Users, x => x.Character.UserId, u => u.Id, (x, u) => new { x.Record, x.Character, User = u });
 
-            IQueryable<FeedTierProjection> BuildTierQuery(long minValue, long? maxValue)
+            foreach (var tier in tiers)
             {
-                var q = baseQuery.Where(x => x.Record.TotalValue >= minValue);
-                if (maxValue.HasValue)
-                    q = q.Where(x => x.Record.TotalValue < maxValue.Value);
+                var (minValue, _) = ILootFeedService.GetTierRange(tier);
 
-                return q.OrderByDescending(x => x.Record.OccurredAt)
-                    .Take(countPerTier)
+                // Over-fetch: TotalValue >= tier min is a necessary condition for having any single
+                // drop at that value. Fetch 150 candidates and filter by individual drop values in C#.
+                var candidates = await baseQuery
+                    .Where(x => x.Record.TotalValue >= minValue)
+                    .OrderByDescending(x => x.Record.OccurredAt)
+                    .Take(150)
                     .Select(x => new FeedTierProjection
                     {
                         UserName = x.User.FirstName + " " + x.User.LastName,
@@ -444,42 +398,40 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                         OccurredAt = x.Record.OccurredAt,
                         CharacterName = x.Character.DisplayName ?? x.User.FirstName + " " + x.User.LastName,
                         GameCharacterId = x.Character.Id
-                    });
-            }
+                    })
+                    .ToListAsync();
 
-            var combined = BuildTierQuery(10_000, 100_000)
-                .Concat(BuildTierQuery(100_000, 1_000_000))
-                .Concat(BuildTierQuery(1_000_000, 10_000_000))
-                .Concat(BuildTierQuery(10_000_000, null));
+                var (tierMin, tierMax) = ILootFeedService.GetTierRange(tier);
 
-            var records = await combined.ToListAsync();
+                foreach (var r in candidates)
+                {
+                    if (result[tier].Count >= countPerTier) break;
 
-            var result = new Dictionary<LootFeedTier, List<LootFeedEntry>>
-            {
-                [LootFeedTier.Standard] = [],
-                [LootFeedTier.Notable] = [],
-                [LootFeedTier.Epic] = [],
-                [LootFeedTier.Legendary] = []
-            };
+                    var allDrops = JsonSerializer.Deserialize<List<LootDrop>>(r.DropsJson) ?? [];
+                    var tierDrops = allDrops
+                        .Where(d =>
+                        {
+                            var val = (long)d.Quantity * d.Price;
+                            return val >= tierMin && (tierMax is null || val < tierMax.Value);
+                        })
+                        .Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price))
+                        .ToList();
 
-            foreach (var r in records)
-            {
-                var tier = ILootFeedService.GetTier(r.TotalValue);
-                if (tier is null) continue;
+                    if (tierDrops.Count == 0) continue;
 
-                var drops = JsonSerializer.Deserialize<List<LootDrop>>(r.DropsJson) ?? [];
-                var entry = new LootFeedEntry(
-                    r.UserName,
-                    r.UserId,
-                    r.SourceName,
-                    r.SourceType,
-                    r.TotalValue,
-                    drops.Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price)).ToList(),
-                    r.OccurredAt,
-                    r.CharacterName,
-                    r.GameCharacterId);
-
-                result[tier.Value].Add(entry);
+                    var tierTotal = tierDrops.Sum(d => (long)d.Quantity * d.Price);
+                    result[tier].Add(new LootFeedEntry(
+                        r.UserName,
+                        r.UserId,
+                        r.SourceName,
+                        r.SourceType,
+                        tierTotal,
+                        tierDrops,
+                        r.OccurredAt,
+                        tier,
+                        r.CharacterName,
+                        r.GameCharacterId));
+                }
             }
 
             return result;
@@ -488,52 +440,6 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
         {
             logger.LogError(ex, "Failed to get all feed tiers");
             throw new RepositoryException("Failed to get all feed tiers", ex);
-        }
-    }
-
-    public async Task<List<LootFeedEntry>> GetFeedEntriesForCharacter(int characterId, int count, long minValue = 1_000_000)
-    {
-        try
-        {
-            var records = await dataContext.LootRecords
-                .Where(r => r.GameCharacterId == characterId && r.TotalValue >= minValue)
-                .Join(dataContext.GameCharacters, r => r.GameCharacterId, gc => gc.Id, (r, gc) => new { Record = r, Character = gc })
-                .Join(dataContext.Users, x => x.Character.UserId, u => u.Id, (x, u) => new { x.Record, x.Character, User = u })
-                .OrderByDescending(x => x.Record.OccurredAt)
-                .Take(count)
-                .Select(x => new
-                {
-                    UserName = x.User.FirstName + " " + x.User.LastName,
-                    x.Record.UserId,
-                    x.Record.SourceName,
-                    x.Record.SourceType,
-                    x.Record.TotalValue,
-                    x.Record.DropsJson,
-                    x.Record.OccurredAt,
-                    CharacterName = x.Character.DisplayName ?? x.User.FirstName + " " + x.User.LastName,
-                    x.Character.Id
-                })
-                .ToListAsync();
-
-            return records.Select(r =>
-            {
-                var drops = JsonSerializer.Deserialize<List<LootDrop>>(r.DropsJson) ?? [];
-                return new LootFeedEntry(
-                    r.UserName,
-                    r.UserId,
-                    r.SourceName,
-                    r.SourceType,
-                    r.TotalValue,
-                    drops.Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price)).ToList(),
-                    r.OccurredAt,
-                    r.CharacterName,
-                    r.Id);
-            }).ToList();
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to get feed entries for character {CharacterId}", characterId);
-            throw new RepositoryException("Failed to get feed entries for character", ex);
         }
     }
 

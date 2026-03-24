@@ -1,4 +1,5 @@
 @using KlavLor.Application.Features.Loot.Feed
+@using KlavLor.Application.Interfaces.Services
 @using KlavLor.Web.Components.Layout
 
 @if (UpdateHeader)
@@ -6,128 +7,184 @@
     <TopBarMetaData PageTitle="KlavLor - Loot Feed" Title="Loot Feed" Description="Real-time loot drops from all users" />
 }
 
-<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-    @* Standard Column *@
-    <div>
-        <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 px-1">
-            Standard
-            <span class="text-xs font-normal text-slate-400 dark:text-slate-500">10K – 100K</span>
-        </h2>
-        <div id="feed-col-standard"
-             hx-ext="sse"
-             sse-connect="@AppRoutes.LootFeedStreamStandard.FromApi()"
-             sse-swap="message"
-             hx-swap="afterbegin"
-             hx-on::after-settle="if(this.children.length > 50) { while(this.children.length > 50) this.removeChild(this.lastElementChild); }"
-             class="space-y-3">
-            @if (StandardEntries is not null && StandardEntries.Count > 0)
-            {
-                @foreach (var entry in StandardEntries)
-                {
-                    <LootFeedItem Entry="@entry" />
-                }
-            }
-            else
-            {
-                <div class="feed-empty-state bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-8 text-center">
-                    <p class="text-sm text-slate-500 dark:text-slate-400">No standard drops yet.</p>
-                </div>
-            }
-        </div>
-    </div>
+@{
+    var activeTiers = ActiveTiers ?? ILootFeedService.AllTiers;
+    var colCount = activeTiers.Count;
 
-    @* Notable Column *@
-    <div>
-        <h2 class="text-sm font-semibold text-green-600 dark:text-green-400 mb-3 px-1">
-            Notable
-            <span class="text-xs font-normal text-slate-400 dark:text-slate-500">100K – 1M</span>
-        </h2>
-        <div id="feed-col-notable"
-             hx-ext="sse"
-             sse-connect="@AppRoutes.LootFeedStreamNotable.FromApi()"
-             sse-swap="message"
-             hx-swap="afterbegin"
-             hx-on::after-settle="if(this.children.length > 50) { while(this.children.length > 50) this.removeChild(this.lastElementChild); }"
-             class="space-y-3">
-            @if (NotableEntries is not null && NotableEntries.Count > 0)
-            {
-                @foreach (var entry in NotableEntries)
-                {
-                    <LootFeedItem Entry="@entry" />
-                }
-            }
-            else
-            {
-                <div class="feed-empty-state bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-green-200 dark:border-green-900 p-8 text-center">
-                    <p class="text-sm text-slate-500 dark:text-slate-400">No notable drops yet.</p>
-                </div>
-            }
-        </div>
-    </div>
+    var containerClass = colCount >= 5
+        ? "flex flex-wrap gap-4 justify-center xl:justify-start"
+        : "flex flex-wrap gap-4 justify-center";
+    var colClass = colCount switch
+    {
+        >= 5 => "w-full md:w-[calc(50%-0.5rem)] xl:w-[calc(20%-0.8rem)]",
+        4    => "w-full md:w-[calc(50%-0.5rem)] xl:w-[calc(25%-0.75rem)]",
+        3    => "w-full md:w-[calc(50%-0.5rem)] xl:w-[calc(33.333%-0.67rem)]",
+        2    => "w-full md:w-[calc(50%-0.5rem)] xl:w-[calc(40%-0.5rem)]",
+        _    => "w-full md:w-[calc(50%-0.5rem)] xl:w-[min(50%,32rem)]"
+    };
+}
 
-    @* Epic Column *@
-    <div>
-        <h2 class="text-sm font-semibold text-purple-600 dark:text-purple-400 mb-3 px-1">
-            Epic
-            <span class="text-xs font-normal text-slate-400 dark:text-slate-500">1M – 10M</span>
-        </h2>
-        <div id="feed-col-epic"
-             hx-ext="sse"
-             sse-connect="@AppRoutes.LootFeedStreamEpic.FromApi()"
-             sse-swap="message"
-             hx-swap="afterbegin"
-             hx-on::after-settle="if(this.children.length > 50) { while(this.children.length > 50) this.removeChild(this.lastElementChild); }"
-             class="space-y-3">
-            @if (EpicEntries is not null && EpicEntries.Count > 0)
-            {
-                @foreach (var entry in EpicEntries)
+<div class="@containerClass">
+    @if (activeTiers.Contains(LootFeedTier.Standard))
+    {
+        <div class="@colClass">
+            <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 px-1">
+                Standard
+                <span class="text-xs font-normal text-slate-400 dark:text-slate-500">10K – 100K</span>
+            </h2>
+            <div id="feed-col-standard"
+                 hx-ext="sse"
+                 sse-connect="@AppRoutes.LootFeedStreamStandard.FromApi()"
+                 sse-swap="message"
+                 hx-swap="afterbegin"
+                 hx-on::after-settle="if(this.children.length > 50) { while(this.children.length > 50) this.removeChild(this.lastElementChild); }"
+                 class="space-y-3">
+                @if (StandardEntries is not null && StandardEntries.Count > 0)
                 {
-                    <LootFeedItem Entry="@entry" />
+                    @foreach (var entry in StandardEntries)
+                    {
+                        <LootFeedItem Entry="@entry" />
+                    }
                 }
-            }
-            else
-            {
-                <div class="feed-empty-state bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-purple-200 dark:border-purple-900 p-8 text-center">
-                    <p class="text-sm text-slate-500 dark:text-slate-400">No epic drops yet.</p>
-                </div>
-            }
+                else
+                {
+                    <div class="feed-empty-state bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-8 text-center">
+                        <p class="text-sm text-slate-500 dark:text-slate-400">No standard drops yet.</p>
+                    </div>
+                }
+            </div>
         </div>
-    </div>
+    }
 
-    @* Legendary Column *@
-    <div>
-        <h2 class="text-sm font-semibold text-amber-600 dark:text-amber-400 mb-3 px-1">
-            Legendary
-            <span class="text-xs font-normal text-slate-400 dark:text-slate-500">10M+</span>
-        </h2>
-        <div id="feed-col-legendary"
-             hx-ext="sse"
-             sse-connect="@AppRoutes.LootFeedStreamLegendary.FromApi()"
-             sse-swap="message"
-             hx-swap="afterbegin"
-             hx-on::after-settle="if(this.children.length > 50) { while(this.children.length > 50) this.removeChild(this.lastElementChild); }"
-             class="space-y-3">
-            @if (LegendaryEntries is not null && LegendaryEntries.Count > 0)
-            {
-                @foreach (var entry in LegendaryEntries)
+    @if (activeTiers.Contains(LootFeedTier.Uncommon))
+    {
+        <div class="@colClass">
+            <h2 class="text-sm font-semibold text-green-600 dark:text-green-400 mb-3 px-1">
+                Uncommon
+                <span class="text-xs font-normal text-slate-400 dark:text-slate-500">100K – 1M</span>
+            </h2>
+            <div id="feed-col-uncommon"
+                 hx-ext="sse"
+                 sse-connect="@AppRoutes.LootFeedStreamUncommon.FromApi()"
+                 sse-swap="message"
+                 hx-swap="afterbegin"
+                 hx-on::after-settle="if(this.children.length > 50) { while(this.children.length > 50) this.removeChild(this.lastElementChild); }"
+                 class="space-y-3">
+                @if (UncommonEntries is not null && UncommonEntries.Count > 0)
                 {
-                    <LootFeedItem Entry="@entry" />
+                    @foreach (var entry in UncommonEntries)
+                    {
+                        <LootFeedItem Entry="@entry" />
+                    }
                 }
-            }
-            else
-            {
-                <div class="feed-empty-state bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-amber-200 dark:border-amber-900 p-8 text-center">
-                    <p class="text-sm text-slate-500 dark:text-slate-400">No legendary drops yet.</p>
-                </div>
-            }
+                else
+                {
+                    <div class="feed-empty-state bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-green-200 dark:border-green-900 p-8 text-center">
+                        <p class="text-sm text-slate-500 dark:text-slate-400">No uncommon drops yet.</p>
+                    </div>
+                }
+            </div>
         </div>
-    </div>
+    }
+
+    @if (activeTiers.Contains(LootFeedTier.Rare))
+    {
+        <div class="@colClass">
+            <h2 class="text-sm font-semibold text-blue-600 dark:text-blue-400 mb-3 px-1">
+                Rare
+                <span class="text-xs font-normal text-slate-400 dark:text-slate-500">1M – 10M</span>
+            </h2>
+            <div id="feed-col-rare"
+                 hx-ext="sse"
+                 sse-connect="@AppRoutes.LootFeedStreamRare.FromApi()"
+                 sse-swap="message"
+                 hx-swap="afterbegin"
+                 hx-on::after-settle="if(this.children.length > 50) { while(this.children.length > 50) this.removeChild(this.lastElementChild); }"
+                 class="space-y-3">
+                @if (RareEntries is not null && RareEntries.Count > 0)
+                {
+                    @foreach (var entry in RareEntries)
+                    {
+                        <LootFeedItem Entry="@entry" />
+                    }
+                }
+                else
+                {
+                    <div class="feed-empty-state bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-blue-200 dark:border-blue-900 p-8 text-center">
+                        <p class="text-sm text-slate-500 dark:text-slate-400">No rare drops yet.</p>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    @if (activeTiers.Contains(LootFeedTier.Epic))
+    {
+        <div class="@colClass">
+            <h2 class="text-sm font-semibold text-purple-600 dark:text-purple-400 mb-3 px-1">
+                Epic
+                <span class="text-xs font-normal text-slate-400 dark:text-slate-500">10M – 100M</span>
+            </h2>
+            <div id="feed-col-epic"
+                 hx-ext="sse"
+                 sse-connect="@AppRoutes.LootFeedStreamEpic.FromApi()"
+                 sse-swap="message"
+                 hx-swap="afterbegin"
+                 hx-on::after-settle="if(this.children.length > 50) { while(this.children.length > 50) this.removeChild(this.lastElementChild); }"
+                 class="space-y-3">
+                @if (EpicEntries is not null && EpicEntries.Count > 0)
+                {
+                    @foreach (var entry in EpicEntries)
+                    {
+                        <LootFeedItem Entry="@entry" />
+                    }
+                }
+                else
+                {
+                    <div class="feed-empty-state bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-purple-200 dark:border-purple-900 p-8 text-center">
+                        <p class="text-sm text-slate-500 dark:text-slate-400">No epic drops yet.</p>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    @if (activeTiers.Contains(LootFeedTier.Legendary))
+    {
+        <div class="@colClass">
+            <h2 class="text-sm font-semibold text-amber-600 dark:text-amber-400 mb-3 px-1">
+                Legendary
+                <span class="text-xs font-normal text-slate-400 dark:text-slate-500">100M+</span>
+            </h2>
+            <div id="feed-col-legendary"
+                 hx-ext="sse"
+                 sse-connect="@AppRoutes.LootFeedStreamLegendary.FromApi()"
+                 sse-swap="message"
+                 hx-swap="afterbegin"
+                 hx-on::after-settle="if(this.children.length > 50) { while(this.children.length > 50) this.removeChild(this.lastElementChild); }"
+                 class="space-y-3">
+                @if (LegendaryEntries is not null && LegendaryEntries.Count > 0)
+                {
+                    @foreach (var entry in LegendaryEntries)
+                    {
+                        <LootFeedItem Entry="@entry" />
+                    }
+                }
+                else
+                {
+                    <div class="feed-empty-state bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-amber-200 dark:border-amber-900 p-8 text-center">
+                        <p class="text-sm text-slate-500 dark:text-slate-400">No legendary drops yet.</p>
+                    </div>
+                }
+            </div>
+        </div>
+    }
 </div>
 
 <script>
     (() => {
         // Empty state removal when items arrive via SSE
-        for (const col of ['standard', 'notable', 'epic', 'legendary']) {
+        for (const col of ['standard', 'uncommon', 'rare', 'epic', 'legendary']) {
             const container = document.getElementById(`feed-col-${col}`);
             if (!container) continue;
 
@@ -162,8 +219,10 @@
 
 @code {
     [Parameter] public IReadOnlyList<LootFeedEntry>? StandardEntries { get; set; }
-    [Parameter] public IReadOnlyList<LootFeedEntry>? NotableEntries { get; set; }
+    [Parameter] public IReadOnlyList<LootFeedEntry>? UncommonEntries { get; set; }
+    [Parameter] public IReadOnlyList<LootFeedEntry>? RareEntries { get; set; }
     [Parameter] public IReadOnlyList<LootFeedEntry>? EpicEntries { get; set; }
     [Parameter] public IReadOnlyList<LootFeedEntry>? LegendaryEntries { get; set; }
+    [Parameter] public IReadOnlyList<LootFeedTier>? ActiveTiers { get; set; }
     [Parameter] public bool UpdateHeader { get; set; } = true;
 }

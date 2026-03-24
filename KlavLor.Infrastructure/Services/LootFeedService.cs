@@ -11,13 +11,11 @@ internal sealed class LootFeedService : ILootFeedService
     private const int BufferCapacity = 50;
     private const int ChannelCapacity = 10;
 
-    private static readonly LootFeedTier[] AllTiers = [LootFeedTier.Standard, LootFeedTier.Notable, LootFeedTier.Epic, LootFeedTier.Legendary];
-
     private readonly ConcurrentDictionary<LootFeedTier, ConcurrentQueue<LootFeedEntry>> _buffers = new(
-        AllTiers.Select(t => new KeyValuePair<LootFeedTier, ConcurrentQueue<LootFeedEntry>>(t, new())));
+        ILootFeedService.AllTiers.Select(t => new KeyValuePair<LootFeedTier, ConcurrentQueue<LootFeedEntry>>(t, new())));
 
     private readonly ConcurrentDictionary<LootFeedTier, ConcurrentDictionary<Guid, Channel<LootFeedEntry>>> _subscribers = new(
-        AllTiers.Select(t => new KeyValuePair<LootFeedTier, ConcurrentDictionary<Guid, Channel<LootFeedEntry>>>(t, new())));
+        ILootFeedService.AllTiers.Select(t => new KeyValuePair<LootFeedTier, ConcurrentDictionary<Guid, Channel<LootFeedEntry>>>(t, new())));
 
     public IReadOnlyList<LootFeedEntry> GetCurrentEntries(LootFeedTier tier)
     {
@@ -54,18 +52,13 @@ internal sealed class LootFeedService : ILootFeedService
     {
         foreach (var entry in entries)
         {
-            var tier = ILootFeedService.GetTier(entry.TotalValue);
-            if (tier is null) continue;
-            _buffers[tier.Value].Enqueue(entry);
+            _buffers[entry.Tier].Enqueue(entry);
         }
     }
 
     public void Publish(LootFeedEntry entry)
     {
-        var tier = ILootFeedService.GetTier(entry.TotalValue);
-        if (tier is null) return;
-
-        var buffer = _buffers[tier.Value];
+        var buffer = _buffers[entry.Tier];
 
         buffer.Enqueue(entry);
 
@@ -73,7 +66,7 @@ internal sealed class LootFeedService : ILootFeedService
         {
         }
 
-        foreach (var (_, channel) in _subscribers[tier.Value])
+        foreach (var (_, channel) in _subscribers[entry.Tier])
         {
             channel.Writer.TryWrite(entry);
         }

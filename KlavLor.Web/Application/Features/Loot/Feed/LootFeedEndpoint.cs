@@ -18,8 +18,12 @@ public sealed class LootFeedEndpoint : IEndpoint
                 StreamFeed(ctx, svc, sp, lf, LootFeedTier.Standard))
             .AllowAnonymous();
 
-        app.MapGet(AppRoutes.LootFeedStreamNotable.FromApi(), (HttpContext ctx, ILootFeedService svc, IServiceProvider sp, ILoggerFactory lf) =>
-                StreamFeed(ctx, svc, sp, lf, LootFeedTier.Notable))
+        app.MapGet(AppRoutes.LootFeedStreamUncommon.FromApi(), (HttpContext ctx, ILootFeedService svc, IServiceProvider sp, ILoggerFactory lf) =>
+                StreamFeed(ctx, svc, sp, lf, LootFeedTier.Uncommon))
+            .AllowAnonymous();
+
+        app.MapGet(AppRoutes.LootFeedStreamRare.FromApi(), (HttpContext ctx, ILootFeedService svc, IServiceProvider sp, ILoggerFactory lf) =>
+                StreamFeed(ctx, svc, sp, lf, LootFeedTier.Rare))
             .AllowAnonymous();
 
         app.MapGet(AppRoutes.LootFeedStreamEpic.FromApi(), (HttpContext ctx, ILootFeedService svc, IServiceProvider sp, ILoggerFactory lf) =>
@@ -31,17 +35,35 @@ public sealed class LootFeedEndpoint : IEndpoint
             .AllowAnonymous();
     }
 
-    private static async Task<IResult> GetPage(ILootLogRepository lootLogRepository)
+    private static async Task<IResult> GetPage(ILootLogRepository lootLogRepository, string? tiers = null)
     {
-        var tiers = await lootLogRepository.GetAllFeedTiers(50);
+        var requestedTiers = ParseTiers(tiers);
+        var tierData = await lootLogRepository.GetAllFeedTiers(50, requestedTiers);
 
         return IResultExtensions.Component<LootFeedGrid>(new
         {
-            StandardEntries = (IReadOnlyList<LootFeedEntry>)tiers[LootFeedTier.Standard],
-            NotableEntries = (IReadOnlyList<LootFeedEntry>)tiers[LootFeedTier.Notable],
-            EpicEntries = (IReadOnlyList<LootFeedEntry>)tiers[LootFeedTier.Epic],
-            LegendaryEntries = (IReadOnlyList<LootFeedEntry>)tiers[LootFeedTier.Legendary]
+            StandardEntries = (IReadOnlyList<LootFeedEntry>)tierData[LootFeedTier.Standard],
+            UncommonEntries = (IReadOnlyList<LootFeedEntry>)tierData[LootFeedTier.Uncommon],
+            RareEntries = (IReadOnlyList<LootFeedEntry>)tierData[LootFeedTier.Rare],
+            EpicEntries = (IReadOnlyList<LootFeedEntry>)tierData[LootFeedTier.Epic],
+            LegendaryEntries = (IReadOnlyList<LootFeedEntry>)tierData[LootFeedTier.Legendary],
+            ActiveTiers = requestedTiers is not null
+                ? (IReadOnlyList<LootFeedTier>)requestedTiers.Order().ToList()
+                : (IReadOnlyList<LootFeedTier>)ILootFeedService.AllTiers
         });
+    }
+
+    private static HashSet<LootFeedTier>? ParseTiers(string? tiers)
+    {
+        if (string.IsNullOrWhiteSpace(tiers)) return null;
+
+        var result = new HashSet<LootFeedTier>();
+        foreach (var name in tiers.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (Enum.TryParse<LootFeedTier>(name, ignoreCase: true, out var tier))
+                result.Add(tier);
+        }
+        return result.Count > 0 ? result : null;
     }
 
     private static async Task StreamFeed(

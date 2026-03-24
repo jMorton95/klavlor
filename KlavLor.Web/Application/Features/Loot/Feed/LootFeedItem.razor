@@ -1,34 +1,33 @@
 @using KlavLor.Application.Features.Loot.Feed
+@using KlavLor.Application.Interfaces.Services
 
 <div class="@(Animate ? "loot-feed-new " : "")bg-white dark:bg-slate-900 rounded-xl shadow border @GetValueTierClasses() p-4 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-amber-200 dark:hover:border-amber-700 transition-all duration-200">
-    <div class="flex items-start justify-between mb-2">
-        <div class="flex items-center gap-2">
-            @if (Entry.GameCharacterId is not null)
-            {
-                <a hx-get="@AppRoutes.LootLogCharacter.WithId(Entry.GameCharacterId.Value).FromApi()"
-                   hx-target="#hx-page-container"
-                   hx-push-url="@AppRoutes.LootLogCharacter.WithId(Entry.GameCharacterId.Value)"
-                   hx-swap="innerHTML transition:true"
-                   class="text-sm font-semibold text-slate-900 dark:text-slate-100 hover:underline cursor-pointer">@(Entry.CharacterName ?? Entry.UserName)</a>
-            }
-            else
-            {
-                <span class="text-sm font-semibold text-slate-900 dark:text-slate-100">@Entry.UserName</span>
-            }
-            <span class="text-xs text-slate-400 dark:text-slate-400">@(Entry.SourceType switch { KlavLor.Domain.Entities.LootSourceType.Event => "rolled", KlavLor.Domain.Entities.LootSourceType.Pickpocket => "pickpocketed", _ => "killed" })</span>
-            <a hx-get="@(Entry.GameCharacterId is not null ? AppRoutes.LootLogSource.WithId(Entry.GameCharacterId.Value).FromApi() : "#")"
+    <div class="flex items-center gap-1.5 mb-2 min-w-0">
+        @if (Entry.GameCharacterId is not null)
+        {
+            <a hx-get="@AppRoutes.LootLogCharacter.WithId(Entry.GameCharacterId.Value).FromApi()"
                hx-target="#hx-page-container"
-               hx-push-url="@(Entry.GameCharacterId is not null ? AppRoutes.LootLogSource.WithId(Entry.GameCharacterId.Value) + "?name=" + Uri.EscapeDataString(Entry.SourceName) : "#")"
+               hx-push-url="@AppRoutes.LootLogCharacter.WithId(Entry.GameCharacterId.Value)"
                hx-swap="innerHTML transition:true"
-               class="inline-flex items-center gap-1.5 text-sm font-medium text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">
-                <img src="/api/images/source-icon?name=@Uri.EscapeDataString(Entry.SourceName)"
-                     class="w-5 h-5 inline-block rounded"
-                     loading="lazy"
-                     onerror="this.style.display='none'" />
-                @Entry.SourceName
-            </a>
-        </div>
-        <time datetime="@Entry.OccurredAt.UtcDateTime.ToString("o")" class="text-xs text-slate-400 dark:text-slate-400 whitespace-nowrap ml-2 loot-timestamp">@FormatTime(Entry.OccurredAt)</time>
+               class="text-sm font-semibold text-slate-900 dark:text-slate-100 hover:underline cursor-pointer truncate shrink-0 max-w-[40%]">@(Entry.CharacterName ?? Entry.UserName)</a>
+        }
+        else
+        {
+            <span class="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate shrink-0 max-w-[40%]">@Entry.UserName</span>
+        }
+        <span class="text-xs text-slate-400 shrink-0">@(Entry.SourceType switch { KlavLor.Domain.Entities.LootSourceType.Event => "rolled", KlavLor.Domain.Entities.LootSourceType.Pickpocket => "pickpocketed", _ => "killed" })</span>
+        <a hx-get="@(Entry.GameCharacterId is not null ? AppRoutes.LootLogSource.WithId(Entry.GameCharacterId.Value).FromApi() : "#")"
+           hx-target="#hx-page-container"
+           hx-push-url="@(Entry.GameCharacterId is not null ? AppRoutes.LootLogSource.WithId(Entry.GameCharacterId.Value) + "?name=" + Uri.EscapeDataString(Entry.SourceName) : "#")"
+           hx-swap="innerHTML transition:true"
+           class="inline-flex items-center gap-1 text-sm font-medium text-amber-600 dark:text-amber-400 hover:underline cursor-pointer min-w-0">
+            <img src="/api/images/source-icon?name=@Uri.EscapeDataString(Entry.SourceName)"
+                 class="w-5 h-5 rounded shrink-0"
+                 loading="lazy"
+                 onerror="this.style.display='none'" />
+            <span class="truncate">@Entry.SourceName</span>
+        </a>
+        <time datetime="@Entry.OccurredAt.UtcDateTime.ToString("o")" class="text-xs text-slate-400 whitespace-nowrap ml-auto shrink-0 loot-timestamp">@FormatTime(Entry.OccurredAt)</time>
     </div>
 
     @if (Entry.Drops.Count > 0)
@@ -62,7 +61,7 @@
         </div>
     }
 
-    @if (Entry.TotalValue > 0)
+    @if (Entry.Drops.Count > 1 && Entry.TotalValue > 0)
     {
         <div class="mt-2 text-xs text-slate-500 dark:text-slate-400">
             Total: <span class="font-medium text-amber-600 dark:text-amber-400">@FormatGold(Entry.TotalValue) gp</span>
@@ -74,18 +73,20 @@
     [Parameter] public required LootFeedEntry Entry { get; set; }
     [Parameter] public bool Animate { get; set; }
 
-    private string GetValueTierClasses() => Entry.TotalValue switch
+    private string GetValueTierClasses() => Entry.Tier switch
     {
-        >= 10_000_000 => "border-amber-400 ring-2 ring-amber-400/40",
-        >= 1_000_000 => "border-purple-400 ring-1 ring-purple-400/30",
-        >= 100_000 => "border-green-400",
+        LootFeedTier.Legendary => "border-amber-400 ring-2 ring-amber-400/40",
+        LootFeedTier.Epic => "border-purple-400 ring-1 ring-purple-400/30",
+        LootFeedTier.Rare => "border-blue-400 ring-1 ring-blue-400/30",
+        LootFeedTier.Uncommon => "border-green-400",
         _ => "border-slate-200 dark:border-slate-700"
     };
 
     private static string GetDropTierClasses(long dropValue) => dropValue switch
     {
-        >= 10_000_000 => "bg-amber-50 dark:bg-amber-950 border-amber-400",
-        >= 1_000_000 => "bg-purple-50 dark:bg-purple-950 border-purple-400",
+        >= 100_000_000 => "bg-amber-50 dark:bg-amber-950 border-amber-400",
+        >= 10_000_000 => "bg-purple-50 dark:bg-purple-950 border-purple-400",
+        >= 1_000_000 => "bg-blue-50 dark:bg-blue-950 border-blue-400",
         >= 100_000 => "bg-green-50 dark:bg-green-950 border-green-400",
         _ => "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
     };
