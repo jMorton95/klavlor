@@ -14,6 +14,9 @@ public sealed class LootFeedEndpoint : IEndpoint
         app.MapGet(AppRoutes.LootFeed.FromApi(), GetPage)
             .AllowAnonymous();
 
+        app.MapGet(AppRoutes.LootFeedGrid.FromApi(), GetGrid)
+            .AllowAnonymous();
+
         app.MapGet(AppRoutes.LootFeedStreamStandard.FromApi(), (HttpContext ctx, ILootFeedService svc, IServiceProvider sp, ILoggerFactory lf) =>
                 StreamFeed(ctx, svc, sp, lf, LootFeedTier.Standard))
             .AllowAnonymous();
@@ -35,7 +38,21 @@ public sealed class LootFeedEndpoint : IEndpoint
             .AllowAnonymous();
     }
 
-    private static async Task<IResult> GetPage(ILootLogRepository lootLogRepository, string? tiers = null)
+    private static async Task<IResult> GetPage(ILootLogRepository lootLogRepository)
+    {
+        var tierData = await lootLogRepository.GetAllFeedTiers(50);
+
+        return IResultExtensions.Component<LootFeedContent>(new
+        {
+            StandardEntries = (IReadOnlyList<LootFeedEntry>)tierData[LootFeedTier.Standard],
+            UncommonEntries = (IReadOnlyList<LootFeedEntry>)tierData[LootFeedTier.Uncommon],
+            RareEntries = (IReadOnlyList<LootFeedEntry>)tierData[LootFeedTier.Rare],
+            EpicEntries = (IReadOnlyList<LootFeedEntry>)tierData[LootFeedTier.Epic],
+            LegendaryEntries = (IReadOnlyList<LootFeedEntry>)tierData[LootFeedTier.Legendary]
+        });
+    }
+
+    private static async Task<IResult> GetGrid(ILootLogRepository lootLogRepository, string? tiers = null)
     {
         var requestedTiers = ParseTiers(tiers);
         var tierData = await lootLogRepository.GetAllFeedTiers(50, requestedTiers);

@@ -175,6 +175,92 @@ document.addEventListener('click', function(e) {
     });
 });
 
+// --- Loot Feed Filter ---
+(() => {
+    const ALL_TIERS = ['standard', 'uncommon', 'rare', 'epic', 'legendary'];
+    const STORAGE_KEY = 'lootFeedFilter';
+    const GRID_API = '/api/loot/feed/grid';
+
+    function getActiveTiers() {
+        try {
+            const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+            if (Array.isArray(saved) && saved.length > 0) return saved;
+        } catch {}
+        return ALL_TIERS;
+    }
+
+    function initFeedFilter() {
+        const checkboxes = document.querySelectorAll('.feed-filter-checkbox');
+        if (checkboxes.length === 0) return;
+
+        const active = getActiveTiers();
+        for (const cb of checkboxes) {
+            cb.checked = active.includes(cb.value);
+        }
+
+        // If user has a non-default filter, re-fetch with their filter applied
+        if (JSON.stringify([...active].sort()) !== JSON.stringify([...ALL_TIERS].sort())) {
+            htmx.ajax('GET', GRID_API + '?tiers=' + active.join(','), {
+                target: '#feed-grid-container',
+                swap: 'innerHTML'
+            });
+        }
+    }
+
+    window.toggleFeedFilter = function() {
+        const panel = document.getElementById('feed-filter-panel');
+        if (panel) panel.classList.toggle('hidden');
+    };
+
+    window.saveFeedFilter = function() {
+        const checked = Array.from(document.querySelectorAll('.feed-filter-checkbox:checked')).map(cb => cb.value);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(checked));
+        const panel = document.getElementById('feed-filter-panel');
+        if (panel) panel.classList.add('hidden');
+        const noTiers = document.getElementById('feed-no-tiers');
+        if (noTiers) noTiers.classList.add('hidden');
+
+        if (checked.length === 0) {
+            const container = document.getElementById('feed-grid-container');
+            if (container) container.innerHTML = '';
+            if (noTiers) noTiers.classList.remove('hidden');
+            return;
+        }
+
+        htmx.ajax('GET', GRID_API + '?tiers=' + checked.join(','), {
+            target: '#feed-grid-container',
+            swap: 'innerHTML'
+        });
+    };
+
+    // Inject tiers param into HTMX requests for the feed grid API
+    document.body.addEventListener('htmx:configRequest', function(evt) {
+        if (evt.detail.path && evt.detail.path.includes('/api/loot/feed/grid')) {
+            const tiers = getActiveTiers();
+            evt.detail.parameters['tiers'] = tiers.join(',');
+        }
+    });
+
+    // Close filter panel when clicking outside
+    document.addEventListener('click', function(e) {
+        const panel = document.getElementById('feed-filter-panel');
+        if (!panel) return;
+        if (!panel.classList.contains('hidden') && !e.target.closest('#feed-filter-panel') && !e.target.closest('[onclick="toggleFeedFilter()"]')) {
+            panel.classList.add('hidden');
+        }
+    });
+
+    // Initialize on page load
+    initFeedFilter();
+
+    // Re-initialize only when the page-level container is swapped (HTMX navigation)
+    document.body.addEventListener('htmx:afterSettle', function(evt) {
+        if (evt.detail.target && evt.detail.target.id === 'hx-page-container') {
+            initFeedFilter();
+        }
+    });
+})();
+
 // Include antiforgery token in all HTMX requests
 document.body.addEventListener('htmx:configRequest', function(e) {
     const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
