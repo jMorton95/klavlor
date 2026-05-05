@@ -97,6 +97,7 @@ Code is organized by feature, not by technical concern. Both Application and Web
 - **Tailwind CSS 4** — Config lives in `KlavLor.Web/wwwroot/app.css` using `@theme` blocks (no tailwind.config.js). Output: `wwwroot/styles.css`.
 - **HTMX** — Server-driven interactivity, bundled as `wwwroot/htmx.min.js`.
 - **builder.js** — Canvas drag/drop, node/edge creation, Bezier paths, zoom/pan. This is the most complex client-side file.
+- **sse.js** — Server-Sent Events client for live loot feed streams (per-tier subscriptions). **site.js** holds shared misc client helpers.
 - **CSP note:** `img-src` allows `https://oldschool.runescape.wiki` for OSRS item images. Update the CSP in Program.cs if adding new external image sources.
 
 ### Domain Model
@@ -171,9 +172,16 @@ After install:
 
 ### Server-Side Data Flow
 
-Sync tool → `ApiKeyAuthenticationHandler` (Bearer token → SHA256 lookup → user claims) → `LootIngestHandler` (validate, parse dates, deduplicate by content hash, insert) → `LootFeedService` (publish live kills to SSE subscribers at `/api/loot/feed/stream/{standard|notable|mega}`).
+Sync tool → `ApiKeyAuthenticationHandler` (Bearer token → SHA256 lookup → user claims) → `LootIngestHandler` (validate, parse dates, deduplicate by content hash, insert) → `LootFeedService` (publish live kills to SSE subscribers at `/api/loot/feed/stream/{standard|uncommon|rare|epic|legendary}`).
 
-Feed tiers: standard (all kills), notable (>5M value), mega (>20M value).
+Feed tiers are classified **per drop** (not per kill) by GP value, defined as `LootFeedTier` in `ILootFeedService`:
+- **Standard** — 10K–100K
+- **Uncommon** — 100K–1M
+- **Rare** — 1M–10M
+- **Epic** — 10M–100M
+- **Legendary** — 100M+
+
+Drops below 10K are not published. A single kill can produce entries on multiple tiers.
 
 ### Go Source Structure
 
