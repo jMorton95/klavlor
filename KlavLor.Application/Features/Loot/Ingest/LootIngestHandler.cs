@@ -205,9 +205,14 @@ public sealed class LootIngestHandler(
         if (!Enum.TryParse<LootSourceType>(command.Type, ignoreCase: true, out var sourceType))
             sourceType = LootSourceType.Unknown;
 
-        if (!DateTimeOffset.TryParseExact(
+        DateTimeOffset occurredAt;
+        if (DateTime.TryParseExact(
                 command.Date, DateFormats, CultureInfo.InvariantCulture,
-                DateTimeStyles.None, out var occurredAt))
+                DateTimeStyles.None, out var localDt))
+        {
+            occurredAt = IngestTimezone.FromLocalNaive(localDt);
+        }
+        else
         {
             occurredAt = DateTimeOffset.UtcNow;
         }

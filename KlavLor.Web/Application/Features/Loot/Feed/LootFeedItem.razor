@@ -1,3 +1,4 @@
+@using KlavLor.Application.Common
 @using KlavLor.Application.Features.Loot.Feed
 @using KlavLor.Application.Interfaces.Services
 
@@ -112,8 +113,9 @@
         if (ago.TotalMinutes < 1) return "just now";
         if (ago.TotalMinutes < 60) return $"{(int)ago.TotalMinutes}m ago";
         if (ago.TotalHours < 24) return $"{(int)ago.TotalHours}h ago";
-        return time.Year != DateTimeOffset.UtcNow.Year
-            ? time.ToString("MMM dd yyyy, HH:mm")
-            : time.ToString("MMM dd, HH:mm");
+        var local = IngestTimezone.ToZoneTime(time);
+        return local.Year != DateTimeOffset.UtcNow.Year
+            ? local.ToString("MMM dd yyyy, HH:mm")
+            : local.ToString("MMM dd, HH:mm");
     }
 }
