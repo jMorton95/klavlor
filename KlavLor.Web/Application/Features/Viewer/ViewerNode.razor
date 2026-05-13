@@ -12,7 +12,8 @@
          style="left: @(Node.PositionX)px; top: @(Node.PositionY)px; z-index: 2;"
          hx-post="@($"/api/templates/{TemplateId}/completion/{Node.Id}")"
          hx-target="@($"#viewer-node-{Node.Id}")"
-         hx-swap="outerHTML">
+         hx-swap="outerHTML"
+         hx-vals='{"note":""}'>
         @NodeContent
         @TooltipContent
     </div>
