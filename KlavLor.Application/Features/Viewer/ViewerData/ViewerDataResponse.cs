@@ -8,5 +8,6 @@ public sealed record ViewerDataResponse(
     Template Template,
     Dictionary<int, CompletionInfo> CompletionDates,
     bool IsOwner,
-    bool CanTrackCompletion
+    bool CanTrackCompletion,
+    bool IsAuthenticated
 );

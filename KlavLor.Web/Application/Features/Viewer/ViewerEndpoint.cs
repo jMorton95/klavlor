@@ -26,7 +26,8 @@ public sealed class ViewerEndpoint : IEndpoint
             Template = result.Value.Template,
             CompletionDates = result.Value.CompletionDates,
             IsOwner = result.Value.IsOwner,
-            CanTrackCompletion = result.Value.CanTrackCompletion
+            CanTrackCompletion = result.Value.CanTrackCompletion,
+            IsAuthenticated = result.Value.IsAuthenticated
         });
     }
 }

@@ -1,0 +1,92 @@
+@using KlavLor.Domain.Entities
+@using KlavLor.Application.Features.Viewer.ViewerData
+
+@{
+    var nodeLookup = Template.Nodes.ToDictionary(n => n.Id);
+    var entries = CompletionDates
+        .Where(kv => nodeLookup.ContainsKey(kv.Key))
+        .Select(kv => new { Node = nodeLookup[kv.Key], Info = kv.Value })
+        .OrderByDescending(e => e.Info.CompletedAt)
+        .ToList();
+
+    Dictionary<string, object>? oobAttrs = Oob
+        ? new Dictionary<string, object> { ["hx-swap-oob"] = "outerHTML" }
+        : null;
+}
+
+<div id="completion-history-panel"
+     @attributes="oobAttrs"
+     class="absolute top-3 right-3 z-30 w-72 max-w-[90%] pointer-events-auto bg-white/95 dark:bg-slate-900/95 backdrop-blur border border-slate-200 dark:border-slate-700 rounded-lg shadow-md">
+    <div class="flex items-center justify-between gap-2 px-3 py-2 border-b border-slate-200 dark:border-slate-700">
+        <span class="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+            <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            History
+            <span class="text-xs font-normal text-slate-500 dark:text-slate-400">(@entries.Count)</span>
+        </span>
+        <button type="button" onclick="toggleHistoryPanel()" aria-label="Close history panel"
+                class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+        </button>
+    </div>
+    <div class="max-h-[50vh] overflow-y-auto px-2 py-1.5 space-y-1">
+        @if (entries.Count == 0)
+        {
+            <p class="text-xs text-slate-500 dark:text-slate-400 px-2 py-3">No completions yet — mark a node complete to start tracking.</p>
+        }
+        else
+        {
+            @foreach (var e in entries)
+            {
+                <div class="flex items-start gap-2 px-2 py-1.5 rounded hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                     title="@e.Info.CompletedAt.ToLocalTime().ToString("MMM d, yyyy h:mm tt")">
+                    @if (!string.IsNullOrEmpty(e.Node.IconUrl))
+                    {
+                        <img src="@e.Node.IconUrl" alt="" class="w-6 h-6 object-contain flex-shrink-0 mt-0.5"
+                             loading="lazy" onerror="this.style.display='none'" />
+                    }
+                    else
+                    {
+                        <div class="w-6 h-6 flex-shrink-0 mt-0.5 rounded bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                            <svg class="w-3.5 h-3.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                            </svg>
+                        </div>
+                    }
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-baseline gap-1.5">
+                            <span class="text-xs font-medium text-slate-800 dark:text-slate-200 truncate">@e.Node.Label</span>
+                            <span class="text-[10px] text-slate-400 dark:text-slate-500 whitespace-nowrap shrink-0">@FormatTime(e.Info.CompletedAt)</span>
+                        </div>
+                        @if (!string.IsNullOrEmpty(e.Info.Note))
+                        {
+                            <p class="text-[11px] italic text-amber-600 dark:text-amber-400 truncate">@e.Info.Note</p>
+                        }
+                    </div>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public required Template Template { get; set; }
+    [Parameter] public Dictionary<int, CompletionInfo> CompletionDates { get; set; } = [];
+    [Parameter] public bool Oob { get; set; }
+
+    private static string FormatTime(DateTimeOffset time)
+    {
+        var ago = DateTimeOffset.UtcNow - time;
+        if (ago.TotalMinutes < 1) return "just now";
+        if (ago.TotalMinutes < 60) return $"{(int)ago.TotalMinutes}m ago";
+        if (ago.TotalHours < 24) return $"{(int)ago.TotalHours}h ago";
+        if (ago.TotalDays < 7) return $"{(int)ago.TotalDays}d ago";
+        var local = time.ToLocalTime();
+        return local.Year != DateTimeOffset.Now.Year
+            ? local.ToString("MMM d, yyyy")
+            : local.ToString("MMM d");
+    }
+}

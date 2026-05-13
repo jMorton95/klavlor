@@ -1,0 +1,28 @@
+@using KlavLor.Domain.Entities
+@using KlavLor.Application.Features.Viewer.ViewerData
+
+@if (Node.GroupId.HasValue)
+{
+    <ViewerGroupItem Node="@Node" TemplateId="@TemplateId"
+                     IsCompleted="@IsCompleted" CompletedAt="@CompletedAt"
+                     CompletionNote="@CompletionNote" IsNext="@IsNext" CanToggle="true" />
+}
+else
+{
+    <ViewerNode Node="@Node" TemplateId="@TemplateId"
+                IsCompleted="@IsCompleted" CompletedAt="@CompletedAt"
+                CompletionNote="@CompletionNote" IsNext="@IsNext" CanToggle="true" />
+}
+
+<HistoryPanel Template="@Template" CompletionDates="@CompletionDates" Oob="true" />
+
+@code {
+    [Parameter] public required TemplateNode Node { get; set; }
+    [Parameter] public required Template Template { get; set; }
+    [Parameter] public int TemplateId { get; set; }
+    [Parameter] public bool IsCompleted { get; set; }
+    [Parameter] public DateTimeOffset? CompletedAt { get; set; }
+    [Parameter] public string? CompletionNote { get; set; }
+    [Parameter] public bool IsNext { get; set; }
+    [Parameter] public Dictionary<int, CompletionInfo> CompletionDates { get; set; } = [];
+}

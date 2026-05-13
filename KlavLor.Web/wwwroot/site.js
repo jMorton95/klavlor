@@ -175,6 +175,44 @@ document.addEventListener('click', function(e) {
     });
 });
 
+// --- Completion History Panel toggle ---
+// State lives on <body> (preserved across panel OOB swaps + canvas re-renders); persisted in localStorage.
+window.HISTORY_PANEL_KEY = 'klavlor.viewer.historyOpen';
+
+window.syncHistoryToggleButton = function() {
+    var btn = document.getElementById('history-toggle-btn');
+    if (!btn) return;
+    var open = document.body.classList.contains('history-panel-open');
+    btn.setAttribute('aria-pressed', open ? 'true' : 'false');
+    var active = ['bg-amber-500', 'text-white', 'border-amber-500', 'dark:bg-amber-600', 'dark:border-amber-600', 'dark:text-white'];
+    var inactive = ['text-amber-600', 'dark:text-amber-400', 'border-amber-300', 'dark:border-amber-600'];
+    if (open) {
+        active.forEach(function(c) { btn.classList.add(c); });
+        inactive.forEach(function(c) { btn.classList.remove(c); });
+    } else {
+        active.forEach(function(c) { btn.classList.remove(c); });
+        inactive.forEach(function(c) { btn.classList.add(c); });
+    }
+};
+
+window.toggleHistoryPanel = function() {
+    var open = !document.body.classList.contains('history-panel-open');
+    document.body.classList.toggle('history-panel-open', open);
+    try { localStorage.setItem(window.HISTORY_PANEL_KEY, open ? '1' : '0'); } catch {}
+    window.syncHistoryToggleButton();
+};
+
+window.initHistoryPanel = function() {
+    if (!document.getElementById('completion-history-panel')) {
+        document.body.classList.remove('history-panel-open');
+        return;
+    }
+    var saved = '0';
+    try { saved = localStorage.getItem(window.HISTORY_PANEL_KEY) || '0'; } catch {}
+    document.body.classList.toggle('history-panel-open', saved === '1');
+    window.syncHistoryToggleButton();
+};
+
 // --- Loot Feed Filter ---
 (() => {
     const ALL_TIERS = ['standard', 'uncommon', 'rare', 'epic', 'legendary'];

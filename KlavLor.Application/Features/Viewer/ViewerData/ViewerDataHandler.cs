@@ -38,7 +38,8 @@ public sealed class ViewerDataHandler(
             template,
             completionDates,
             isOwner,
-            canTrackCompletion
+            canTrackCompletion,
+            currentUser.UserId.HasValue
         ));
     }
 }

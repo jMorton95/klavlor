@@ -1,0 +1,68 @@
+@using KlavLor.Domain.Entities
+@using KlavLor.Application.Features.Viewer.ViewerData
+@using KlavLor.Web.Application
+
+<div class="flex items-center justify-between bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-3">
+    <div class="flex items-center gap-3">
+        <a hx-get="@AppRoutes.TemplatesSearch.FromApi()" hx-target="#hx-page-container" hx-push-url="@AppRoutes.TemplatesSearch" hx-swap="innerHTML transition:true"
+           class="text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 flex items-center gap-1 cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            Back to Templates
+        </a>
+        <span class="text-slate-300 dark:text-slate-600">|</span>
+        <span class="text-sm font-medium text-slate-700 dark:text-slate-300">@Template.Name</span>
+        @if (Template.IsPublic)
+        {
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300">Public</span>
+        }
+        else
+        {
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">Private</span>
+        }
+        <span class="text-sm text-slate-500 dark:text-slate-400">by @(Template.CreatedBy?.FirstName ?? "Unknown") @(Template.CreatedBy?.LastName ?? "")</span>
+        @if (CompletionDates.Count > 0 || CanTrackCompletion)
+        {
+            <span class="text-slate-300 dark:text-slate-600">|</span>
+            <div class="flex items-center gap-2 text-sm">
+                <span class="text-slate-500 dark:text-slate-400">Progress:</span>
+                <span class="font-semibold text-amber-600 dark:text-amber-400">@CompletionDates.Count / @Template.Nodes.Count</span>
+                @if (Template.Nodes.Count > 0)
+                {
+                    var pct = (int)(CompletionDates.Count * 100.0 / Template.Nodes.Count);
+                    <div class="w-24 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                        <div class="h-full bg-amber-500 rounded-full transition-all duration-300" style="width: @(pct)%"></div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+    <div class="flex items-center gap-2">
+        <input type="text" id="canvas-search-input" placeholder="Search nodes..."
+               class="text-xs px-2 py-1 w-36 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-400" />
+        @if (IsAuthenticated)
+        {
+            <button type="button" id="history-toggle-btn" onclick="toggleHistoryPanel()" aria-pressed="false"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-amber-600 dark:text-amber-400 border border-amber-300 dark:border-amber-600 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950 transition-colors cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                History
+            </button>
+        }
+        @if (IsOwner)
+        {
+            <a hx-get="@AppRoutes.Builder.WithId(Template.Id).FromApi()" hx-target="#hx-page-container" hx-push-url="@AppRoutes.Builder.WithId(Template.Id)" hx-swap="innerHTML transition:true"
+               class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-amber-600 dark:text-amber-400 border border-amber-300 dark:border-amber-600 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950 transition-colors cursor-pointer">
+                Edit in Builder
+            </a>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public required Template Template { get; set; }
+    [Parameter] public Dictionary<int, CompletionInfo> CompletionDates { get; set; } = [];
+    [Parameter] public bool IsOwner { get; set; }
+    [Parameter] public bool CanTrackCompletion { get; set; }
+    [Parameter] public bool IsAuthenticated { get; set; }
+}

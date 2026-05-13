@@ -1,4 +1,5 @@
 using KlavLor.Application.Features.Viewer.ToggleCompletion;
+using KlavLor.Application.Features.Viewer.ViewerData;
 using KlavLor.Application.Interfaces.Authentication;
 using KlavLor.Domain.Interfaces.Repositories;
 using KlavLor.Domain.Shared;
@@ -37,6 +38,11 @@ public sealed class CompletionEndpoint : IEndpoint
         var node = template.Nodes.FirstOrDefault(n => n.Id == nodeId);
         if (node is null) return Microsoft.AspNetCore.Http.Results.NotFound();
 
+        var allCompletions = await completionRepository.GetByUserAndTemplate(userId.Value, id);
+        var completionDates = allCompletions.ToDictionary(
+            c => c.TemplateNodeId,
+            c => new CompletionInfo(c.CompletedAt, c.Note));
+
         var completion = await completionRepository.GetCompletion(userId.Value, nodeId);
         var isCompleted = completion is not null;
         DateTimeOffset? completedAt = completion?.CompletedAt;
@@ -46,7 +52,6 @@ public sealed class CompletionEndpoint : IEndpoint
         var isNext = false;
         if (!isCompleted && node.GroupId.HasValue)
         {
-            var allCompletions = await completionRepository.GetByUserAndTemplate(userId.Value, id);
             var completedNodeIds = allCompletions.Select(c => c.TemplateNodeId).ToHashSet();
             var nodesByGroup = template.Nodes
                 .Where(n => n.GroupId.HasValue)
@@ -85,29 +90,16 @@ public sealed class CompletionEndpoint : IEndpoint
             isNext = allPredsCompleted;
         }
 
-        if (node.GroupId.HasValue)
-        {
-            return IResultExtensions.Component<ViewerGroupItem>(new
-            {
-                Node = node,
-                TemplateId = id,
-                IsCompleted = isCompleted,
-                CompletedAt = completedAt,
-                CompletionNote = completionNote,
-                IsNext = isNext,
-                CanToggle = true
-            });
-        }
-
-        return IResultExtensions.Component<ViewerNode>(new
+        return IResultExtensions.Component<CompletionToggleResult>(new
         {
             Node = node,
+            Template = template,
             TemplateId = id,
             IsCompleted = isCompleted,
             CompletedAt = completedAt,
             CompletionNote = completionNote,
             IsNext = isNext,
-            CanToggle = true
+            CompletionDates = completionDates
         });
     }
 
