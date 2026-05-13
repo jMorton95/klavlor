@@ -11,15 +11,21 @@ internal sealed class LootFeedService : ILootFeedService
     private const int BufferCapacity = 50;
     private const int ChannelCapacity = 10;
 
-    private readonly ConcurrentDictionary<LootFeedTier, ConcurrentQueue<LootFeedEntry>> _buffers = new(
-        ILootFeedService.AllTiers.Select(t => new KeyValuePair<LootFeedTier, ConcurrentQueue<LootFeedEntry>>(t, new())));
+    private readonly Dictionary<LootFeedTier, LinkedList<LootFeedEntry>> _buffers =
+        ILootFeedService.AllTiers.ToDictionary(t => t, _ => new LinkedList<LootFeedEntry>());
+
+    private readonly Dictionary<LootFeedTier, object> _bufferLocks =
+        ILootFeedService.AllTiers.ToDictionary(t => t, _ => new object());
 
     private readonly ConcurrentDictionary<LootFeedTier, ConcurrentDictionary<Guid, Channel<LootFeedEntry>>> _subscribers = new(
         ILootFeedService.AllTiers.Select(t => new KeyValuePair<LootFeedTier, ConcurrentDictionary<Guid, Channel<LootFeedEntry>>>(t, new())));
 
     public IReadOnlyList<LootFeedEntry> GetCurrentEntries(LootFeedTier tier)
     {
-        return _buffers[tier].OrderByDescending(e => e.OccurredAt).ToArray();
+        lock (_bufferLocks[tier])
+        {
+            return _buffers[tier].Reverse().ToArray();
+        }
     }
 
     public async IAsyncEnumerable<LootFeedEntry> SubscribeAsync(
@@ -50,25 +56,48 @@ internal sealed class LootFeedService : ILootFeedService
 
     public void SeedBuffer(IEnumerable<LootFeedEntry> entries)
     {
+        // Input is ordered newest-first; buffer convention is First=oldest, Last=newest.
         foreach (var entry in entries)
         {
-            _buffers[entry.Tier].Enqueue(entry);
+            var buffer = _buffers[entry.Tier];
+            lock (_bufferLocks[entry.Tier])
+            {
+                buffer.AddFirst(entry);
+                while (buffer.Count > BufferCapacity)
+                {
+                    buffer.RemoveFirst();
+                }
+            }
         }
     }
 
     public void Publish(LootFeedEntry entry)
     {
         var buffer = _buffers[entry.Tier];
+        LootFeedEntry broadcastEntry;
 
-        buffer.Enqueue(entry);
-
-        while (buffer.Count > BufferCapacity && buffer.TryDequeue(out _))
+        lock (_bufferLocks[entry.Tier])
         {
+            if (buffer.Last is { } tail && tail.Value.GroupKey == entry.GroupKey)
+            {
+                var merged = LootFeedGrouping.Merge(tail.Value, entry);
+                tail.Value = merged;
+                broadcastEntry = merged;
+            }
+            else
+            {
+                buffer.AddLast(entry);
+                while (buffer.Count > BufferCapacity)
+                {
+                    buffer.RemoveFirst();
+                }
+                broadcastEntry = entry;
+            }
         }
 
         foreach (var (_, channel) in _subscribers[entry.Tier])
         {
-            channel.Writer.TryWrite(entry);
+            channel.Writer.TryWrite(broadcastEntry);
         }
     }
 }

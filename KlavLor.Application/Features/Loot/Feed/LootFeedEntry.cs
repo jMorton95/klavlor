@@ -13,6 +13,29 @@ public sealed record LootFeedEntry(
     DateTimeOffset OccurredAt,
     LootFeedTier Tier,
     string? CharacterName = null,
-    int? GameCharacterId = null);
+    int? GameCharacterId = null,
+    int RunCount = 1,
+    DateTimeOffset? GroupStartedAt = null)
+{
+    public DateTimeOffset GroupAnchorAt => GroupStartedAt ?? OccurredAt;
+
+    public string GroupKey => $"{(int)SourceType}|{SourceName}|{UserId}|{GameCharacterId ?? 0}";
+
+    public string DomId => $"loot-feed-entry-{StableHash(GroupKey):x8}-{GroupAnchorAt.UtcTicks:x}";
+
+    private static uint StableHash(string s)
+    {
+        unchecked
+        {
+            uint hash = 2166136261u;
+            foreach (var c in s)
+            {
+                hash ^= c;
+                hash *= 16777619u;
+            }
+            return hash;
+        }
+    }
+}
 
 public sealed record LootFeedDrop(string Name, int Quantity, int Price);

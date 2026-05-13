@@ -2,7 +2,14 @@
 @using KlavLor.Application.Features.Loot.Feed
 @using KlavLor.Application.Interfaces.Services
 
-<div class="@(Animate ? "loot-feed-new " : "")bg-white dark:bg-slate-900 rounded-lg shadow border @GetValueTierClasses() p-2.5 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-amber-200 dark:hover:border-amber-700 transition-all duration-200">
+@{
+    Dictionary<string, object>? oobAttrs = IsMerge
+        ? new Dictionary<string, object> { ["hx-swap-oob"] = "outerHTML" }
+        : null;
+}
+<div id="@Entry.DomId"
+     @attributes="oobAttrs"
+     class="@(Animate ? "loot-feed-new " : "")bg-white dark:bg-slate-900 rounded-lg shadow border @GetValueTierClasses() p-2.5 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-amber-200 dark:hover:border-amber-700 transition-all duration-200">
     <div class="flex items-center gap-1 mb-1.5 min-w-0">
         @if (Entry.GameCharacterId is not null)
         {
@@ -26,7 +33,7 @@
                  class="w-4 h-4 rounded shrink-0"
                  loading="lazy"
                  onerror="this.style.display='none'" />
-            <span class="truncate">@Entry.SourceName</span>
+            <span class="truncate">@Entry.SourceName@(Entry.RunCount > 1 ? $" ({Entry.RunCount})" : "")</span>
         </a>
         <time datetime="@Entry.OccurredAt.UtcDateTime.ToString("o")" class="text-[10px] text-slate-400 whitespace-nowrap ml-auto shrink-0 loot-timestamp">@FormatTime(Entry.OccurredAt)</time>
     </div>
@@ -73,6 +80,7 @@
 @code {
     [Parameter] public required LootFeedEntry Entry { get; set; }
     [Parameter] public bool Animate { get; set; }
+    [Parameter] public bool IsMerge { get; set; }
 
     private string GetValueTierClasses() => Entry.Tier switch
     {

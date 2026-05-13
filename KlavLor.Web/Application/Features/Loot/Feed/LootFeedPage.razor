@@ -25,10 +25,10 @@
     protected override async Task OnInitializedAsync()
     {
         var tiers = await LootLogRepository.GetAllFeedTiers(50);
-        _standard = tiers[LootFeedTier.Standard];
-        _uncommon = tiers[LootFeedTier.Uncommon];
-        _rare = tiers[LootFeedTier.Rare];
-        _epic = tiers[LootFeedTier.Epic];
-        _legendary = tiers[LootFeedTier.Legendary];
+        _standard = LootFeedGrouping.CollapseAdjacent(tiers[LootFeedTier.Standard]);
+        _uncommon = LootFeedGrouping.CollapseAdjacent(tiers[LootFeedTier.Uncommon]);
+        _rare = LootFeedGrouping.CollapseAdjacent(tiers[LootFeedTier.Rare]);
+        _epic = LootFeedGrouping.CollapseAdjacent(tiers[LootFeedTier.Epic]);
+        _legendary = LootFeedGrouping.CollapseAdjacent(tiers[LootFeedTier.Legendary]);
     }
 }

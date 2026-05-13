@@ -44,11 +44,11 @@ public sealed class LootFeedEndpoint : IEndpoint
 
         return IResultExtensions.Component<LootFeedContent>(new
         {
-            StandardEntries = (IReadOnlyList<LootFeedEntry>)tierData[LootFeedTier.Standard],
-            UncommonEntries = (IReadOnlyList<LootFeedEntry>)tierData[LootFeedTier.Uncommon],
-            RareEntries = (IReadOnlyList<LootFeedEntry>)tierData[LootFeedTier.Rare],
-            EpicEntries = (IReadOnlyList<LootFeedEntry>)tierData[LootFeedTier.Epic],
-            LegendaryEntries = (IReadOnlyList<LootFeedEntry>)tierData[LootFeedTier.Legendary]
+            StandardEntries = LootFeedGrouping.CollapseAdjacent(tierData[LootFeedTier.Standard]),
+            UncommonEntries = LootFeedGrouping.CollapseAdjacent(tierData[LootFeedTier.Uncommon]),
+            RareEntries = LootFeedGrouping.CollapseAdjacent(tierData[LootFeedTier.Rare]),
+            EpicEntries = LootFeedGrouping.CollapseAdjacent(tierData[LootFeedTier.Epic]),
+            LegendaryEntries = LootFeedGrouping.CollapseAdjacent(tierData[LootFeedTier.Legendary])
         });
     }
 
@@ -59,11 +59,11 @@ public sealed class LootFeedEndpoint : IEndpoint
 
         return IResultExtensions.Component<LootFeedGrid>(new
         {
-            StandardEntries = (IReadOnlyList<LootFeedEntry>)tierData[LootFeedTier.Standard],
-            UncommonEntries = (IReadOnlyList<LootFeedEntry>)tierData[LootFeedTier.Uncommon],
-            RareEntries = (IReadOnlyList<LootFeedEntry>)tierData[LootFeedTier.Rare],
-            EpicEntries = (IReadOnlyList<LootFeedEntry>)tierData[LootFeedTier.Epic],
-            LegendaryEntries = (IReadOnlyList<LootFeedEntry>)tierData[LootFeedTier.Legendary],
+            StandardEntries = LootFeedGrouping.CollapseAdjacent(tierData[LootFeedTier.Standard]),
+            UncommonEntries = LootFeedGrouping.CollapseAdjacent(tierData[LootFeedTier.Uncommon]),
+            RareEntries = LootFeedGrouping.CollapseAdjacent(tierData[LootFeedTier.Rare]),
+            EpicEntries = LootFeedGrouping.CollapseAdjacent(tierData[LootFeedTier.Epic]),
+            LegendaryEntries = LootFeedGrouping.CollapseAdjacent(tierData[LootFeedTier.Legendary]),
             ActiveTiers = requestedTiers is not null
                 ? (IReadOnlyList<LootFeedTier>)requestedTiers.Order().ToList()
                 : (IReadOnlyList<LootFeedTier>)ILootFeedService.AllTiers
@@ -100,7 +100,12 @@ public sealed class LootFeedEndpoint : IEndpoint
         {
             var html = await RenderComponentToString<LootFeedItem>(
                 serviceProvider, loggerFactory,
-                new Dictionary<string, object?> { ["Entry"] = entry, ["Animate"] = true });
+                new Dictionary<string, object?>
+                {
+                    ["Entry"] = entry,
+                    ["Animate"] = true,
+                    ["IsMerge"] = entry.RunCount > 1
+                });
 
             var ssePayload = string.Join("\n", html.Split('\n').Select(line => $"data: {line}"));
             await context.Response.WriteAsync($"{ssePayload}\n\n", ct);

@@ -1,3 +1,4 @@
+using KlavLor.Application.Features.Loot.Feed;
 using KlavLor.Application.Interfaces.Repositories;
 using KlavLor.Application.Interfaces.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,8 +26,9 @@ public sealed class LootFeedSeederService(
             {
                 if (entries.Count > 0)
                 {
-                    feedService.SeedBuffer(entries);
-                    totalSeeded += entries.Count;
+                    var collapsed = LootFeedGrouping.CollapseAdjacent(entries);
+                    feedService.SeedBuffer(collapsed);
+                    totalSeeded += collapsed.Count;
                 }
             }
 
