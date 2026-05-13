@@ -491,6 +491,11 @@ KlavLor.Web/appsettings.Local.json
 review.md
 scripts.md
 
+# Playwright MCP / browser-automation outputs
+.playwright-mcp/
+page-*.yml
+*-diagnostics.json
+
 # Images / screenshots not part of the app
 *.png
 *.jpg
