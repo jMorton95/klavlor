@@ -364,6 +364,14 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
     public async Task<Dictionary<LootFeedTier, List<LootFeedEntry>>> GetAllFeedTiers(
         int countPerTier, IReadOnlySet<LootFeedTier>? requestedTiers = null)
     {
+        // The cap counts *grouped* entries: adjacent same-source kills collapse into one card
+        // (e.g. 10 clues in a row = 1 entry), and we want countPerTier of those, not raw records.
+        // Tier classification is per-drop (each LootRecord can split across tiers via its drops),
+        // so we over-fetch candidates, filter+collapse in C#, and refetch with a larger window
+        // only when one user's run dominated the initial fetch.
+        const int initialTake = 150;
+        const int hardCap = 1500;
+
         try
         {
             var tiers = requestedTiers ?? new HashSet<LootFeedTier>(ILootFeedService.AllTiers);
@@ -379,58 +387,38 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
 
             foreach (var tier in tiers)
             {
-                var (minValue, _) = ILootFeedService.GetTierRange(tier);
-
-                // Over-fetch: TotalValue >= tier min is a necessary condition for having any single
-                // drop at that value. Fetch 150 candidates and filter by individual drop values in C#.
-                var candidates = await baseQuery
-                    .Where(x => x.Record.TotalValue >= minValue)
-                    .OrderByDescending(x => x.Record.OccurredAt)
-                    .Take(150)
-                    .Select(x => new FeedTierProjection
-                    {
-                        UserName = x.User.FirstName + " " + x.User.LastName,
-                        UserId = x.Record.UserId,
-                        SourceName = x.Record.SourceName,
-                        SourceType = x.Record.SourceType,
-                        TotalValue = x.Record.TotalValue,
-                        DropsJson = x.Record.DropsJson,
-                        OccurredAt = x.Record.OccurredAt,
-                        CharacterName = x.Character.DisplayName ?? x.User.FirstName + " " + x.User.LastName,
-                        GameCharacterId = x.Character.Id
-                    })
-                    .ToListAsync();
-
                 var (tierMin, tierMax) = ILootFeedService.GetTierRange(tier);
+                var take = initialTake;
 
-                foreach (var r in candidates)
+                while (true)
                 {
-                    if (result[tier].Count >= countPerTier) break;
-
-                    var allDrops = JsonSerializer.Deserialize<List<LootDrop>>(r.DropsJson) ?? [];
-                    var tierDrops = allDrops
-                        .Where(d =>
+                    var candidates = await baseQuery
+                        .Where(x => x.Record.TotalValue >= tierMin)
+                        .OrderByDescending(x => x.Record.OccurredAt)
+                        .Take(take)
+                        .Select(x => new FeedTierProjection
                         {
-                            var val = (long)d.Quantity * d.Price;
-                            return val >= tierMin && (tierMax is null || val < tierMax.Value);
+                            UserName = x.User.FirstName + " " + x.User.LastName,
+                            UserId = x.Record.UserId,
+                            SourceName = x.Record.SourceName,
+                            SourceType = x.Record.SourceType,
+                            TotalValue = x.Record.TotalValue,
+                            DropsJson = x.Record.DropsJson,
+                            OccurredAt = x.Record.OccurredAt,
+                            CharacterName = x.Character.DisplayName ?? x.User.FirstName + " " + x.User.LastName,
+                            GameCharacterId = x.Character.Id
                         })
-                        .Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price))
-                        .ToList();
+                        .ToListAsync();
 
-                    if (tierDrops.Count == 0) continue;
+                    var groups = CollapseProjections(candidates, tier, tierMin, tierMax, countPerTier);
 
-                    var tierTotal = tierDrops.Sum(d => (long)d.Quantity * d.Price);
-                    result[tier].Add(new LootFeedEntry(
-                        r.UserName,
-                        r.UserId,
-                        r.SourceName,
-                        r.SourceType,
-                        tierTotal,
-                        tierDrops,
-                        r.OccurredAt,
-                        tier,
-                        r.CharacterName,
-                        r.GameCharacterId));
+                    if (groups.Count >= countPerTier || candidates.Count < take || take >= hardCap)
+                    {
+                        result[tier] = groups;
+                        break;
+                    }
+
+                    take = Math.Min(take * 2, hardCap);
                 }
             }
 
@@ -441,6 +429,51 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             logger.LogError(ex, "Failed to get all feed tiers");
             throw new RepositoryException("Failed to get all feed tiers", ex);
         }
+    }
+
+    private static List<LootFeedEntry> CollapseProjections(
+        List<FeedTierProjection> candidates,
+        LootFeedTier tier,
+        long tierMin,
+        long? tierMax,
+        int targetGroups)
+    {
+        var groups = new List<LootFeedEntry>();
+        foreach (var r in candidates)
+        {
+            var allDrops = JsonSerializer.Deserialize<List<LootDrop>>(r.DropsJson) ?? [];
+            var tierDrops = allDrops
+                .Where(d =>
+                {
+                    var val = (long)d.Quantity * d.Price;
+                    return val >= tierMin && (tierMax is null || val < tierMax.Value);
+                })
+                .Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price))
+                .ToList();
+
+            if (tierDrops.Count == 0) continue;
+
+            var tierTotal = tierDrops.Sum(d => (long)d.Quantity * d.Price);
+            var entry = new LootFeedEntry(
+                r.UserName,
+                r.UserId,
+                r.SourceName,
+                r.SourceType,
+                tierTotal,
+                tierDrops,
+                r.OccurredAt,
+                tier,
+                r.CharacterName,
+                r.GameCharacterId);
+
+            if (groups.Count > 0 && groups[^1].GroupKey == entry.GroupKey)
+                groups[^1] = LootFeedGrouping.Merge(groups[^1], entry);
+            else
+                groups.Add(entry);
+
+            if (groups.Count >= targetGroups) break;
+        }
+        return groups;
     }
 
     public async Task DeleteAllForCharacter(int characterId)

@@ -22,21 +22,4 @@ public static class LootFeedGrouping
             GroupStartedAt = anchor
         };
     }
-
-    public static IReadOnlyList<LootFeedEntry> CollapseAdjacent(IEnumerable<LootFeedEntry> orderedNewestFirst)
-    {
-        var result = new List<LootFeedEntry>();
-        foreach (var entry in orderedNewestFirst)
-        {
-            if (result.Count > 0 && result[^1].GroupKey == entry.GroupKey)
-            {
-                result[^1] = Merge(result[^1], entry);
-            }
-            else
-            {
-                result.Add(entry);
-            }
-        }
-        return result;
-    }
 }
