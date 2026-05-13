@@ -78,7 +78,7 @@ internal sealed class LootFeedService : ILootFeedService
 
         lock (_bufferLocks[entry.Tier])
         {
-            if (buffer.Last is { } tail && tail.Value.GroupKey == entry.GroupKey)
+            if (buffer.Last is { } tail && LootFeedGrouping.CanMerge(tail.Value, entry))
             {
                 var merged = LootFeedGrouping.Merge(tail.Value, entry);
                 tail.Value = merged;

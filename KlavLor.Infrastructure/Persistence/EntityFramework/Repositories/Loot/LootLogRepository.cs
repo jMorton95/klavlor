@@ -466,7 +466,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 r.CharacterName,
                 r.GameCharacterId);
 
-            if (groups.Count > 0 && groups[^1].GroupKey == entry.GroupKey)
+            if (groups.Count > 0 && LootFeedGrouping.CanMerge(groups[^1], entry))
                 groups[^1] = LootFeedGrouping.Merge(groups[^1], entry);
             else
                 groups.Add(entry);

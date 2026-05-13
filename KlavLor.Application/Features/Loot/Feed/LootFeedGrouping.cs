@@ -2,6 +2,17 @@ namespace KlavLor.Application.Features.Loot.Feed;
 
 public static class LootFeedGrouping
 {
+    public static readonly TimeSpan MaxGap = TimeSpan.FromHours(1);
+
+    public static bool CanMerge(LootFeedEntry head, LootFeedEntry next)
+    {
+        if (head.GroupKey != next.GroupKey) return false;
+        var deltaFromOccurred = (head.OccurredAt - next.OccurredAt).Duration();
+        var deltaFromAnchor = (head.GroupAnchorAt - next.OccurredAt).Duration();
+        var nearest = deltaFromOccurred < deltaFromAnchor ? deltaFromOccurred : deltaFromAnchor;
+        return nearest <= MaxGap;
+    }
+
     public static LootFeedEntry Merge(LootFeedEntry head, LootFeedEntry next)
     {
         var combinedDrops = new List<LootFeedDrop>(head.Drops.Count + next.Drops.Count);
