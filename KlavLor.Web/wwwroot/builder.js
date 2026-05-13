@@ -43,13 +43,231 @@
         var dy = Math.abs(y2 - y1);
 
         if (dx >= dy) {
-            var cpOffset = Math.max(dx * 0.4, 50);
+            var cpOffset = Math.min(Math.max(dx * 0.4, 20), dx / 2);
             return `M ${x1} ${y1} C ${x1 + cpOffset} ${y1}, ${x2 - cpOffset} ${y2}, ${x2} ${y2}`;
         } else {
-            var cpOffset = Math.max(dy * 0.4, 50);
+            var cpOffset = Math.min(Math.max(dy * 0.4, 20), dy / 2);
             var cpDir = y2 > y1 ? 1 : -1;
             return `M ${x1} ${y1} C ${x1} ${y1 + cpOffset * cpDir}, ${x2} ${y2 - cpOffset * cpDir}, ${x2} ${y2}`;
         }
+    }
+
+    // --- Orthogonal routing ---
+    //
+    // Each edge is drawn as a sequence of axis-aligned segments connected by
+    // small rounded corners. The first and last segments are perpendicular
+    // "stubs" pointing away from the group; the middle segment(s) thread
+    // between obstacles.
+
+    var STUB_LENGTH = 30;          // px between port and first turn
+    var CORNER_RADIUS = 8;         // px rounding at each turn
+    var OBSTACLE_PADDING = 6;      // px halo around groups for clearance
+
+    function getSideNormal(side) {
+        if (side === 'right') return { x: 1, y: 0 };
+        if (side === 'left') return { x: -1, y: 0 };
+        if (side === 'bottom') return { x: 0, y: 1 };
+        return { x: 0, y: -1 };
+    }
+
+    // Returns true when an axis-aligned segment from a to b enters rect's
+    // interior (touching the boundary does not count).
+    function segmentIntersectsRect(ax, ay, bx, by, rect) {
+        var minSegX = Math.min(ax, bx), maxSegX = Math.max(ax, bx);
+        var minSegY = Math.min(ay, by), maxSegY = Math.max(ay, by);
+        var rx1 = rect.x, rx2 = rect.x + rect.w;
+        var ry1 = rect.y, ry2 = rect.y + rect.h;
+        // Overlap of bounding boxes (strict for the dimension the segment spans)
+        if (maxSegX <= rx1 || minSegX >= rx2) return false;
+        if (maxSegY <= ry1 || minSegY >= ry2) return false;
+        return true;
+    }
+
+    function waypointsCrossAny(waypoints, obstacles) {
+        for (var i = 0; i < waypoints.length - 1; i++) {
+            var a = waypoints[i], b = waypoints[i + 1];
+            for (var j = 0; j < obstacles.length; j++) {
+                if (segmentIntersectsRect(a.x, a.y, b.x, b.y, obstacles[j])) return true;
+            }
+        }
+        return false;
+    }
+
+    // Build the obstacle list for an edge — every group except its two
+    // endpoints, expanded by a small padding so curves don't graze borders.
+    function buildObstacleList(allRects, fromGid, toGid) {
+        var out = [];
+        for (var i = 0; i < allRects.length; i++) {
+            var r = allRects[i];
+            if (r.gid === fromGid || r.gid === toGid) continue;
+            out.push({
+                x: r.x - OBSTACLE_PADDING,
+                y: r.y - OBSTACLE_PADDING,
+                w: r.w + OBSTACLE_PADDING * 2,
+                h: r.h + OBSTACLE_PADDING * 2
+            });
+        }
+        return out;
+    }
+
+    // Returns true if every segment in the candidate waypoints list is
+    // axis-aligned and the segments collectively connect p0 to p1.
+    function tryRoute(waypoints, obstacles) {
+        return !waypointsCrossAny(waypoints, obstacles);
+    }
+
+    // Z-route along the X axis: vertical-horizontal-vertical or
+    // horizontal-vertical-horizontal connector through a single midpoint.
+    function zRouteX(q0, q1) {
+        var mid = (q0.x + q1.x) / 2;
+        return [q0, { x: mid, y: q0.y }, { x: mid, y: q1.y }, q1];
+    }
+    function zRouteY(q0, q1) {
+        var mid = (q0.y + q1.y) / 2;
+        return [q0, { x: q0.x, y: mid }, { x: q1.x, y: mid }, q1];
+    }
+
+    // Sweep the midpoint of a Z-route along its routing axis until the middle
+    // segment clears every obstacle. Returns null if no clear position exists.
+    function clearedZRoute(q0, q1, obstacles, axis) {
+        var candidates = [];
+        // Natural midpoint first, then increasingly off-centre alternatives.
+        if (axis === 'x') {
+            var lo = Math.min(q0.x, q1.x), hi = Math.max(q0.x, q1.x);
+            var natural = (q0.x + q1.x) / 2;
+            for (var step = 0; step <= 8; step++) {
+                var range = (hi - lo) / 2;
+                var off = (step / 8) * range;
+                candidates.push(natural + off);
+                if (step > 0) candidates.push(natural - off);
+            }
+            for (var i = 0; i < candidates.length; i++) {
+                var m = candidates[i];
+                if (m <= lo + 1 || m >= hi - 1) continue;
+                var wp = [q0, { x: m, y: q0.y }, { x: m, y: q1.y }, q1];
+                if (tryRoute(wp, obstacles)) return wp;
+            }
+            return null;
+        } else {
+            var loY = Math.min(q0.y, q1.y), hiY = Math.max(q0.y, q1.y);
+            var naturalY = (q0.y + q1.y) / 2;
+            for (var stepY = 0; stepY <= 8; stepY++) {
+                var rangeY = (hiY - loY) / 2;
+                var offY = (stepY / 8) * rangeY;
+                candidates.push(naturalY + offY);
+                if (stepY > 0) candidates.push(naturalY - offY);
+            }
+            for (var k = 0; k < candidates.length; k++) {
+                var my = candidates[k];
+                if (my <= loY + 1 || my >= hiY - 1) continue;
+                var wpY = [q0, { x: q0.x, y: my }, { x: q1.x, y: my }, q1];
+                if (tryRoute(wpY, obstacles)) return wpY;
+            }
+            return null;
+        }
+    }
+
+    // L-route: one corner, used when the two side normals are perpendicular.
+    function lRoute(q0, q1, side0, side1) {
+        var n0 = getSideNormal(side0), n1 = getSideNormal(side1);
+        // The corner sits at the intersection of q0's stub line and q1's stub line.
+        // n0 is horizontal ⇒ corner.x = q1.x, corner.y = q0.y. And vice versa.
+        if (n0.x !== 0) return [q0, { x: q1.x, y: q0.y }, q1];
+        return [q0, { x: q0.x, y: q1.y }, q1];
+    }
+
+    // U-route: both ports exit the same side. The connecting segment sits
+    // further out along the side normal.
+    function uRoute(q0, q1, side, p0, p1, fromRect, toRect) {
+        var extra = STUB_LENGTH;
+        if (side === 'right') {
+            var x = Math.max(q0.x, q1.x) + extra;
+            return [q0, { x: x, y: q0.y }, { x: x, y: q1.y }, q1];
+        }
+        if (side === 'left') {
+            var xl = Math.min(q0.x, q1.x) - extra;
+            return [q0, { x: xl, y: q0.y }, { x: xl, y: q1.y }, q1];
+        }
+        if (side === 'bottom') {
+            var y = Math.max(q0.y, q1.y) + extra;
+            return [q0, { x: q0.x, y: y }, { x: q1.x, y: y }, q1];
+        }
+        var yt = Math.min(q0.y, q1.y) - extra;
+        return [q0, { x: q0.x, y: yt }, { x: q1.x, y: yt }, q1];
+    }
+
+    // Main routing entry point. Returns a list of waypoints from p0 to p1.
+    function routeOrthogonal(p0, side0, p1, side1, obstacles) {
+        var n0 = getSideNormal(side0), n1 = getSideNormal(side1);
+        var q0 = { x: p0.x + n0.x * STUB_LENGTH, y: p0.y + n0.y * STUB_LENGTH };
+        var q1 = { x: p1.x + n1.x * STUB_LENGTH, y: p1.y + n1.y * STUB_LENGTH };
+
+        var sameAxis = (n0.x !== 0) === (n1.x !== 0);
+        var opposite = (n0.x === -n1.x && n0.y === -n1.y);
+        var same = (n0.x === n1.x && n0.y === n1.y);
+
+        var route;
+        if (opposite) {
+            // Z-route on the axis the ports face along
+            var axis = n0.x !== 0 ? 'x' : 'y';
+            route = clearedZRoute(q0, q1, obstacles, axis) || (axis === 'x' ? zRouteX(q0, q1) : zRouteY(q0, q1));
+        } else if (same) {
+            route = uRoute(q0, q1, side0);
+        } else {
+            // Perpendicular ⇒ L-route
+            route = lRoute(q0, q1, side0, side1);
+        }
+
+        // Prepend p0 and append p1 so the stub segments are explicit.
+        return [p0].concat(route).concat([p1]);
+    }
+
+    // Convert a list of waypoints into an SVG path string. Each interior
+    // corner is replaced by a quadratic curve of radius r, clamped to a third
+    // of either adjacent segment so corners don't overshoot.
+    function waypointsToPath(points, radius) {
+        if (points.length < 2) return '';
+        // De-dup adjacent identical waypoints, then collapse collinear
+        // triples so degenerate "corners" from stub prepend/append don't
+        // appear in the path string.
+        var pts = [points[0]];
+        for (var i = 1; i < points.length; i++) {
+            var prev = pts[pts.length - 1];
+            if (Math.abs(prev.x - points[i].x) < 0.5 && Math.abs(prev.y - points[i].y) < 0.5) continue;
+            pts.push(points[i]);
+        }
+        for (var c = 1; c < pts.length - 1; ) {
+            var a = pts[c - 1], b = pts[c], n = pts[c + 1];
+            // Collinear if the cross product of (b-a) and (n-b) is ~0
+            var cross = (b.x - a.x) * (n.y - b.y) - (b.y - a.y) * (n.x - b.x);
+            if (Math.abs(cross) < 0.5) {
+                pts.splice(c, 1);
+            } else {
+                c++;
+            }
+        }
+        if (pts.length < 2) return '';
+        if (pts.length === 2) return `M ${pts[0].x} ${pts[0].y} L ${pts[1].x} ${pts[1].y}`;
+
+        var d = `M ${pts[0].x} ${pts[0].y}`;
+        for (var k = 1; k < pts.length - 1; k++) {
+            var a = pts[k - 1], b = pts[k], c = pts[k + 1];
+            var ab = Math.hypot(b.x - a.x, b.y - a.y);
+            var bc = Math.hypot(c.x - b.x, c.y - b.y);
+            var r = Math.min(radius, ab / 2, bc / 2);
+            // Point along a→b, r before b
+            var t1 = ab > 0 ? (ab - r) / ab : 0;
+            var p1x = a.x + (b.x - a.x) * t1;
+            var p1y = a.y + (b.y - a.y) * t1;
+            // Point along b→c, r after b
+            var t2 = bc > 0 ? r / bc : 0;
+            var p2x = b.x + (c.x - b.x) * t2;
+            var p2y = b.y + (c.y - b.y) * t2;
+            d += ` L ${p1x} ${p1y} Q ${b.x} ${b.y} ${p2x} ${p2y}`;
+        }
+        var last = pts[pts.length - 1];
+        d += ` L ${last.x} ${last.y}`;
+        return d;
     }
 
     function getPortId(port) {
@@ -87,6 +305,16 @@
         /* top */ return { x: group.x + fraction * group.w, y: group.y };
     }
 
+    // Perpendicular pixel bias applied to one direction of a reverse-edge pair,
+    // so A→B and B→A don't render on top of each other. Shifts the endpoint
+    // along the group side (left/right sides → shift Y; top/bottom → shift X).
+    var REVERSE_EDGE_BIAS = 8;
+
+    function applyReverseBias(point, side, bias) {
+        if (side === 'left' || side === 'right') return { x: point.x, y: point.y + bias };
+        return { x: point.x + bias, y: point.y };
+    }
+
     // Collect all edges and compute distributed endpoints
     function computeDistributedEdges(canvasSelector, edgeSelector, getGroupFn) {
         var canvas = document.querySelector(canvasSelector);
@@ -95,8 +323,10 @@
         var edges = Array.from(canvas.querySelectorAll(edgeSelector));
         if (!edges.length) return [];
 
-        // Build edge data
+        // Build edge data. Identify reverse-edge pairs in a single pass and tag
+        // the second one with a perpendicular bias so it doesn't overlap.
         var edgeData = [];
+        var seenPairs = {};
         edges.forEach(function(edge) {
             var fromGid = edge.dataset.fromGroup;
             var toGid = edge.dataset.toGroup;
@@ -111,31 +341,53 @@
             var fromSide = determineSide(from, to);
             var toSide = determineSide(to, from);
 
-            edgeData.push({ edge: edge, from: from, to: to, fromGid: fromGid, toGid: toGid, fromSide: fromSide, toSide: toSide });
+            var forwardKey = fromGid + '->' + toGid;
+            var reverseKey = toGid + '->' + fromGid;
+            var bias = 0;
+            if (seenPairs[reverseKey]) bias = REVERSE_EDGE_BIAS;
+            seenPairs[forwardKey] = true;
+
+            edgeData.push({ edge: edge, from: from, to: to, fromGid: fromGid, toGid: toGid, fromSide: fromSide, toSide: toSide, bias: bias });
         });
 
-        // Count edges per (groupId, side)
+        // Bucket edges per (groupId, side), then sort each bucket by the spatial
+        // position of the *other* group so an edge whose partner is above
+        // attaches near the top of the side, etc. Insertion order would let
+        // edges cross over each other on the same side.
         var sideMap = {};
+        function pushSide(key, entry) {
+            if (!sideMap[key]) sideMap[key] = [];
+            sideMap[key].push(entry);
+        }
         edgeData.forEach(function(d, i) {
-            var fk = d.fromGid + ':' + d.fromSide;
-            var tk = d.toGid + ':' + d.toSide;
-            if (!sideMap[fk]) sideMap[fk] = [];
-            sideMap[fk].push(i);
-            if (!sideMap[tk]) sideMap[tk] = [];
-            sideMap[tk].push(i);
+            pushSide(d.fromGid + ':' + d.fromSide, { i: i, end: 'from', otherCenter: { x: d.to.cx, y: d.to.cy } });
+            pushSide(d.toGid + ':' + d.toSide, { i: i, end: 'to', otherCenter: { x: d.from.cx, y: d.from.cy } });
         });
 
-        // Compute endpoints with offsets
+        function sortKey(side, c) {
+            return (side === 'left' || side === 'right') ? c.y : c.x;
+        }
+        Object.keys(sideMap).forEach(function(key) {
+            var side = key.split(':')[1];
+            sideMap[key].sort(function(a, b) {
+                return sortKey(side, a.otherCenter) - sortKey(side, b.otherCenter);
+            });
+        });
+
+        // Compute endpoints with offsets using the sorted slot positions
         edgeData.forEach(function(d, i) {
-            var fk = d.fromGid + ':' + d.fromSide;
-            var tk = d.toGid + ':' + d.toSide;
-            var fromList = sideMap[fk];
-            var toList = sideMap[tk];
-            var fromIdx = fromList.indexOf(i);
-            var toIdx = toList.indexOf(i);
+            var fromList = sideMap[d.fromGid + ':' + d.fromSide];
+            var toList = sideMap[d.toGid + ':' + d.toSide];
+            var fromIdx = fromList.findIndex(function(e) { return e.i === i && e.end === 'from'; });
+            var toIdx = toList.findIndex(function(e) { return e.i === i && e.end === 'to'; });
 
             var p1 = getSidePoint(d.from, d.fromSide, fromIdx, fromList.length);
             var p2 = getSidePoint(d.to, d.toSide, toIdx, toList.length);
+
+            if (d.bias) {
+                p1 = applyReverseBias(p1, d.fromSide, d.bias);
+                p2 = applyReverseBias(p2, d.toSide, d.bias);
+            }
 
             d.x1 = p1.x; d.y1 = p1.y;
             d.x2 = p2.x; d.y2 = p2.y;
@@ -772,14 +1024,37 @@
 
     // --- Edge Recalculation (DOM-measured, with distribution) ---
 
-    function getGroupRectFromDOM(canvasInnerEl, groupEl) {
+    function getGroupRectFromDOM(canvasInnerEl, groupEl, zoom) {
+        var z = zoom || 1;
         var canvasRect = canvasInnerEl.getBoundingClientRect();
         var groupRect = groupEl.getBoundingClientRect();
-        var x = groupRect.left - canvasRect.left;
-        var y = groupRect.top - canvasRect.top;
-        var w = groupRect.width;
-        var h = groupRect.height;
+        // getBoundingClientRect returns post-transform (scaled) viewport
+        // coordinates; SVG paths are in unscaled canvas coordinates, so divide.
+        var x = (groupRect.left - canvasRect.left) / z;
+        var y = (groupRect.top - canvasRect.top) / z;
+        var w = groupRect.width / z;
+        var h = groupRect.height / z;
         return { x: x, y: y, w: w, h: h, cx: x + w / 2, cy: y + h / 2 };
+    }
+
+    // Collect all rendered group rectangles for obstacle avoidance. Includes a
+    // `gid` field so the router can exclude an edge's own source/destination.
+    function collectAllGroupRects(canvas, innerEl, zoom) {
+        return Array.from(canvas.querySelectorAll('.viewer-group, .builder-group')).map(function(el) {
+            var r = getGroupRectFromDOM(innerEl, el, zoom);
+            r.gid = el.dataset.groupId;
+            return r;
+        });
+    }
+
+    function renderEdge(d, allRects, applyFn) {
+        var obstacles = buildObstacleList(allRects, d.fromGid, d.toGid);
+        var waypoints = routeOrthogonal(
+            { x: d.x1, y: d.y1 }, d.fromSide,
+            { x: d.x2, y: d.y2 }, d.toSide,
+            obstacles
+        );
+        applyFn(waypointsToPath(waypoints, CORNER_RADIUS));
     }
 
     function recalculateViewerEdges() {
@@ -787,28 +1062,39 @@
         if (!canvas) return;
         var innerEl = canvas.firstElementChild;
         if (!innerEl) return;
+        var zoom = zoomLevels[canvas.id] || 1;
 
         var edgeData = computeDistributedEdges('#viewer-canvas', '.viewer-edge', function(el) {
-            return getGroupRectFromDOM(innerEl, el);
+            return getGroupRectFromDOM(innerEl, el, zoom);
         });
+        var allRects = collectAllGroupRects(canvas, innerEl, zoom);
 
         edgeData.forEach(function(d) {
-            d.edge.setAttribute('d', calculateBezierPath(d.x1, d.y1, d.x2, d.y2));
+            renderEdge(d, allRects, function(path) { d.edge.setAttribute('d', path); });
         });
     }
 
     function recalculateBuilderEdges() {
         var canvas = document.getElementById('builder-canvas');
         if (!canvas) return;
+        var innerEl = canvas.firstElementChild;
+        if (!innerEl) return;
+        var zoom = zoomLevels[canvas.id] || 1;
 
         var edgeData = computeDistributedEdges('#builder-canvas', '.builder-edge', function(el) {
-            return getGroupEdgePoints(el);
+            return getGroupRectFromDOM(innerEl, el, zoom);
         });
+        var allRects = collectAllGroupRects(canvas, innerEl, zoom);
 
         edgeData.forEach(function(d) {
-            setEdgePath(d.edge, calculateBezierPath(d.x1, d.y1, d.x2, d.y2));
+            renderEdge(d, allRects, function(path) { setEdgePath(d.edge, path); });
         });
     }
+
+    window.KlavLorEdges = {
+        recalculateBuilder: recalculateBuilderEdges,
+        recalculateViewer: recalculateViewerEdges
+    };
 
     document.addEventListener('htmx:afterSettle', function (e) {
         var targetId = e.detail.target && e.detail.target.id;
@@ -1210,5 +1496,16 @@
                 centerCanvasOnNodes('viewer-canvas');
             });
         });
+    });
+
+    // Recompute on viewport resize. Debounced because group bounding boxes
+    // can shift if a label wraps differently at the new width.
+    var resizeDebounce = null;
+    window.addEventListener('resize', function () {
+        clearTimeout(resizeDebounce);
+        resizeDebounce = setTimeout(function () {
+            recalculateViewerEdges();
+            recalculateBuilderEdges();
+        }, 150);
     });
 })();

@@ -11,10 +11,6 @@
     var canvasW = maxX;
     var canvasH = maxY;
 
-    const double groupWidth = 180;
-    const double groupItemHeight = 28;
-    const double groupPadding = 12;
-    var groupLookup = Template.Groups.ToDictionary(g => g.Id);
     var nodesByGroup = Template.Nodes
         .Where(n => n.GroupId.HasValue)
         .GroupBy(n => n.GroupId!.Value)
@@ -69,61 +65,23 @@
         }
     }
 
+    // Deduplicate group-to-group edges. Path geometry is computed entirely
+    // client-side by window.KlavLorEdges.recalculateViewer — we only emit
+    // the metadata it needs plus the initial completion stroke/marker.
     var renderedGroupEdges = new HashSet<(int, int)>();
-
-    // First pass: collect all deduplicated edges with side info
-    var edgeInfos = new List<(int fromGid, int toGid, string fromSide, string toSide,
-        double fx, double fy, double fw, double fh, double tx, double ty, double tw, double th)>();
+    var edgesToRender = new List<(int fromGid, int toGid, bool completed)>();
     foreach (var edge in Template.Edges)
     {
         var fromNode = Template.Nodes.FirstOrDefault(n => n.Id == edge.FromNodeId);
         var toNode = Template.Nodes.FirstOrDefault(n => n.Id == edge.ToNodeId);
-        if (fromNode == null || toNode == null) continue;
-        int? fromGid = fromNode.GroupId, toGid = toNode.GroupId;
-        if (fromGid.HasValue && toGid.HasValue && fromGid != toGid)
-        {
-            var key = (fromGid.Value, toGid.Value);
-            if (!renderedGroupEdges.Add(key)) continue;
-        }
-        if (fromGid.HasValue && toGid.HasValue && fromGid == toGid) continue;
-        if (!fromGid.HasValue || !groupLookup.ContainsKey(fromGid.Value)) continue;
-        if (!toGid.HasValue || !groupLookup.ContainsKey(toGid.Value)) continue;
+        if (fromNode?.GroupId == null || toNode?.GroupId == null) continue;
+        if (fromNode.GroupId == toNode.GroupId) continue;
+        var key = (fromNode.GroupId.Value, toNode.GroupId.Value);
+        if (!renderedGroupEdges.Add(key)) continue;
 
-        var fg = groupLookup[fromGid.Value];
-        var fCount = nodesByGroup.GetValueOrDefault(fromGid.Value)?.Count ?? 1;
-        var efx = fg.PositionX; var efy = fg.PositionY; var efw = groupWidth; var efh = fCount * groupItemHeight + groupPadding * 2;
-
-        var tg = groupLookup[toGid.Value];
-        var tCount = nodesByGroup.GetValueOrDefault(toGid.Value)?.Count ?? 1;
-        var etx = tg.PositionX; var ety = tg.PositionY; var etw = groupWidth; var eth = tCount * groupItemHeight + groupPadding * 2;
-
-        var ddx = (etx + etw / 2) - (efx + efw / 2);
-        var ddy = (ety + eth / 2) - (efy + efh / 2);
-        string fromSide, toSide;
-        if (Math.Abs(ddx) >= Math.Abs(ddy))
-        {
-            if (ddx >= 0) { fromSide = "right"; toSide = "left"; }
-            else { fromSide = "left"; toSide = "right"; }
-        }
-        else
-        {
-            if (ddy >= 0) { fromSide = "bottom"; toSide = "top"; }
-            else { fromSide = "top"; toSide = "bottom"; }
-        }
-        edgeInfos.Add((fromGid.Value, toGid.Value, fromSide, toSide, efx, efy, efw, efh, etx, ety, etw, eth));
-    }
-
-    // Group edges by (groupId, side)
-    var edgesPerGroupSide = new Dictionary<(int groupId, string side), List<int>>();
-    for (var i = 0; i < edgeInfos.Count; i++)
-    {
-        var info = edgeInfos[i];
-        var fromKey = (info.fromGid, info.fromSide);
-        var toKey = (info.toGid, info.toSide);
-        if (!edgesPerGroupSide.ContainsKey(fromKey)) edgesPerGroupSide[fromKey] = [];
-        edgesPerGroupSide[fromKey].Add(i);
-        if (!edgesPerGroupSide.ContainsKey(toKey)) edgesPerGroupSide[toKey] = [];
-        edgesPerGroupSide[toKey].Add(i);
+        var allFromCompleted = nodesByGroup.GetValueOrDefault(fromNode.GroupId.Value)?.All(n => CompletionDates.ContainsKey(n.Id)) ?? false;
+        var allToCompleted = nodesByGroup.GetValueOrDefault(toNode.GroupId.Value)?.All(n => CompletionDates.ContainsKey(n.Id)) ?? false;
+        edgesToRender.Add((fromNode.GroupId.Value, toNode.GroupId.Value, allFromCompleted && allToCompleted));
     }
 }
 
@@ -132,7 +90,7 @@
 
     <div class="relative" style="width: @(canvasW)px; height: @(canvasH)px;">
 
-        @* SVG edge layer *@
+        @* SVG edge layer. Paths carry only metadata; window.KlavLorEdges sets d= after layout. *@
         <svg class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 1; width: @(canvasW)px; height: @(canvasH)px;">
             <defs>
                 <marker id="viewer-arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
@@ -142,56 +100,15 @@
                     <polygon points="0 0, 10 3.5, 0 7" fill="#22c55e" />
                 </marker>
             </defs>
-            @for (var ei = 0; ei < edgeInfos.Count; ei++)
+            @foreach (var e in edgesToRender)
             {
-                var info = edgeInfos[ei];
-
-                var fromKey = (info.fromGid, info.fromSide);
-                var fromEdges = edgesPerGroupSide[fromKey];
-                var fromIdx = fromEdges.IndexOf(ei);
-                var fromCount = fromEdges.Count;
-
-                var toKey = (info.toGid, info.toSide);
-                var toEdges = edgesPerGroupSide[toKey];
-                var toIdx = toEdges.IndexOf(ei);
-                var toCount = toEdges.Count;
-
-                double x1, y1, x2, y2;
-                if (info.fromSide == "right") { x1 = info.fx + info.fw; y1 = info.fy + (fromIdx + 1.0) / (fromCount + 1) * info.fh; }
-                else if (info.fromSide == "left") { x1 = info.fx; y1 = info.fy + (fromIdx + 1.0) / (fromCount + 1) * info.fh; }
-                else if (info.fromSide == "bottom") { x1 = info.fx + (fromIdx + 1.0) / (fromCount + 1) * info.fw; y1 = info.fy + info.fh; }
-                else { x1 = info.fx + (fromIdx + 1.0) / (fromCount + 1) * info.fw; y1 = info.fy; }
-
-                if (info.toSide == "left") { x2 = info.tx; y2 = info.ty + (toIdx + 1.0) / (toCount + 1) * info.th; }
-                else if (info.toSide == "right") { x2 = info.tx + info.tw; y2 = info.ty + (toIdx + 1.0) / (toCount + 1) * info.th; }
-                else if (info.toSide == "top") { x2 = info.tx + (toIdx + 1.0) / (toCount + 1) * info.tw; y2 = info.ty; }
-                else { x2 = info.tx + (toIdx + 1.0) / (toCount + 1) * info.tw; y2 = info.ty + info.th; }
-
-                var allFromCompleted = nodesByGroup.GetValueOrDefault(info.fromGid)?.All(n => CompletionDates.ContainsKey(n.Id)) ?? false;
-                var allToCompleted = nodesByGroup.GetValueOrDefault(info.toGid)?.All(n => CompletionDates.ContainsKey(n.Id)) ?? false;
-                var isCompleted = allFromCompleted && allToCompleted;
-                var strokeColor = isCompleted ? "#22c55e" : "#94a3b8";
-                var markerRef = isCompleted ? "url(#viewer-arrowhead-completed)" : "url(#viewer-arrowhead)";
-                var dx = Math.Abs(x2 - x1);
-                var dy = Math.Abs(y2 - y1);
-                string pathD;
-                if (dx >= dy)
-                {
-                    var cpOffset = Math.Max(dx * 0.4, 50);
-                    pathD = $"M {x1} {y1} C {x1 + cpOffset} {y1}, {x2 - cpOffset} {y2}, {x2} {y2}";
-                }
-                else
-                {
-                    var cpOffset = Math.Max(dy * 0.4, 50);
-                    var cpDir = y2 > y1 ? 1 : -1;
-                    pathD = $"M {x1} {y1} C {x1} {y1 + cpOffset * cpDir}, {x2} {y2 - cpOffset * cpDir}, {x2} {y2}";
-                }
-
-                <path class="viewer-edge" d="@pathD"
+                var strokeColor = e.completed ? "#22c55e" : "#94a3b8";
+                var markerRef = e.completed ? "url(#viewer-arrowhead-completed)" : "url(#viewer-arrowhead)";
+                <path class="viewer-edge"
                       stroke="@strokeColor" stroke-width="2" fill="none"
                       marker-end="@markerRef"
-                      data-from-group="@info.fromGid"
-                      data-to-group="@info.toGid" />
+                      data-from-group="@e.fromGid"
+                      data-to-group="@e.toGid" />
             }
         </svg>
 
@@ -237,6 +154,9 @@
             </div>
         }
     </div>
+
+    @* Route edges before the browser paints, so users never see un-routed paths. *@
+    <script>window.KlavLorEdges && window.KlavLorEdges.recalculateViewer();</script>
 </div>
 
 @code {

@@ -10,73 +10,20 @@
     var canvasW = Math.Max(maxX, 1200) + 1000;
     var canvasH = Math.Max(maxY, 800) + 1000;
 
-    // Pre-compute group dimensions for edge rendering
-    const double groupWidth = 180;
-    const double groupItemHeight = 28;
-    const double groupPadding = 12;
-    const double groupAddBtnHeight = 24;
-    var groupLookup = Template.Groups.ToDictionary(g => g.Id);
-    var nodesByGroup = Template.Nodes
-        .Where(n => n.GroupId.HasValue)
-        .GroupBy(n => n.GroupId!.Value)
-        .ToDictionary(g => g.Key, g => g.ToList());
-
-    // Track rendered group-to-group connections to avoid duplicates
+    // Deduplicate group-to-group edges. Path geometry is computed entirely
+    // client-side by window.KlavLorEdges.recalculateBuilder — we only emit
+    // the metadata it needs.
     var renderedGroupEdges = new HashSet<(int, int)>();
-
-    // First pass: collect all deduplicated edges with their side info for offset distribution
-    var edgeInfos = new List<(int fromGid, int toGid, string fromSide, string toSide,
-        double fx, double fy, double fw, double fh, double tx, double ty, double tw, double th, int edgeId, int fromNodeId, int toNodeId)>();
+    var edgesToRender = new List<(int edgeId, int fromGid, int toGid, int fromNodeId, int toNodeId)>();
     foreach (var edge in Template.Edges)
     {
         var fromNode = Template.Nodes.FirstOrDefault(n => n.Id == edge.FromNodeId);
         var toNode = Template.Nodes.FirstOrDefault(n => n.Id == edge.ToNodeId);
-        if (fromNode == null || toNode == null) continue;
-        int? fromGid = fromNode.GroupId, toGid = toNode.GroupId;
-        if (fromGid.HasValue && toGid.HasValue && fromGid != toGid)
-        {
-            var key = (fromGid.Value, toGid.Value);
-            if (!renderedGroupEdges.Add(key)) continue;
-        }
-        if (fromGid.HasValue && toGid.HasValue && fromGid == toGid) continue;
-        if (!fromGid.HasValue || !groupLookup.ContainsKey(fromGid.Value)) continue;
-        if (!toGid.HasValue || !groupLookup.ContainsKey(toGid.Value)) continue;
-
-        var fg = groupLookup[fromGid.Value];
-        var fCount = nodesByGroup.GetValueOrDefault(fromGid.Value)?.Count ?? 1;
-        var efx = fg.PositionX; var efy = fg.PositionY; var efw = groupWidth; var efh = fCount * groupItemHeight + groupPadding * 2 + groupAddBtnHeight;
-
-        var tg = groupLookup[toGid.Value];
-        var tCount = nodesByGroup.GetValueOrDefault(toGid.Value)?.Count ?? 1;
-        var etx = tg.PositionX; var ety = tg.PositionY; var etw = groupWidth; var eth = tCount * groupItemHeight + groupPadding * 2 + groupAddBtnHeight;
-
-        var ddx = (etx + etw / 2) - (efx + efw / 2);
-        var ddy = (ety + eth / 2) - (efy + efh / 2);
-        string fromSide, toSide;
-        if (Math.Abs(ddx) >= Math.Abs(ddy))
-        {
-            if (ddx >= 0) { fromSide = "right"; toSide = "left"; }
-            else { fromSide = "left"; toSide = "right"; }
-        }
-        else
-        {
-            if (ddy >= 0) { fromSide = "bottom"; toSide = "top"; }
-            else { fromSide = "top"; toSide = "bottom"; }
-        }
-        edgeInfos.Add((fromGid.Value, toGid.Value, fromSide, toSide, efx, efy, efw, efh, etx, ety, etw, eth, edge.Id, edge.FromNodeId, edge.ToNodeId));
-    }
-
-    // Group edges by (groupId, side) for offset distribution
-    var edgesPerGroupSide = new Dictionary<(int groupId, string side), List<int>>();
-    for (var i = 0; i < edgeInfos.Count; i++)
-    {
-        var info = edgeInfos[i];
-        var fromKey = (info.fromGid, info.fromSide);
-        var toKey = (info.toGid, info.toSide);
-        if (!edgesPerGroupSide.ContainsKey(fromKey)) edgesPerGroupSide[fromKey] = [];
-        edgesPerGroupSide[fromKey].Add(i);
-        if (!edgesPerGroupSide.ContainsKey(toKey)) edgesPerGroupSide[toKey] = [];
-        edgesPerGroupSide[toKey].Add(i);
+        if (fromNode?.GroupId == null || toNode?.GroupId == null) continue;
+        if (fromNode.GroupId == toNode.GroupId) continue;
+        var key = (fromNode.GroupId.Value, toNode.GroupId.Value);
+        if (!renderedGroupEdges.Add(key)) continue;
+        edgesToRender.Add((edge.Id, fromNode.GroupId.Value, toNode.GroupId.Value, edge.FromNodeId, edge.ToNodeId));
     }
 }
 
@@ -85,68 +32,29 @@
 
     <div id="builder-canvas-inner" class="relative" style="min-width: @(canvasW)px; min-height: @(canvasH)px;">
 
-        @* SVG edge layer *@
+        @* SVG edge layer. Paths carry only metadata; window.KlavLorEdges sets d= after layout. *@
         <svg class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 1; min-width: @(canvasW)px; min-height: @(canvasH)px;">
             <defs>
                 <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
                     <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8" />
                 </marker>
             </defs>
-            @for (var ei = 0; ei < edgeInfos.Count; ei++)
+            @foreach (var e in edgesToRender)
             {
-                var info = edgeInfos[ei];
-
-                // Compute offset for "from" side
-                var fromKey = (info.fromGid, info.fromSide);
-                var fromEdges = edgesPerGroupSide[fromKey];
-                var fromIdx = fromEdges.IndexOf(ei);
-                var fromCount = fromEdges.Count;
-
-                // Compute offset for "to" side
-                var toKey = (info.toGid, info.toSide);
-                var toEdges = edgesPerGroupSide[toKey];
-                var toIdx = toEdges.IndexOf(ei);
-                var toCount = toEdges.Count;
-
-                double x1, y1, x2, y2;
-                if (info.fromSide == "right") { x1 = info.fx + info.fw; y1 = info.fy + (fromIdx + 1.0) / (fromCount + 1) * info.fh; }
-                else if (info.fromSide == "left") { x1 = info.fx; y1 = info.fy + (fromIdx + 1.0) / (fromCount + 1) * info.fh; }
-                else if (info.fromSide == "bottom") { x1 = info.fx + (fromIdx + 1.0) / (fromCount + 1) * info.fw; y1 = info.fy + info.fh; }
-                else { x1 = info.fx + (fromIdx + 1.0) / (fromCount + 1) * info.fw; y1 = info.fy; }
-
-                if (info.toSide == "left") { x2 = info.tx; y2 = info.ty + (toIdx + 1.0) / (toCount + 1) * info.th; }
-                else if (info.toSide == "right") { x2 = info.tx + info.tw; y2 = info.ty + (toIdx + 1.0) / (toCount + 1) * info.th; }
-                else if (info.toSide == "top") { x2 = info.tx + (toIdx + 1.0) / (toCount + 1) * info.tw; y2 = info.ty; }
-                else { x2 = info.tx + (toIdx + 1.0) / (toCount + 1) * info.tw; y2 = info.ty + info.th; }
-
-                var dx = Math.Abs(x2 - x1);
-                var dy = Math.Abs(y2 - y1);
-                string pathD;
-                if (dx >= dy)
-                {
-                    var cpOffset = Math.Max(dx * 0.4, 50);
-                    pathD = $"M {x1} {y1} C {x1 + cpOffset} {y1}, {x2 - cpOffset} {y2}, {x2} {y2}";
-                }
-                else
-                {
-                    var cpOffset = Math.Max(dy * 0.4, 50);
-                    var cpDir = y2 > y1 ? 1 : -1;
-                    pathD = $"M {x1} {y1} C {x1} {y1 + cpOffset * cpDir}, {x2} {y2 - cpOffset * cpDir}, {x2} {y2}";
-                }
                 <g class="builder-edge-group">
                     @* Invisible wider hit area for easier clicking *@
                     <path class="builder-edge-hit pointer-events-auto"
-                          d="@pathD"
-                          data-edge-id="@info.edgeId" />
+                          data-edge-id="@e.edgeId"
+                          data-from-group="@e.fromGid"
+                          data-to-group="@e.toGid" />
                     <path class="builder-edge pointer-events-auto cursor-pointer"
-                          d="@pathD"
                           stroke="#94a3b8" stroke-width="2" fill="none"
                           marker-end="url(#arrowhead)"
-                          data-edge-id="@info.edgeId"
-                          data-from-node="@info.fromNodeId"
-                          data-to-node="@info.toNodeId"
-                          data-from-group="@info.fromGid"
-                          data-to-group="@info.toGid" />
+                          data-edge-id="@e.edgeId"
+                          data-from-node="@e.fromNodeId"
+                          data-to-node="@e.toNodeId"
+                          data-from-group="@e.fromGid"
+                          data-to-group="@e.toGid" />
                 </g>
             }
             @* Temp edge line for connection drawing *@
@@ -182,6 +90,9 @@
             </div>
         }
     </div>
+
+    @* Route edges before the browser paints, so users never see un-routed paths. *@
+    <script>window.KlavLorEdges && window.KlavLorEdges.recalculateBuilder();</script>
 </div>
 
 @code {
