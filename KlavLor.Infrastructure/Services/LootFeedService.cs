@@ -14,11 +14,16 @@ internal sealed class LootFeedService : ILootFeedService
     private readonly Dictionary<LootFeedTier, LinkedList<LootFeedEntry>> _buffers =
         ILootFeedService.AllTiers.ToDictionary(t => t, _ => new LinkedList<LootFeedEntry>());
 
+    // GroupKey -> nodes in _buffers[tier]. Usually 0–2 nodes per key (one open session, maybe a
+    // stale older session waiting to roll off). Kept in sync with _buffers under _bufferLocks.
+    private readonly Dictionary<LootFeedTier, Dictionary<string, List<LinkedListNode<LootFeedEntry>>>> _buffersByKey =
+        ILootFeedService.AllTiers.ToDictionary(t => t, _ => new Dictionary<string, List<LinkedListNode<LootFeedEntry>>>());
+
     private readonly Dictionary<LootFeedTier, object> _bufferLocks =
         ILootFeedService.AllTiers.ToDictionary(t => t, _ => new object());
 
-    private readonly ConcurrentDictionary<LootFeedTier, ConcurrentDictionary<Guid, Channel<LootFeedEntry>>> _subscribers = new(
-        ILootFeedService.AllTiers.Select(t => new KeyValuePair<LootFeedTier, ConcurrentDictionary<Guid, Channel<LootFeedEntry>>>(t, new())));
+    private readonly ConcurrentDictionary<LootFeedTier, ConcurrentDictionary<Guid, Channel<LootFeedBroadcast>>> _subscribers = new(
+        ILootFeedService.AllTiers.Select(t => new KeyValuePair<LootFeedTier, ConcurrentDictionary<Guid, Channel<LootFeedBroadcast>>>(t, new())));
 
     public IReadOnlyList<LootFeedEntry> GetCurrentEntries(LootFeedTier tier)
     {
@@ -28,12 +33,12 @@ internal sealed class LootFeedService : ILootFeedService
         }
     }
 
-    public async IAsyncEnumerable<LootFeedEntry> SubscribeAsync(
+    public async IAsyncEnumerable<LootFeedBroadcast> SubscribeAsync(
         LootFeedTier tier,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var id = Guid.NewGuid();
-        var channel = Channel.CreateBounded<LootFeedEntry>(new BoundedChannelOptions(ChannelCapacity)
+        var channel = Channel.CreateBounded<LootFeedBroadcast>(new BoundedChannelOptions(ChannelCapacity)
         {
             FullMode = BoundedChannelFullMode.DropOldest
         });
@@ -42,9 +47,9 @@ internal sealed class LootFeedService : ILootFeedService
 
         try
         {
-            await foreach (var entry in channel.Reader.ReadAllAsync(cancellationToken))
+            await foreach (var broadcast in channel.Reader.ReadAllAsync(cancellationToken))
             {
-                yield return entry;
+                yield return broadcast;
             }
         }
         finally
@@ -59,13 +64,14 @@ internal sealed class LootFeedService : ILootFeedService
         // Input is ordered newest-first; buffer convention is First=oldest, Last=newest.
         foreach (var entry in entries)
         {
-            var buffer = _buffers[entry.Tier];
-            lock (_bufferLocks[entry.Tier])
+            var tier = entry.Tier;
+            lock (_bufferLocks[tier])
             {
-                buffer.AddFirst(entry);
-                while (buffer.Count > BufferCapacity)
+                var node = _buffers[tier].AddFirst(entry);
+                AddToIndex(tier, entry.GroupKey, node);
+                while (_buffers[tier].Count > BufferCapacity)
                 {
-                    buffer.RemoveFirst();
+                    EvictFirst(tier);
                 }
             }
         }
@@ -73,31 +79,90 @@ internal sealed class LootFeedService : ILootFeedService
 
     public void Publish(LootFeedEntry entry)
     {
-        var buffer = _buffers[entry.Tier];
-        LootFeedEntry broadcastEntry;
+        var tier = entry.Tier;
+        LootFeedBroadcast broadcast;
 
-        lock (_bufferLocks[entry.Tier])
+        lock (_bufferLocks[tier])
         {
-            if (buffer.Last is { } tail && LootFeedGrouping.CanMerge(tail.Value, entry))
+            var matchedNode = FindBestMatch(tier, entry);
+            if (matchedNode is not null)
             {
-                var merged = LootFeedGrouping.Merge(tail.Value, entry);
-                tail.Value = merged;
-                broadcastEntry = merged;
+                var previous = matchedNode.Value;
+                var merged = LootFeedGrouping.Merge(previous, entry);
+
+                // Bubble the merged group to the tail of the buffer so it represents the newest activity.
+                _buffers[tier].Remove(matchedNode);
+                RemoveFromIndex(tier, previous.GroupKey, matchedNode);
+
+                var newNode = _buffers[tier].AddLast(merged);
+                AddToIndex(tier, merged.GroupKey, newNode);
+
+                broadcast = new LootFeedBroadcast(merged, previous.DomId);
             }
             else
             {
-                buffer.AddLast(entry);
-                while (buffer.Count > BufferCapacity)
+                var newNode = _buffers[tier].AddLast(entry);
+                AddToIndex(tier, entry.GroupKey, newNode);
+                while (_buffers[tier].Count > BufferCapacity)
                 {
-                    buffer.RemoveFirst();
+                    EvictFirst(tier);
                 }
-                broadcastEntry = entry;
+                broadcast = new LootFeedBroadcast(entry, null);
             }
         }
 
-        foreach (var (_, channel) in _subscribers[entry.Tier])
+        foreach (var (_, channel) in _subscribers[tier])
         {
-            channel.Writer.TryWrite(broadcastEntry);
+            channel.Writer.TryWrite(broadcast);
         }
+    }
+
+    private LinkedListNode<LootFeedEntry>? FindBestMatch(LootFeedTier tier, LootFeedEntry entry)
+    {
+        if (!_buffersByKey[tier].TryGetValue(entry.GroupKey, out var candidates) || candidates.Count == 0)
+            return null;
+
+        LinkedListNode<LootFeedEntry>? best = null;
+        var bestDelta = TimeSpan.MaxValue;
+        foreach (var node in candidates)
+        {
+            var delta = LootFeedGrouping.TryGetMergeDelta(node.Value, entry);
+            if (delta is null) continue;
+            if (delta.Value < bestDelta)
+            {
+                bestDelta = delta.Value;
+                best = node;
+            }
+        }
+        return best;
+    }
+
+    private void AddToIndex(LootFeedTier tier, string groupKey, LinkedListNode<LootFeedEntry> node)
+    {
+        var index = _buffersByKey[tier];
+        if (!index.TryGetValue(groupKey, out var list))
+        {
+            list = [];
+            index[groupKey] = list;
+        }
+        list.Add(node);
+    }
+
+    private void RemoveFromIndex(LootFeedTier tier, string groupKey, LinkedListNode<LootFeedEntry> node)
+    {
+        var index = _buffersByKey[tier];
+        if (!index.TryGetValue(groupKey, out var list)) return;
+        list.Remove(node);
+        if (list.Count == 0)
+            index.Remove(groupKey);
+    }
+
+    private void EvictFirst(LootFeedTier tier)
+    {
+        var first = _buffers[tier].First;
+        if (first is null) return;
+        var groupKey = first.Value.GroupKey;
+        _buffers[tier].RemoveFirst();
+        RemoveFromIndex(tier, groupKey, first);
     }
 }

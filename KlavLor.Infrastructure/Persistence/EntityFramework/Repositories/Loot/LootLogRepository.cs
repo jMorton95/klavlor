@@ -439,6 +439,11 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
         int targetGroups)
     {
         var groups = new List<LootFeedEntry>();
+        // GroupKey -> indices into `groups`. Lets us match records to any same-key group within
+        // 1h, not just the previous one — needed for interleaved sources (e.g. Shades of Mort'ton
+        // gold keys of different colours).
+        var indexByKey = new Dictionary<string, List<int>>();
+
         foreach (var r in candidates)
         {
             var allDrops = JsonSerializer.Deserialize<List<LootDrop>>(r.DropsJson) ?? [];
@@ -466,10 +471,36 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 r.CharacterName,
                 r.GameCharacterId);
 
-            if (groups.Count > 0 && LootFeedGrouping.CanMerge(groups[^1], entry))
-                groups[^1] = LootFeedGrouping.Merge(groups[^1], entry);
+            var bestIndex = -1;
+            var bestDelta = TimeSpan.MaxValue;
+            if (indexByKey.TryGetValue(entry.GroupKey, out var candidateIndices))
+            {
+                foreach (var i in candidateIndices)
+                {
+                    var delta = LootFeedGrouping.TryGetMergeDelta(groups[i], entry);
+                    if (delta is null) continue;
+                    if (delta.Value < bestDelta)
+                    {
+                        bestDelta = delta.Value;
+                        bestIndex = i;
+                    }
+                }
+            }
+
+            if (bestIndex >= 0)
+            {
+                groups[bestIndex] = LootFeedGrouping.Merge(groups[bestIndex], entry);
+            }
             else
+            {
                 groups.Add(entry);
+                if (!indexByKey.TryGetValue(entry.GroupKey, out var list))
+                {
+                    list = [];
+                    indexByKey[entry.GroupKey] = list;
+                }
+                list.Add(groups.Count - 1);
+            }
 
             if (groups.Count >= targetGroups) break;
         }

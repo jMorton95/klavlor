@@ -4,13 +4,16 @@ public static class LootFeedGrouping
 {
     public static readonly TimeSpan MaxGap = TimeSpan.FromHours(1);
 
-    public static bool CanMerge(LootFeedEntry head, LootFeedEntry next)
+    public static bool CanMerge(LootFeedEntry head, LootFeedEntry next) =>
+        TryGetMergeDelta(head, next) is not null;
+
+    public static TimeSpan? TryGetMergeDelta(LootFeedEntry head, LootFeedEntry next)
     {
-        if (head.GroupKey != next.GroupKey) return false;
+        if (head.GroupKey != next.GroupKey) return null;
         var deltaFromOccurred = (head.OccurredAt - next.OccurredAt).Duration();
         var deltaFromAnchor = (head.GroupAnchorAt - next.OccurredAt).Duration();
         var nearest = deltaFromOccurred < deltaFromAnchor ? deltaFromOccurred : deltaFromAnchor;
-        return nearest <= MaxGap;
+        return nearest <= MaxGap ? nearest : null;
     }
 
     public static LootFeedEntry Merge(LootFeedEntry head, LootFeedEntry next)

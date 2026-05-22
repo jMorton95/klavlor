@@ -21,7 +21,7 @@ public sealed record LootFeedEntry(
 
     public string GroupKey => $"{(int)SourceType}|{SourceName}|{UserId}|{GameCharacterId ?? 0}";
 
-    public string DomId => $"loot-feed-entry-{StableHash(GroupKey):x8}-{GroupAnchorAt.UtcTicks:x}";
+    public string DomId => $"loot-feed-entry-{StableHash(GroupKey):x8}-{OccurredAt.UtcTicks:x}";
 
     private static uint StableHash(string s)
     {
@@ -39,3 +39,5 @@ public sealed record LootFeedEntry(
 }
 
 public sealed record LootFeedDrop(string Name, int Quantity, int Price);
+
+public sealed record LootFeedBroadcast(LootFeedEntry Entry, string? PreviousDomId);

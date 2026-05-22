@@ -54,7 +54,7 @@ public interface ILootFeedService
     }
 
     IReadOnlyList<LootFeedEntry> GetCurrentEntries(LootFeedTier tier);
-    IAsyncEnumerable<LootFeedEntry> SubscribeAsync(LootFeedTier tier, CancellationToken cancellationToken);
+    IAsyncEnumerable<LootFeedBroadcast> SubscribeAsync(LootFeedTier tier, CancellationToken cancellationToken);
     void Publish(LootFeedEntry entry);
     void SeedBuffer(IEnumerable<LootFeedEntry> entries);
 }

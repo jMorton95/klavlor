@@ -96,16 +96,36 @@ public sealed class LootFeedEndpoint : IEndpoint
 
         var ct = context.RequestAborted;
 
-        await foreach (var entry in feedService.SubscribeAsync(tier, ct))
+        await foreach (var broadcast in feedService.SubscribeAsync(tier, ct))
         {
-            var html = await RenderComponentToString<LootFeedItem>(
+            var entry = broadcast.Entry;
+            var prev = broadcast.PreviousDomId;
+
+            // PreviousDomId semantics (see ILootFeedService / LootFeedService):
+            //   null                        → brand-new entry: plain card, column prepends via afterbegin
+            //   prev == entry.DomId         → in-place update (rare out-of-order merge): card carries hx-swap-oob="outerHTML"
+            //   prev != entry.DomId         → bubble-up merge: emit OOB delete for the old card, then plain card to prepend
+            var isInPlace = prev is not null && prev == entry.DomId;
+
+            var cardHtml = await RenderComponentToString<LootFeedItem>(
                 serviceProvider, loggerFactory,
                 new Dictionary<string, object?>
                 {
                     ["Entry"] = entry,
                     ["Animate"] = true,
-                    ["IsMerge"] = entry.RunCount > 1
+                    ["IsMerge"] = isInPlace
                 });
+
+            string html;
+            if (prev is not null && !isInPlace)
+            {
+                var deleteFragment = $"<div id=\"{prev}\" hx-swap-oob=\"delete\"></div>";
+                html = deleteFragment + cardHtml;
+            }
+            else
+            {
+                html = cardHtml;
+            }
 
             var ssePayload = string.Join("\n", html.Split('\n').Select(line => $"data: {line}"));
             await context.Response.WriteAsync($"{ssePayload}\n\n", ct);
