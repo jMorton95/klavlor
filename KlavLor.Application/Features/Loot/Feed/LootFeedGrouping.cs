@@ -33,7 +33,15 @@ public static class LootFeedGrouping
             TotalValue = head.TotalValue + next.TotalValue,
             RunCount = head.RunCount + next.RunCount,
             OccurredAt = occurred,
-            GroupStartedAt = anchor
+            GroupStartedAt = anchor,
+            MinKillCount = MinNullable(head.MinKillCount, next.MinKillCount),
+            MaxKillCount = MaxNullable(head.MaxKillCount, next.MaxKillCount)
         };
     }
+
+    private static int? MinNullable(int? a, int? b) =>
+        a is null ? b : b is null ? a : Math.Min(a.Value, b.Value);
+
+    private static int? MaxNullable(int? a, int? b) =>
+        a is null ? b : b is null ? a : Math.Max(a.Value, b.Value);
 }

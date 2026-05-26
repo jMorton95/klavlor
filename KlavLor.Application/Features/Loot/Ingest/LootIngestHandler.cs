@@ -196,7 +196,9 @@ public sealed class LootIngestHandler(
                 record.OccurredAt,
                 tier,
                 character?.GetEffectiveName(userName),
-                character?.Id));
+                character?.Id,
+                MinKillCount: record.KillCount,
+                MaxKillCount: record.KillCount));
         }
     }
 

@@ -24,9 +24,18 @@
             <span class="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate shrink-0 max-w-[40%]">@Entry.UserName</span>
         }
         <span class="text-[10px] text-slate-400 shrink-0">@(Entry.SourceType switch { KlavLor.Domain.Entities.LootSourceType.Event => "rolled", KlavLor.Domain.Entities.LootSourceType.Pickpocket => "pickpocketed", _ => "killed" })</span>
-        <a hx-get="@(Entry.GameCharacterId is not null ? AppRoutes.LootLogSource.WithId(Entry.GameCharacterId.Value).FromApi() : "#")"
+        @{
+            var sourceQuery = "?name=" + Uri.EscapeDataString(Entry.SourceName);
+            var sourceApi = Entry.GameCharacterId is not null
+                ? AppRoutes.LootLogSource.WithId(Entry.GameCharacterId.Value).FromApi() + sourceQuery
+                : "#";
+            var sourceUrl = Entry.GameCharacterId is not null
+                ? AppRoutes.LootLogSource.WithId(Entry.GameCharacterId.Value) + sourceQuery
+                : "#";
+        }
+        <a hx-get="@sourceApi"
            hx-target="#hx-page-container"
-           hx-push-url="@(Entry.GameCharacterId is not null ? AppRoutes.LootLogSource.WithId(Entry.GameCharacterId.Value) + "?name=" + Uri.EscapeDataString(Entry.SourceName) : "#")"
+           hx-push-url="@sourceUrl"
            hx-swap="innerHTML transition:true"
            class="inline-flex items-center gap-0.5 text-xs font-medium text-amber-600 dark:text-amber-400 hover:underline cursor-pointer min-w-0">
             <img src="/api/images/source-icon?name=@Uri.EscapeDataString(Entry.SourceName)"
@@ -35,6 +44,13 @@
                  onerror="this.style.display='none'" />
             <span class="truncate">@Entry.SourceName@(Entry.RunCount > 1 ? $" ({Entry.RunCount})" : "")</span>
         </a>
+        @{
+            var kcLabel = FormatKillCount(Entry.MinKillCount, Entry.MaxKillCount);
+        }
+        @if (kcLabel is not null)
+        {
+            <span class="text-[10px] text-slate-500 dark:text-slate-400 whitespace-nowrap shrink-0">@kcLabel</span>
+        }
         <time datetime="@Entry.OccurredAt.UtcDateTime.ToString("o")" class="text-[10px] text-slate-400 whitespace-nowrap ml-auto shrink-0 loot-timestamp">@FormatTime(Entry.OccurredAt)</time>
     </div>
 
@@ -120,6 +136,14 @@
         if (value >= 1_000_000) return $"{value / 1_000_000.0:F1}M";
         if (value >= 1_000) return $"{value / 1_000.0:F1}K";
         return value.ToString("N0");
+    }
+
+    private static string? FormatKillCount(int? min, int? max)
+    {
+        if (min is null && max is null) return null;
+        var lo = min ?? max;
+        var hi = max ?? min;
+        return lo == hi ? $"KC #{lo:N0}" : $"KC #{lo:N0}–{hi:N0}";
     }
 
     private static string FormatTime(DateTimeOffset time)

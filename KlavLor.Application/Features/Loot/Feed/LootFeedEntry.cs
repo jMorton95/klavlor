@@ -15,7 +15,9 @@ public sealed record LootFeedEntry(
     string? CharacterName = null,
     int? GameCharacterId = null,
     int RunCount = 1,
-    DateTimeOffset? GroupStartedAt = null)
+    DateTimeOffset? GroupStartedAt = null,
+    int? MinKillCount = null,
+    int? MaxKillCount = null)
 {
     public DateTimeOffset GroupAnchorAt => GroupStartedAt ?? OccurredAt;
 

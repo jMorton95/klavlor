@@ -10,6 +10,12 @@
                 KC #@Kill.KillCount.Value.ToString("N0")
             </span>
         }
+        else if (Kill.KillOrdinal is not null)
+        {
+            <span class="text-xs font-medium text-slate-500 dark:text-slate-400" title="Position in your kill log (RuneLite didn't report an in-game kill count)">
+                Kill #@Kill.KillOrdinal.Value.ToString("N0")
+            </span>
+        }
         @if (Kill.TotalValue > 0)
         {
             <span class="text-xs font-medium text-amber-600 dark:text-amber-400">@FormatGold(Kill.TotalValue) gp</span>

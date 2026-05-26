@@ -12,7 +12,7 @@ public sealed record LootLogCharacterSummary(
 
 public sealed record LootLogSearchResult(
     List<LootSourceSummary> SourceMatches,
-    List<LootItemMatch> ItemMatches,
+    List<LootItemAggregate> ItemMatches,
     bool HasMore = false,
     string? SearchTerm = null,
     int TotalCount = 0);
@@ -24,13 +24,19 @@ public sealed record LootSourceSummary(
     long TotalValue,
     List<LootDropSummary> TopDrops);
 
-public sealed record LootItemMatch(
+public sealed record LootItemAggregate(
+    string ItemName,
+    long TotalQuantity,
+    long TotalValue,
+    int SourceCount,
+    List<LootItemSourceBreakdown> Sources);
+
+public sealed record LootItemSourceBreakdown(
     string SourceName,
     string SourceType,
     int TotalKills,
-    string ItemName,
-    long TotalQuantity,
-    long TotalItemValue);
+    long Quantity,
+    long Value);
 
 public sealed record LootDropSummary(
     string Name,
@@ -51,6 +57,7 @@ public sealed record LootSourceDetail(
 public sealed record LootKillEntry(
     DateTimeOffset OccurredAt,
     int? KillCount,
+    int? KillOrdinal,
     long TotalValue,
     List<LootKillDrop> Drops);
 

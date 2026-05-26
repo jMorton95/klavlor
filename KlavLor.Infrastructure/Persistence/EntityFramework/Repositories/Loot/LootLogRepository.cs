@@ -88,7 +88,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             var hasMore = sourceMatchesRaw.Count > query.PageSize;
             var sourceMatches = sourceMatchesRaw.Take(query.PageSize).ToList();
 
-            var itemMatches = new List<LootItemMatch>();
+            var itemMatches = new List<LootItemAggregate>();
 
             if (!string.IsNullOrWhiteSpace(query.SearchTerm))
             {
@@ -185,13 +185,15 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
         return drops;
     }
 
-    private async Task<List<LootItemMatch>> GetItemMatches(
+    private async Task<List<LootItemAggregate>> GetItemMatches(
         int characterId, string searchTerm, HashSet<string> excludeSourceNames)
     {
         var connection = dataContext.Database.GetDbConnection();
         if (connection.State != System.Data.ConnectionState.Open)
             await connection.OpenAsync();
 
+        // Fetch all (source, item) rows matching the term, then group by item in C#
+        // so the same item across many sources collapses into a single aggregate row.
         const string sql = """
             SELECT lr."SourceName", lr."SourceType"::text,
                    COUNT(DISTINCT lr."Id") as "TotalKills",
@@ -205,7 +207,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
               AND lr."SourceName" NOT ILIKE '%' || @searchTerm || '%'
             GROUP BY lr."SourceName", lr."SourceType", drop_elem->>'Name'
             ORDER BY "TotalItemValue" DESC
-            LIMIT 50
+            LIMIT 500
             """;
 
         await using var cmd = connection.CreateCommand();
@@ -213,7 +215,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
         cmd.Parameters.Add(new NpgsqlParameter("@characterId", characterId));
         cmd.Parameters.Add(new NpgsqlParameter("@searchTerm", searchTerm));
 
-        var items = new List<LootItemMatch>();
+        var rows = new List<LootItemSourceRow>();
         await using var reader = await cmd.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
@@ -221,7 +223,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             if (excludeSourceNames.Contains(sourceName))
                 continue;
 
-            items.Add(new LootItemMatch(
+            rows.Add(new LootItemSourceRow(
                 sourceName,
                 reader.GetString(1),
                 (int)reader.GetInt64(2),
@@ -230,8 +232,29 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 reader.GetInt64(5)));
         }
 
-        return items;
+        return rows
+            .GroupBy(r => r.ItemName)
+            .Select(g => new LootItemAggregate(
+                g.Key,
+                g.Sum(r => r.TotalQuantity),
+                g.Sum(r => r.TotalItemValue),
+                g.Count(),
+                g.OrderByDescending(r => r.TotalItemValue)
+                    .Select(r => new LootItemSourceBreakdown(
+                        r.SourceName, r.SourceType, r.TotalKills, r.TotalQuantity, r.TotalItemValue))
+                    .ToList()))
+            .OrderByDescending(a => a.TotalValue)
+            .Take(25)
+            .ToList();
     }
+
+    private sealed record LootItemSourceRow(
+        string SourceName,
+        string SourceType,
+        int TotalKills,
+        string ItemName,
+        long TotalQuantity,
+        long TotalItemValue);
 
     public async Task<LootSourceDetail> GetSourceDetail(int characterId, string sourceName, int pageNumber, int pageSize)
     {
@@ -254,12 +277,25 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
 
             var allDrops = await GetTopDropsForSource(characterId, sourceName, limit: null);
 
-            // Notable drops: top 5 kills by value
+            // Notable drops: top 5 kills by value. Compute each record's chronological
+            // ordinal via a correlated subquery so we can display a kill number even
+            // when RuneLite didn't report one (KillCount = -1 → null).
             var notableRaw = await dataContext.LootRecords
                 .Where(r => r.GameCharacterId == characterId && r.SourceName == sourceName)
                 .OrderByDescending(r => r.TotalValue)
                 .Take(5)
-                .Select(r => new { r.OccurredAt, r.KillCount, r.TotalValue, r.DropsJson })
+                .Select(r => new
+                {
+                    r.OccurredAt,
+                    r.KillCount,
+                    r.TotalValue,
+                    r.DropsJson,
+                    Ordinal = dataContext.LootRecords.Count(x =>
+                        x.GameCharacterId == characterId
+                        && x.SourceName == sourceName
+                        && (x.OccurredAt < r.OccurredAt
+                            || (x.OccurredAt == r.OccurredAt && x.Id <= r.Id)))
+                })
                 .ToListAsync();
 
             var notableDrops = notableRaw
@@ -270,27 +306,31 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                     return new LootKillEntry(
                         k.OccurredAt,
                         k.KillCount,
+                        k.Ordinal,
                         k.TotalValue,
                         drops.Select(d => new LootKillDrop(d.Name, d.Quantity, d.Price))
                             .OrderByDescending(d => (long)d.Quantity * d.Price)
                             .ToList());
                 }).ToList();
 
+            var skip = (pageNumber - 1) * pageSize;
             var kills = await dataContext.LootRecords
                 .Where(r => r.GameCharacterId == characterId && r.SourceName == sourceName)
                 .OrderByDescending(r => r.OccurredAt)
-                .Skip((pageNumber - 1) * pageSize)
+                .Skip(skip)
                 .Take(pageSize + 1)
                 .Select(r => new { r.OccurredAt, r.KillCount, r.TotalValue, r.DropsJson })
                 .ToListAsync();
 
             var hasMore = kills.Count > pageSize;
-            var killEntries = kills.Take(pageSize).Select(k =>
+            var killEntries = kills.Take(pageSize).Select((k, i) =>
             {
                 var drops = JsonSerializer.Deserialize<List<LootDrop>>(k.DropsJson) ?? [];
+                var ordinal = summary.TotalKills - skip - i;
                 return new LootKillEntry(
                     k.OccurredAt,
                     k.KillCount,
+                    ordinal > 0 ? ordinal : null,
                     k.TotalValue,
                     drops.Select(d => new LootKillDrop(d.Name, d.Quantity, d.Price))
                         .OrderByDescending(d => (long)d.Quantity * d.Price)
@@ -323,21 +363,24 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 .Where(r => r.GameCharacterId == characterId && r.SourceName == sourceName)
                 .CountAsync();
 
+            var skip = (pageNumber - 1) * pageSize;
             var kills = await dataContext.LootRecords
                 .Where(r => r.GameCharacterId == characterId && r.SourceName == sourceName)
                 .OrderByDescending(r => r.OccurredAt)
-                .Skip((pageNumber - 1) * pageSize)
+                .Skip(skip)
                 .Take(pageSize + 1)
                 .Select(r => new { r.OccurredAt, r.KillCount, r.TotalValue, r.DropsJson })
                 .ToListAsync();
 
             var hasMore = kills.Count > pageSize;
-            var killEntries = kills.Take(pageSize).Select(k =>
+            var killEntries = kills.Take(pageSize).Select((k, i) =>
             {
                 var drops = JsonSerializer.Deserialize<List<LootDrop>>(k.DropsJson) ?? [];
+                var ordinal = totalKills - skip - i;
                 return new LootKillEntry(
                     k.OccurredAt,
                     k.KillCount,
+                    ordinal > 0 ? ordinal : null,
                     k.TotalValue,
                     drops.Select(d => new LootKillDrop(d.Name, d.Quantity, d.Price))
                         .OrderByDescending(d => (long)d.Quantity * d.Price)
@@ -406,7 +449,8 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                             DropsJson = x.Record.DropsJson,
                             OccurredAt = x.Record.OccurredAt,
                             CharacterName = x.Character.DisplayName ?? x.User.FirstName + " " + x.User.LastName,
-                            GameCharacterId = x.Character.Id
+                            GameCharacterId = x.Character.Id,
+                            KillCount = x.Record.KillCount
                         })
                         .ToListAsync();
 
@@ -469,7 +513,9 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 r.OccurredAt,
                 tier,
                 r.CharacterName,
-                r.GameCharacterId);
+                r.GameCharacterId,
+                MinKillCount: r.KillCount,
+                MaxKillCount: r.KillCount);
 
             var bestIndex = -1;
             var bestDelta = TimeSpan.MaxValue;
@@ -548,5 +594,6 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
         public required DateTimeOffset OccurredAt { get; init; }
         public required string CharacterName { get; init; }
         public required int GameCharacterId { get; init; }
+        public int? KillCount { get; init; }
     }
 }
