@@ -1,0 +1,39 @@
+@{
+    const int barWidth = 22;
+    const int gap = 4;
+    const int height = 120;
+    const int labelStrip = 18;
+    var count = Bars.Count;
+    var width = Math.Max(1, count) * (barWidth + gap);
+
+    long peak = 0;
+    if (MaxValue is not null) peak = MaxValue.Value;
+    else foreach (var b in Bars) if (b.Value > peak) peak = b.Value;
+    if (peak <= 0) peak = 1;
+}
+
+<svg viewBox="0 0 @width @(height + labelStrip)" class="block" width="@width" height="@(height + labelStrip)"
+     aria-label="Histogram" role="img">
+    @for (var i = 0; i < count; i++)
+    {
+        var bar = Bars[i];
+        var ratio = (double)bar.Value / peak;
+        var h = Math.Max(2, (int)Math.Round(ratio * height));
+        var x = i * (barWidth + gap);
+        var y = height - h;
+        var fill = bar.FillClass ?? "fill-amber-500 dark:fill-amber-400";
+
+        <rect x="@x" y="@y" width="@barWidth" height="@h" rx="2" class="@fill">
+            <title>@bar.Label — @bar.Value.ToString("N0")</title>
+        </rect>
+        <svg:text x="@(x + barWidth / 2)" y="@(height + 12)" text-anchor="middle"
+              class="fill-slate-500 dark:fill-slate-400 text-[9px]">@bar.Label</svg:text>
+    }
+</svg>
+
+@code {
+    public sealed record Bar(string Label, long Value, string? FillClass = null);
+
+    [Parameter] public required IReadOnlyList<Bar> Bars { get; set; }
+    [Parameter] public long? MaxValue { get; set; }
+}

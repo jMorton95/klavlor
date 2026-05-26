@@ -7,6 +7,11 @@
         <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
         <RootNamespace>KlavLor.Web</RootNamespace>
         <DisableScopedCssBundling>true</DisableScopedCssBundling>
+        <!-- .NET 10 SDK currently emits static-asset compression manifests
+             with unresolved {0} placeholders in dev builds, causing empty
+             responses. Disable pre-compression in Debug; the runtime serves
+             the uncompressed source files directly. -->
+        <CompressionEnabled Condition="'$(Configuration)' == 'Debug'">false</CompressionEnabled>
     </PropertyGroup>
 
     <Target Name="TailwindOnBuild" BeforeTargets="Compile">

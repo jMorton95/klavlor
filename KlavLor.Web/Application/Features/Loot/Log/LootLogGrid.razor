@@ -7,21 +7,35 @@
 }
 
 <div class="space-y-6">
-    <div class="flex items-center gap-3">
-        <a hx-get="@AppRoutes.LootLog.FromApi()"
-           hx-target="#hx-page-container"
-           hx-push-url="@AppRoutes.LootLog"
-           hx-swap="innerHTML transition:true"
-           class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-amber-600 dark:text-slate-400 dark:hover:text-amber-400 cursor-pointer transition-colors">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-            </svg>
-            All Characters
-        </a>
+    <div class="flex items-center gap-3 flex-wrap">
+        @if (!Embedded)
+        {
+            <a hx-get="@AppRoutes.LootLog.FromApi()"
+               hx-target="#hx-page-container"
+               hx-push-url="@AppRoutes.LootLog"
+               hx-swap="innerHTML transition:true"
+               class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-amber-600 dark:text-slate-400 dark:hover:text-amber-400 cursor-pointer transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+                All Characters
+            </a>
+        }
         <input type="text" name="searchTerm" placeholder="Search sources or items..." value="@Result?.SearchTerm"
                autofocus onfocus="this.setSelectionRange(this.value.length, this.value.length)"
                hx-get="@AppRoutes.LootLogCharacter.WithId(CharacterId).FromApi()" hx-trigger="keyup changed delay:300ms" hx-target="#hx-page-container" hx-swap="innerHTML transition:true"
                class="px-4 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none w-full max-w-md" />
+        @if (Embedded)
+        {
+            <a hx-get="@AppRoutes.LootLogCharacterFirsts.WithId(CharacterId).FromApi()"
+               hx-target="#hx-page-container"
+               hx-push-url="@AppRoutes.LootLogCharacterFirsts.WithId(CharacterId)"
+               hx-swap="innerHTML transition:true"
+               class="ml-auto inline-flex items-center gap-1 text-xs text-cyan-700 dark:text-cyan-300 hover:underline cursor-pointer">
+                <span class="px-1 py-0 text-[9px] font-semibold rounded-sm bg-cyan-700 text-white">NEW</span>
+                First-time receipts
+            </a>
+        }
     </div>
 
     @if (Result is not null)
@@ -33,7 +47,8 @@
                 <div id="source-cards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
                     @foreach (var source in Result.SourceMatches)
                     {
-                        <LootSourceCard Source="@source" CharacterId="@CharacterId" />
+                        <LootSourceCard Source="@source" CharacterId="@CharacterId"
+                                        DryStreak="@GetDryStreak(source.SourceName)" />
                     }
                 </div>
                 @if (Result.HasMore)
@@ -77,6 +92,11 @@
     [Parameter] public LootLogSearchResult? Result { get; set; }
     [Parameter] public int CharacterId { get; set; }
     [Parameter] public bool UpdateHeader { get; set; } = true;
+    [Parameter] public bool Embedded { get; set; }
+    [Parameter] public IReadOnlyDictionary<string, int>? DryStreaks { get; set; }
+
+    private int? GetDryStreak(string sourceName) =>
+        DryStreaks is not null && DryStreaks.TryGetValue(sourceName, out var v) ? v : null;
 
     private string GetShowMoreUrl(int page)
     {

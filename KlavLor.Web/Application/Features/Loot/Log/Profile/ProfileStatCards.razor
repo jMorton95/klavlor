@@ -1,0 +1,33 @@
+@using KlavLor.Application.Features.Loot.Log
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+    @RenderWindow("Last 7 days", Windows.Last7d)
+    @RenderWindow("Last 30 days", Windows.Last30d)
+    @RenderWindow("All time", Windows.AllTime)
+</div>
+
+@code {
+    [Parameter] public required ProfileWindowStats Windows { get; set; }
+
+    private RenderFragment RenderWindow(string label, WindowStats w) => __builder =>
+    {
+        <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">@label</h3>
+            <div class="grid grid-cols-2 gap-3">
+                <Stat Label="Kills" Value="@w.Kills.ToString("N0")" />
+                <Stat Label="GP" Value="@FormatGold(w.Gp)" Accent="amber" />
+                <Stat Label="GP / hr" Value="@FormatGold(w.GpPerHour)" Accent="amber"
+                      Sub="@($"{w.ActiveHours:N0}h active")" />
+                <Stat Label="New items" Value="@w.NewItems.ToString("N0")" Accent="cyan" />
+            </div>
+        </div>
+    };
+
+    private static string FormatGold(long value)
+    {
+        if (value >= 1_000_000_000) return $"{value / 1_000_000_000.0:F2}B";
+        if (value >= 1_000_000) return $"{value / 1_000_000.0:F1}M";
+        if (value >= 1_000) return $"{value / 1_000.0:F1}K";
+        return value.ToString("N0");
+    }
+}

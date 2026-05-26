@@ -10,13 +10,14 @@ public static class ApplicationDependencyConfiguration
     {
         var assembly = typeof(ApplicationDependencyConfiguration).Assembly;
 
-        var handlerTypes = assembly.DefinedTypes
-            .Where(t => t.IsClass && !t.IsAbstract && !t.ContainsGenericParameters && t.Name.EndsWith("Handler"))
+        var scopedByConvention = assembly.DefinedTypes
+            .Where(t => t.IsClass && !t.IsAbstract && !t.ContainsGenericParameters
+                        && (t.Name.EndsWith("Handler") || t.Name.EndsWith("Checker")))
             .Select(t => t.AsType());
 
-        foreach (var handlerType in handlerTypes)
+        foreach (var type in scopedByConvention)
         {
-            services.TryAddScoped(handlerType);
+            services.TryAddScoped(type);
         }
 
         services.AddValidatorsFromAssembly(typeof(ApplicationDependencyConfiguration).Assembly);

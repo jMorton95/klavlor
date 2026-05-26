@@ -1,0 +1,93 @@
+@using KlavLor.Application.Features.Loot.Log
+
+@{
+    var byDay = Data.Days.ToDictionary(d => d.Day);
+    var dayCount = Data.To.DayNumber - Data.From.DayNumber + 1;
+
+    // Align grid so the first column is the Monday of the week containing From.
+    var firstDow = ((int)Data.From.DayOfWeek + 6) % 7; // Mon = 0 … Sun = 6
+    var totalSlots = firstDow + dayCount;
+    var weekCount = (totalSlots + 6) / 7;
+
+    const int cell = 11;
+    const int gap = 2;
+    const int leftPad = 18; // weekday labels
+    const int topPad = 14;  // month labels
+
+    var width = leftPad + weekCount * (cell + gap);
+    var height = topPad + 7 * (cell + gap);
+
+    long max = 0;
+    if (Data.Mode == HeatmapMode.Kills)
+    {
+        foreach (var d in Data.Days) if (d.Kills > max) max = d.Kills;
+    }
+}
+
+<svg viewBox="0 0 @width @height" class="w-full" preserveAspectRatio="xMinYMid meet"
+     aria-label="Activity heatmap" role="img">
+    @for (var i = 0; i < dayCount; i++)
+    {
+        var day = Data.From.AddDays(i);
+        var slot = firstDow + i;
+        var col = slot / 7;
+        var row = slot % 7;
+        var x = leftPad + col * (cell + gap);
+        var y = topPad + row * (cell + gap);
+
+        var bucket = byDay.TryGetValue(day, out var b) ? b : new DayBucket(day, 0, 0);
+        var fill = Data.Mode == HeatmapMode.Gp
+            ? GetTierFillClass(bucket.Gp)
+            : GetKillsFillClass(bucket.Kills, max);
+        var tooltip = $"{day:MMM d, yyyy} — {bucket.Kills:N0} kills, {FormatGold(bucket.Gp)} gp";
+
+        <rect x="@x" y="@y" width="@cell" height="@cell" rx="2" class="@fill">
+            <title>@tooltip</title>
+        </rect>
+    }
+
+    @* Weekday labels: Mon / Wed / Fri *@
+    <svg:text x="0" y="@(topPad + cell)" class="fill-slate-500 dark:fill-slate-400 text-[9px]">M</svg:text>
+    <svg:text x="0" y="@(topPad + 2 * (cell + gap) + cell)" class="fill-slate-500 dark:fill-slate-400 text-[9px]">W</svg:text>
+    <svg:text x="0" y="@(topPad + 4 * (cell + gap) + cell)" class="fill-slate-500 dark:fill-slate-400 text-[9px]">F</svg:text>
+</svg>
+
+@code {
+    [Parameter] public required HeatmapData Data { get; set; }
+
+    // Color cells by absolute daily GP using the same tier thresholds as the live
+    // feed (LootFeedTier in ILootFeedService). Dark slate = no/below-standard, ramping
+    // through emerald to bright green as the daily total climbs through each tier.
+    private static string GetTierFillClass(long gp) => gp switch
+    {
+        <= 0           => "fill-slate-100 dark:fill-slate-800",
+        < 10_000       => "fill-slate-200 dark:fill-slate-700",
+        < 100_000      => "fill-slate-300 dark:fill-emerald-950",
+        < 1_000_000    => "fill-emerald-200 dark:fill-emerald-900",
+        < 10_000_000   => "fill-emerald-400 dark:fill-emerald-700",
+        < 100_000_000  => "fill-emerald-500 dark:fill-emerald-500",
+        _              => "fill-emerald-600 dark:fill-emerald-400"
+    };
+
+    private static string GetKillsFillClass(long kills, long max)
+    {
+        if (kills <= 0 || max <= 0) return "fill-slate-100 dark:fill-slate-800";
+        var ratio = (double)kills / max;
+        return ratio switch
+        {
+            < 0.10 => "fill-amber-100 dark:fill-amber-900/40",
+            < 0.30 => "fill-amber-300 dark:fill-amber-700",
+            < 0.60 => "fill-amber-500 dark:fill-amber-600",
+            < 0.85 => "fill-amber-600 dark:fill-amber-500",
+            _      => "fill-amber-700 dark:fill-amber-400"
+        };
+    }
+
+    private static string FormatGold(long value)
+    {
+        if (value >= 1_000_000_000) return $"{value / 1_000_000_000.0:F1}B";
+        if (value >= 1_000_000) return $"{value / 1_000_000.0:F1}M";
+        if (value >= 1_000) return $"{value / 1_000.0:F1}K";
+        return value.ToString("N0");
+    }
+}

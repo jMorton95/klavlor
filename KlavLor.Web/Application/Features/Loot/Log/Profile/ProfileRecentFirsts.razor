@@ -1,0 +1,76 @@
+@using KlavLor.Application.Common
+@using KlavLor.Application.Features.Loot.Log
+
+<div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+    <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-200 inline-flex items-center gap-1.5">
+            <span class="px-1 py-0 text-[9px] font-semibold rounded-sm bg-cyan-700 text-white">NEW</span>
+            Latest collection log
+        </h3>
+        @if (Feed.Entries.Count > 0)
+        {
+            <a hx-get="@AppRoutes.LootLogCharacterFirsts.WithId(CharacterId).FromApi()"
+               hx-target="#hx-page-container"
+               hx-push-url="@AppRoutes.LootLogCharacterFirsts.WithId(CharacterId)"
+               hx-swap="innerHTML transition:true"
+               class="text-xs text-cyan-700 dark:text-cyan-300 hover:underline cursor-pointer">
+                See full collection log →
+            </a>
+        }
+    </div>
+
+    @if (Feed.Entries.Count == 0)
+    {
+        <p class="text-xs text-slate-500 dark:text-slate-400">No first-time receipts yet.</p>
+    }
+    else
+    {
+        <div class="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
+            @foreach (var e in Feed.Entries)
+            {
+                <a hx-get="@GetSourceUrl(e.SourceName)"
+                   hx-target="#hx-page-container"
+                   hx-push-url="@GetSourcePushUrl(e.SourceName)"
+                   hx-swap="innerHTML transition:true"
+                   title="@e.ItemName · from @e.SourceName"
+                   class="shrink-0 w-40 rounded-lg border border-cyan-300/60 dark:border-cyan-600/50 ring-1 ring-cyan-400/30 bg-cyan-50/40 dark:bg-cyan-900/20 p-3 flex flex-col items-center gap-1.5 cursor-pointer hover:bg-cyan-100/60 dark:hover:bg-cyan-900/40 transition-colors">
+                    <div class="w-16 h-16 bg-white/70 dark:bg-slate-900/50 rounded flex items-center justify-center">
+                        <img src="/api/images/item-icon?name=@Uri.EscapeDataString(e.ItemName)"
+                             class="max-w-14 max-h-14" loading="lazy" onerror="this.style.display='none'" />
+                    </div>
+                    <div class="text-xs font-medium text-slate-800 dark:text-slate-100 text-center line-clamp-2 leading-tight">
+                        @e.ItemName
+                    </div>
+                    <div class="text-[10px] text-slate-500 dark:text-slate-400 text-center truncate w-full inline-flex items-center justify-center gap-1">
+                        <img src="/api/images/source-icon?name=@Uri.EscapeDataString(e.SourceName)"
+                             class="w-3 h-3 rounded shrink-0" loading="lazy" onerror="this.style.display='none'" />
+                        <span class="truncate">@e.SourceName</span>
+                    </div>
+                    <div class="text-[10px] text-cyan-700 dark:text-cyan-300 tabular-nums">@FormatLocal(e.OccurredAt)</div>
+                </a>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public required FirstTimeFeed Feed { get; set; }
+    [Parameter] public int CharacterId { get; set; }
+
+    private string GetSourceUrl(string source) =>
+        AppRoutes.LootLogSource.WithId(CharacterId).FromApi() + "?name=" + Uri.EscapeDataString(source);
+
+    private string GetSourcePushUrl(string source) =>
+        AppRoutes.LootLogSource.WithId(CharacterId) + "?name=" + Uri.EscapeDataString(source);
+
+    private static string FormatLocal(DateTimeOffset t)
+    {
+        var local = IngestTimezone.ToZoneTime(t);
+        var ago = DateTimeOffset.UtcNow - t;
+        if (ago.TotalHours < 24) return $"{(int)ago.TotalHours}h ago";
+        if (ago.TotalDays < 30) return $"{(int)ago.TotalDays}d ago";
+        return local.Year != DateTimeOffset.UtcNow.Year
+            ? local.ToString("MMM yyyy")
+            : local.ToString("MMM d");
+    }
+}

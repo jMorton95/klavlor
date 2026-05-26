@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using KlavLor.Application.Features.Loot.Log;
+using KlavLor.Web.Application.Features.Loot.Log.Profile;
 using KlavLor.Web.Application.Filters;
 using KlavLor.Web.Application.Results;
 
@@ -30,22 +31,49 @@ public sealed class LootLogEndpoint : IEndpoint
     private static async Task<RazorComponentResult> GetCharacterLog(
         int id,
         [AsParameters] LootLogQuery query,
-        LootLogHandler handler)
+        LootLogHandler handler,
+        LootCharacterProfileHandler profileHandler)
     {
-        var result = await handler.Handle(id, query);
+        // Sequential awaits — scoped DbContext is not safe under concurrent use.
+        var searchResult = await handler.Handle(id, query);
 
+        // Pagination requests (page > 1 or search refinements) only need the source grid.
         if (query.PageNumber > 1)
+        {
             return IResultExtensions.Component<LootLogMoreCards>(new
             {
-                Result = result.Value,
+                Result = searchResult.Value,
                 CharacterId = id,
                 PageNumber = query.PageNumber
             });
+        }
 
-        return IResultExtensions.Component<LootLogGrid>(new
+        if (!string.IsNullOrWhiteSpace(query.SearchTerm))
         {
-            Result = result.Value,
-            CharacterId = id
+            return IResultExtensions.Component<LootLogGrid>(new
+            {
+                Result = searchResult.Value,
+                CharacterId = id
+            });
+        }
+
+        // Fresh profile view: eager-fetch header + window stats + dry streaks.
+        var header = await profileHandler.HandleHeader(id);
+        var windows = await profileHandler.HandleWindowStats(id);
+
+        var sourceNames = searchResult.Value?.SourceMatches
+            .Select(s => s.SourceName).ToList() ?? [];
+        var dryStreaks = sourceNames.Count > 0
+            ? await profileHandler.HandleDryStreaks(id, sourceNames)
+            : null;
+
+        return IResultExtensions.Component<CharacterProfile>(new
+        {
+            CharacterId = id,
+            Header = header.Value,
+            Windows = windows.Value,
+            SearchResult = searchResult.Value,
+            DryStreaks = dryStreaks?.Value
         });
     }
 

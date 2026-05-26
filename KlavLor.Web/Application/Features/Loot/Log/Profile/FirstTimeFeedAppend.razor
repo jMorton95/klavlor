@@ -1,0 +1,59 @@
+@using KlavLor.Application.Common
+@using KlavLor.Application.Features.Loot.Log
+
+@{
+    var months = Feed.Entries.GroupBy(e => MonthKey(e.OccurredAt)).ToList();
+}
+
+@foreach (var group in months)
+{
+    <div>
+        <h3 class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 px-1">@group.Key</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
+            @foreach (var e in group)
+            {
+                <FirstTimeCard Entry="@e" CharacterId="@CharacterId" />
+            }
+        </div>
+    </div>
+}
+
+@if (Feed.HasMore && Feed.NextBefore is not null)
+{
+    <div id="firsts-show-more" hx-swap-oob="true" class="flex justify-center"
+         hx-get="@GetNextUrl()"
+         hx-target="#firsts-list"
+         hx-swap="beforeend"
+         hx-trigger="click">
+        <button type="button" class="px-6 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer">
+            Show more
+        </button>
+    </div>
+}
+else
+{
+    <div id="firsts-show-more" hx-swap-oob="true"></div>
+}
+
+@code {
+    [Parameter] public required FirstTimeFeed Feed { get; set; }
+    [Parameter] public int CharacterId { get; set; }
+    [Parameter] public int PageSize { get; set; } = 24;
+
+    private string GetNextUrl()
+    {
+        var url = AppRoutes.LootLogCharacterFirsts.WithId(CharacterId).FromApi()
+                  + $"?pageSize={PageSize}";
+        if (Feed.NextBefore is not null)
+            url += "&before=" + Uri.EscapeDataString(Feed.NextBefore.Value.UtcDateTime.ToString("o"));
+        return url;
+    }
+
+    private static string MonthKey(DateTimeOffset t)
+    {
+        var local = IngestTimezone.ToZoneTime(t);
+        return local.Year == DateTimeOffset.UtcNow.Year
+            ? local.ToString("MMMM")
+            : local.ToString("MMMM yyyy");
+    }
+}

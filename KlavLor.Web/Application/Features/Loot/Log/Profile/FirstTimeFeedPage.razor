@@ -1,0 +1,114 @@
+@using KlavLor.Application.Common
+@using KlavLor.Application.Features.Loot.Log
+@using KlavLor.Web.Components.Layout
+
+<TopBarMetaData PageTitle="KlavLor - Collection log" Title="" Description="" />
+
+<div class="space-y-5">
+    <div class="flex items-center justify-between flex-wrap gap-3">
+        <div class="flex items-center gap-3 flex-wrap">
+            <a hx-get="@AppRoutes.LootLogCharacter.WithId(CharacterId).FromApi()"
+               hx-target="#hx-page-container"
+               hx-push-url="@AppRoutes.LootLogCharacter.WithId(CharacterId)"
+               hx-swap="innerHTML transition:true"
+               class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-amber-600 dark:text-slate-400 dark:hover:text-amber-400 cursor-pointer transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+                Back to profile
+            </a>
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 inline-flex items-center gap-2">
+                <span class="px-1.5 py-0 text-[10px] font-semibold rounded-sm bg-cyan-700 text-white">NEW</span>
+                Collection log
+            </h2>
+        </div>
+        @if (Stats is not null)
+        {
+            <div class="flex gap-4 text-xs">
+                <div>
+                    <div class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Unique items</div>
+                    <div class="text-sm font-semibold text-cyan-700 dark:text-cyan-300 tabular-nums">@Stats.UniqueItems.ToString("N0")</div>
+                </div>
+                <div>
+                    <div class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Total value</div>
+                    <div class="text-sm font-semibold text-amber-600 dark:text-amber-400 tabular-nums">@FormatGold(Stats.TotalValue)</div>
+                </div>
+                <div>
+                    <div class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Most recent</div>
+                    <div class="text-sm font-semibold text-slate-700 dark:text-slate-200">@(Stats.MostRecent is null ? "—" : FormatRelative(Stats.MostRecent.Value))</div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div id="firsts-list" class="space-y-6">
+        @foreach (var group in Feed.Entries.GroupBy(e => MonthKey(e.OccurredAt)))
+        {
+            <div>
+                <h3 class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 px-1">@group.Key</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
+                    @foreach (var e in group)
+                    {
+                        <FirstTimeCard Entry="@e" CharacterId="@CharacterId" />
+                    }
+                </div>
+            </div>
+        }
+    </div>
+
+    @if (Feed.HasMore && Feed.NextBefore is not null)
+    {
+        <div id="firsts-show-more" class="flex justify-center"
+             hx-get="@GetNextUrl()"
+             hx-target="#firsts-list"
+             hx-swap="beforeend"
+             hx-trigger="click">
+            <button type="button" class="px-6 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer">
+                Show more
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public required FirstTimeFeed Feed { get; set; }
+    [Parameter] public int CharacterId { get; set; }
+    [Parameter] public int PageSize { get; set; } = 24;
+    [Parameter] public FirstTimeStats? Stats { get; set; }
+
+    public sealed record FirstTimeStats(int UniqueItems, long TotalValue, DateTimeOffset? MostRecent);
+
+    private string GetNextUrl()
+    {
+        var url = AppRoutes.LootLogCharacterFirsts.WithId(CharacterId).FromApi()
+                  + $"?pageSize={PageSize}";
+        if (Feed.NextBefore is not null)
+            url += "&before=" + Uri.EscapeDataString(Feed.NextBefore.Value.UtcDateTime.ToString("o"));
+        return url;
+    }
+
+    private static string MonthKey(DateTimeOffset t)
+    {
+        var local = IngestTimezone.ToZoneTime(t);
+        return local.Year == DateTimeOffset.UtcNow.Year
+            ? local.ToString("MMMM")
+            : local.ToString("MMMM yyyy");
+    }
+
+    private static string FormatRelative(DateTimeOffset t)
+    {
+        var ago = DateTimeOffset.UtcNow - t;
+        if (ago.TotalHours < 1) return "just now";
+        if (ago.TotalHours < 24) return $"{(int)ago.TotalHours}h ago";
+        if (ago.TotalDays < 30) return $"{(int)ago.TotalDays}d ago";
+        return IngestTimezone.ToZoneTime(t).ToString("MMM d, yyyy");
+    }
+
+    private static string FormatGold(long value)
+    {
+        if (value >= 1_000_000_000) return $"{value / 1_000_000_000.0:F2}B";
+        if (value >= 1_000_000) return $"{value / 1_000_000.0:F1}M";
+        if (value >= 1_000) return $"{value / 1_000.0:F1}K";
+        return value.ToString("N0");
+    }
+}

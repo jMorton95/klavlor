@@ -1,15 +1,14 @@
 using KlavLor.Application.Common;
 using KlavLor.Application.Interfaces.Authentication;
 using KlavLor.Application.Interfaces.Repositories;
-using KlavLor.Domain.Entities;
 
 namespace KlavLor.Application.Features.Loot.Log;
 
 public sealed class LootLogHandler(
     ILootLogRepository lootLogRepository,
-    IGameCharacterRepository gameCharacterRepository,
     LootLogValidator validator,
-    ICurrentUser currentUser)
+    ICurrentUser currentUser,
+    CharacterAccessChecker accessChecker)
 {
     public async Task<Result<List<LootLogCharacterSummary>>> HandleCharacters()
     {
@@ -20,7 +19,7 @@ public sealed class LootLogHandler(
 
     public async Task<Result<LootLogSearchResult>> Handle(int characterId, LootLogQuery query)
     {
-        if (!await CanAccessCharacter(characterId))
+        if (!await accessChecker.CanAccess(characterId))
             return Result<LootLogSearchResult>.Success(new LootLogSearchResult([], []));
 
         var validationResult = await validator.ValidateAsync(query);
@@ -33,7 +32,7 @@ public sealed class LootLogHandler(
 
     public async Task<Result<LootSourceDetail>> HandleSource(int characterId, string sourceName, int pageNumber = 1, int pageSize = 25)
     {
-        if (!await CanAccessCharacter(characterId))
+        if (!await accessChecker.CanAccess(characterId))
             return Result<LootSourceDetail>.Failure("Character not found.");
 
         var result = pageNumber > 1
@@ -42,20 +41,4 @@ public sealed class LootLogHandler(
         return Result<LootSourceDetail>.Success(result);
     }
 
-    private async Task<bool> CanAccessCharacter(int characterId)
-    {
-        if (currentUser.IsAdmin)
-            return true;
-
-        var character = await gameCharacterRepository.GetById(characterId);
-        if (character is null)
-            return false;
-
-        // Owner can always access their own characters
-        if (character.UserId == currentUser.UserId)
-            return true;
-
-        // Others can only see visible, non-admin-hidden characters
-        return character.IsVisible && !character.IsAdminHidden;
-    }
 }

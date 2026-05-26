@@ -1,0 +1,62 @@
+@{
+    const int size = 180;
+    const int stroke = 22;
+    const int radius = (size - stroke) / 2;
+    var cx = size / 2;
+    var cy = size / 2;
+    var circumference = 2 * Math.PI * radius;
+
+    long total = 0;
+    foreach (var s in Slices) total += s.Value;
+
+    double offset = 0;
+}
+
+<svg viewBox="0 0 @size @size" class="block" width="@size" height="@size"
+     aria-label="Distribution chart" role="img">
+    <circle cx="@cx" cy="@cy" r="@radius" fill="none"
+            class="stroke-slate-100 dark:stroke-slate-800" stroke-width="@stroke" />
+
+    @foreach (var slice in Slices)
+    {
+        if (slice.Value <= 0 || total <= 0) { continue; }
+        var portion = (double)slice.Value / total;
+        var dash = portion * circumference;
+        var gap = circumference - dash;
+        var rotation = -90 + (offset / circumference) * 360;
+        offset += dash;
+
+        <circle cx="@cx" cy="@cy" r="@radius" fill="none"
+                class="@slice.StrokeClass" stroke-width="@stroke"
+                stroke-dasharray="@FormatNum(dash) @FormatNum(gap)"
+                stroke-dashoffset="0"
+                transform="rotate(@FormatNum(rotation) @cx @cy)">
+            <title>@slice.Label — @slice.Value.ToString("N0") (@FormatNum(portion * 100)%)</title>
+        </circle>
+    }
+
+    @if (!string.IsNullOrEmpty(CenterLabel))
+    {
+        <svg:text x="@cx" y="@(cy - 4)" text-anchor="middle"
+              class="fill-slate-900 dark:fill-slate-100 text-base font-semibold">
+            @CenterLabel
+        </svg:text>
+    }
+    @if (!string.IsNullOrEmpty(CenterSubLabel))
+    {
+        <svg:text x="@cx" y="@(cy + 12)" text-anchor="middle"
+              class="fill-slate-500 dark:fill-slate-400 text-[10px]">
+            @CenterSubLabel
+        </svg:text>
+    }
+</svg>
+
+@code {
+    public sealed record Slice(string Label, long Value, string StrokeClass);
+
+    [Parameter] public required IReadOnlyList<Slice> Slices { get; set; }
+    [Parameter] public string? CenterLabel { get; set; }
+    [Parameter] public string? CenterSubLabel { get; set; }
+
+    private static string FormatNum(double v) => v.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+}

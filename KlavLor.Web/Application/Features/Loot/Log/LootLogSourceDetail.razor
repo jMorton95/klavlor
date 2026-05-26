@@ -84,17 +84,35 @@
 
         @if (Detail.Kills.Count > 0)
         {
-            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Kill Log</h3>
-            <div id="kill-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                @foreach (var kill in Detail.Kills)
+            <div class="border-b border-slate-200 dark:border-slate-700 flex items-center gap-1">
+                <button type="button"
+                        hx-get="@GetKillTabUrl()"
+                        hx-target="#hx-page-container"
+                        hx-push-url="@GetKillTabPushUrl()"
+                        hx-swap="innerHTML transition:true"
+                        class="px-3 py-2 text-sm font-medium border-b-2 border-amber-500 text-amber-600 dark:text-amber-400">
+                    Kill Log
+                </button>
+                <button type="button"
+                        hx-get="@GetCollectionTabUrl()"
+                        hx-target="#source-tab-content"
+                        hx-swap="outerHTML"
+                        class="px-3 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">
+                    Collection Log
+                </button>
+            </div>
+            <div id="source-tab-content">
+                <div id="kill-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                    @foreach (var kill in Detail.Kills)
+                    {
+                        <LootLogKillEntry Kill="@kill" />
+                    }
+                </div>
+                @if (Detail.HasMore)
                 {
-                    <LootLogKillEntry Kill="@kill" />
+                    <LootLogShowMore Url="@GetShowMoreUrl(2)" Id="show-more-kills" TargetSelector="#kill-list" TotalCount="@Detail.TotalCount" CurrentlyShown="@Detail.Kills.Count" />
                 }
             </div>
-            @if (Detail.HasMore)
-            {
-                <LootLogShowMore Url="@GetShowMoreUrl(2)" Id="show-more-kills" TargetSelector="#kill-list" TotalCount="@Detail.TotalCount" CurrentlyShown="@Detail.Kills.Count" />
-            }
         }
     }
 </div>
@@ -109,6 +127,24 @@
     {
         return AppRoutes.LootLogSource.WithId(CharacterId).FromApi()
             + $"?name={Uri.EscapeDataString(Detail?.SourceName ?? "")}&pageNumber={page}&pageSize={PageSize}";
+    }
+
+    private string GetCollectionTabUrl()
+    {
+        return AppRoutes.LootLogSourceCollection.WithId(CharacterId).FromApi()
+            + $"?name={Uri.EscapeDataString(Detail?.SourceName ?? "")}";
+    }
+
+    private string GetKillTabUrl()
+    {
+        return AppRoutes.LootLogSource.WithId(CharacterId).FromApi()
+            + $"?name={Uri.EscapeDataString(Detail?.SourceName ?? "")}";
+    }
+
+    private string GetKillTabPushUrl()
+    {
+        return AppRoutes.LootLogSource.WithId(CharacterId)
+            + $"?name={Uri.EscapeDataString(Detail?.SourceName ?? "")}";
     }
 
     private string GetSourceTypeBadgeClasses() => Detail?.SourceType switch

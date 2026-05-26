@@ -1,0 +1,78 @@
+@using KlavLor.Application.Common
+@using KlavLor.Application.Features.Loot.Log
+
+<div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+    <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-3">Top items by lifetime value</h3>
+
+    @if (Items.Items.Count == 0)
+    {
+        <p class="text-xs text-slate-500 dark:text-slate-400">No drops yet.</p>
+    }
+    else
+    {
+        <div class="divide-y divide-slate-200 dark:divide-slate-700/50">
+            @{ var rank = 0; }
+            @foreach (var item in Items.Items)
+            {
+                rank++;
+                <a hx-get="@GetSourceUrl(item.TopSourceName)"
+                   hx-target="#hx-page-container"
+                   hx-push-url="@GetSourcePushUrl(item.TopSourceName)"
+                   hx-swap="innerHTML transition:true"
+                   class="flex items-center gap-3 py-2 px-1 text-sm cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                    <span class="w-5 text-[10px] font-semibold text-slate-400 tabular-nums">@rank</span>
+                    <img src="/api/images/item-icon?name=@Uri.EscapeDataString(item.ItemName)"
+                         class="w-5 h-5 shrink-0" loading="lazy" onerror="this.style.display='none'" />
+                    <div class="flex-1 min-w-0">
+                        <div class="text-slate-800 dark:text-slate-100 truncate inline-flex items-center gap-1.5">
+                            @item.ItemName
+                            @if (item.EverFirstTime)
+                            {
+                                <span class="px-1 py-0 text-[9px] font-semibold rounded-sm bg-cyan-700 text-white" title="You've received this item">NEW</span>
+                            }
+                        </div>
+                        <div class="text-[10px] text-slate-500 dark:text-slate-400">
+                            @item.TotalQuantity.ToString("N0") @(item.TotalQuantity == 1 ? "drop" : "drops")
+                            · @item.SourceCount @(item.SourceCount == 1 ? "source" : "sources")
+                            @if (!string.IsNullOrEmpty(item.TopSourceName))
+                            {
+                                <span> · mostly from <span class="text-slate-700 dark:text-slate-300">@item.TopSourceName</span></span>
+                            }
+                        </div>
+                    </div>
+                    <div class="text-right shrink-0">
+                        <div class="text-amber-600 dark:text-amber-400 font-semibold tabular-nums">@FormatGold(item.TotalValue)</div>
+                        <div class="text-[10px] text-slate-400 dark:text-slate-500">first @FormatLocal(item.FirstReceivedAt)</div>
+                    </div>
+                </a>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public required TopItemsList Items { get; set; }
+    [Parameter] public int CharacterId { get; set; }
+
+    private string GetSourceUrl(string source) =>
+        AppRoutes.LootLogSource.WithId(CharacterId).FromApi() + "?name=" + Uri.EscapeDataString(source);
+
+    private string GetSourcePushUrl(string source) =>
+        AppRoutes.LootLogSource.WithId(CharacterId) + "?name=" + Uri.EscapeDataString(source);
+
+    private static string FormatLocal(DateTimeOffset t)
+    {
+        var local = IngestTimezone.ToZoneTime(t);
+        return local.Year != DateTimeOffset.UtcNow.Year
+            ? local.ToString("MMM yyyy")
+            : local.ToString("MMM d");
+    }
+
+    private static string FormatGold(long value)
+    {
+        if (value >= 1_000_000_000) return $"{value / 1_000_000_000.0:F2}B";
+        if (value >= 1_000_000) return $"{value / 1_000_000.0:F1}M";
+        if (value >= 1_000) return $"{value / 1_000.0:F1}K";
+        return value.ToString("N0");
+    }
+}

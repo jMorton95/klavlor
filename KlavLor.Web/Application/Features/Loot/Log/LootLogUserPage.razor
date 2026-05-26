@@ -1,14 +1,20 @@
 @page "/loot/log/{Id:int}"
 @using KlavLor.Application.Common
 @using KlavLor.Application.Features.Loot.Log
+@using KlavLor.Web.Application.Features.Loot.Log.Profile
 @using KlavLor.Web.Components.Layout
 
 @inject LootLogHandler LogHandler
+@inject LootCharacterProfileHandler ProfileHandler
 
 <PageLayout PageTitle="KlavLor - Drop Log" Title="Drop Log" Description="Loot history">
-    @if (_result is not null)
+    @if (_searchOnly && _result is not null)
     {
         <LootLogGrid Result="@_result" CharacterId="@Id" UpdateHeader="false" />
+    }
+    else if (_header is not null && _windows is not null && _result is not null)
+    {
+        <CharacterProfile CharacterId="@Id" Header="@_header" Windows="@_windows" SearchResult="@_result" DryStreaks="@_dryStreaks" />
     }
 </PageLayout>
 
@@ -19,7 +25,11 @@
     [SupplyParameterFromQuery(Name = "pageNumber")] public int? PageNumberParam { get; set; }
     [SupplyParameterFromQuery(Name = "pageSize")] public int? PageSizeParam { get; set; }
 
+    private bool _searchOnly;
     private LootLogSearchResult? _result;
+    private ProfileHeader? _header;
+    private ProfileWindowStats? _windows;
+    private IReadOnlyDictionary<string, int>? _dryStreaks;
 
     protected override async Task OnInitializedAsync()
     {
@@ -28,10 +38,24 @@
             PageNumber: PageNumberParam ?? 1,
             SearchTerm: SearchTermParam);
 
-        var result = await LogHandler.Handle(Id, query);
-        if (result.IsSuccess)
+        _searchOnly = !string.IsNullOrWhiteSpace(SearchTermParam) || (PageNumberParam ?? 1) > 1;
+
+        // Sequential awaits — scoped DbContext is not safe under concurrent use.
+        var search = await LogHandler.Handle(Id, query);
+        if (search.IsSuccess) _result = search.Value;
+        if (_searchOnly) return;
+
+        var header = await ProfileHandler.HandleHeader(Id);
+        if (header.IsSuccess) _header = header.Value;
+
+        var windows = await ProfileHandler.HandleWindowStats(Id);
+        if (windows.IsSuccess) _windows = windows.Value;
+
+        var sourceNames = _result?.SourceMatches.Select(s => s.SourceName).ToList() ?? [];
+        if (sourceNames.Count > 0)
         {
-            _result = result.Value;
+            var dry = await ProfileHandler.HandleDryStreaks(Id, sourceNames);
+            if (dry.IsSuccess) _dryStreaks = dry.Value;
         }
     }
 }

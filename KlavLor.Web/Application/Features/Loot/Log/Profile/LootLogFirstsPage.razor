@@ -1,0 +1,27 @@
+@page "/loot/log/{Id:int}/records"
+@using KlavLor.Application.Features.Loot.Log
+@using KlavLor.Web.Components.Layout
+
+@inject LootCharacterProfileHandler Handler
+
+<PageLayout PageTitle="KlavLor - First-time drops" Title="First-time drops" Description="All unique receipts in chronological order">
+    @if (_feed is not null)
+    {
+        <FirstTimeFeedPage Feed="@_feed" CharacterId="@Id" PageSize="@PageSize" />
+    }
+</PageLayout>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    [SupplyParameterFromQuery(Name = "pageSize")] public int? PageSizeParam { get; set; }
+
+    private int PageSize => Math.Clamp(PageSizeParam ?? 50, 1, 200);
+    private FirstTimeFeed? _feed;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Handler.HandleFirstTimeFeed(Id, null, PageSize);
+        if (result.IsSuccess) _feed = result.Value;
+    }
+}

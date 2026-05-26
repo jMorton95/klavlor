@@ -593,6 +593,529 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
         }
     }
 
+    public async Task<ProfileHeader?> GetProfileHeader(int characterId)
+    {
+        try
+        {
+            var character = await dataContext.GameCharacters
+                .Where(c => c.Id == characterId)
+                .Select(c => new
+                {
+                    c.Id,
+                    c.DisplayName,
+                    UserFirst = c.User!.FirstName,
+                    UserLast = c.User!.LastName
+                })
+                .FirstOrDefaultAsync();
+
+            if (character is null) return null;
+
+            var userName = $"{character.UserFirst} {character.UserLast}";
+
+            var agg = await dataContext.LootRecords
+                .Where(r => r.GameCharacterId == characterId)
+                .GroupBy(_ => 1)
+                .Select(g => new
+                {
+                    FirstAt = (DateTimeOffset?)g.Min(r => r.OccurredAt),
+                    LastAt = (DateTimeOffset?)g.Max(r => r.OccurredAt),
+                    Kills = (long)g.Count(),
+                    Gp = g.Sum(r => r.TotalValue),
+                    Sources = g.Select(r => r.SourceName).Distinct().Count()
+                })
+                .FirstOrDefaultAsync();
+
+            return new ProfileHeader(
+                character.Id,
+                character.DisplayName ?? userName,
+                userName,
+                agg?.FirstAt,
+                agg?.LastAt,
+                agg?.Sources ?? 0,
+                agg?.Kills ?? 0,
+                agg?.Gp ?? 0);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get profile header for character {CharacterId}", characterId);
+            throw new RepositoryException("Failed to get profile header", ex);
+        }
+    }
+
+    public async Task<WindowStats> GetWindowStats(int characterId, DateTimeOffset? from, DateTimeOffset? to)
+    {
+        try
+        {
+            var q = dataContext.LootRecords.Where(r => r.GameCharacterId == characterId);
+            if (from is not null) q = q.Where(r => r.OccurredAt >= from.Value);
+            if (to is not null) q = q.Where(r => r.OccurredAt < to.Value);
+
+            var rowAgg = await q
+                .GroupBy(_ => 1)
+                .Select(g => new
+                {
+                    Kills = (long)g.Count(),
+                    Gp = g.Sum(r => r.TotalValue)
+                })
+                .FirstOrDefaultAsync();
+
+            var kills = rowAgg?.Kills ?? 0;
+            var gp = rowAgg?.Gp ?? 0;
+
+            // Active hours = distinct truncated-hour buckets. Cheap approximation
+            // of "time spent earning" without session stitching.
+            var activeHours = await GetActiveHours(characterId, from, to);
+            var gpPerHour = activeHours > 0 ? (long)(gp / activeHours) : 0;
+
+            var newItems = await GetNewItemsInWindow(characterId, from, to);
+
+            return new WindowStats(kills, gp, gpPerHour, newItems, activeHours);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get window stats for character {CharacterId}", characterId);
+            throw new RepositoryException("Failed to get window stats", ex);
+        }
+    }
+
+    private async Task<double> GetActiveHours(int characterId, DateTimeOffset? from, DateTimeOffset? to)
+    {
+        var connection = dataContext.Database.GetDbConnection();
+        if (connection.State != System.Data.ConnectionState.Open) await connection.OpenAsync();
+
+        var sql = """
+            SELECT COUNT(DISTINCT date_trunc('hour', "OccurredAt"))::bigint
+            FROM "LootRecords"
+            WHERE "GameCharacterId" = @cid
+              AND (@from IS NULL OR "OccurredAt" >= @from)
+              AND (@to IS NULL OR "OccurredAt" < @to)
+            """;
+
+        await using var cmd = connection.CreateCommand();
+        cmd.CommandText = sql;
+        cmd.Parameters.Add(new NpgsqlParameter("@cid", characterId));
+        cmd.Parameters.Add(NullableTimestampParam("@from", from));
+        cmd.Parameters.Add(NullableTimestampParam("@to", to));
+
+        var result = await cmd.ExecuteScalarAsync();
+        return result is long l ? l : 0;
+    }
+
+    private async Task<int> GetNewItemsInWindow(int characterId, DateTimeOffset? from, DateTimeOffset? to)
+    {
+        var connection = dataContext.Database.GetDbConnection();
+        if (connection.State != System.Data.ConnectionState.Open) await connection.OpenAsync();
+
+        var sql = """
+            SELECT COUNT(DISTINCT drop_elem->>'Name')::int
+            FROM "LootRecords" lr,
+                 jsonb_array_elements(lr."DropsJson") AS drop_elem
+            WHERE lr."GameCharacterId" = @cid
+              AND (drop_elem->>'IsFirstTime')::boolean = true
+              AND (@from IS NULL OR lr."OccurredAt" >= @from)
+              AND (@to IS NULL OR lr."OccurredAt" < @to)
+            """;
+
+        await using var cmd = connection.CreateCommand();
+        cmd.CommandText = sql;
+        cmd.Parameters.Add(new NpgsqlParameter("@cid", characterId));
+        cmd.Parameters.Add(NullableTimestampParam("@from", from));
+        cmd.Parameters.Add(NullableTimestampParam("@to", to));
+
+        var result = await cmd.ExecuteScalarAsync();
+        return result is int i ? i : 0;
+    }
+
+    private static NpgsqlParameter NullableTimestampParam(string name, DateTimeOffset? value) =>
+        new(name, NpgsqlTypes.NpgsqlDbType.TimestampTz)
+        {
+            Value = (object?)value ?? DBNull.Value
+        };
+
+    public async Task<List<DayBucket>> GetActivityCalendar(int characterId, DateTimeOffset from, DateTimeOffset to)
+    {
+        try
+        {
+            var connection = dataContext.Database.GetDbConnection();
+            if (connection.State != System.Data.ConnectionState.Open) await connection.OpenAsync();
+
+            // Bucket by Europe/London date so BST/GMT transitions don't split a real
+            // day across two cells in the heatmap.
+            const string sql = """
+                SELECT (("OccurredAt" AT TIME ZONE 'Europe/London')::date) AS day,
+                       COUNT(*)::int AS kills,
+                       SUM("TotalValue")::bigint AS gp
+                FROM "LootRecords"
+                WHERE "GameCharacterId" = @cid
+                  AND "OccurredAt" >= @from
+                  AND "OccurredAt" < @to
+                GROUP BY 1
+                ORDER BY 1
+                """;
+
+            await using var cmd = connection.CreateCommand();
+            cmd.CommandText = sql;
+            cmd.Parameters.Add(new NpgsqlParameter("@cid", characterId));
+            cmd.Parameters.Add(new NpgsqlParameter("@from", from));
+            cmd.Parameters.Add(new NpgsqlParameter("@to", to));
+
+            var result = new List<DayBucket>();
+            await using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                result.Add(new DayBucket(
+                    DateOnly.FromDateTime(reader.GetDateTime(0)),
+                    reader.GetInt32(1),
+                    reader.IsDBNull(2) ? 0 : reader.GetInt64(2)));
+            }
+            return result;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get activity calendar for character {CharacterId}", characterId);
+            throw new RepositoryException("Failed to get activity calendar", ex);
+        }
+    }
+
+    public async Task<PersonalRecords> GetPersonalRecords(int characterId)
+    {
+        try
+        {
+            // Biggest single-kill (covered by IX_LootRecords_GameCharacterId_TotalValue_OccurredAt).
+            var topKillRaw = await dataContext.LootRecords
+                .Where(r => r.GameCharacterId == characterId)
+                .OrderByDescending(r => r.TotalValue)
+                .Take(1)
+                .Select(r => new { r.OccurredAt, r.KillCount, r.TotalValue, r.DropsJson, r.SourceName })
+                .FirstOrDefaultAsync();
+
+            LootKillEntry? biggestKill = null;
+            string? biggestKillSource = null;
+            if (topKillRaw is not null)
+            {
+                var drops = JsonSerializer.Deserialize<List<LootDrop>>(topKillRaw.DropsJson) ?? [];
+                biggestKill = new LootKillEntry(
+                    topKillRaw.OccurredAt,
+                    topKillRaw.KillCount,
+                    null,
+                    topKillRaw.TotalValue,
+                    drops.Select(d => new LootKillDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime))
+                        .OrderByDescending(d => (long)d.Quantity * d.Price)
+                        .ToList());
+                biggestKillSource = topKillRaw.SourceName;
+            }
+
+            // Top KC source — most kills of one source.
+            var topKcSourceRaw = await dataContext.LootRecords
+                .Where(r => r.GameCharacterId == characterId)
+                .GroupBy(r => new { r.SourceName, r.SourceType })
+                .Select(g => new
+                {
+                    g.Key.SourceName,
+                    g.Key.SourceType,
+                    Kills = g.Count(),
+                    Gp = g.Sum(r => r.TotalValue)
+                })
+                .OrderByDescending(g => g.Kills)
+                .Take(1)
+                .FirstOrDefaultAsync();
+
+            var topSource = topKcSourceRaw is null
+                ? null
+                : new TopSource(topKcSourceRaw.SourceName, topKcSourceRaw.SourceType, topKcSourceRaw.Kills, topKcSourceRaw.Gp);
+
+            // Biggest day — reuse the activity calendar over all time (cheap row agg).
+            DayBucket? biggestDay = null;
+            var firstRecord = await dataContext.LootRecords
+                .Where(r => r.GameCharacterId == characterId)
+                .OrderBy(r => r.OccurredAt)
+                .Select(r => (DateTimeOffset?)r.OccurredAt)
+                .FirstOrDefaultAsync();
+            if (firstRecord is not null)
+            {
+                var calendar = await GetActivityCalendar(characterId, firstRecord.Value, DateTimeOffset.UtcNow.AddDays(1));
+                biggestDay = calendar.OrderByDescending(d => d.Gp).FirstOrDefault();
+            }
+
+            // Best 1h window — load (OccurredAt, TotalValue) and run O(n) sliding window.
+            var events = await dataContext.LootRecords
+                .Where(r => r.GameCharacterId == characterId)
+                .OrderBy(r => r.OccurredAt)
+                .Select(r => new { r.OccurredAt, r.TotalValue })
+                .ToListAsync();
+            BestHour? bestHour = null;
+            if (events.Count > 0)
+            {
+                var inferred = SessionInference.BestRollingWindow(
+                    events.Select(e => (e.OccurredAt, e.TotalValue)).ToList(),
+                    TimeSpan.FromHours(1));
+                if (inferred is { } w)
+                    bestHour = new BestHour(w.WindowStart, w.Total, w.Count);
+            }
+
+            // Most valuable single item — JSONB unroll.
+            BiggestItem? biggestItem = await GetBiggestItem(characterId);
+
+            return new PersonalRecords(biggestKill, biggestKillSource, biggestDay, bestHour, topSource, biggestItem);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get personal records for character {CharacterId}", characterId);
+            throw new RepositoryException("Failed to get personal records", ex);
+        }
+    }
+
+    private async Task<BiggestItem?> GetBiggestItem(int characterId)
+    {
+        var connection = dataContext.Database.GetDbConnection();
+        if (connection.State != System.Data.ConnectionState.Open) await connection.OpenAsync();
+
+        const string sql = """
+            SELECT drop_elem->>'Name' AS item_name,
+                   (drop_elem->>'Quantity')::int AS qty,
+                   ((drop_elem->>'Quantity')::bigint * (drop_elem->>'Price')::bigint) AS value,
+                   lr."SourceName",
+                   lr."OccurredAt"
+            FROM "LootRecords" lr,
+                 jsonb_array_elements(lr."DropsJson") AS drop_elem
+            WHERE lr."GameCharacterId" = @cid
+            ORDER BY value DESC NULLS LAST
+            LIMIT 1
+            """;
+
+        await using var cmd = connection.CreateCommand();
+        cmd.CommandText = sql;
+        cmd.Parameters.Add(new NpgsqlParameter("@cid", characterId));
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        if (!await reader.ReadAsync()) return null;
+
+        return new BiggestItem(
+            reader.GetString(0),
+            reader.GetInt32(1),
+            reader.GetInt64(2),
+            reader.GetString(3),
+            reader.GetFieldValue<DateTimeOffset>(4));
+    }
+
+    public async Task<Dictionary<string, int>> GetDryStreaks(int characterId, IReadOnlyList<string> sourceNames)
+    {
+        if (sourceNames.Count == 0) return [];
+        try
+        {
+            var connection = dataContext.Database.GetDbConnection();
+            if (connection.State != System.Data.ConnectionState.Open) await connection.OpenAsync();
+
+            // CTE: per source, the timestamp of the most recent first-time receipt.
+            // Then count kills since that timestamp; if NULL, count all kills.
+            const string sql = """
+                WITH last_first AS (
+                    SELECT lr."SourceName", MAX(lr."OccurredAt") AS last_at
+                    FROM "LootRecords" lr, jsonb_array_elements(lr."DropsJson") AS d
+                    WHERE lr."GameCharacterId" = @cid
+                      AND (d->>'IsFirstTime')::boolean = true
+                      AND lr."SourceName" = ANY(@names)
+                    GROUP BY lr."SourceName"
+                )
+                SELECT lr."SourceName",
+                       COUNT(*) FILTER (WHERE lr."OccurredAt" > COALESCE(lf.last_at, '-infinity'::timestamptz))::int AS dry
+                FROM "LootRecords" lr
+                LEFT JOIN last_first lf ON lf."SourceName" = lr."SourceName"
+                WHERE lr."GameCharacterId" = @cid
+                  AND lr."SourceName" = ANY(@names)
+                GROUP BY lr."SourceName"
+                """;
+
+            await using var cmd = connection.CreateCommand();
+            cmd.CommandText = sql;
+            cmd.Parameters.Add(new NpgsqlParameter("@cid", characterId));
+            cmd.Parameters.Add(new NpgsqlParameter("@names", sourceNames.ToArray()));
+
+            var result = new Dictionary<string, int>();
+            await using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                result[reader.GetString(0)] = reader.GetInt32(1);
+            }
+            return result;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get dry streaks for character {CharacterId}", characterId);
+            throw new RepositoryException("Failed to get dry streaks", ex);
+        }
+    }
+
+    public async Task<SourceCollection> GetSourceCollection(int characterId, string sourceName)
+    {
+        try
+        {
+            var connection = dataContext.Database.GetDbConnection();
+            if (connection.State != System.Data.ConnectionState.Open) await connection.OpenAsync();
+
+            const string sql = """
+                SELECT drop_elem->>'Name' AS item_name,
+                       MIN(lr."OccurredAt") AS first_received,
+                       SUM((drop_elem->>'Quantity')::bigint) AS qty,
+                       SUM((drop_elem->>'Quantity')::bigint * (drop_elem->>'Price')::bigint) AS value,
+                       bool_or((drop_elem->>'IsFirstTime')::boolean) AS has_first
+                FROM "LootRecords" lr,
+                     jsonb_array_elements(lr."DropsJson") AS drop_elem
+                WHERE lr."GameCharacterId" = @cid AND lr."SourceName" = @source
+                GROUP BY drop_elem->>'Name'
+                ORDER BY first_received ASC
+                """;
+
+            await using var cmd = connection.CreateCommand();
+            cmd.CommandText = sql;
+            cmd.Parameters.Add(new NpgsqlParameter("@cid", characterId));
+            cmd.Parameters.Add(new NpgsqlParameter("@source", sourceName));
+
+            var entries = new List<CollectionEntry>();
+            await using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                entries.Add(new CollectionEntry(
+                    reader.GetString(0),
+                    reader.GetFieldValue<DateTimeOffset>(1),
+                    reader.GetInt64(2),
+                    reader.IsDBNull(3) ? 0 : reader.GetInt64(3),
+                    !reader.IsDBNull(4) && reader.GetBoolean(4)));
+            }
+            return new SourceCollection(sourceName, entries);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get source collection for character {CharacterId}, source {Source}", characterId, sourceName);
+            throw new RepositoryException("Failed to get source collection", ex);
+        }
+    }
+
+    public async Task<FirstTimeFeed> GetFirstTimeFeed(int characterId, DateTimeOffset? before, int pageSize)
+    {
+        try
+        {
+            var connection = dataContext.Database.GetDbConnection();
+            if (connection.State != System.Data.ConnectionState.Open) await connection.OpenAsync();
+
+            // Pull one extra so we know whether more exist beyond this page.
+            var take = pageSize + 1;
+            const string sql = """
+                SELECT lr."OccurredAt",
+                       lr."SourceName",
+                       lr."SourceType"::text,
+                       drop_elem->>'Name' AS item_name,
+                       (drop_elem->>'Quantity')::int AS qty,
+                       ((drop_elem->>'Quantity')::bigint * (drop_elem->>'Price')::bigint) AS value
+                FROM "LootRecords" lr,
+                     jsonb_array_elements(lr."DropsJson") AS drop_elem
+                WHERE lr."GameCharacterId" = @cid
+                  AND (drop_elem->>'IsFirstTime')::boolean = true
+                  AND (@before IS NULL OR lr."OccurredAt" < @before)
+                ORDER BY lr."OccurredAt" DESC
+                LIMIT @take
+                """;
+
+            await using var cmd = connection.CreateCommand();
+            cmd.CommandText = sql;
+            cmd.Parameters.Add(new NpgsqlParameter("@cid", characterId));
+            cmd.Parameters.Add(NullableTimestampParam("@before", before));
+            cmd.Parameters.Add(new NpgsqlParameter("@take", take));
+
+            var rows = new List<FirstTimeEntry>();
+            await using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                var sourceType = Enum.TryParse<LootSourceType>(reader.GetString(2), ignoreCase: true, out var st)
+                    ? st : LootSourceType.Unknown;
+                rows.Add(new FirstTimeEntry(
+                    reader.GetFieldValue<DateTimeOffset>(0),
+                    reader.GetString(1),
+                    sourceType,
+                    reader.GetString(3),
+                    reader.GetInt32(4),
+                    reader.IsDBNull(5) ? 0 : reader.GetInt64(5)));
+            }
+
+            var hasMore = rows.Count > pageSize;
+            var page = hasMore ? rows.Take(pageSize).ToList() : rows;
+            DateTimeOffset? nextBefore = hasMore && page.Count > 0 ? page[^1].OccurredAt : null;
+            return new FirstTimeFeed(page, nextBefore, hasMore);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get first-time feed for character {CharacterId}", characterId);
+            throw new RepositoryException("Failed to get first-time feed", ex);
+        }
+    }
+
+    public async Task<TopItemsList> GetTopItems(int characterId, int limit)
+    {
+        try
+        {
+            var connection = dataContext.Database.GetDbConnection();
+            if (connection.State != System.Data.ConnectionState.Open) await connection.OpenAsync();
+
+            // Aggregate per item across all sources: total qty, total value (qty*price),
+            // distinct sources, earliest receipt, and whether the character ever has an
+            // IsFirstTime=true marker for the item.
+            const string sql = """
+                WITH unrolled AS (
+                    SELECT lr."OccurredAt", lr."SourceName",
+                           d->>'Name' AS item_name,
+                           (d->>'Quantity')::bigint AS qty,
+                           ((d->>'Quantity')::bigint * (d->>'Price')::bigint) AS value,
+                           (d->>'IsFirstTime')::boolean AS first_time
+                    FROM "LootRecords" lr,
+                         jsonb_array_elements(lr."DropsJson") AS d
+                    WHERE lr."GameCharacterId" = @cid
+                ),
+                top_source AS (
+                    SELECT item_name, "SourceName", SUM(value) AS src_value,
+                           ROW_NUMBER() OVER (PARTITION BY item_name ORDER BY SUM(value) DESC) AS rn
+                    FROM unrolled
+                    GROUP BY item_name, "SourceName"
+                )
+                SELECT u.item_name,
+                       SUM(u.qty)::bigint   AS total_qty,
+                       SUM(u.value)::bigint AS total_value,
+                       COUNT(DISTINCT u."SourceName")::int AS source_count,
+                       MIN(u."OccurredAt")  AS first_received,
+                       bool_or(u.first_time) AS ever_first,
+                       (SELECT t."SourceName" FROM top_source t WHERE t.item_name = u.item_name AND t.rn = 1) AS top_source
+                FROM unrolled u
+                GROUP BY u.item_name
+                ORDER BY total_value DESC NULLS LAST
+                LIMIT @limit
+                """;
+
+            await using var cmd = connection.CreateCommand();
+            cmd.CommandText = sql;
+            cmd.Parameters.Add(new NpgsqlParameter("@cid", characterId));
+            cmd.Parameters.Add(new NpgsqlParameter("@limit", limit));
+
+            var items = new List<TopItem>();
+            await using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                items.Add(new TopItem(
+                    ItemName: reader.GetString(0),
+                    TotalQuantity: reader.GetInt64(1),
+                    TotalValue: reader.IsDBNull(2) ? 0 : reader.GetInt64(2),
+                    SourceCount: reader.GetInt32(3),
+                    TopSourceName: reader.IsDBNull(6) ? "" : reader.GetString(6),
+                    FirstReceivedAt: reader.GetFieldValue<DateTimeOffset>(4),
+                    EverFirstTime: !reader.IsDBNull(5) && reader.GetBoolean(5)));
+            }
+            return new TopItemsList(items);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get top items for character {CharacterId}", characterId);
+            throw new RepositoryException("Failed to get top items", ex);
+        }
+    }
+
     private sealed class FeedTierProjection
     {
         public required string UserName { get; init; }

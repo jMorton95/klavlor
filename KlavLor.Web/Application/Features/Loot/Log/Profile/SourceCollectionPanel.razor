@@ -1,0 +1,66 @@
+@using KlavLor.Application.Common
+@using KlavLor.Application.Features.Loot.Log
+
+<div id="source-tab-content">
+    @if (Collection.Entries.Count == 0)
+    {
+        <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-6 text-center">
+            <p class="text-sm text-slate-500 dark:text-slate-400">No collection-log data for this source yet.</p>
+        </div>
+    }
+    else
+    {
+        <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+            <table class="w-full text-sm">
+                <thead class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
+                    <tr>
+                        <th class="px-4 py-2 text-left text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Item</th>
+                        <th class="px-4 py-2 text-left text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">First received</th>
+                        <th class="px-4 py-2 text-right text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Total qty</th>
+                        <th class="px-4 py-2 text-right text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Total value</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200 dark:divide-slate-700/50">
+                    @foreach (var e in Collection.Entries)
+                    {
+                        <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                            <td class="px-4 py-2 text-slate-800 dark:text-slate-100 inline-flex items-center gap-1.5">
+                                <img src="/api/images/item-icon?name=@Uri.EscapeDataString(e.ItemName)"
+                                     class="w-4 h-4" loading="lazy" onerror="this.style.display='none'" />
+                                <span>@e.ItemName</span>
+                                @if (e.MarkedFirstTime)
+                                {
+                                    <span class="ml-1 px-1 py-0 text-[9px] font-semibold rounded-sm bg-cyan-700 text-white">NEW</span>
+                                }
+                            </td>
+                            <td class="px-4 py-2 text-slate-600 dark:text-slate-300 text-xs">@FormatLocal(e.FirstReceivedAt)</td>
+                            <td class="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-200">@e.TotalQuantity.ToString("N0")</td>
+                            <td class="px-4 py-2 text-right tabular-nums text-amber-600 dark:text-amber-400 font-medium">@FormatGold(e.TotalValue)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public required SourceCollection Collection { get; set; }
+    [Parameter] public int CharacterId { get; set; }
+
+    private static string FormatLocal(DateTimeOffset t)
+    {
+        var local = IngestTimezone.ToZoneTime(t);
+        return local.Year != DateTimeOffset.UtcNow.Year
+            ? local.ToString("MMM d yyyy")
+            : local.ToString("MMM d, HH:mm");
+    }
+
+    private static string FormatGold(long value)
+    {
+        if (value >= 1_000_000_000) return $"{value / 1_000_000_000.0:F2}B";
+        if (value >= 1_000_000) return $"{value / 1_000_000.0:F1}M";
+        if (value >= 1_000) return $"{value / 1_000.0:F1}K";
+        return value.ToString("N0");
+    }
+}

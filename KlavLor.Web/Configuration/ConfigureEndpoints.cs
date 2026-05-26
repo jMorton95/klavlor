@@ -54,6 +54,7 @@ public static class ConfigureEndpoints
         web.MapEndpoints<LootIngestEndpoint>()
             .MapEndpoints<LootFeedEndpoint>()
             .MapEndpoints<LootLogEndpoint>()
+            .MapEndpoints<LootCharacterProfileEndpoint>()
             .MapEndpoints<ItemIconEndpoint>()
             .MapEndpoints<SourceIconEndpoint>();
 

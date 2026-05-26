@@ -1,0 +1,63 @@
+@using KlavLor.Application.Common
+@using KlavLor.Application.Features.Loot.Log
+
+<a hx-get="@GetSourceUrl()"
+   hx-target="#hx-page-container"
+   hx-push-url="@GetSourcePushUrl()"
+   hx-swap="innerHTML transition:true"
+   class="relative bg-white dark:bg-slate-900 rounded-lg border border-cyan-300/60 dark:border-cyan-600/50 ring-1 ring-cyan-400/30 p-3 flex gap-3 cursor-pointer hover:bg-cyan-50/40 dark:hover:bg-cyan-900/20 transition-colors">
+    <span class="absolute top-2 right-2 px-1 py-0 text-[9px] font-semibold rounded-sm bg-cyan-700 text-white">NEW</span>
+    <div class="shrink-0 w-14 h-14 bg-slate-50 dark:bg-slate-800 rounded flex items-center justify-center">
+        <img src="/api/images/item-icon?name=@Uri.EscapeDataString(Entry.ItemName)"
+             class="max-w-12 max-h-12" loading="lazy" onerror="this.style.display='none'" />
+    </div>
+    <div class="flex-1 min-w-0 space-y-1 pr-10">
+        <div class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+            @if (Entry.Quantity > 1)
+            {
+                <span class="text-amber-600 dark:text-amber-400">@Entry.Quantity.ToString("N0")x </span>
+            }
+            @Entry.ItemName
+        </div>
+        @if (Entry.Value > 0)
+        {
+            <div class="text-xs font-semibold text-amber-600 dark:text-amber-400 tabular-nums">@FormatGold(Entry.Value)</div>
+        }
+        <div class="text-[11px] text-slate-600 dark:text-slate-300 truncate inline-flex items-center gap-1 max-w-full">
+            <img src="/api/images/source-icon?name=@Uri.EscapeDataString(Entry.SourceName)"
+                 class="w-3.5 h-3.5 rounded shrink-0" loading="lazy" onerror="this.style.display='none'" />
+            <span class="truncate">@Entry.SourceName</span>
+        </div>
+        <div class="text-[10px] text-slate-400 dark:text-slate-500">@FormatLocal(Entry.OccurredAt)</div>
+    </div>
+</a>
+
+@code {
+    [Parameter] public required FirstTimeEntry Entry { get; set; }
+    [Parameter] public int CharacterId { get; set; }
+
+    private string GetSourceUrl() =>
+        AppRoutes.LootLogSource.WithId(CharacterId).FromApi() + "?name=" + Uri.EscapeDataString(Entry.SourceName);
+
+    private string GetSourcePushUrl() =>
+        AppRoutes.LootLogSource.WithId(CharacterId) + "?name=" + Uri.EscapeDataString(Entry.SourceName);
+
+    private static string FormatLocal(DateTimeOffset t)
+    {
+        var local = IngestTimezone.ToZoneTime(t);
+        var ago = DateTimeOffset.UtcNow - t;
+        if (ago.TotalHours < 24) return $"{(int)ago.TotalHours}h ago";
+        if (ago.TotalDays < 30) return local.ToString("MMM d, HH:mm");
+        return local.Year != DateTimeOffset.UtcNow.Year
+            ? local.ToString("MMM d yyyy")
+            : local.ToString("MMM d");
+    }
+
+    private static string FormatGold(long value)
+    {
+        if (value >= 1_000_000_000) return $"{value / 1_000_000_000.0:F2}B";
+        if (value >= 1_000_000) return $"{value / 1_000_000.0:F1}M";
+        if (value >= 1_000) return $"{value / 1_000.0:F1}K";
+        return value.ToString("N0");
+    }
+}
