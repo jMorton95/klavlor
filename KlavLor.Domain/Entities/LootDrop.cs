@@ -1,3 +1,3 @@
 namespace KlavLor.Domain.Entities;
 
-public sealed record LootDrop(string Name, int ItemId, int Quantity, int Price);
+public sealed record LootDrop(string Name, int ItemId, int Quantity, int Price, bool IsFirstTime = false);

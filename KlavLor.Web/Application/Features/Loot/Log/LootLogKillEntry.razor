@@ -24,7 +24,12 @@
     <div class="flex flex-wrap gap-1.5">
         @foreach (var drop in Kill.Drops)
         {
-            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200">
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 @(drop.IsFirstTime ? "ring-2 ring-cyan-400 dark:ring-cyan-500/70" : "")"
+                  title="@(drop.IsFirstTime ? "First time received" : null)">
+                @if (drop.IsFirstTime)
+                {
+                    <span class="px-1 py-0 text-[9px] font-semibold rounded-sm bg-cyan-700 text-white">NEW</span>
+                }
                 <img src="/api/images/item-icon?name=@Uri.EscapeDataString(drop.Name)"
                      class="w-4 h-4 inline-block"
                      loading="lazy"

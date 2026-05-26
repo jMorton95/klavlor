@@ -308,7 +308,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                         k.KillCount,
                         k.Ordinal,
                         k.TotalValue,
-                        drops.Select(d => new LootKillDrop(d.Name, d.Quantity, d.Price))
+                        drops.Select(d => new LootKillDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime))
                             .OrderByDescending(d => (long)d.Quantity * d.Price)
                             .ToList());
                 }).ToList();
@@ -332,7 +332,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                     k.KillCount,
                     ordinal > 0 ? ordinal : null,
                     k.TotalValue,
-                    drops.Select(d => new LootKillDrop(d.Name, d.Quantity, d.Price))
+                    drops.Select(d => new LootKillDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime))
                         .OrderByDescending(d => (long)d.Quantity * d.Price)
                         .ToList());
             }).ToList();
@@ -382,7 +382,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                     k.KillCount,
                     ordinal > 0 ? ordinal : null,
                     k.TotalValue,
-                    drops.Select(d => new LootKillDrop(d.Name, d.Quantity, d.Price))
+                    drops.Select(d => new LootKillDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime))
                         .OrderByDescending(d => (long)d.Quantity * d.Price)
                         .ToList());
             }).ToList();
@@ -450,7 +450,15 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                             OccurredAt = x.Record.OccurredAt,
                             CharacterName = x.Character.DisplayName ?? x.User.FirstName + " " + x.User.LastName,
                             GameCharacterId = x.Character.Id,
-                            KillCount = x.Record.KillCount
+                            KillCount = x.Record.KillCount,
+                            // Per-character per-source chronological ordinal. Only used as a fallback
+                            // label when RuneLite didn't supply a KillCount; see LootFeedItem.razor.
+                            // The Id tiebreak avoids two equal-timestamp records sharing an ordinal.
+                            KillOrdinal = dataContext.LootRecords.Count(o =>
+                                o.GameCharacterId == x.Character.Id
+                                && o.SourceName == x.Record.SourceName
+                                && (o.OccurredAt < x.Record.OccurredAt
+                                    || (o.OccurredAt == x.Record.OccurredAt && o.Id <= x.Record.Id)))
                         })
                         .ToListAsync();
 
@@ -497,7 +505,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                     var val = (long)d.Quantity * d.Price;
                     return val >= tierMin && (tierMax is null || val < tierMax.Value);
                 })
-                .Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price))
+                .Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime))
                 .ToList();
 
             if (tierDrops.Count == 0) continue;
@@ -515,7 +523,9 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 r.CharacterName,
                 r.GameCharacterId,
                 MinKillCount: r.KillCount,
-                MaxKillCount: r.KillCount);
+                MaxKillCount: r.KillCount,
+                MinKillOrdinal: r.KillOrdinal,
+                MaxKillOrdinal: r.KillOrdinal);
 
             var bestIndex = -1;
             var bestDelta = TimeSpan.MaxValue;
@@ -595,5 +605,6 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
         public required string CharacterName { get; init; }
         public required int GameCharacterId { get; init; }
         public int? KillCount { get; init; }
+        public int? KillOrdinal { get; init; }
     }
 }

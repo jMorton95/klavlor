@@ -17,7 +17,9 @@ public sealed record LootFeedEntry(
     int RunCount = 1,
     DateTimeOffset? GroupStartedAt = null,
     int? MinKillCount = null,
-    int? MaxKillCount = null)
+    int? MaxKillCount = null,
+    int? MinKillOrdinal = null,
+    int? MaxKillOrdinal = null)
 {
     public DateTimeOffset GroupAnchorAt => GroupStartedAt ?? OccurredAt;
 
@@ -40,6 +42,6 @@ public sealed record LootFeedEntry(
     }
 }
 
-public sealed record LootFeedDrop(string Name, int Quantity, int Price);
+public sealed record LootFeedDrop(string Name, int Quantity, int Price, bool IsFirstTime = false);
 
 public sealed record LootFeedBroadcast(LootFeedEntry Entry, string? PreviousDomId);

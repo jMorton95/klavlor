@@ -38,9 +38,11 @@ public sealed class LootIngestHandler(
 
         var character = await ResolveCharacter(userId.Value, command.CharacterId);
 
-        var record = MapToLootRecord(command, userId.Value, character?.Id);
-        if (record is null)
+        var parsed = MapToLootRecord(command, userId.Value, character?.Id);
+        if (parsed is null)
             return Result.Failure("Failed to parse loot data.");
+
+        var (record, drops) = parsed;
 
         if (record.ContentHash is not null)
         {
@@ -49,7 +51,20 @@ public sealed class LootIngestHandler(
                 return Result.Success(); // duplicate, skip
         }
 
+        if (character is not null)
+        {
+            var seen = await lootRecordRepository.GetSeenItemNames(character.Id, record.OccurredAt);
+            drops = drops.Select(d => d with { IsFirstTime = !seen.Contains(d.Name) }).ToList();
+        }
+        FinalizeDrops(record, drops);
+
         await lootRecordRepository.SaveLootRecord(record);
+
+        // Imported records can land earlier than existing ones for this character —
+        // re-sweep so any pre-existing later records lose their stale IsFirstTime flag.
+        if (record.IsImported && character is not null)
+            await lootRecordRepository.RecomputeFirstTimeFlags(character.Id);
+
         if (ShouldPublishToFeed(record, character))
             await PublishToFeed(userId.Value, record, character);
         return Result.Success();
@@ -68,7 +83,7 @@ public sealed class LootIngestHandler(
             characterCache[charId!] = await ResolveCharacter(userId.Value, charId);
         }
 
-        var records = new List<(LootRecord Record, GameCharacter? Character)>();
+        var parsedItems = new List<(ParsedRecord Parsed, GameCharacter? Character)>();
         foreach (var command in commands)
         {
             var validationResult = await validator.ValidateAsync(command);
@@ -78,20 +93,18 @@ public sealed class LootIngestHandler(
             var character = command.CharacterId is not null && characterCache.TryGetValue(command.CharacterId, out var cached)
                 ? cached : null;
 
-            var record = MapToLootRecord(command, userId.Value, character?.Id);
-            if (record is not null)
-                records.Add((record, character));
+            var parsed = MapToLootRecord(command, userId.Value, character?.Id);
+            if (parsed is not null)
+                parsedItems.Add((parsed, character));
         }
 
-        if (records.Count == 0)
+        if (parsedItems.Count == 0)
             return Result.Failure("No valid records to import.");
 
-        var allRecords = records.Select(r => r.Record).ToList();
-
         // Deduplicate: find which content hashes already exist in the database.
-        var hashes = allRecords
-            .Where(r => r.ContentHash is not null)
-            .Select(r => r.ContentHash!)
+        var hashes = parsedItems
+            .Where(r => r.Parsed.Record.ContentHash is not null)
+            .Select(r => r.Parsed.Record.ContentHash!)
             .ToList();
 
         if (hashes.Count > 0)
@@ -99,23 +112,68 @@ public sealed class LootIngestHandler(
             var existing = await lootRecordRepository.FindExistingHashes(userId.Value, hashes);
             if (existing.Count > 0)
             {
-                records = records.Where(r => r.Record.ContentHash is null || !existing.Contains(r.Record.ContentHash)).ToList();
-                allRecords = records.Select(r => r.Record).ToList();
-                if (allRecords.Count == 0)
+                parsedItems = parsedItems
+                    .Where(r => r.Parsed.Record.ContentHash is null || !existing.Contains(r.Parsed.Record.ContentHash))
+                    .ToList();
+                if (parsedItems.Count == 0)
                     return Result.Success(); // all duplicates, nothing to insert
             }
         }
 
+        // Compute IsFirstTime per character. Walking each character's records in
+        // OccurredAt order and updating a local seen set keeps in-batch firsts
+        // marked only on their earliest receipt. Anything that lands before
+        // already-saved records gets fixed by RecomputeFirstTimeFlags below.
+        var charactersTouched = new HashSet<int>();
+        foreach (var group in parsedItems.GroupBy(p => p.Character?.Id))
+        {
+            if (group.Key is null) continue;
+            var cid = group.Key.Value;
+            charactersTouched.Add(cid);
+
+            var orderedByTime = group.OrderBy(p => p.Parsed.Record.OccurredAt).ToList();
+            var earliest = orderedByTime[0].Parsed.Record.OccurredAt;
+            var seen = await lootRecordRepository.GetSeenItemNames(cid, earliest);
+
+            foreach (var (parsed, _) in orderedByTime)
+            {
+                var newDrops = new List<LootDrop>(parsed.Drops.Count);
+                foreach (var d in parsed.Drops)
+                {
+                    var first = !seen.Contains(d.Name);
+                    newDrops.Add(d with { IsFirstTime = first });
+                    if (first) seen.Add(d.Name);
+                }
+                // Replace Drops list contents in place so the outer reference stays consistent.
+                parsed.Drops.Clear();
+                parsed.Drops.AddRange(newDrops);
+            }
+        }
+
+        foreach (var (parsed, _) in parsedItems)
+            FinalizeDrops(parsed.Record, parsed.Drops);
+
+        var allRecords = parsedItems.Select(p => p.Parsed.Record).ToList();
         await lootRecordRepository.SaveLootRecords(allRecords);
 
-        var liveRecords = records.Where(r => ShouldPublishToFeed(r.Record, r.Character)).ToList();
+        // Imports may slot in earlier than existing records — fix per character.
+        if (parsedItems.Any(p => p.Parsed.Record.IsImported))
+        {
+            foreach (var cid in charactersTouched)
+                await lootRecordRepository.RecomputeFirstTimeFlags(cid);
+        }
+
+        var liveRecords = parsedItems
+            .Where(p => ShouldPublishToFeed(p.Parsed.Record, p.Character))
+            .Select(p => (p.Parsed.Record, p.Character))
+            .ToList();
         if (liveRecords.Count > 0)
         {
             var user = await userRepository.GetById(userId.Value);
             var userName = user is not null ? $"{user.FirstName} {user.LastName}" : "Unknown";
             foreach (var (record, character) in liveRecords)
             {
-                PublishRecordToFeed(userName, record, character);
+                await PublishRecordToFeed(userName, record, character);
             }
         }
 
@@ -170,14 +228,22 @@ public sealed class LootIngestHandler(
     {
         var user = await userRepository.GetById(userId);
         var userName = user is not null ? $"{user.FirstName} {user.LastName}" : "Unknown";
-        PublishRecordToFeed(userName, record, character);
+        await PublishRecordToFeed(userName, record, character);
     }
 
-    private void PublishRecordToFeed(string userName, LootRecord record, GameCharacter? character)
+    private async Task PublishRecordToFeed(string userName, LootRecord record, GameCharacter? character)
     {
         var drops = JsonSerializer.Deserialize<List<LootDrop>>(record.DropsJson) ?? [];
-        var feedDrops = drops.Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price)).ToList();
+        var feedDrops = drops.Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime)).ToList();
         var dropsByTier = ILootFeedService.ClassifyDropsByTier(feedDrops);
+
+        // Chronological ordinal — only needed as a fallback label when RuneLite
+        // didn't supply a KillCount. Compute once per record regardless of tier
+        // since all tiers share the same ordinal.
+        int? ordinal = null;
+        if (character is not null && record.Id > 0)
+            ordinal = await lootRecordRepository.GetKillOrdinal(
+                character.Id, record.SourceName, record.OccurredAt, record.Id);
 
         foreach (var (tier, tierDrops) in dropsByTier)
         {
@@ -198,11 +264,13 @@ public sealed class LootIngestHandler(
                 character?.GetEffectiveName(userName),
                 character?.Id,
                 MinKillCount: record.KillCount,
-                MaxKillCount: record.KillCount));
+                MaxKillCount: record.KillCount,
+                MinKillOrdinal: ordinal,
+                MaxKillOrdinal: ordinal));
         }
     }
 
-    private static LootRecord? MapToLootRecord(LootIngestCommand command, int userId, int? gameCharacterId)
+    private static ParsedRecord? MapToLootRecord(LootIngestCommand command, int userId, int? gameCharacterId)
     {
         if (!Enum.TryParse<LootSourceType>(command.Type, ignoreCase: true, out var sourceType))
             sourceType = LootSourceType.Unknown;
@@ -221,9 +289,8 @@ public sealed class LootIngestHandler(
 
         var drops = command.Drops.Select(d => new LootDrop(d.Name, d.Id, d.Quantity, d.Price)).ToList();
         var totalValue = drops.Sum(d => (long)d.Quantity * d.Price);
-        var dropsJson = JsonSerializer.Serialize(drops);
 
-        return new LootRecord
+        var record = new LootRecord
         {
             UserId = userId,
             SourceName = command.Name,
@@ -231,11 +298,20 @@ public sealed class LootIngestHandler(
             CombatLevel = command.Level == -1 ? null : command.Level,
             KillCount = command.KillCount == -1 ? null : command.KillCount,
             TotalValue = totalValue,
-            DropsJson = dropsJson,
+            DropsJson = "[]", // finalized after IsFirstTime is applied
             OccurredAt = occurredAt,
             ContentHash = command.ContentHash,
             IsImported = command.Imported,
             GameCharacterId = gameCharacterId
         };
+
+        return new ParsedRecord(record, drops);
+    }
+
+    private sealed record ParsedRecord(LootRecord Record, List<LootDrop> Drops);
+
+    private static void FinalizeDrops(LootRecord record, List<LootDrop> drops)
+    {
+        record.DropsJson = JsonSerializer.Serialize(drops);
     }
 }

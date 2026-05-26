@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Npgsql;
 using KlavLor.Application.Common.Exceptions;
 using KlavLor.Domain.Entities;
 using KlavLor.Domain.Interfaces.Repositories;
@@ -79,6 +80,86 @@ internal sealed class LootRecordRepository(DataContext dataContext, ILogger<Loot
             .ToListAsync();
 
         return existing.ToHashSet();
+    }
+
+    public async Task<HashSet<string>> GetSeenItemNames(int gameCharacterId, DateTimeOffset strictlyBefore)
+    {
+        var connection = dataContext.Database.GetDbConnection();
+        if (connection.State != System.Data.ConnectionState.Open)
+            await connection.OpenAsync();
+
+        const string sql = """
+            SELECT DISTINCT drop_elem->>'Name' AS item_name
+            FROM "LootRecords" lr,
+                 jsonb_array_elements(lr."DropsJson") AS drop_elem
+            WHERE lr."GameCharacterId" = @cid
+              AND lr."OccurredAt" < @t
+            """;
+
+        await using var cmd = connection.CreateCommand();
+        cmd.CommandText = sql;
+        cmd.Parameters.Add(new NpgsqlParameter("@cid", gameCharacterId));
+        cmd.Parameters.Add(new NpgsqlParameter("@t", strictlyBefore));
+
+        var seen = new HashSet<string>();
+        await using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            if (!reader.IsDBNull(0))
+                seen.Add(reader.GetString(0));
+        }
+        return seen;
+    }
+
+    public async Task RecomputeFirstTimeFlags(int gameCharacterId)
+    {
+        // Rebuilds DropsJson for every record belonging to this character,
+        // marking the earliest occurrence of each item as IsFirstTime=true
+        // and clearing the flag everywhere else. Used after imported-history
+        // batches that may slot in records earlier than already-saved ones.
+        const string sql = """
+            WITH unrolled AS (
+                SELECT lr."Id" AS rec_id, lr."OccurredAt" AS t,
+                       d.elem->>'Name' AS item_name, d.idx
+                FROM "LootRecords" lr,
+                     jsonb_array_elements(lr."DropsJson") WITH ORDINALITY AS d(elem, idx)
+                WHERE lr."GameCharacterId" = @cid
+            ),
+            firsts AS (
+                SELECT DISTINCT ON (item_name) rec_id, item_name
+                FROM unrolled
+                ORDER BY item_name, t, rec_id, idx
+            )
+            UPDATE "LootRecords" lr
+            SET "DropsJson" = (
+                SELECT jsonb_agg(
+                    CASE
+                        WHEN EXISTS (SELECT 1 FROM firsts f
+                                     WHERE f.rec_id = lr."Id"
+                                       AND f.item_name = d.elem->>'Name')
+                        THEN (d.elem - 'IsFirstTime') || '{"IsFirstTime": true}'::jsonb
+                        ELSE d.elem - 'IsFirstTime'
+                    END
+                    ORDER BY d.idx
+                )
+                FROM jsonb_array_elements(lr."DropsJson") WITH ORDINALITY AS d(elem, idx)
+            )
+            WHERE lr."GameCharacterId" = @cid
+            """;
+
+        await dataContext.Database.ExecuteSqlRawAsync(sql,
+            new NpgsqlParameter("@cid", gameCharacterId));
+    }
+
+    public async Task<int> GetKillOrdinal(int gameCharacterId, string sourceName, DateTimeOffset occurredAt, int recordId)
+    {
+        // Chronological position of (cid, source) for this record, tiebroken by Id
+        // so two records with identical timestamps don't both claim the same ordinal.
+        return await dataContext.LootRecords.CountAsync(o =>
+            o.GameCharacterId == gameCharacterId
+            && o.SourceName == sourceName
+            && (o.OccurredAt < occurredAt
+                || (o.OccurredAt == occurredAt && o.Id <= recordId)));
     }
 
     private static bool IsUniqueConstraintViolation(DbUpdateException ex)

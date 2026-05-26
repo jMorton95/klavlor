@@ -35,7 +35,9 @@ public static class LootFeedGrouping
             OccurredAt = occurred,
             GroupStartedAt = anchor,
             MinKillCount = MinNullable(head.MinKillCount, next.MinKillCount),
-            MaxKillCount = MaxNullable(head.MaxKillCount, next.MaxKillCount)
+            MaxKillCount = MaxNullable(head.MaxKillCount, next.MaxKillCount),
+            MinKillOrdinal = MinNullable(head.MinKillOrdinal, next.MinKillOrdinal),
+            MaxKillOrdinal = MaxNullable(head.MaxKillOrdinal, next.MaxKillOrdinal)
         };
     }
 

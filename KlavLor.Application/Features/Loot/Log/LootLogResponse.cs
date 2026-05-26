@@ -64,4 +64,5 @@ public sealed record LootKillEntry(
 public sealed record LootKillDrop(
     string Name,
     int Quantity,
-    int Price);
+    int Price,
+    bool IsFirstTime = false);
