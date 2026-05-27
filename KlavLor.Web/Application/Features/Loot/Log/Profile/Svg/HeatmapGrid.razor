@@ -34,11 +34,12 @@
         var fill = Data.Mode == HeatmapMode.Gp
             ? GetGpFill(bucket.Gp)
             : GetClogsFill(bucket.Clogs);
+        var milestone = Data.Mode == HeatmapMode.Gp ? GetMilestoneStroke(bucket.Gp) : "";
         var dateLabel = day.ToString("ddd, d MMM yyyy");
 
         @if (bucket.Kills > 0)
         {
-            <rect x="@x" y="@y" width="@cell" height="@cell" rx="2" class="heatmap-cell @fill cursor-pointer"
+            <rect x="@x" y="@y" width="@cell" height="@cell" rx="2" class="heatmap-cell @fill @milestone cursor-pointer"
                   data-date="@dateLabel" data-gp="@GoldFormat.Format(bucket.Gp)" data-kills="@bucket.Kills.ToString("N0")" data-clogs="@bucket.Clogs.ToString("N0")"
                   hx-get="@AppRoutes.LootLogCharacterDay.WithId(CharacterId).WithDate(day).FromApi()"
                   hx-target="#hx-page-container"
@@ -68,6 +69,15 @@
             <svg width="10" height="10" class="shrink-0" aria-hidden="true"><rect width="10" height="10" rx="2" class="@fill" /></svg>
         }
         <span>More</span>
+        <span class="text-slate-300 dark:text-slate-600" aria-hidden="true">·</span>
+        <span class="inline-flex items-center gap-1">
+            <svg width="12" height="12" class="shrink-0" aria-hidden="true"><rect x="1" y="1" width="10" height="10" rx="2" class="fill-transparent stroke-amber-500 dark:stroke-amber-400 stroke-1" /></svg>
+            100M+
+        </span>
+        <span class="inline-flex items-center gap-1">
+            <svg width="12" height="12" class="shrink-0" aria-hidden="true"><rect x="1" y="1" width="10" height="10" rx="2" class="fill-transparent stroke-purple-500 dark:stroke-purple-400 stroke-1" /></svg>
+            250M+
+        </span>
     }
     else
     {
@@ -133,5 +143,14 @@
         3    => "fill-cyan-500 dark:fill-cyan-600",
         4    => "fill-cyan-600 dark:fill-cyan-500",
         _    => "fill-cyan-700 dark:fill-cyan-400"
+    };
+
+    // Big-loot milestone ring around the day cell (GP mode only):
+    // amber for 100M+, purple for 250M+ (purple takes precedence).
+    private static string GetMilestoneStroke(long gp) => gp switch
+    {
+        >= 250_000_000 => "stroke-purple-500 dark:stroke-purple-400 stroke-1",
+        >= 100_000_000 => "stroke-amber-500 dark:stroke-amber-400 stroke-1",
+        _              => ""
     };
 }

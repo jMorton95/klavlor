@@ -22,7 +22,7 @@
             </a>
         }
         <input type="text" name="searchTerm" placeholder="Search sources or items..." value="@Result?.SearchTerm"
-               autofocus onfocus="this.setSelectionRange(this.value.length, this.value.length)"
+               autofocus="@(!Embedded)" onfocus="this.setSelectionRange(this.value.length, this.value.length)"
                hx-get="@AppRoutes.LootLogCharacter.WithId(CharacterId).FromApi()" hx-trigger="keyup changed delay:300ms" hx-target="#loot-log-results" hx-select="#loot-log-results" hx-swap="outerHTML transition:true"
                class="px-4 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none w-full max-w-md" />
         @if (Embedded)
