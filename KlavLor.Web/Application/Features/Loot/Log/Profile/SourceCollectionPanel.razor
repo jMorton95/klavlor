@@ -25,7 +25,7 @@
                     {
                         <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40">
                             <td class="px-4 py-2 text-slate-800 dark:text-slate-100 inline-flex items-center gap-1.5">
-                                <img src="/api/images/item-icon?name=@Uri.EscapeDataString(e.ItemName)"
+                                <img src="/api/images/item-icon?name=@Uri.EscapeDataString(e.ItemName)" alt="@e.ItemName"
                                      class="w-4 h-4" loading="lazy" onerror="this.style.display='none'" />
                                 <span>@e.ItemName</span>
                                 @if (e.MarkedFirstTime)
@@ -35,7 +35,7 @@
                             </td>
                             <td class="px-4 py-2 text-slate-600 dark:text-slate-300 text-xs">@FormatLocal(e.FirstReceivedAt)</td>
                             <td class="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-200">@e.TotalQuantity.ToString("N0")</td>
-                            <td class="px-4 py-2 text-right tabular-nums text-amber-600 dark:text-amber-400 font-medium">@FormatGold(e.TotalValue)</td>
+                            <td class="px-4 py-2 text-right tabular-nums text-amber-600 dark:text-amber-400 font-medium">@GoldFormat.Format(e.TotalValue)</td>
                         </tr>
                     }
                 </tbody>
@@ -54,13 +54,5 @@
         return local.Year != DateTimeOffset.UtcNow.Year
             ? local.ToString("MMM d yyyy")
             : local.ToString("MMM d, HH:mm");
-    }
-
-    private static string FormatGold(long value)
-    {
-        if (value >= 1_000_000_000) return $"{value / 1_000_000_000.0:F2}B";
-        if (value >= 1_000_000) return $"{value / 1_000_000.0:F1}M";
-        if (value >= 1_000) return $"{value / 1_000.0:F1}K";
-        return value.ToString("N0");
     }
 }

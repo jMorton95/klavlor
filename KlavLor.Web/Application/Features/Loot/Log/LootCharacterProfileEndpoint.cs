@@ -25,9 +25,28 @@ public sealed class LootCharacterProfileEndpoint : IEndpoint
         app.MapGet(AppRoutes.LootLogSourceCollection.FromApi(), GetSourceCollection)
             .AllowAnonymous();
 
-        return app.MapGet(AppRoutes.LootLogCharacterFirsts.FromApi(), GetFirstTimeFeed)
+        app.MapGet(AppRoutes.LootLogCharacterFirsts.FromApi(), GetFirstTimeFeed)
             .AllowAnonymous()
             .AddEndpointFilter<HtmxNavigationFilter>();
+
+        return app.MapGet(AppRoutes.LootLogCharacterDay.FromApi(), GetDayFeed)
+            .AllowAnonymous()
+            .AddEndpointFilter<HtmxNavigationFilter>();
+    }
+
+    private static async Task<IResult> GetDayFeed(int id, string date, LootCharacterProfileHandler handler)
+    {
+        if (!DateOnly.TryParseExact(date, "yyyy-MM-dd", out var day))
+            return Microsoft.AspNetCore.Http.Results.NotFound();
+
+        var result = await handler.HandleDayFeed(id, day);
+        if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.NotFound();
+
+        return IResultExtensions.Component<CharacterDayFeedPage>(new
+        {
+            Feed = result.Value,
+            CharacterId = id
+        });
     }
 
     private static async Task<IResult> GetHeatmap(
@@ -35,8 +54,8 @@ public sealed class LootCharacterProfileEndpoint : IEndpoint
         [FromQuery] string? mode,
         LootCharacterProfileHandler handler)
     {
-        var heatmapMode = string.Equals(mode, "kills", StringComparison.OrdinalIgnoreCase)
-            ? HeatmapMode.Kills
+        var heatmapMode = string.Equals(mode, "clogs", StringComparison.OrdinalIgnoreCase)
+            ? HeatmapMode.Clogs
             : HeatmapMode.Gp;
         var result = await handler.HandleHeatmap(id, heatmapMode);
         if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.NotFound();

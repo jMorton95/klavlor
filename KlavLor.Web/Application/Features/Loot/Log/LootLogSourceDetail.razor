@@ -1,3 +1,4 @@
+@using KlavLor.Application.Common
 @using KlavLor.Application.Features.Loot.Log
 @using KlavLor.Domain.Entities
 @using KlavLor.Web.Components.Layout
@@ -25,7 +26,7 @@
             <div class="flex items-center justify-between mb-4">
                 <div>
                     <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100 inline-flex items-center gap-2">
-                        <img src="/api/images/source-icon?name=@Uri.EscapeDataString(Detail.SourceName)"
+                        <img src="/api/images/source-icon?name=@Uri.EscapeDataString(Detail.SourceName)" alt="@Detail.SourceName"
                              class="w-6 h-6 inline-block rounded shrink-0"
                              loading="lazy"
                              onerror="this.style.display='none'" />
@@ -34,7 +35,7 @@
                     <div class="flex items-center gap-4 mt-1 text-sm text-slate-500 dark:text-slate-400">
                         <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium @GetSourceTypeBadgeClasses()">@Detail.SourceType</span>
                         <span>@Detail.TotalKills.ToString("N0") @(Detail.SourceType == LootSourceType.Event ? "rolls" : "kills")</span>
-                        <span class="font-medium text-amber-600 dark:text-amber-400">@FormatGold(Detail.TotalValue) gp total</span>
+                        <span class="font-medium text-amber-600 dark:text-amber-400">@GoldFormat.Format(Detail.TotalValue) gp total</span>
                     </div>
                 </div>
             </div>
@@ -47,7 +48,7 @@
                     {
                         <div class="flex items-center justify-between text-xs bg-slate-50 dark:bg-slate-800 rounded-lg px-3 py-2">
                             <span class="text-slate-700 dark:text-slate-100 truncate mr-2 inline-flex items-center gap-1">
-                                <img src="/api/images/item-icon?name=@Uri.EscapeDataString(drop.Name)"
+                                <img src="/api/images/item-icon?name=@Uri.EscapeDataString(drop.Name)" alt="@drop.Name"
                                      class="w-4 h-4 inline-block shrink-0"
                                      loading="lazy"
                                      onerror="this.style.display='none'" />
@@ -57,7 +58,7 @@
                                     <span class="ml-1 text-slate-400 dark:text-slate-400">x@(drop.TotalQuantity.ToString("N0"))</span>
                                 }
                             </span>
-                            <span class="text-amber-600 dark:text-amber-400 font-medium whitespace-nowrap">@FormatGold(drop.TotalValue)</span>
+                            <span class="text-amber-600 dark:text-amber-400 font-medium whitespace-nowrap">@GoldFormat.Format(drop.TotalValue)</span>
                         </div>
                     }
                 </div>
@@ -155,12 +156,4 @@
         LootSourceType.Player => "bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300",
         _ => "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
     };
-
-    private static string FormatGold(long value)
-    {
-        if (value >= 1_000_000_000) return $"{value / 1_000_000_000.0:F1}B";
-        if (value >= 1_000_000) return $"{value / 1_000_000.0:F1}M";
-        if (value >= 1_000) return $"{value / 1_000.0:F1}K";
-        return value.ToString("N0");
-    }
 }

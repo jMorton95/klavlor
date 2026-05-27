@@ -6,6 +6,7 @@ public static class RouteExtensions
     {
         public string FromApi() => $"/api{route}";
         public string WithId(int id) => route.Replace("{id:int}", id.ToString());
+        public string WithDate(DateOnly date) => route.Replace("{date}", date.ToString("yyyy-MM-dd"));
 
         public string WithQueryParameters(string queryParameters) => $"{route}?{queryParameters}";
     }
@@ -88,6 +89,7 @@ public static class AppRoutes
     public const string LootLogCharacterTopItems = "/loot/log/{id:int}/stats/top-items";
     public const string LootLogCharacterRecentFirsts = "/loot/log/{id:int}/stats/recent-firsts";
     public const string LootLogCharacterFirsts = "/loot/log/{id:int}/records";
+    public const string LootLogCharacterDay = "/loot/log/{id:int}/day/{date}";
     public const string LootLogSourceCollection = "/loot/log/{id:int}/source/collection";
 
     public const string UserApiKeySection = "/admin/users/{id:int}/api-key";

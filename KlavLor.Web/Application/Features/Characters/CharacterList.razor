@@ -1,3 +1,4 @@
+@using KlavLor.Application.Common
 @using KlavLor.Application.Features.Characters
 @using KlavLor.Web.Components.Layout
 
@@ -77,7 +78,7 @@
                             @character.TotalKills.ToString("N0") kills
                         </span>
                         <span class="flex items-center gap-1 font-medium text-amber-600 dark:text-amber-400">
-                            @FormatGold(character.TotalValue) gp
+                            @GoldFormat.Format(character.TotalValue) gp
                         </span>
                     </div>
 
@@ -138,12 +139,4 @@
 
     private static bool IsPlaceholderName(string? name) =>
         string.IsNullOrEmpty(name) || Guid.TryParse(name, out _);
-
-    private static string FormatGold(long value)
-    {
-        if (value >= 1_000_000_000) return $"{value / 1_000_000_000.0:F1}B";
-        if (value >= 1_000_000) return $"{value / 1_000_000.0:F1}M";
-        if (value >= 1_000) return $"{value / 1_000.0:F1}K";
-        return value.ToString("N0");
-    }
 }

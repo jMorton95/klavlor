@@ -57,23 +57,16 @@ public sealed class LootLogEndpoint : IEndpoint
             });
         }
 
-        // Fresh profile view: eager-fetch header + window stats + dry streaks.
+        // Fresh profile view: eager-fetch header + window stats.
         var header = await profileHandler.HandleHeader(id);
         var windows = await profileHandler.HandleWindowStats(id);
-
-        var sourceNames = searchResult.Value?.SourceMatches
-            .Select(s => s.SourceName).ToList() ?? [];
-        var dryStreaks = sourceNames.Count > 0
-            ? await profileHandler.HandleDryStreaks(id, sourceNames)
-            : null;
 
         return IResultExtensions.Component<CharacterProfile>(new
         {
             CharacterId = id,
             Header = header.Value,
             Windows = windows.Value,
-            SearchResult = searchResult.Value,
-            DryStreaks = dryStreaks?.Value
+            SearchResult = searchResult.Value
         });
     }
 

@@ -18,7 +18,7 @@
         }
         @if (Kill.TotalValue > 0)
         {
-            <span class="text-xs font-medium text-amber-600 dark:text-amber-400">@FormatGold(Kill.TotalValue) gp</span>
+            <span class="text-xs font-medium text-amber-600 dark:text-amber-400">@GoldFormat.Format(Kill.TotalValue) gp</span>
         }
     </div>
     <div class="flex flex-wrap gap-1.5">
@@ -30,7 +30,7 @@
                 {
                     <span class="px-1 py-0 text-[9px] font-semibold rounded-sm bg-cyan-700 text-white">NEW</span>
                 }
-                <img src="/api/images/item-icon?name=@Uri.EscapeDataString(drop.Name)"
+                <img src="/api/images/item-icon?name=@Uri.EscapeDataString(drop.Name)" alt="@drop.Name"
                      class="w-4 h-4 inline-block"
                      loading="lazy"
                      onerror="this.style.display='none'" />
@@ -41,7 +41,7 @@
                 @drop.Name
                 @if (drop.Price > 0)
                 {
-                    <span class="text-slate-400 dark:text-slate-400">(@FormatGold((long)drop.Quantity * drop.Price))</span>
+                    <span class="text-slate-400 dark:text-slate-400">(@GoldFormat.Format((long)drop.Quantity * drop.Price))</span>
                 }
             </span>
         }
@@ -51,14 +51,6 @@
 @code {
     [Parameter] public required LootKillEntry Kill { get; set; }
     [Parameter] public bool Highlighted { get; set; }
-
-    private static string FormatGold(long value)
-    {
-        if (value >= 1_000_000_000) return $"{value / 1_000_000_000.0:F1}B";
-        if (value >= 1_000_000) return $"{value / 1_000_000.0:F1}M";
-        if (value >= 1_000) return $"{value / 1_000.0:F1}K";
-        return value.ToString("N0");
-    }
 
     private static string FormatTime(DateTimeOffset time)
     {

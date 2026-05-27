@@ -1,3 +1,4 @@
+@using KlavLor.Application.Common
 @using KlavLor.Application.Features.Loot.Log
 @using KlavLor.Web.Components.Layout
 
@@ -42,7 +43,7 @@
                                 @character.TotalKills.ToString("N0") kills
                             </span>
                             <span class="flex items-center gap-1.5 whitespace-nowrap font-medium text-amber-600 dark:text-amber-400">
-                                @FormatGold(character.TotalValue) gp
+                                @GoldFormat.Format(character.TotalValue) gp
                             </span>
                         </div>
                     </div>
@@ -69,12 +70,4 @@
 @code {
     [Parameter] public List<LootLogCharacterSummary>? Characters { get; set; }
     [Parameter] public bool UpdateHeader { get; set; } = true;
-
-    private static string FormatGold(long value)
-    {
-        if (value >= 1_000_000_000) return $"{value / 1_000_000_000.0:F1}B";
-        if (value >= 1_000_000) return $"{value / 1_000_000.0:F1}M";
-        if (value >= 1_000) return $"{value / 1_000.0:F1}K";
-        return value.ToString("N0");
-    }
 }

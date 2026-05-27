@@ -1,10 +1,26 @@
+@using KlavLor.Application.Common
 @using KlavLor.Application.Features.Loot.Log
 
-<div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-    @RenderWindow("Last 7 days", Windows.Last7d)
-    @RenderWindow("Last 30 days", Windows.Last30d)
-    @RenderWindow("All time", Windows.AllTime)
-</div>
+@if (Windows.AllTime.Kills == 0)
+{
+    <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-8 text-center">
+        <svg class="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+        <h3 class="mt-3 text-sm font-semibold text-slate-700 dark:text-slate-200">No kills logged yet</h3>
+        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            Install and run <span class="font-medium text-slate-600 dark:text-slate-300">klavlor-sync</span> to start tracking this character's drops.
+        </p>
+    </div>
+}
+else
+{
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        @RenderWindow("Last 7 days", Windows.Last7d)
+        @RenderWindow("Last 30 days", Windows.Last30d)
+        @RenderWindow("All time", Windows.AllTime)
+    </div>
+}
 
 @code {
     [Parameter] public required ProfileWindowStats Windows { get; set; }
@@ -15,19 +31,11 @@
             <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">@label</h3>
             <div class="grid grid-cols-2 gap-3">
                 <Stat Label="Kills" Value="@w.Kills.ToString("N0")" />
-                <Stat Label="GP" Value="@FormatGold(w.Gp)" Accent="amber" />
-                <Stat Label="GP / hr" Value="@FormatGold(w.GpPerHour)" Accent="amber"
-                      Sub="@($"{w.ActiveHours:N0}h active")" />
+                <Stat Label="GP" Value="@GoldFormat.Format(w.Gp)" Accent="amber" />
+                <Stat Label="GP / hr" Value="@GoldFormat.Format(w.GpPerHour)" Accent="amber"
+                      Sub="@($"~{w.ActiveHours:N0}h est.")" />
                 <Stat Label="New items" Value="@w.NewItems.ToString("N0")" Accent="cyan" />
             </div>
         </div>
     };
-
-    private static string FormatGold(long value)
-    {
-        if (value >= 1_000_000_000) return $"{value / 1_000_000_000.0:F2}B";
-        if (value >= 1_000_000) return $"{value / 1_000_000.0:F1}M";
-        if (value >= 1_000) return $"{value / 1_000.0:F1}K";
-        return value.ToString("N0");
-    }
 }

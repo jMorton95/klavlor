@@ -22,7 +22,7 @@
         <div class="flex gap-4 flex-wrap text-sm">
             <Stat Label="Lifetime kills" Value="@Header.TotalKills.ToString("N0")" />
             <Stat Label="Sources" Value="@Header.TotalSources.ToString("N0")" />
-            <Stat Label="Lifetime GP" Value="@FormatGold(Header.TotalGp)" Accent="amber" />
+            <Stat Label="Lifetime GP" Value="@GoldFormat.Format(Header.TotalGp)" Accent="amber" />
         </div>
     </div>
 </div>
@@ -39,13 +39,5 @@
         return local.Year != DateTimeOffset.UtcNow.Year
             ? local.ToString("MMM d yyyy")
             : local.ToString("MMM d");
-    }
-
-    private static string FormatGold(long value)
-    {
-        if (value >= 1_000_000_000) return $"{value / 1_000_000_000.0:F2}B";
-        if (value >= 1_000_000) return $"{value / 1_000_000.0:F1}M";
-        if (value >= 1_000) return $"{value / 1_000.0:F1}K";
-        return value.ToString("N0");
     }
 }
