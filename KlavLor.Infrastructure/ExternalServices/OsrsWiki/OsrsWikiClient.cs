@@ -9,6 +9,21 @@ public sealed class OsrsWikiClient(HttpClient httpClient, ILogger<OsrsWikiClient
 {
     private const string WikiApiBase = "https://oldschool.runescape.wiki/api.php";
     private const string WikiBaseUrl = "https://oldschool.runescape.wiki/w/";
+    private const string CollectionLogDataUrl = "https://oldschool.runescape.wiki/?title=Module:Collection_log/data.json&action=raw&ctype=application/json";
+
+    public async Task<IReadOnlyList<CollectionLogItemData>> FetchCollectionLogItems()
+    {
+        try
+        {
+            var items = await httpClient.GetFromJsonAsync<List<CollectionLogItemData>>(CollectionLogDataUrl);
+            return items ?? [];
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to fetch OSRS collection log data");
+            return [];
+        }
+    }
 
     public async Task<List<OsrsSearchResult>> SearchItems(string searchTerm, int limit = 10)
     {

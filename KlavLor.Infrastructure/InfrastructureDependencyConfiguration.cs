@@ -54,6 +54,8 @@ public static class InfrastructureDependencyConfiguration
             services.AddSingleton<ILootFeedService, LootFeedService>();
             services.AddHostedService<LootFeedSeederService>();
 
+            services.AddSingleton<ICollectionLogCache, CollectionLogCache>();
+
             services.AddTransient<OsrsWikiRateLimitHandler>();
             services.AddOsrsWikiClient();
             services.AddImageCacheService();
