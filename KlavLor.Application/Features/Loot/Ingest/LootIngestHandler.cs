@@ -16,7 +16,8 @@ public sealed class LootIngestHandler(
     LootIngestValidator validator,
     ICurrentUser currentUser,
     ILootFeedService lootFeedService,
-    IUserRepository userRepository)
+    IUserRepository userRepository,
+    ICollectionLogCache collectionLogCache)
 {
     private static readonly string[] DateFormats =
     [
@@ -234,7 +235,7 @@ public sealed class LootIngestHandler(
     private async Task PublishRecordToFeed(string userName, LootRecord record, GameCharacter? character)
     {
         var drops = JsonSerializer.Deserialize<List<LootDrop>>(record.DropsJson) ?? [];
-        var feedDrops = drops.Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime)).ToList();
+        var feedDrops = drops.Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId))).ToList();
         var dropsByTier = ILootFeedService.ClassifyDropsByTier(feedDrops);
 
         // Chronological ordinal — only needed as a fallback label when RuneLite

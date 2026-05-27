@@ -38,7 +38,7 @@
            hx-push-url="@sourceUrl"
            hx-swap="innerHTML transition:true"
            class="inline-flex items-center gap-0.5 text-xs font-medium text-amber-600 dark:text-amber-400 hover:underline cursor-pointer min-w-0">
-            <img src="/api/images/source-icon?name=@Uri.EscapeDataString(Entry.SourceName)"
+            <img src="/api/images/source-icon?name=@Uri.EscapeDataString(Entry.SourceName)" alt="@Entry.SourceName"
                  class="w-4 h-4 rounded shrink-0"
                  loading="lazy"
                  onerror="this.style.display='none'" />
@@ -61,13 +61,14 @@
         <div class="flex flex-wrap gap-1.5 mt-1.5">
             @foreach (var drop in grouped.Take(8))
             {
-                <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] border @GetDropTierClasses(drop.Price) text-slate-700 dark:text-slate-200 @(drop.IsFirstTime ? GetFirstTimeRingClasses(Entry.Tier) : "")"
-                      title="@(drop.IsFirstTime ? "First time received" : null)">
-                    @if (drop.IsFirstTime)
+                var isNewUnique = drop.IsFirstTime && drop.IsCollectionLogItem;
+                <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] border @GetDropTierClasses(drop.Price) text-slate-700 dark:text-slate-200 @(isNewUnique ? GetFirstTimeRingClasses(Entry.Tier) : "")"
+                      title="@(isNewUnique ? "First-time collection log unlock" : null)">
+                    @if (isNewUnique)
                     {
                         <span class="px-1 py-0 text-[9px] font-semibold rounded-sm bg-cyan-700 text-white">NEW</span>
                     }
-                    <img src="/api/images/item-icon?name=@Uri.EscapeDataString(drop.Name)"
+                    <img src="/api/images/item-icon?name=@Uri.EscapeDataString(drop.Name)" alt="@drop.Name"
                          class="w-3 h-3 inline-block"
                          loading="lazy"
                          onerror="this.style.display='none'" />
@@ -80,11 +81,11 @@
                     {
                         @if (Entry.RunCount > 1 && drop.Quantity > 1)
                         {
-                            <span class="text-slate-700 dark:text-slate-200">(@FormatGold(drop.Price) ea)</span>
+                            <span class="text-slate-700 dark:text-slate-200">(@GoldFormat.Format(drop.Price) ea)</span>
                         }
                         else
                         {
-                            <span class="text-slate-700 dark:text-slate-200">(@FormatGold((long)drop.Quantity * drop.Price))</span>
+                            <span class="text-slate-700 dark:text-slate-200">(@GoldFormat.Format((long)drop.Quantity * drop.Price))</span>
                         }
                     }
                 </span>
@@ -101,7 +102,7 @@
     @if (Entry.Drops.Count > 1 && Entry.TotalValue > 0)
     {
         <div class="mt-1.5 text-[10px] text-slate-500 dark:text-slate-400">
-            Total: <span class="font-medium text-amber-600 dark:text-amber-400">@FormatGold(Entry.TotalValue) gp</span>
+            Total: <span class="font-medium text-amber-600 dark:text-amber-400">@GoldFormat.Format(Entry.TotalValue) gp</span>
         </div>
     }
 </div>
@@ -141,17 +142,9 @@
     private static List<LootFeedDrop> GroupDrops(List<LootFeedDrop> drops) =>
         drops
             .GroupBy(d => d.Name)
-            .Select(g => new LootFeedDrop(g.Key, g.Sum(d => d.Quantity), g.First().Price, g.Any(d => d.IsFirstTime)))
+            .Select(g => new LootFeedDrop(g.Key, g.Sum(d => d.Quantity), g.First().Price, g.Any(d => d.IsFirstTime), g.Any(d => d.IsCollectionLogItem)))
             .OrderByDescending(d => (long)d.Quantity * d.Price)
             .ToList();
-
-    private static string FormatGold(long value)
-    {
-        if (value >= 1_000_000_000) return $"{value / 1_000_000_000.0:F1}B";
-        if (value >= 1_000_000) return $"{value / 1_000_000.0:F1}M";
-        if (value >= 1_000) return $"{value / 1_000.0:F1}K";
-        return value.ToString("N0");
-    }
 
     private static string? FormatKillCount(int? min, int? max)
     {

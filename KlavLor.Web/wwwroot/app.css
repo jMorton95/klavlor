@@ -91,6 +91,42 @@ body:not(.history-panel-open) #completion-history-panel {
     background-image: radial-gradient(circle, #334155 1px, transparent 1px);
 }
 
+/* Thin themed scrollbar matching the slate UI palette (horizontal scroll strips, etc.) */
+.themed-scrollbar {
+    scrollbar-width: thin;                 /* Firefox */
+    scrollbar-color: #cbd5e1 transparent;  /* thumb slate-300, transparent track */
+}
+
+.themed-scrollbar::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+}
+
+.themed-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.themed-scrollbar::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1; /* slate-300 */
+    border-radius: 9999px;
+}
+
+.themed-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: #94a3b8; /* slate-400 */
+}
+
+:where(.dark, .dark *) .themed-scrollbar {
+    scrollbar-color: #475569 transparent; /* slate-600 */
+}
+
+:where(.dark, .dark *) .themed-scrollbar::-webkit-scrollbar-thumb {
+    background-color: #475569; /* slate-600 */
+}
+
+:where(.dark, .dark *) .themed-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: #64748b; /* slate-500 */
+}
+
 
 .builder-group-selected > div {
     outline: 2px solid #d97706;
@@ -172,5 +208,51 @@ body:not(.history-panel-open) #completion-history-panel {
     0%, 100% { outline-color: #f59e0b; }
     50% { outline-color: transparent; }
 }
+
+/* Activity heatmap hover tooltip (cursor-following, built in site.js) */
+.heatmap-tooltip {
+    position: fixed;
+    z-index: 60;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(2px);
+    transition: opacity 0.1s ease, transform 0.1s ease;
+    background: #ffffff;
+    border: 1px solid #e2e8f0; /* slate-200 */
+    border-radius: 0.5rem;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+    padding: 0.5rem 0.625rem;
+    font-size: 11px;
+    line-height: 1.45;
+    color: #475569; /* slate-600 */
+    white-space: nowrap;
+}
+.heatmap-tooltip.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+.heatmap-tooltip .hm-tt-date {
+    font-weight: 600;
+    color: #0f172a; /* slate-900 */
+    margin-bottom: 0.25rem;
+}
+.heatmap-tooltip .hm-tt-val {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: #1e293b; /* slate-800 */
+}
+.heatmap-tooltip .hm-tt-gp { color: #d97706; }   /* amber-600 */
+.heatmap-tooltip .hm-tt-clog { color: #0e7490; } /* cyan-700 */
+.heatmap-tooltip .hm-tt-empty { color: #94a3b8; } /* slate-400 */
+
+:where(.dark, .dark *) .heatmap-tooltip {
+    background: #0f172a; /* slate-900 */
+    border-color: #334155; /* slate-700 */
+    color: #cbd5e1; /* slate-300 */
+}
+:where(.dark, .dark *) .heatmap-tooltip .hm-tt-date { color: #f1f5f9; } /* slate-100 */
+:where(.dark, .dark *) .heatmap-tooltip .hm-tt-val { color: #e2e8f0; }  /* slate-200 */
+:where(.dark, .dark *) .heatmap-tooltip .hm-tt-gp { color: #fbbf24; }   /* amber-400 */
+:where(.dark, .dark *) .heatmap-tooltip .hm-tt-clog { color: #67e8f9; } /* cyan-300 */
 
 

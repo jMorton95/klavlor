@@ -24,6 +24,7 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
     public virtual DbSet<ItemIcon> ItemIcons => Set<ItemIcon>();
     public virtual DbSet<SourceIcon> SourceIcons => Set<SourceIcon>();
     public virtual DbSet<GameCharacter> GameCharacters => Set<GameCharacter>();
+    public virtual DbSet<CollectionLogItem> CollectionLogItems => Set<CollectionLogItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -305,6 +306,15 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
             .HasIndex(gc => gc.DisplayName)
             .IsUnique()
             .HasFilter("\"DisplayName\" IS NOT NULL");
+
+        // CollectionLogItem configuration (wiki-synced reference table; ItemId is the natural key)
+        modelBuilder.Entity<CollectionLogItem>()
+            .Property(c => c.ItemId)
+            .ValueGeneratedNever();
+
+        modelBuilder.Entity<CollectionLogItem>()
+            .Property(c => c.SyncedAt)
+            .HasColumnType("timestamp with time zone");
 
         // ApiKey configuration
         modelBuilder.Entity<ApiKey>()

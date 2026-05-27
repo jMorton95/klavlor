@@ -31,7 +31,7 @@
                 </div>
                 <div>
                     <div class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Total value</div>
-                    <div class="text-sm font-semibold text-amber-600 dark:text-amber-400 tabular-nums">@FormatGold(Stats.TotalValue)</div>
+                    <div class="text-sm font-semibold text-amber-600 dark:text-amber-400 tabular-nums">@GoldFormat.Format(Stats.TotalValue)</div>
                 </div>
                 <div>
                     <div class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Most recent</div>
@@ -102,13 +102,5 @@
         if (ago.TotalHours < 24) return $"{(int)ago.TotalHours}h ago";
         if (ago.TotalDays < 30) return $"{(int)ago.TotalDays}d ago";
         return IngestTimezone.ToZoneTime(t).ToString("MMM d, yyyy");
-    }
-
-    private static string FormatGold(long value)
-    {
-        if (value >= 1_000_000_000) return $"{value / 1_000_000_000.0:F2}B";
-        if (value >= 1_000_000) return $"{value / 1_000_000.0:F1}M";
-        if (value >= 1_000) return $"{value / 1_000.0:F1}K";
-        return value.ToString("N0");
     }
 }

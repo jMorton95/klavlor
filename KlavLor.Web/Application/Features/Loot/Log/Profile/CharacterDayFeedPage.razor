@@ -1,0 +1,148 @@
+@using KlavLor.Application.Common
+@using KlavLor.Application.Features.Loot.Feed
+@using KlavLor.Application.Features.Loot.Log
+@using KlavLor.Application.Interfaces.Services
+@using KlavLor.Web.Application.Features.Loot.Feed
+@using KlavLor.Web.Components.Layout
+
+<TopBarMetaData PageTitle="@($"KlavLor - {Feed.Day:MMM d, yyyy}")" Title="" Description="" />
+
+@{
+    var (activeTiers, columns) = BuildColumns(Feed.Entries);
+    var containerClass = FeedColumnLayout.ContainerClass(activeTiers.Count);
+    var colClass = FeedColumnLayout.ColumnClass(activeTiers.Count);
+}
+
+<div class="space-y-5">
+    <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+        <a hx-get="@AppRoutes.LootLogCharacter.WithId(CharacterId).FromApi()"
+           hx-target="#hx-page-container"
+           hx-push-url="@AppRoutes.LootLogCharacter.WithId(CharacterId)"
+           hx-swap="innerHTML transition:true"
+           class="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-amber-600 dark:text-slate-400 dark:hover:text-amber-400 cursor-pointer transition-colors mb-3">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            Back to profile
+        </a>
+
+        <div class="flex items-center justify-between gap-4 flex-wrap">
+            <div class="flex items-center gap-3 min-w-0">
+                <div class="w-12 h-12 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex flex-col items-center justify-center shrink-0 leading-none">
+                    <span class="text-[9px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">@Feed.Day.ToDateTime(TimeOnly.MinValue).ToString("MMM")</span>
+                    <span class="text-lg font-bold text-amber-700 dark:text-amber-300">@Feed.Day.Day</span>
+                </div>
+                <div class="min-w-0">
+                    <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100 truncate">
+                        @Feed.Day.ToDateTime(TimeOnly.MinValue).ToString("dddd, d MMMM yyyy")
+                    </h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">
+                        @Feed.Entries.Count valued @(Feed.Entries.Count == 1 ? "drop" : "drops") shown
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex items-stretch rounded-lg border border-slate-200 dark:border-slate-700 divide-x divide-slate-200 dark:divide-slate-700 overflow-hidden">
+                <div class="px-4 py-2 text-center">
+                    <div class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Kills</div>
+                    <div class="text-base font-bold text-slate-800 dark:text-slate-100 tabular-nums">@Feed.TotalKills.ToString("N0")</div>
+                </div>
+                <div class="px-4 py-2 text-center">
+                    <div class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">GP</div>
+                    <div class="text-base font-bold text-amber-600 dark:text-amber-400 tabular-nums">@GoldFormat.Format(Feed.TotalGp)</div>
+                </div>
+                <div class="px-4 py-2 text-center">
+                    <div class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Sources</div>
+                    <div class="text-base font-bold text-slate-800 dark:text-slate-100 tabular-nums">@Feed.Sources.ToString("N0")</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (Feed.Entries.Count == 0)
+    {
+        <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-8 text-center">
+            <p class="text-xs text-slate-500 dark:text-slate-400">No drops worth 10K+ on this day.</p>
+        </div>
+    }
+    else
+    {
+        <div class="@containerClass">
+            @foreach (var tier in activeTiers)
+            {
+                <div class="@colClass">
+                    <h2 class="text-xs font-semibold @TierHeaderClass(tier) mb-2 px-0.5">
+                        @TierName(tier)
+                        <span class="text-[10px] font-normal text-slate-400 dark:text-slate-500">@TierRange(tier)</span>
+                    </h2>
+                    <div class="space-y-2">
+                        @foreach (var entry in columns[tier])
+                        {
+                            <LootFeedItem Entry="@entry" />
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public required CharacterDayFeed Feed { get; set; }
+    [Parameter] public int CharacterId { get; set; }
+
+    // Dynamic columns: a tier gets its own column only with >=3 cards; sparser tiers fold into
+    // the closest rendered column. If no tier reaches 3, render a single most-populated column.
+    private static (List<LootFeedTier> Active, Dictionary<LootFeedTier, List<LootFeedEntry>> Columns)
+        BuildColumns(IReadOnlyList<LootFeedEntry> entries)
+    {
+        var byTier = ILootFeedService.AllTiers.ToDictionary(t => t, _ => 0);
+        foreach (var e in entries) byTier[e.Tier]++;
+
+        var active = ILootFeedService.AllTiers.Where(t => byTier[t] >= 3).ToList();
+
+        if (active.Count == 0 && entries.Count > 0)
+        {
+            var best = ILootFeedService.AllTiers
+                .Where(t => byTier[t] > 0)
+                .OrderBy(t => byTier[t])     // ascending count
+                .ThenBy(t => (int)t)         // ascending tier → Last() = max count, higher tier on ties
+                .Last();
+            active = [best];
+        }
+
+        var columns = active.ToDictionary(t => t, _ => new List<LootFeedEntry>());
+        foreach (var e in entries)
+        {
+            var target = active.Contains(e.Tier) ? e.Tier : ClosestActive(e.Tier, active);
+            columns[target].Add(e with { Tier = target });
+        }
+        return (active, columns);
+    }
+
+    private static LootFeedTier ClosestActive(LootFeedTier tier, List<LootFeedTier> active) =>
+        active
+            .OrderBy(t => Math.Abs((int)t - (int)tier))
+            .ThenByDescending(t => (int)t)   // tie-break toward the higher tier
+            .First();
+
+    private static string TierName(LootFeedTier tier) => tier.ToString();
+
+    private static string TierRange(LootFeedTier tier) => tier switch
+    {
+        LootFeedTier.Standard => "10K – 100K",
+        LootFeedTier.Uncommon => "100K – 1M",
+        LootFeedTier.Rare => "1M – 10M",
+        LootFeedTier.Epic => "10M – 100M",
+        _ => "100M+"
+    };
+
+    private static string TierHeaderClass(LootFeedTier tier) => tier switch
+    {
+        LootFeedTier.Uncommon => "text-green-600 dark:text-green-400",
+        LootFeedTier.Rare => "text-blue-600 dark:text-blue-400",
+        LootFeedTier.Epic => "text-purple-600 dark:text-purple-400",
+        LootFeedTier.Legendary => "text-amber-600 dark:text-amber-400",
+        _ => "text-slate-700 dark:text-slate-300"
+    };
+}

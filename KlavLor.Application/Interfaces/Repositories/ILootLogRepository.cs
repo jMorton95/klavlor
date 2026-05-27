@@ -17,8 +17,8 @@ public interface ILootLogRepository
     Task<ProfileHeader?> GetProfileHeader(int characterId);
     Task<WindowStats> GetWindowStats(int characterId, DateTimeOffset? from, DateTimeOffset? to);
     Task<List<DayBucket>> GetActivityCalendar(int characterId, DateTimeOffset from, DateTimeOffset to);
+    Task<CharacterDayFeed> GetCharacterDayFeed(int characterId, DateOnly day);
     Task<PersonalRecords> GetPersonalRecords(int characterId);
-    Task<Dictionary<string, int>> GetDryStreaks(int characterId, IReadOnlyList<string> sourceNames);
     Task<SourceCollection> GetSourceCollection(int characterId, string sourceName);
     Task<FirstTimeFeed> GetFirstTimeFeed(int characterId, DateTimeOffset? before, int pageSize);
     Task<TopItemsList> GetTopItems(int characterId, int limit);

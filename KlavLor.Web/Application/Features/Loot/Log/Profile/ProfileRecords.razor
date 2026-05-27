@@ -9,12 +9,18 @@
         Personal records
     </h3>
 
+    @if (!HasAnyRecord)
+    {
+        <p class="text-xs text-slate-500 dark:text-slate-400">No records yet — they'll appear here once this character has logged some kills.</p>
+    }
+    else
+    {
     <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
         @if (Records.BiggestKill is not null)
         {
             <div class="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3">
                 <div class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Biggest kill</div>
-                <div class="text-base font-semibold text-amber-600 dark:text-amber-400 mt-0.5">@FormatGold(Records.BiggestKill.TotalValue)</div>
+                <div class="text-base font-semibold text-amber-600 dark:text-amber-400 mt-0.5">@GoldFormat.Format(Records.BiggestKill.TotalValue)</div>
                 <div class="text-xs text-slate-700 dark:text-slate-200 mt-1 truncate">@(Records.BiggestKillSource ?? "Unknown source")</div>
                 <div class="text-[10px] text-slate-400 dark:text-slate-500">@FormatLocal(Records.BiggestKill.OccurredAt)</div>
             </div>
@@ -24,7 +30,7 @@
         {
             <div class="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3">
                 <div class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Biggest day</div>
-                <div class="text-base font-semibold text-amber-600 dark:text-amber-400 mt-0.5">@FormatGold(Records.BiggestDay.Gp)</div>
+                <div class="text-base font-semibold text-amber-600 dark:text-amber-400 mt-0.5">@GoldFormat.Format(Records.BiggestDay.Gp)</div>
                 <div class="text-xs text-slate-700 dark:text-slate-200 mt-1">@Records.BiggestDay.Kills.ToString("N0") kills</div>
                 <div class="text-[10px] text-slate-400 dark:text-slate-500">@Records.BiggestDay.Day.ToString("MMM d, yyyy")</div>
             </div>
@@ -34,7 +40,7 @@
         {
             <div class="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3">
                 <div class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Best 1h window</div>
-                <div class="text-base font-semibold text-amber-600 dark:text-amber-400 mt-0.5">@FormatGold(Records.BestHour.Gp)</div>
+                <div class="text-base font-semibold text-amber-600 dark:text-amber-400 mt-0.5">@GoldFormat.Format(Records.BestHour.Gp)</div>
                 <div class="text-xs text-slate-700 dark:text-slate-200 mt-1">@Records.BestHour.Kills.ToString("N0") kills</div>
                 <div class="text-[10px] text-slate-400 dark:text-slate-500">from @FormatLocal(Records.BestHour.WindowStart)</div>
             </div>
@@ -46,7 +52,7 @@
                 <div class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Top KC source</div>
                 <div class="text-base font-semibold text-slate-900 dark:text-slate-100 mt-0.5 truncate">@Records.TopKcSource.SourceName</div>
                 <div class="text-xs text-slate-700 dark:text-slate-200 mt-1">@Records.TopKcSource.Kills.ToString("N0") kills</div>
-                <div class="text-[10px] text-amber-600 dark:text-amber-400">@FormatGold(Records.TopKcSource.Gp) total</div>
+                <div class="text-[10px] text-amber-600 dark:text-amber-400">@GoldFormat.Format(Records.TopKcSource.Gp) total</div>
             </div>
         }
 
@@ -54,9 +60,9 @@
         {
             <div class="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3">
                 <div class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Biggest single item</div>
-                <div class="text-base font-semibold text-amber-600 dark:text-amber-400 mt-0.5">@FormatGold(Records.BiggestItem.Value)</div>
+                <div class="text-base font-semibold text-amber-600 dark:text-amber-400 mt-0.5">@GoldFormat.Format(Records.BiggestItem.Value)</div>
                 <div class="text-xs text-slate-700 dark:text-slate-200 mt-1 truncate inline-flex items-center gap-1">
-                    <img src="/api/images/item-icon?name=@Uri.EscapeDataString(Records.BiggestItem.ItemName)"
+                    <img src="/api/images/item-icon?name=@Uri.EscapeDataString(Records.BiggestItem.ItemName)" alt="@Records.BiggestItem.ItemName"
                          class="w-4 h-4 inline-block" loading="lazy" onerror="this.style.display='none'" />
                     @(Records.BiggestItem.Quantity > 1 ? $"{Records.BiggestItem.Quantity:N0}x " : "")@Records.BiggestItem.ItemName
                 </div>
@@ -64,11 +70,19 @@
             </div>
         }
     </div>
+    }
 </div>
 
 @code {
     [Parameter] public required PersonalRecords Records { get; set; }
     [Parameter] public int CharacterId { get; set; }
+
+    private bool HasAnyRecord =>
+        Records.BiggestKill is not null
+        || Records.BiggestDay is not null
+        || Records.BestHour is not null
+        || Records.TopKcSource is not null
+        || Records.BiggestItem is not null;
 
     private static string FormatLocal(DateTimeOffset t)
     {
@@ -76,13 +90,5 @@
         return local.Year != DateTimeOffset.UtcNow.Year
             ? local.ToString("MMM d yyyy")
             : local.ToString("MMM d, HH:mm");
-    }
-
-    private static string FormatGold(long value)
-    {
-        if (value >= 1_000_000_000) return $"{value / 1_000_000_000.0:F2}B";
-        if (value >= 1_000_000) return $"{value / 1_000_000.0:F1}M";
-        if (value >= 1_000) return $"{value / 1_000.0:F1}K";
-        return value.ToString("N0");
     }
 }

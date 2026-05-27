@@ -1,0 +1,27 @@
+@page "/loot/log/{Id:int}/day/{Date}"
+@using KlavLor.Application.Features.Loot.Log
+@using KlavLor.Web.Components.Layout
+
+@inject LootCharacterProfileHandler Handler
+
+<PageLayout PageTitle="KlavLor - Day" Title="" Description="">
+    @if (_feed is not null)
+    {
+        <CharacterDayFeedPage Feed="@_feed" CharacterId="@Id" />
+    }
+</PageLayout>
+
+@code {
+    [Parameter] public int Id { get; set; }
+    [Parameter] public string Date { get; set; } = "";
+
+    private CharacterDayFeed? _feed;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!DateOnly.TryParseExact(Date, "yyyy-MM-dd", out var day)) return;
+
+        var result = await Handler.HandleDayFeed(Id, day);
+        if (result.IsSuccess) _feed = result.Value;
+    }
+}

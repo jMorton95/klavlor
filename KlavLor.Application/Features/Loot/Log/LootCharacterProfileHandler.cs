@@ -57,15 +57,6 @@ public sealed class LootCharacterProfileHandler(
         return Result<PersonalRecords>.Success(records);
     }
 
-    public async Task<Result<Dictionary<string, int>>> HandleDryStreaks(int characterId, IReadOnlyList<string> sourceNames)
-    {
-        if (!await accessChecker.CanAccess(characterId))
-            return Result<Dictionary<string, int>>.Success([]);
-
-        var streaks = await lootLogRepository.GetDryStreaks(characterId, sourceNames);
-        return Result<Dictionary<string, int>>.Success(streaks);
-    }
-
     public async Task<Result<SourceCollection>> HandleSourceCollection(int characterId, string sourceName)
     {
         if (!await accessChecker.CanAccess(characterId))
@@ -91,6 +82,15 @@ public sealed class LootCharacterProfileHandler(
 
         var data = await lootLogRepository.GetTopItems(characterId, limit);
         return Result<TopItemsList>.Success(data);
+    }
+
+    public async Task<Result<CharacterDayFeed>> HandleDayFeed(int characterId, DateOnly day)
+    {
+        if (!await accessChecker.CanAccess(characterId))
+            return Result<CharacterDayFeed>.Failure("Character not found.");
+
+        var feed = await lootLogRepository.GetCharacterDayFeed(characterId, day);
+        return Result<CharacterDayFeed>.Success(feed);
     }
 
 }

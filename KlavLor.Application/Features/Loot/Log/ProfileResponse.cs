@@ -5,7 +5,7 @@ namespace KlavLor.Application.Features.Loot.Log;
 public enum HeatmapMode
 {
     Gp,
-    Kills
+    Clogs
 }
 
 public sealed record ProfileHeader(
@@ -39,7 +39,8 @@ public sealed record HeatmapData(
 public sealed record DayBucket(
     DateOnly Day,
     int Kills,
-    long Gp);
+    long Gp,
+    int Clogs = 0);
 
 public sealed record PersonalRecords(
     LootKillEntry? BiggestKill,

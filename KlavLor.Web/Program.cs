@@ -57,6 +57,7 @@ builder.Services.AddInfrastructure();
 builder.Services.AddHostedService<ImageCacheBackfillService>();
 builder.Services.AddHostedService<ItemIconBackfillService>();
 builder.Services.AddHostedService<SourceIconBackfillService>();
+builder.Services.AddHostedService<CollectionLogSyncService>();
 
 builder.Services.AddRateLimiter(options =>
 {
@@ -109,6 +110,12 @@ using var scope = app.Services.CreateScope();
 var migrationService = scope.ServiceProvider.GetRequiredService<IMigrationService>();
 
 await migrationService.ApplyStartupDatabaseMigrations();
+
+// Prime the collection-log cache from the persisted table before any hosted service runs
+// (the feed seeder starts immediately and would otherwise classify against an empty set).
+var collectionLogCache = scope.ServiceProvider.GetRequiredService<KlavLor.Application.Interfaces.Services.ICollectionLogCache>();
+var collectionLogItemRepository = scope.ServiceProvider.GetRequiredService<KlavLor.Domain.Interfaces.Repositories.ICollectionLogItemRepository>();
+collectionLogCache.Replace(await collectionLogItemRepository.GetAllItemIds());
 
 if (!app.Environment.IsDevelopment())
 {

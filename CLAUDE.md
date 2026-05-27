@@ -81,7 +81,7 @@ New endpoints must use one of these existing policies (applied via `.RequireRate
 
 ### Feature Folder Structure
 
-Code is organized by feature, not by technical concern. Both Application and Web layers mirror the same feature folders:
+Code is organized by feature, not by technical concern. Feature folders live under `KlavLor.Application/Features/` and `KlavLor.Web/Application/Features/`. The two layers overlap but don't mirror exactly — e.g. Application has top-level `ApiKeys/` and `Builder/` folders, whereas Web nests that work under `Users/` and `Templates/`. Common feature areas:
 
 - `Characters/` — Character profile pages
 - `Home/` — Home/landing page
@@ -202,4 +202,4 @@ tools/klavlor-sync/
 
 ## No Test Suite
 
-There are currently no test projects in this solution.
+There are currently no test projects in this solution. The top-level `tests/` directory holds manual testing-plan docs (Markdown), not runnable tests.

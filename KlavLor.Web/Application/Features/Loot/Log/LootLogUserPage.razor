@@ -14,7 +14,7 @@
     }
     else if (_header is not null && _windows is not null && _result is not null)
     {
-        <CharacterProfile CharacterId="@Id" Header="@_header" Windows="@_windows" SearchResult="@_result" DryStreaks="@_dryStreaks" />
+        <CharacterProfile CharacterId="@Id" Header="@_header" Windows="@_windows" SearchResult="@_result" />
     }
 </PageLayout>
 
@@ -29,7 +29,6 @@
     private LootLogSearchResult? _result;
     private ProfileHeader? _header;
     private ProfileWindowStats? _windows;
-    private IReadOnlyDictionary<string, int>? _dryStreaks;
 
     protected override async Task OnInitializedAsync()
     {
@@ -50,12 +49,5 @@
 
         var windows = await ProfileHandler.HandleWindowStats(Id);
         if (windows.IsSuccess) _windows = windows.Value;
-
-        var sourceNames = _result?.SourceMatches.Select(s => s.SourceName).ToList() ?? [];
-        if (sourceNames.Count > 0)
-        {
-            var dry = await ProfileHandler.HandleDryStreaks(Id, sourceNames);
-            if (dry.IsSuccess) _dryStreaks = dry.Value;
-        }
     }
 }

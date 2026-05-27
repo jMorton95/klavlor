@@ -1,3 +1,4 @@
+@using KlavLor.Application.Common
 @using KlavLor.Application.Features.Loot.Log
 @using KlavLor.Domain.Entities
 
@@ -9,7 +10,7 @@
     <div class="p-4">
         <div class="flex items-start justify-between mb-2">
             <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate inline-flex items-center gap-1.5">
-                <img src="/api/images/source-icon?name=@Uri.EscapeDataString(Source.SourceName)"
+                <img src="/api/images/source-icon?name=@Uri.EscapeDataString(Source.SourceName)" alt="@Source.SourceName"
                      class="w-5 h-5 inline-block rounded shrink-0"
                      loading="lazy"
                      onerror="this.style.display='none'" />
@@ -28,15 +29,8 @@
                 @Source.TotalKills.ToString("N0") @(Source.SourceType == LootSourceType.Event ? "rolls" : "kills")
             </span>
             <span class="flex items-center gap-1 font-medium text-amber-600 dark:text-amber-400">
-                @FormatGold(Source.TotalValue) gp
+                @GoldFormat.Format(Source.TotalValue) gp
             </span>
-            @if (DryStreak is not null && DryStreak.Value > 0)
-            {
-                <span class="text-[11px] text-slate-500 dark:text-slate-400"
-                      title="Kills since last first-time receipt">
-                    · @DryStreak.Value.ToString("N0") dry
-                </span>
-            }
         </div>
 
         @if (Source.TopDrops.Count > 0)
@@ -46,7 +40,7 @@
                 {
                     <div class="flex items-center justify-between text-xs">
                         <span class="text-slate-700 dark:text-slate-100 truncate mr-2 inline-flex items-center gap-1">
-                            <img src="/api/images/item-icon?name=@Uri.EscapeDataString(drop.Name)"
+                            <img src="/api/images/item-icon?name=@Uri.EscapeDataString(drop.Name)" alt="@drop.Name"
                                  class="w-4 h-4 inline-block"
                                  loading="lazy"
                                  onerror="this.style.display='none'" />
@@ -56,7 +50,7 @@
                                 <span class="ml-1 text-slate-400 dark:text-slate-400">x@(drop.TotalQuantity.ToString("N0"))</span>
                             }
                         </span>
-                        <span class="text-amber-600 dark:text-amber-400 font-medium whitespace-nowrap">@FormatGold(drop.TotalValue)</span>
+                        <span class="text-amber-600 dark:text-amber-400 font-medium whitespace-nowrap">@GoldFormat.Format(drop.TotalValue)</span>
                     </div>
                 }
             </div>
@@ -67,7 +61,6 @@
 @code {
     [Parameter] public required LootSourceSummary Source { get; set; }
     [Parameter] public int CharacterId { get; set; }
-    [Parameter] public int? DryStreak { get; set; }
 
     private string GetSourceTypeBadgeClasses() => Source.SourceType switch
     {
@@ -77,12 +70,4 @@
         LootSourceType.Player => "bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300",
         _ => "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
     };
-
-    private static string FormatGold(long value)
-    {
-        if (value >= 1_000_000_000) return $"{value / 1_000_000_000.0:F1}B";
-        if (value >= 1_000_000) return $"{value / 1_000_000.0:F1}M";
-        if (value >= 1_000) return $"{value / 1_000.0:F1}K";
-        return value.ToString("N0");
-    }
 }

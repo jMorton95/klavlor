@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Npgsql;
+using KlavLor.Application.Common;
 using KlavLor.Application.Common.Exceptions;
 using KlavLor.Application.Features.Loot.Feed;
 using KlavLor.Application.Features.Loot.Log;
@@ -11,7 +12,7 @@ using KlavLor.Domain.Entities;
 
 namespace KlavLor.Infrastructure.Persistence.EntityFramework.Repositories.Loot;
 
-internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLogRepository> logger)
+internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLogRepository> logger, ICollectionLogCache collectionLogCache)
     : ILootLogRepository
 {
     public async Task<List<LootLogCharacterSummary>> GetCharactersWithLoot(bool includeHidden = false)
@@ -462,7 +463,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                         })
                         .ToListAsync();
 
-                    var groups = CollapseProjections(candidates, tier, tierMin, tierMax, countPerTier);
+                    var groups = CollapseProjections(candidates, tier, tierMin, tierMax, countPerTier, collectionLogCache);
 
                     if (groups.Count >= countPerTier || candidates.Count < take || take >= hardCap)
                     {
@@ -488,7 +489,8 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
         LootFeedTier tier,
         long tierMin,
         long? tierMax,
-        int targetGroups)
+        int targetGroups,
+        ICollectionLogCache collectionLogCache)
     {
         var groups = new List<LootFeedEntry>();
         // GroupKey -> indices into `groups`. Lets us match records to any same-key group within
@@ -505,7 +507,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                     var val = (long)d.Quantity * d.Price;
                     return val >= tierMin && (tierMax is null || val < tierMax.Value);
                 })
-                .Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime))
+                .Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId)))
                 .ToList();
 
             if (tierDrops.Count == 0) continue;
@@ -561,6 +563,147 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             if (groups.Count >= targetGroups) break;
         }
         return groups;
+    }
+
+    public async Task<CharacterDayFeed> GetCharacterDayFeed(int characterId, DateOnly day)
+    {
+        try
+        {
+            // Day boundaries in Europe/London (matching GetActivityCalendar's bucketing),
+            // converted to UTC for the OccurredAt range filter.
+            var start = IngestTimezone.FromLocalNaive(day.ToDateTime(TimeOnly.MinValue));
+            var end = IngestTimezone.FromLocalNaive(day.AddDays(1).ToDateTime(TimeOnly.MinValue));
+
+            var baseQuery = dataContext.LootRecords
+                .Where(r => r.GameCharacterId == characterId
+                            && r.OccurredAt >= start
+                            && r.OccurredAt < end);
+
+            // True totals for the day — every kill, not just the valued ones shown as cards.
+            var summary = await baseQuery
+                .GroupBy(_ => 1)
+                .Select(g => new
+                {
+                    Kills = g.Count(),
+                    Gp = g.Sum(r => r.TotalValue),
+                    Sources = g.Select(r => r.SourceName).Distinct().Count()
+                })
+                .FirstOrDefaultAsync();
+
+            // Same join + projection shape as GetAllFeedTiers (LootRecord has no nav properties).
+            var candidates = await baseQuery
+                .Join(dataContext.GameCharacters, r => r.GameCharacterId, gc => gc.Id, (r, gc) => new { Record = r, Character = gc })
+                .Join(dataContext.Users, x => x.Character.UserId, u => u.Id, (x, u) => new { x.Record, x.Character, User = u })
+                .OrderByDescending(x => x.Record.OccurredAt)
+                .Select(x => new FeedTierProjection
+                {
+                    UserName = x.User.FirstName + " " + x.User.LastName,
+                    UserId = x.Record.UserId,
+                    SourceName = x.Record.SourceName,
+                    SourceType = x.Record.SourceType,
+                    TotalValue = x.Record.TotalValue,
+                    DropsJson = x.Record.DropsJson,
+                    OccurredAt = x.Record.OccurredAt,
+                    CharacterName = x.Character.DisplayName ?? x.User.FirstName + " " + x.User.LastName,
+                    GameCharacterId = x.Character.Id,
+                    KillCount = x.Record.KillCount,
+                    KillOrdinal = dataContext.LootRecords.Count(o =>
+                        o.GameCharacterId == x.Character.Id
+                        && o.SourceName == x.Record.SourceName
+                        && (o.OccurredAt < x.Record.OccurredAt
+                            || (o.OccurredAt == x.Record.OccurredAt && o.Id <= x.Record.Id)))
+                })
+                .ToListAsync();
+
+            var entries = CollapseDay(candidates, collectionLogCache);
+
+            return new CharacterDayFeed(
+                day,
+                summary?.Kills ?? 0,
+                summary?.Gp ?? 0,
+                summary?.Sources ?? 0,
+                entries);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get day feed for character {CharacterId} on {Day}", characterId, day);
+            throw new RepositoryException("Failed to get day feed", ex);
+        }
+    }
+
+    // Like CollapseProjections, but keeps every valued drop (>=10K) across all tiers rather than
+    // splitting per tier, and has no group cap — a whole day's valued kills, merged into runs.
+    private static List<LootFeedEntry> CollapseDay(
+        List<FeedTierProjection> candidates,
+        ICollectionLogCache collectionLogCache)
+    {
+        var groups = new List<LootFeedEntry>();
+        var indexByKey = new Dictionary<string, List<int>>();
+
+        foreach (var r in candidates)
+        {
+            var allDrops = JsonSerializer.Deserialize<List<LootDrop>>(r.DropsJson) ?? [];
+            var drops = allDrops
+                .Where(d => ILootFeedService.GetDropTier((long)d.Quantity * d.Price) is not null)
+                .Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId)))
+                .ToList();
+
+            if (drops.Count == 0) continue;
+
+            var total = drops.Sum(d => (long)d.Quantity * d.Price);
+            var entry = new LootFeedEntry(
+                r.UserName,
+                r.UserId,
+                r.SourceName,
+                r.SourceType,
+                total,
+                drops,
+                r.OccurredAt,
+                ILootFeedService.GetDropTier(total) ?? LootFeedTier.Standard,
+                r.CharacterName,
+                r.GameCharacterId,
+                MinKillCount: r.KillCount,
+                MaxKillCount: r.KillCount,
+                MinKillOrdinal: r.KillOrdinal,
+                MaxKillOrdinal: r.KillOrdinal);
+
+            var bestIndex = -1;
+            var bestDelta = TimeSpan.MaxValue;
+            if (indexByKey.TryGetValue(entry.GroupKey, out var candidateIndices))
+            {
+                foreach (var i in candidateIndices)
+                {
+                    var delta = LootFeedGrouping.TryGetMergeDelta(groups[i], entry);
+                    if (delta is null) continue;
+                    if (delta.Value < bestDelta)
+                    {
+                        bestDelta = delta.Value;
+                        bestIndex = i;
+                    }
+                }
+            }
+
+            if (bestIndex >= 0)
+            {
+                groups[bestIndex] = LootFeedGrouping.Merge(groups[bestIndex], entry);
+            }
+            else
+            {
+                groups.Add(entry);
+                if (!indexByKey.TryGetValue(entry.GroupKey, out var list))
+                {
+                    list = [];
+                    indexByKey[entry.GroupKey] = list;
+                }
+                list.Add(groups.Count - 1);
+            }
+        }
+
+        // Re-classify each (possibly merged) run by its final combined value so column bucketing
+        // reflects the card's real total, not just its first kill.
+        return groups
+            .Select(g => g with { Tier = ILootFeedService.GetDropTier(g.TotalValue) ?? LootFeedTier.Standard })
+            .ToList();
     }
 
     public async Task DeleteAllForCharacter(int characterId)
@@ -662,8 +805,9 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             var kills = rowAgg?.Kills ?? 0;
             var gp = rowAgg?.Gp ?? 0;
 
-            // Active hours = distinct truncated-hour buckets. Cheap approximation
-            // of "time spent earning" without session stitching.
+            // Active hours = distinct truncated-hour buckets, scaled by the fraction
+            // of each hour a player is realistically active (see ActiveFractionPerHour).
+            // Cheap approximation of "time spent earning" without session stitching.
             var activeHours = await GetActiveHours(characterId, from, to);
             var gpPerHour = activeHours > 0 ? (long)(gp / activeHours) : 0;
 
@@ -677,6 +821,11 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             throw new RepositoryException("Failed to get window stats", ex);
         }
     }
+
+    // Fraction of each "active" hour a player is realistically earning. An hour bucket
+    // containing a kill rarely represents 60 minutes of grinding, so we discount each
+    // counted hour to ~45 minutes to keep derived figures (e.g. GP/hr) honest.
+    private const double ActiveFractionPerHour = 0.75;
 
     private async Task<double> GetActiveHours(int characterId, DateTimeOffset? from, DateTimeOffset? to)
     {
@@ -698,7 +847,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
         cmd.Parameters.Add(NullableTimestampParam("@to", to));
 
         var result = await cmd.ExecuteScalarAsync();
-        return result is long l ? l : 0;
+        return result is long l ? l * ActiveFractionPerHour : 0;
     }
 
     private async Task<int> GetNewItemsInWindow(int characterId, DateTimeOffset? from, DateTimeOffset? to)
@@ -740,17 +889,36 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             if (connection.State != System.Data.ConnectionState.Open) await connection.OpenAsync();
 
             // Bucket by Europe/London date so BST/GMT transitions don't split a real
-            // day across two cells in the heatmap.
+            // day across two cells in the heatmap. Clog count = first-time receipts that
+            // day whose item is a genuine collection-log item (same join as GetFirstTimeFeed).
             const string sql = """
-                SELECT (("OccurredAt" AT TIME ZONE 'Europe/London')::date) AS day,
-                       COUNT(*)::int AS kills,
-                       SUM("TotalValue")::bigint AS gp
-                FROM "LootRecords"
-                WHERE "GameCharacterId" = @cid
-                  AND "OccurredAt" >= @from
-                  AND "OccurredAt" < @to
-                GROUP BY 1
-                ORDER BY 1
+                SELECT k.day, k.kills, k.gp, COALESCE(c.clogs, 0) AS clogs
+                FROM (
+                    SELECT (("OccurredAt" AT TIME ZONE 'Europe/London')::date) AS day,
+                           COUNT(*)::int AS kills,
+                           SUM("TotalValue")::bigint AS gp
+                    FROM "LootRecords"
+                    WHERE "GameCharacterId" = @cid
+                      AND "OccurredAt" >= @from
+                      AND "OccurredAt" < @to
+                    GROUP BY 1
+                ) k
+                LEFT JOIN (
+                    SELECT (("OccurredAt" AT TIME ZONE 'Europe/London')::date) AS day,
+                           COUNT(*)::int AS clogs
+                    FROM "LootRecords" lr,
+                         jsonb_array_elements(lr."DropsJson") AS drop_elem
+                    WHERE lr."GameCharacterId" = @cid
+                      AND lr."OccurredAt" >= @from
+                      AND lr."OccurredAt" < @to
+                      AND (drop_elem->>'IsFirstTime')::boolean = true
+                      AND EXISTS (
+                          SELECT 1 FROM "CollectionLogItems" cli
+                          WHERE cli."ItemId" = (drop_elem->>'ItemId')::int
+                      )
+                    GROUP BY 1
+                ) c USING (day)
+                ORDER BY k.day
                 """;
 
             await using var cmd = connection.CreateCommand();
@@ -766,7 +934,8 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 result.Add(new DayBucket(
                     DateOnly.FromDateTime(reader.GetDateTime(0)),
                     reader.GetInt32(1),
-                    reader.IsDBNull(2) ? 0 : reader.GetInt64(2)));
+                    reader.IsDBNull(2) ? 0 : reader.GetInt64(2),
+                    reader.IsDBNull(3) ? 0 : reader.GetInt32(3)));
             }
             return result;
         }
@@ -898,54 +1067,6 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             reader.GetFieldValue<DateTimeOffset>(4));
     }
 
-    public async Task<Dictionary<string, int>> GetDryStreaks(int characterId, IReadOnlyList<string> sourceNames)
-    {
-        if (sourceNames.Count == 0) return [];
-        try
-        {
-            var connection = dataContext.Database.GetDbConnection();
-            if (connection.State != System.Data.ConnectionState.Open) await connection.OpenAsync();
-
-            // CTE: per source, the timestamp of the most recent first-time receipt.
-            // Then count kills since that timestamp; if NULL, count all kills.
-            const string sql = """
-                WITH last_first AS (
-                    SELECT lr."SourceName", MAX(lr."OccurredAt") AS last_at
-                    FROM "LootRecords" lr, jsonb_array_elements(lr."DropsJson") AS d
-                    WHERE lr."GameCharacterId" = @cid
-                      AND (d->>'IsFirstTime')::boolean = true
-                      AND lr."SourceName" = ANY(@names)
-                    GROUP BY lr."SourceName"
-                )
-                SELECT lr."SourceName",
-                       COUNT(*) FILTER (WHERE lr."OccurredAt" > COALESCE(lf.last_at, '-infinity'::timestamptz))::int AS dry
-                FROM "LootRecords" lr
-                LEFT JOIN last_first lf ON lf."SourceName" = lr."SourceName"
-                WHERE lr."GameCharacterId" = @cid
-                  AND lr."SourceName" = ANY(@names)
-                GROUP BY lr."SourceName"
-                """;
-
-            await using var cmd = connection.CreateCommand();
-            cmd.CommandText = sql;
-            cmd.Parameters.Add(new NpgsqlParameter("@cid", characterId));
-            cmd.Parameters.Add(new NpgsqlParameter("@names", sourceNames.ToArray()));
-
-            var result = new Dictionary<string, int>();
-            await using var reader = await cmd.ExecuteReaderAsync();
-            while (await reader.ReadAsync())
-            {
-                result[reader.GetString(0)] = reader.GetInt32(1);
-            }
-            return result;
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to get dry streaks for character {CharacterId}", characterId);
-            throw new RepositoryException("Failed to get dry streaks", ex);
-        }
-    }
-
     public async Task<SourceCollection> GetSourceCollection(int characterId, string sourceName)
     {
         try
@@ -1011,6 +1132,10 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                      jsonb_array_elements(lr."DropsJson") AS drop_elem
                 WHERE lr."GameCharacterId" = @cid
                   AND (drop_elem->>'IsFirstTime')::boolean = true
+                  AND EXISTS (
+                      SELECT 1 FROM "CollectionLogItems" cli
+                      WHERE cli."ItemId" = (drop_elem->>'ItemId')::int
+                  )
                   AND (@before IS NULL OR lr."OccurredAt" < @before)
                 ORDER BY lr."OccurredAt" DESC
                 LIMIT @take

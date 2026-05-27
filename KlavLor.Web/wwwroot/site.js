@@ -330,4 +330,63 @@ document.body.addEventListener('htmx:afterSettle', function() {
 window.addEventListener('popstate', updateSidebarActive);
 
 updateSidebarActive();
+
+// --- Activity heatmap hover tooltip ---
+// Document-level delegation so it keeps working after HTMX swaps the heatmap in/out.
+(function () {
+    let tip = null;
+
+    function ensureTip() {
+        if (!tip) {
+            tip = document.createElement('div');
+            tip.className = 'heatmap-tooltip';
+            tip.setAttribute('role', 'tooltip');
+            document.body.appendChild(tip);
+        }
+        return tip;
+    }
+
+    function position(clientX, clientY) {
+        if (!tip) return;
+        const pad = 14;
+        const r = tip.getBoundingClientRect();
+        let x = clientX + pad;
+        let y = clientY + pad;
+        if (x + r.width > window.innerWidth - 8) x = clientX - r.width - pad;
+        if (y + r.height > window.innerHeight - 8) y = clientY - r.height - pad;
+        tip.style.left = Math.max(8, x) + 'px';
+        tip.style.top = Math.max(8, y) + 'px';
+    }
+
+    document.addEventListener('mouseover', function (e) {
+        const cell = e.target.closest && e.target.closest('.heatmap-cell');
+        if (!cell) return;
+        const t = ensureTip();
+        const d = cell.dataset;
+        if (d.empty === 'true') {
+            t.innerHTML = '<div class="hm-tt-date">' + d.date + '</div>' +
+                '<div class="hm-tt-empty">No activity</div>';
+        } else {
+            t.innerHTML = '<div class="hm-tt-date">' + d.date + '</div>' +
+                '<div><span class="hm-tt-val hm-tt-gp">' + d.gp + '</span> gp</div>' +
+                '<div><span class="hm-tt-val">' + d.kills + '</span> kills</div>' +
+                '<div><span class="hm-tt-val hm-tt-clog">' + d.clogs + '</span> new clogs</div>';
+        }
+        t.classList.add('is-visible');
+        position(e.clientX, e.clientY);
+    });
+
+    document.addEventListener('mousemove', function (e) {
+        if (tip && tip.classList.contains('is-visible')) position(e.clientX, e.clientY);
+    });
+
+    document.addEventListener('mouseout', function (e) {
+        const cell = e.target.closest && e.target.closest('.heatmap-cell');
+        if (!cell || !tip) return;
+        // Don't flicker when sliding straight onto an adjacent cell.
+        const to = e.relatedTarget;
+        if (to && to.closest && to.closest('.heatmap-cell')) return;
+        tip.classList.remove('is-visible');
+    });
+})();
 trackLastViewedTemplate();
