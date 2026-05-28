@@ -12,8 +12,10 @@ public sealed class LootLogHandler(
 {
     public async Task<Result<List<LootLogCharacterSummary>>> HandleCharacters()
     {
-        var includeHidden = currentUser.IsAdmin;
-        var characters = await lootLogRepository.GetCharactersWithLoot(includeHidden);
+        // Always respect the visibility flags on the public drop-log grid — admins
+        // included. Hidden means hidden. Admins who need to reach a hidden character
+        // can still get there via the admin user-management page or a direct URL.
+        var characters = await lootLogRepository.GetCharactersWithLoot(includeHidden: false);
         return Result<List<LootLogCharacterSummary>>.Success(characters);
     }
 
