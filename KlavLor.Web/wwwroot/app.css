@@ -33,6 +33,12 @@ body:not(.history-panel-open) #completion-history-panel {
 .hist-segment .hist-tooltip { display: none; }
 .hist-segment:hover .hist-tooltip { display: block; }
 
+/* Raise the hovered segment above neighbouring columns so the tooltip isn't
+   covered by adjacent bars (which come later in DOM order and paint on top
+   when both are at z-auto). The segment is already position: relative, so
+   setting z-index here creates a stacking context with the tooltip inside. */
+.hist-segment:hover { z-index: 50; }
+
 @keyframes fade-in {
     from { opacity: 0; }
 }
