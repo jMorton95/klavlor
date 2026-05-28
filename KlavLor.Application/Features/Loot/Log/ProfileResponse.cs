@@ -42,6 +42,25 @@ public sealed record DayBucket(
     long Gp,
     int Clogs = 0);
 
+public sealed record MonthlyTrend(
+    DateOnly From,
+    DateOnly To,
+    string Range,
+    IReadOnlyList<MonthBucket> Months);
+
+public sealed record MonthBucket(
+    int Year,
+    int Month,
+    int Kills,
+    long Gp,
+    int Clogs,
+    IReadOnlyList<MonthSegment> TopSegments);
+
+public sealed record MonthSegment(
+    string ItemName,
+    string SourceName,
+    long Value);
+
 public sealed record PersonalRecords(
     LootKillEntry? BiggestKill,
     string? BiggestKillSource,

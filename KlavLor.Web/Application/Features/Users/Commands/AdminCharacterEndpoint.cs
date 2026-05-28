@@ -23,6 +23,9 @@ public sealed class AdminCharacterEndpoint : IEndpoint
         app.MapPost(AppRoutes.AdminCharacterToggleHidden.FromApi(), ToggleAdminHidden)
             .RequireAuthorization(nameof(RoleName.Admin));
 
+        app.MapPost(AppRoutes.AdminCharacterToggleLeagues.FromApi(), ToggleAdminLeagues)
+            .RequireAuthorization(nameof(RoleName.Admin));
+
         app.MapGet(AppRoutes.AdminCharacterDelete.FromApi(), GetDeleteCharacterConfirmation)
             .RequireAuthorization(nameof(RoleName.Admin));
 
@@ -65,6 +68,13 @@ public sealed class AdminCharacterEndpoint : IEndpoint
     private static async Task<RazorComponentResult> ToggleAdminHidden(int id, int characterId, CharacterHandler handler)
     {
         await handler.HandleToggleAdminHidden(characterId);
+        var result = await handler.HandleListForUser(id);
+        return IResultExtensions.Component<AdminCharacterSection>(new { UserId = id, Characters = result.Value });
+    }
+
+    private static async Task<RazorComponentResult> ToggleAdminLeagues(int id, int characterId, CharacterHandler handler)
+    {
+        await handler.HandleToggleLeagues(characterId);
         var result = await handler.HandleListForUser(id);
         return IResultExtensions.Component<AdminCharacterSection>(new { UserId = id, Characters = result.Value });
     }

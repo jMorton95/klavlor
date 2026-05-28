@@ -80,11 +80,19 @@ public static class AppRoutes
     public const string LootFeedStreamRare = "/loot/feed/stream/rare";
     public const string LootFeedStreamEpic = "/loot/feed/stream/epic";
     public const string LootFeedStreamLegendary = "/loot/feed/stream/legendary";
+    public const string LootFeedLeagues = "/loot/feed/leagues";
+    public const string LootFeedLeaguesGrid = "/loot/feed/leagues/grid";
+    public const string LootFeedLeaguesStreamStandard = "/loot/feed/leagues/stream/standard";
+    public const string LootFeedLeaguesStreamUncommon = "/loot/feed/leagues/stream/uncommon";
+    public const string LootFeedLeaguesStreamRare = "/loot/feed/leagues/stream/rare";
+    public const string LootFeedLeaguesStreamEpic = "/loot/feed/leagues/stream/epic";
+    public const string LootFeedLeaguesStreamLegendary = "/loot/feed/leagues/stream/legendary";
     public const string LootLog = "/loot/log";
     public const string LootLogCharacter = "/loot/log/{id:int}";
     public const string LootLogSource = "/loot/log/{id:int}/source";
 
     public const string LootLogCharacterHeatmap = "/loot/log/{id:int}/stats/heatmap";
+    public const string LootLogCharacterMonthly = "/loot/log/{id:int}/stats/monthly";
     public const string LootLogCharacterRecords = "/loot/log/{id:int}/stats/records";
     public const string LootLogCharacterTopItems = "/loot/log/{id:int}/stats/top-items";
     public const string LootLogCharacterRecentFirsts = "/loot/log/{id:int}/stats/recent-firsts";
@@ -99,9 +107,11 @@ public static class AppRoutes
     public const string Characters = "/characters";
     public const string CharacterUpdateName = "/characters/{id:int}/name";
     public const string CharacterToggleVisibility = "/characters/{id:int}/visibility";
+    public const string CharacterToggleLeagues = "/characters/{id:int}/leagues";
 
     public const string AdminCharacterSection = "/admin/users/{id:int}/characters";
     public const string AdminCharacterToggleHidden = "/admin/users/{id:int}/characters/{characterId:int}/hidden";
+    public const string AdminCharacterToggleLeagues = "/admin/users/{id:int}/characters/{characterId:int}/leagues";
     public const string AdminCharacterDelete = "/admin/users/{id:int}/characters/{characterId:int}/delete";
     public const string AdminUserDeleteLoot = "/admin/users/{id:int}/delete-loot";
     public const string AdminCharacterAssign = "/characters/{id:int}/assign";

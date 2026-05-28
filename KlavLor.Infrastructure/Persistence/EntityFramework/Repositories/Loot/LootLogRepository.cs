@@ -406,8 +406,9 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
     }
 
     public async Task<Dictionary<LootFeedTier, List<LootFeedEntry>>> GetAllFeedTiers(
-        int countPerTier, IReadOnlySet<LootFeedTier>? requestedTiers = null)
+        int countPerTier, LootFeedScope scope = LootFeedScope.Main, IReadOnlySet<LootFeedTier>? requestedTiers = null)
     {
+        var isLeagues = scope == LootFeedScope.Leagues;
         // The cap counts *grouped* entries: adjacent same-source kills collapse into one card
         // (e.g. 10 clues in a row = 1 entry), and we want countPerTier of those, not raw records.
         // Tier classification is per-drop (each LootRecord can split across tiers via its drops),
@@ -426,7 +427,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             var baseQuery = dataContext.LootRecords
                 .Where(r => r.GameCharacterId != null)
                 .Join(dataContext.GameCharacters, r => r.GameCharacterId, gc => gc.Id, (r, gc) => new { Record = r, Character = gc })
-                .Where(x => x.Character.IsVisible && !x.Character.IsAdminHidden)
+                .Where(x => x.Character.IsVisible && !x.Character.IsAdminHidden && x.Character.IsLeagues == isLeagues)
                 .Join(dataContext.Users, x => x.Character.UserId, u => u.Id, (x, u) => new { x.Record, x.Character, User = u });
 
             foreach (var tier in tiers)
@@ -463,7 +464,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                         })
                         .ToListAsync();
 
-                    var groups = CollapseProjections(candidates, tier, tierMin, tierMax, countPerTier, collectionLogCache);
+                    var groups = CollapseProjections(candidates, tier, tierMin, tierMax, countPerTier, collectionLogCache, scope);
 
                     if (groups.Count >= countPerTier || candidates.Count < take || take >= hardCap)
                     {
@@ -490,7 +491,8 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
         long tierMin,
         long? tierMax,
         int targetGroups,
-        ICollectionLogCache collectionLogCache)
+        ICollectionLogCache collectionLogCache,
+        LootFeedScope scope)
     {
         var groups = new List<LootFeedEntry>();
         // GroupKey -> indices into `groups`. Lets us match records to any same-key group within
@@ -527,7 +529,8 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 MinKillCount: r.KillCount,
                 MaxKillCount: r.KillCount,
                 MinKillOrdinal: r.KillOrdinal,
-                MaxKillOrdinal: r.KillOrdinal);
+                MaxKillOrdinal: r.KillOrdinal,
+                Scope: scope);
 
             var bestIndex = -1;
             var bestDelta = TimeSpan.MaxValue;
@@ -943,6 +946,174 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
         {
             logger.LogError(ex, "Failed to get activity calendar for character {CharacterId}", characterId);
             throw new RepositoryException("Failed to get activity calendar", ex);
+        }
+    }
+
+    public async Task<MonthlyTrend> GetMonthlyTrend(int characterId, DateTimeOffset? from, DateTimeOffset to, string range)
+    {
+        try
+        {
+            var connection = dataContext.Database.GetDbConnection();
+            if (connection.State != System.Data.ConnectionState.Open) await connection.OpenAsync();
+
+            // Bucket by (year, month) of the Europe/London occurrence date, matching
+            // GetActivityCalendar's TZ. Clog count = first-time receipts that month whose
+            // item is a real collection-log entry. When `from` is null we treat it as
+            // unbounded ("all time") and use the earliest record to drive UI bounds.
+            const string sql = """
+                SELECT k.y, k.m, k.kills, k.gp, COALESCE(c.clogs, 0) AS clogs
+                FROM (
+                    SELECT EXTRACT(year FROM (("OccurredAt" AT TIME ZONE 'Europe/London')::date))::int AS y,
+                           EXTRACT(month FROM (("OccurredAt" AT TIME ZONE 'Europe/London')::date))::int AS m,
+                           COUNT(*)::int AS kills,
+                           SUM("TotalValue")::bigint AS gp
+                    FROM "LootRecords"
+                    WHERE "GameCharacterId" = @cid
+                      AND (@from IS NULL OR "OccurredAt" >= @from)
+                      AND "OccurredAt" < @to
+                    GROUP BY 1, 2
+                ) k
+                LEFT JOIN (
+                    SELECT EXTRACT(year FROM ((lr."OccurredAt" AT TIME ZONE 'Europe/London')::date))::int AS y,
+                           EXTRACT(month FROM ((lr."OccurredAt" AT TIME ZONE 'Europe/London')::date))::int AS m,
+                           COUNT(*)::int AS clogs
+                    FROM "LootRecords" lr,
+                         jsonb_array_elements(lr."DropsJson") AS drop_elem
+                    WHERE lr."GameCharacterId" = @cid
+                      AND (@from IS NULL OR lr."OccurredAt" >= @from)
+                      AND lr."OccurredAt" < @to
+                      AND (drop_elem->>'IsFirstTime')::boolean = true
+                      AND EXISTS (
+                          SELECT 1 FROM "CollectionLogItems" cli
+                          WHERE cli."ItemId" = (drop_elem->>'ItemId')::int
+                      )
+                    GROUP BY 1, 2
+                ) c USING (y, m)
+                ORDER BY k.y, k.m
+                """;
+
+            await using var cmd = connection.CreateCommand();
+            cmd.CommandText = sql;
+            cmd.Parameters.Add(new NpgsqlParameter("@cid", characterId));
+            cmd.Parameters.Add(NullableTimestampParam("@from", from));
+            cmd.Parameters.Add(new NpgsqlParameter("@to", to));
+
+            var raw = new List<MonthBucket>();
+            await using (var reader = await cmd.ExecuteReaderAsync())
+            {
+                while (await reader.ReadAsync())
+                {
+                    raw.Add(new MonthBucket(
+                        reader.GetInt32(0),
+                        reader.GetInt32(1),
+                        reader.GetInt32(2),
+                        reader.IsDBNull(3) ? 0 : reader.GetInt64(3),
+                        reader.IsDBNull(4) ? 0 : reader.GetInt32(4),
+                        []));
+                }
+            }
+
+            // Top 10 (item, source) contributors per month, by drop value. Used to stack
+            // each bar in the trend chart. Separate query keeps the monthly-aggregate plan
+            // simple and avoids re-unrolling DropsJson inside its CTE.
+            const string segmentsSql = """
+                WITH unrolled AS (
+                    SELECT EXTRACT(year FROM ((lr."OccurredAt" AT TIME ZONE 'Europe/London')::date))::int AS y,
+                           EXTRACT(month FROM ((lr."OccurredAt" AT TIME ZONE 'Europe/London')::date))::int AS m,
+                           lr."SourceName" AS source_name,
+                           drop_elem->>'Name' AS item_name,
+                           ((drop_elem->>'Quantity')::bigint * (drop_elem->>'Price')::bigint) AS value
+                    FROM "LootRecords" lr,
+                         jsonb_array_elements(lr."DropsJson") AS drop_elem
+                    WHERE lr."GameCharacterId" = @cid
+                      AND (@from IS NULL OR lr."OccurredAt" >= @from)
+                      AND lr."OccurredAt" < @to
+                ),
+                agg AS (
+                    SELECT y, m, source_name, item_name, SUM(value)::bigint AS total
+                    FROM unrolled
+                    GROUP BY y, m, source_name, item_name
+                ),
+                ranked AS (
+                    SELECT y, m, source_name, item_name, total,
+                           ROW_NUMBER() OVER (PARTITION BY y, m ORDER BY total DESC) AS rn
+                    FROM agg
+                )
+                SELECT y, m, item_name, source_name, total
+                FROM ranked
+                WHERE rn <= 10
+                ORDER BY y, m, total DESC
+                """;
+
+            var segmentsByMonth = new Dictionary<(int y, int m), List<MonthSegment>>();
+            await using (var segCmd = connection.CreateCommand())
+            {
+                segCmd.CommandText = segmentsSql;
+                segCmd.Parameters.Add(new NpgsqlParameter("@cid", characterId));
+                segCmd.Parameters.Add(NullableTimestampParam("@from", from));
+                segCmd.Parameters.Add(new NpgsqlParameter("@to", to));
+
+                await using var segReader = await segCmd.ExecuteReaderAsync();
+                while (await segReader.ReadAsync())
+                {
+                    var key = (segReader.GetInt32(0), segReader.GetInt32(1));
+                    var item = segReader.GetString(2);
+                    var source = segReader.GetString(3);
+                    var value = segReader.IsDBNull(4) ? 0 : segReader.GetInt64(4);
+
+                    if (!segmentsByMonth.TryGetValue(key, out var list))
+                    {
+                        list = [];
+                        segmentsByMonth[key] = list;
+                    }
+                    list.Add(new MonthSegment(item, source, value));
+                }
+            }
+
+            // Splice segments into the aggregate rows.
+            for (var i = 0; i < raw.Count; i++)
+            {
+                if (segmentsByMonth.TryGetValue((raw[i].Year, raw[i].Month), out var segs))
+                {
+                    raw[i] = raw[i] with { TopSegments = segs };
+                }
+            }
+
+            // Resolve actual bounds. "all" with no data → degenerate empty range ending today.
+            var nowLondon = IngestTimezone.ToZoneTime(to.AddDays(-1));
+            DateOnly fromMonth;
+            if (from is not null)
+            {
+                var fromLondon = IngestTimezone.ToZoneTime(from.Value);
+                fromMonth = new DateOnly(fromLondon.Year, fromLondon.Month, 1);
+            }
+            else if (raw.Count > 0)
+            {
+                fromMonth = new DateOnly(raw[0].Year, raw[0].Month, 1);
+            }
+            else
+            {
+                fromMonth = new DateOnly(nowLondon.Year, nowLondon.Month, 1);
+            }
+            var toMonth = new DateOnly(nowLondon.Year, nowLondon.Month, 1);
+
+            // Densify: fill missing months with zeros so the bar chart renders a
+            // contiguous timeline rather than skipping idle months.
+            var byKey = raw.ToDictionary(m => (m.Year, m.Month));
+            var dense = new List<MonthBucket>();
+            for (var cursor = fromMonth; cursor <= toMonth; cursor = cursor.AddMonths(1))
+            {
+                dense.Add(byKey.TryGetValue((cursor.Year, cursor.Month), out var b)
+                    ? b
+                    : new MonthBucket(cursor.Year, cursor.Month, 0, 0, 0, []));
+            }
+
+            return new MonthlyTrend(fromMonth, toMonth, range, dense);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get monthly trend for character {CharacterId}", characterId);
+            throw new RepositoryException("Failed to get monthly trend", ex);
         }
     }
 

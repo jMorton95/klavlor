@@ -246,6 +246,9 @@ public sealed class LootIngestHandler(
             ordinal = await lootRecordRepository.GetKillOrdinal(
                 character.Id, record.SourceName, record.OccurredAt, record.Id);
 
+        // Route to the matching feed scope. Characters without IsLeagues set default to Main.
+        var scope = character?.IsLeagues == true ? LootFeedScope.Leagues : LootFeedScope.Main;
+
         foreach (var (tier, tierDrops) in dropsByTier)
         {
             // Skip Standard/Uncommon tiers for imported records to avoid flooding.
@@ -267,7 +270,8 @@ public sealed class LootIngestHandler(
                 MinKillCount: record.KillCount,
                 MaxKillCount: record.KillCount,
                 MinKillOrdinal: ordinal,
-                MaxKillOrdinal: ordinal));
+                MaxKillOrdinal: ordinal,
+                Scope: scope));
         }
     }
 

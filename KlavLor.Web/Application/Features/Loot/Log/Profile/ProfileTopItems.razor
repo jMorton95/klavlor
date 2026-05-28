@@ -36,7 +36,7 @@
                             · @item.SourceCount @(item.SourceCount == 1 ? "source" : "sources")
                             @if (!string.IsNullOrEmpty(item.TopSourceName))
                             {
-                                <span> · mostly from <span class="text-slate-700 dark:text-slate-300">@item.TopSourceName</span></span>
+                                <span> · @(item.SourceCount == 1 ? "from" : "mostly from") <span class="text-slate-700 dark:text-slate-300">@item.TopSourceName</span></span>
                             }
                         </div>
                     </div>

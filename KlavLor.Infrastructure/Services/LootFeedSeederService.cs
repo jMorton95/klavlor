@@ -18,20 +18,25 @@ public sealed class LootFeedSeederService(
             using var scope = scopeFactory.CreateScope();
             var repository = scope.ServiceProvider.GetRequiredService<ILootLogRepository>();
 
-            var tiers = await repository.GetAllFeedTiers(50);
-            var totalSeeded = 0;
-
-            foreach (var (_, entries) in tiers)
+            // Seed each scope independently so the main and leagues feeds both have
+            // history available immediately after restart.
+            foreach (var feedScope in Enum.GetValues<LootFeedScope>())
             {
-                if (entries.Count > 0)
-                {
-                    feedService.SeedBuffer(entries);
-                    totalSeeded += entries.Count;
-                }
-            }
+                var tiers = await repository.GetAllFeedTiers(50, feedScope);
+                var seededForScope = 0;
 
-            if (totalSeeded > 0)
-                logger.LogInformation("Seeded loot feed with {Count} entries across all tiers", totalSeeded);
+                foreach (var (_, entries) in tiers)
+                {
+                    if (entries.Count > 0)
+                    {
+                        feedService.SeedBuffer(feedScope, entries);
+                        seededForScope += entries.Count;
+                    }
+                }
+
+                if (seededForScope > 0)
+                    logger.LogInformation("Seeded {Scope} loot feed with {Count} entries", feedScope, seededForScope);
+            }
         }
         catch (Exception ex)
         {

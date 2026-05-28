@@ -13,6 +13,9 @@ public sealed class LootCharacterProfileEndpoint : IEndpoint
         app.MapGet(AppRoutes.LootLogCharacterHeatmap.FromApi(), GetHeatmap)
             .AllowAnonymous();
 
+        app.MapGet(AppRoutes.LootLogCharacterMonthly.FromApi(), GetMonthly)
+            .AllowAnonymous();
+
         app.MapGet(AppRoutes.LootLogCharacterRecords.FromApi(), GetRecords)
             .AllowAnonymous();
 
@@ -45,6 +48,21 @@ public sealed class LootCharacterProfileEndpoint : IEndpoint
         return IResultExtensions.Component<CharacterDayFeedPage>(new
         {
             Feed = result.Value,
+            CharacterId = id
+        });
+    }
+
+    private static async Task<IResult> GetMonthly(
+        int id,
+        [FromQuery] string? range,
+        LootCharacterProfileHandler handler)
+    {
+        var normalised = string.Equals(range, "all", StringComparison.OrdinalIgnoreCase) ? "all" : "12m";
+        var result = await handler.HandleMonthlyTrend(id, normalised);
+        if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.NotFound();
+        return IResultExtensions.Component<ProfileMonthlyTrend>(new
+        {
+            Trend = result.Value,
             CharacterId = id
         });
     }

@@ -11,6 +11,15 @@ public enum LootFeedTier
     Legendary
 }
 
+// Top-level partition for the live feed. Main = standard OSRS characters,
+// Leagues = OSRS seasonal Leagues characters. Kept separate so leagues activity
+// doesn't drown out the main feed during a league season.
+public enum LootFeedScope
+{
+    Main,
+    Leagues
+}
+
 public interface ILootFeedService
 {
     static LootFeedTier? GetDropTier(long dropValue) => dropValue switch
@@ -53,8 +62,8 @@ public interface ILootFeedService
         return result;
     }
 
-    IReadOnlyList<LootFeedEntry> GetCurrentEntries(LootFeedTier tier);
-    IAsyncEnumerable<LootFeedBroadcast> SubscribeAsync(LootFeedTier tier, CancellationToken cancellationToken);
+    IReadOnlyList<LootFeedEntry> GetCurrentEntries(LootFeedScope scope, LootFeedTier tier);
+    IAsyncEnumerable<LootFeedBroadcast> SubscribeAsync(LootFeedScope scope, LootFeedTier tier, CancellationToken cancellationToken);
     void Publish(LootFeedEntry entry);
-    void SeedBuffer(IEnumerable<LootFeedEntry> entries);
+    void SeedBuffer(LootFeedScope scope, IEnumerable<LootFeedEntry> entries);
 }

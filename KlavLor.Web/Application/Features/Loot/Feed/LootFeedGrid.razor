@@ -2,9 +2,25 @@
 @using KlavLor.Application.Interfaces.Services
 @using KlavLor.Web.Components.Layout
 
+@{
+    var isLeagues = Scope == LootFeedScope.Leagues;
+    var headerTitle = isLeagues ? "Leagues Feed" : "Loot Feed";
+    var headerPageTitle = isLeagues ? "KlavLor - Leagues Feed" : "KlavLor - Loot Feed";
+    var headerDescription = isLeagues
+        ? "Real-time loot drops from leagues characters"
+        : "Real-time loot drops from all users";
+
+    // SSE stream URLs differ per scope; everything else (columns, styling, JS) is identical.
+    var streamStandard   = (isLeagues ? AppRoutes.LootFeedLeaguesStreamStandard   : AppRoutes.LootFeedStreamStandard).FromApi();
+    var streamUncommon   = (isLeagues ? AppRoutes.LootFeedLeaguesStreamUncommon   : AppRoutes.LootFeedStreamUncommon).FromApi();
+    var streamRare       = (isLeagues ? AppRoutes.LootFeedLeaguesStreamRare       : AppRoutes.LootFeedStreamRare).FromApi();
+    var streamEpic       = (isLeagues ? AppRoutes.LootFeedLeaguesStreamEpic       : AppRoutes.LootFeedStreamEpic).FromApi();
+    var streamLegendary  = (isLeagues ? AppRoutes.LootFeedLeaguesStreamLegendary  : AppRoutes.LootFeedStreamLegendary).FromApi();
+}
+
 @if (UpdateHeader)
 {
-    <TopBarMetaData PageTitle="KlavLor - Loot Feed" Title="Loot Feed" Description="Real-time loot drops from all users" />
+    <TopBarMetaData PageTitle="@headerPageTitle" Title="@headerTitle" Description="@headerDescription" />
 }
 
 @{
@@ -25,7 +41,7 @@
             </h2>
             <div id="feed-col-standard"
                  hx-ext="sse"
-                 sse-connect="@AppRoutes.LootFeedStreamStandard.FromApi()"
+                 sse-connect="@streamStandard"
                  sse-swap="message"
                  hx-swap="afterbegin"
                  hx-on::after-settle="if(this.children.length > 50) { while(this.children.length > 50) this.removeChild(this.lastElementChild); }"
@@ -56,7 +72,7 @@
             </h2>
             <div id="feed-col-uncommon"
                  hx-ext="sse"
-                 sse-connect="@AppRoutes.LootFeedStreamUncommon.FromApi()"
+                 sse-connect="@streamUncommon"
                  sse-swap="message"
                  hx-swap="afterbegin"
                  hx-on::after-settle="if(this.children.length > 50) { while(this.children.length > 50) this.removeChild(this.lastElementChild); }"
@@ -87,7 +103,7 @@
             </h2>
             <div id="feed-col-rare"
                  hx-ext="sse"
-                 sse-connect="@AppRoutes.LootFeedStreamRare.FromApi()"
+                 sse-connect="@streamRare"
                  sse-swap="message"
                  hx-swap="afterbegin"
                  hx-on::after-settle="if(this.children.length > 50) { while(this.children.length > 50) this.removeChild(this.lastElementChild); }"
@@ -118,7 +134,7 @@
             </h2>
             <div id="feed-col-epic"
                  hx-ext="sse"
-                 sse-connect="@AppRoutes.LootFeedStreamEpic.FromApi()"
+                 sse-connect="@streamEpic"
                  sse-swap="message"
                  hx-swap="afterbegin"
                  hx-on::after-settle="if(this.children.length > 50) { while(this.children.length > 50) this.removeChild(this.lastElementChild); }"
@@ -149,7 +165,7 @@
             </h2>
             <div id="feed-col-legendary"
                  hx-ext="sse"
-                 sse-connect="@AppRoutes.LootFeedStreamLegendary.FromApi()"
+                 sse-connect="@streamLegendary"
                  sse-swap="message"
                  hx-swap="afterbegin"
                  hx-on::after-settle="if(this.children.length > 50) { while(this.children.length > 50) this.removeChild(this.lastElementChild); }"
@@ -215,5 +231,6 @@
     [Parameter] public IReadOnlyList<LootFeedEntry>? EpicEntries { get; set; }
     [Parameter] public IReadOnlyList<LootFeedEntry>? LegendaryEntries { get; set; }
     [Parameter] public IReadOnlyList<LootFeedTier>? ActiveTiers { get; set; }
+    [Parameter] public LootFeedScope Scope { get; set; } = LootFeedScope.Main;
     [Parameter] public bool UpdateHeader { get; set; } = true;
 }

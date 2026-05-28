@@ -19,7 +19,8 @@ public sealed record LootFeedEntry(
     int? MinKillCount = null,
     int? MaxKillCount = null,
     int? MinKillOrdinal = null,
-    int? MaxKillOrdinal = null)
+    int? MaxKillOrdinal = null,
+    LootFeedScope Scope = LootFeedScope.Main)
 {
     public DateTimeOffset GroupAnchorAt => GroupStartedAt ?? OccurredAt;
 

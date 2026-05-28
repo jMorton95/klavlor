@@ -32,6 +32,23 @@ public sealed class LootCharacterProfileHandler(
         return Result<ProfileWindowStats>.Success(new ProfileWindowStats(last7d, last30d, allTime));
     }
 
+    public async Task<Result<MonthlyTrend>> HandleMonthlyTrend(int characterId, string range)
+    {
+        if (!await accessChecker.CanAccess(characterId))
+            return Result<MonthlyTrend>.Failure("Character not found.");
+
+        var now = DateTimeOffset.UtcNow;
+        var to = now.AddDays(1);
+        // "12m" = last 12 *calendar* months (inclusive of current). Anchor on the first
+        // of the month 11 back so the bar count is stable across the month transition.
+        DateTimeOffset? from = range == "all"
+            ? null
+            : new DateTimeOffset(new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc)).AddMonths(-11);
+
+        var trend = await lootLogRepository.GetMonthlyTrend(characterId, from, to, range);
+        return Result<MonthlyTrend>.Success(trend);
+    }
+
     public async Task<Result<HeatmapData>> HandleHeatmap(int characterId, HeatmapMode mode)
     {
         if (!await accessChecker.CanAccess(characterId))

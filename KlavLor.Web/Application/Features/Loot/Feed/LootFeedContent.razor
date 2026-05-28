@@ -2,9 +2,19 @@
 @using KlavLor.Application.Interfaces.Services
 @using KlavLor.Web.Components.Layout
 
+@{
+    var isLeagues = Scope == LootFeedScope.Leagues;
+    var pageTitle = isLeagues ? "KlavLor - Leagues Feed" : "KlavLor - Loot Feed";
+    var title = isLeagues ? "Leagues Feed" : "Loot Feed";
+    var description = isLeagues
+        ? "Real-time loot drops from leagues characters"
+        : "Real-time loot drops from all users";
+    var gridUrl = (isLeagues ? AppRoutes.LootFeedLeaguesGrid : AppRoutes.LootFeedGrid).FromApi();
+}
+
 @if (UpdateHeader)
 {
-    <TopBarMetaData PageTitle="KlavLor - Loot Feed" Title="Loot Feed" Description="Real-time loot drops from all users" />
+    <TopBarMetaData PageTitle="@pageTitle" Title="@title" Description="@description" />
 }
 
 <div class="flex justify-start mb-3">
@@ -49,13 +59,16 @@
     </div>
 </div>
 
-<div id="feed-grid-container">
+@* data-grid-url tells the filter JS which grid endpoint to refresh against — the
+   same site.js handles both /loot/feed and /loot/feed/leagues this way. *@
+<div id="feed-grid-container" data-grid-url="@gridUrl">
     <LootFeedGrid StandardEntries="@StandardEntries"
                   UncommonEntries="@UncommonEntries"
                   RareEntries="@RareEntries"
                   EpicEntries="@EpicEntries"
                   LegendaryEntries="@LegendaryEntries"
                   ActiveTiers="@ActiveTiers"
+                  Scope="@Scope"
                   UpdateHeader="false" />
 </div>
 
@@ -72,5 +85,6 @@
     [Parameter] public IReadOnlyList<LootFeedEntry>? EpicEntries { get; set; }
     [Parameter] public IReadOnlyList<LootFeedEntry>? LegendaryEntries { get; set; }
     [Parameter] public IReadOnlyList<LootFeedTier>? ActiveTiers { get; set; }
+    [Parameter] public LootFeedScope Scope { get; set; } = LootFeedScope.Main;
     [Parameter] public bool UpdateHeader { get; set; } = true;
 }

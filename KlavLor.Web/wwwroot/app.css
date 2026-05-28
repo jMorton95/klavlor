@@ -27,6 +27,12 @@ body:not(.history-panel-open) #completion-history-panel {
     display: none;
 }
 
+/* Histogram-segment hover tooltip — show on hover of the segment row.
+   Done in plain CSS so a new Tailwind variant doesn't need an ASP.NET static-asset
+   restart to register. */
+.hist-segment .hist-tooltip { display: none; }
+.hist-segment:hover .hist-tooltip { display: block; }
+
 @keyframes fade-in {
     from { opacity: 0; }
 }

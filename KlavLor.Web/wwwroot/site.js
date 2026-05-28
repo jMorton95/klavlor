@@ -217,7 +217,16 @@ window.initHistoryPanel = function() {
 (() => {
     const ALL_TIERS = ['standard', 'uncommon', 'rare', 'epic', 'legendary'];
     const STORAGE_KEY = 'lootFeedFilter';
-    const GRID_API = '/api/loot/feed/grid';
+    // Each feed page renders #feed-grid-container with a data-grid-url attribute
+    // pointing at its scope-specific grid endpoint (main vs leagues). Falls back
+    // to the main grid URL if the attribute is missing (defensive).
+    function getGridApi() {
+        const container = document.getElementById('feed-grid-container');
+        return container?.dataset.gridUrl || '/api/loot/feed/grid';
+    }
+    // Both main and leagues grid endpoints end in /grid; this lets us inject the
+    // tiers query param onto either via htmx:configRequest.
+    const GRID_PATH_SUFFIX = '/grid';
 
     function getActiveTiers() {
         try {
@@ -238,7 +247,7 @@ window.initHistoryPanel = function() {
 
         // If user has a non-default filter, re-fetch with their filter applied
         if (JSON.stringify([...active].sort()) !== JSON.stringify([...ALL_TIERS].sort())) {
-            htmx.ajax('GET', GRID_API + '?tiers=' + active.join(','), {
+            htmx.ajax('GET', getGridApi() + '?tiers=' + active.join(','), {
                 target: '#feed-grid-container',
                 swap: 'innerHTML'
             });
@@ -265,15 +274,15 @@ window.initHistoryPanel = function() {
             return;
         }
 
-        htmx.ajax('GET', GRID_API + '?tiers=' + checked.join(','), {
+        htmx.ajax('GET', getGridApi() + '?tiers=' + checked.join(','), {
             target: '#feed-grid-container',
             swap: 'innerHTML'
         });
     };
 
-    // Inject tiers param into HTMX requests for the feed grid API
+    // Inject tiers param into HTMX requests for any feed grid API (main or leagues).
     document.body.addEventListener('htmx:configRequest', function(evt) {
-        if (evt.detail.path && evt.detail.path.includes('/api/loot/feed/grid')) {
+        if (evt.detail.path && evt.detail.path.startsWith('/api/loot/feed') && evt.detail.path.endsWith(GRID_PATH_SUFFIX)) {
             const tiers = getActiveTiers();
             evt.detail.parameters['tiers'] = tiers.join(',');
         }

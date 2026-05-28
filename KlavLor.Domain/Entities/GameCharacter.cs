@@ -21,5 +21,7 @@ public sealed class GameCharacter : Entity
 
     public bool IsAdminHidden { get; set; }
 
+    public bool IsLeagues { get; set; }
+
     public string GetEffectiveName(string? userName = null) => DisplayName ?? userName ?? RuneLiteId;
 }

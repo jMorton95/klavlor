@@ -18,6 +18,9 @@ public sealed class CharacterEndpoint : IEndpoint
         app.MapPost(AppRoutes.CharacterToggleVisibility.FromApi(), ToggleVisibility)
             .RequireAuthorization(nameof(RoleName.User));
 
+        app.MapPost(AppRoutes.CharacterToggleLeagues.FromApi(), ToggleLeagues)
+            .RequireAuthorization(nameof(RoleName.User));
+
         return app.MapPost(AppRoutes.AdminCharacterAssign.FromApi(), AssignUnassigned)
             .RequireAuthorization(nameof(RoleName.User));
     }
@@ -50,6 +53,16 @@ public sealed class CharacterEndpoint : IEndpoint
         CharacterHandler handler)
     {
         await handler.HandleToggleVisibility(id);
+        var result = await handler.HandleList();
+        var unassigned = await handler.HandleUnassignedCount();
+        return IResultExtensions.Component<CharacterList>(new { Characters = result.Value, UnassignedCount = unassigned });
+    }
+
+    private static async Task<RazorComponentResult> ToggleLeagues(
+        int id,
+        CharacterHandler handler)
+    {
+        await handler.HandleToggleLeagues(id);
         var result = await handler.HandleList();
         var unassigned = await handler.HandleUnassignedCount();
         return IResultExtensions.Component<CharacterList>(new { Characters = result.Value, UnassignedCount = unassigned });

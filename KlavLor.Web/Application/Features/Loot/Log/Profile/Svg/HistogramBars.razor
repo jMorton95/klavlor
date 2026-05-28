@@ -1,39 +1,156 @@
 @{
-    const int barWidth = 22;
-    const int gap = 4;
-    const int height = 120;
-    const int labelStrip = 18;
+    var chartHeightPx = ChartHeightPx;
+    const int valueLabelSpacePx = 14;
+    var plotHeightPx = chartHeightPx - valueLabelSpacePx;
+    const int tickCount = 5;
+    const double minSegmentPx = 4.0;  // smallest hoverable slice
+
     var count = Bars.Count;
-    var width = Math.Max(1, count) * (barWidth + gap);
 
     long peak = 0;
     if (MaxValue is not null) peak = MaxValue.Value;
     else foreach (var b in Bars) if (b.Value > peak) peak = b.Value;
     if (peak <= 0) peak = 1;
+
+    var yTicks = new long[tickCount];
+    for (var i = 0; i < tickCount; i++)
+    {
+        yTicks[i] = peak - peak * i / (tickCount - 1);
+    }
+
+    string Format(long v) => (FormatValue ?? (n => n.ToString("N0")))(v);
+
+    // Distribute segment pixel heights with a per-segment minimum. If the minimums
+    // overflow the bar (small bar + many segments), scale all segments down so the
+    // total exactly matches the bar height — keeps each visible but proportional.
+    static double[] LayoutSegments(IReadOnlyList<BarSegment> segs, long barValue, int barPx)
+    {
+        var n = segs.Count;
+        var px = new double[n];
+        if (n == 0 || barValue <= 0 || barPx <= 0) return px;
+
+        for (var i = 0; i < n; i++)
+        {
+            var raw = (double)segs[i].Value / barValue * barPx;
+            px[i] = Math.Max(minSegmentPx, raw);
+        }
+        var total = 0d;
+        for (var i = 0; i < n; i++) total += px[i];
+        if (total > barPx)
+        {
+            var scale = barPx / total;
+            for (var i = 0; i < n; i++) px[i] *= scale;
+        }
+        return px;
+    }
 }
 
-<svg viewBox="0 0 @width @(height + labelStrip)" class="block" width="@width" height="@(height + labelStrip)"
-     aria-label="Histogram" role="img">
-    @for (var i = 0; i < count; i++)
-    {
-        var bar = Bars[i];
-        var ratio = (double)bar.Value / peak;
-        var h = Math.Max(2, (int)Math.Round(ratio * height));
-        var x = i * (barWidth + gap);
-        var y = height - h;
-        var fill = bar.FillClass ?? "fill-amber-500 dark:fill-amber-400";
+<div class="flex w-full gap-2">
+    <div class="shrink-0 relative text-[10px] text-slate-500 dark:text-slate-400 tabular-nums"
+         style="width: 3rem; height: @(chartHeightPx)px;">
+        @for (var i = 0; i < tickCount; i++)
+        {
+            var pos = valueLabelSpacePx + plotHeightPx * i / (tickCount - 1);
+            <div class="absolute right-0 -translate-y-1/2 whitespace-nowrap" style="top: @(pos)px;">
+                @(yTicks[i] == 0 ? "0" : Format(yTicks[i]))
+            </div>
+        }
+    </div>
 
-        <rect x="@x" y="@y" width="@barWidth" height="@h" rx="2" class="@fill">
-            <title>@bar.Label — @bar.Value.ToString("N0")</title>
-        </rect>
-        <svg:text x="@(x + barWidth / 2)" y="@(height + 12)" text-anchor="middle"
-              class="fill-slate-500 dark:fill-slate-400 text-[9px]">@bar.Label</svg:text>
-    }
-</svg>
+    <div class="flex-1 min-w-0">
+        <div class="relative" style="height: @(chartHeightPx)px;">
+            @for (var i = 0; i < tickCount; i++)
+            {
+                var pos = valueLabelSpacePx + plotHeightPx * i / (tickCount - 1);
+                <div class="absolute left-0 right-0 border-t border-slate-200/40 dark:border-slate-700/40 pointer-events-none"
+                     style="top: @(pos)px;"></div>
+            }
+
+            <div class="absolute inset-0 flex items-end gap-1">
+                @foreach (var bar in Bars)
+                {
+                    var ratio = (double)bar.Value / peak;
+                    var barPx = bar.Value > 0 ? Math.Max(2, (int)Math.Round(ratio * plotHeightPx)) : 0;
+                    var defaultFill = bar.FillClass ?? "bg-amber-500 dark:bg-amber-400";
+
+                    <div class="flex-1 flex flex-col items-center justify-end h-full">
+                        @if (bar.Value > 0)
+                        {
+                            <div class="text-[9px] font-medium tabular-nums text-slate-600 dark:text-slate-300 mb-0.5 leading-none truncate w-full text-center">
+                                @Format(bar.Value)
+                            </div>
+                        }
+                        @if (bar.Segments is { Count: > 0 })
+                        {
+                            var px = LayoutSegments(bar.Segments, bar.Value, barPx);
+                            @* No overflow-hidden on the stack: custom tooltips escape the bounds.
+                               flex-col-reverse stacks bottom-up; rounded-t goes on the topmost. *@
+                            <div class="w-full flex flex-col-reverse" style="height: @(barPx)px;">
+                                @for (var si = 0; si < bar.Segments.Count; si++)
+                                {
+                                    var seg = bar.Segments[si];
+                                    var segPx = px[si];
+                                    var pct = bar.Value > 0 ? (double)seg.Value / bar.Value * 100.0 : 0;
+                                    var isTop = si == bar.Segments.Count - 1;
+                                    var rounded = isTop ? "rounded-t" : "";
+
+                                    <div class="hist-segment relative w-full @seg.FillClass @rounded hover:brightness-110 transition-[filter] cursor-default"
+                                         style="height: @(segPx.ToString("F2", System.Globalization.CultureInfo.InvariantCulture))px;">
+                                        @* Tooltip — escapes the bar bounds. min-w keeps it readable for long names. *@
+                                        <div class="hist-tooltip absolute z-20 left-1/2 -translate-x-1/2 bottom-full mb-2 min-w-[14rem] max-w-[20rem] pointer-events-none rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg p-2.5 text-left">
+                                            <div class="flex items-center gap-2 mb-1">
+                                                <span class="inline-block w-2.5 h-2.5 rounded-sm shrink-0 @seg.FillClass"></span>
+                                                <span class="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">@(seg.ItemName ?? seg.Label)</span>
+                                            </div>
+                                            @if (!string.IsNullOrEmpty(seg.SourceName))
+                                            {
+                                                <div class="text-[11px] text-slate-500 dark:text-slate-400 truncate">from @seg.SourceName</div>
+                                            }
+                                            <div class="mt-1 flex items-baseline gap-2">
+                                                <span class="text-sm font-semibold text-amber-600 dark:text-amber-400 tabular-nums">@(seg.ValueText ?? Format(seg.Value))</span>
+                                                <span class="text-[10px] text-slate-400 dark:text-slate-500 tabular-nums">@pct.ToString("F1")% of bar</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="w-full @defaultFill rounded-t" style="height: @(barPx)px;" title="@(bar.Tooltip ?? $"{bar.Label} — {bar.Value:N0}")"></div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="flex gap-1 mt-1">
+            @foreach (var bar in Bars)
+            {
+                <div class="flex-1 text-center text-[10px] text-slate-500 dark:text-slate-400 leading-tight">@bar.Label</div>
+            }
+        </div>
+    </div>
+</div>
 
 @code {
-    public sealed record Bar(string Label, long Value, string? FillClass = null);
+    public sealed record Bar(
+        string Label,
+        long Value,
+        string? FillClass = null,
+        string? Tooltip = null,
+        IReadOnlyList<BarSegment>? Segments = null);
+
+    public sealed record BarSegment(
+        string Label,
+        long Value,
+        string FillClass,
+        string? ItemName = null,
+        string? SourceName = null,
+        string? ValueText = null);
 
     [Parameter] public required IReadOnlyList<Bar> Bars { get; set; }
     [Parameter] public long? MaxValue { get; set; }
+    [Parameter] public Func<long, string>? FormatValue { get; set; }
+    [Parameter] public int ChartHeightPx { get; set; } = 180;
 }

@@ -11,36 +11,41 @@ public sealed class LootFeedEndpoint : IEndpoint
 {
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
-        app.MapGet(AppRoutes.LootFeed.FromApi(), GetPage)
+        // Main feed routes
+        app.MapGet(AppRoutes.LootFeed.FromApi(), (ILootLogRepository repo) => GetPage(repo, LootFeedScope.Main))
             .AllowAnonymous();
 
-        app.MapGet(AppRoutes.LootFeedGrid.FromApi(), GetGrid)
+        app.MapGet(AppRoutes.LootFeedGrid.FromApi(), (ILootLogRepository repo, string? tiers) => GetGrid(repo, LootFeedScope.Main, tiers))
             .AllowAnonymous();
 
-        app.MapGet(AppRoutes.LootFeedStreamStandard.FromApi(), (HttpContext ctx, ILootFeedService svc, IServiceProvider sp, ILoggerFactory lf) =>
-                StreamFeed(ctx, svc, sp, lf, LootFeedTier.Standard))
+        MapStream(app, AppRoutes.LootFeedStreamStandard, LootFeedScope.Main, LootFeedTier.Standard);
+        MapStream(app, AppRoutes.LootFeedStreamUncommon, LootFeedScope.Main, LootFeedTier.Uncommon);
+        MapStream(app, AppRoutes.LootFeedStreamRare, LootFeedScope.Main, LootFeedTier.Rare);
+        MapStream(app, AppRoutes.LootFeedStreamEpic, LootFeedScope.Main, LootFeedTier.Epic);
+        MapStream(app, AppRoutes.LootFeedStreamLegendary, LootFeedScope.Main, LootFeedTier.Legendary);
+
+        // Leagues feed routes — parallel set, filters to IsLeagues=true characters.
+        app.MapGet(AppRoutes.LootFeedLeagues.FromApi(), (ILootLogRepository repo) => GetPage(repo, LootFeedScope.Leagues))
             .AllowAnonymous();
 
-        app.MapGet(AppRoutes.LootFeedStreamUncommon.FromApi(), (HttpContext ctx, ILootFeedService svc, IServiceProvider sp, ILoggerFactory lf) =>
-                StreamFeed(ctx, svc, sp, lf, LootFeedTier.Uncommon))
+        app.MapGet(AppRoutes.LootFeedLeaguesGrid.FromApi(), (ILootLogRepository repo, string? tiers) => GetGrid(repo, LootFeedScope.Leagues, tiers))
             .AllowAnonymous();
 
-        app.MapGet(AppRoutes.LootFeedStreamRare.FromApi(), (HttpContext ctx, ILootFeedService svc, IServiceProvider sp, ILoggerFactory lf) =>
-                StreamFeed(ctx, svc, sp, lf, LootFeedTier.Rare))
-            .AllowAnonymous();
-
-        app.MapGet(AppRoutes.LootFeedStreamEpic.FromApi(), (HttpContext ctx, ILootFeedService svc, IServiceProvider sp, ILoggerFactory lf) =>
-                StreamFeed(ctx, svc, sp, lf, LootFeedTier.Epic))
-            .AllowAnonymous();
-
-        return app.MapGet(AppRoutes.LootFeedStreamLegendary.FromApi(), (HttpContext ctx, ILootFeedService svc, IServiceProvider sp, ILoggerFactory lf) =>
-                StreamFeed(ctx, svc, sp, lf, LootFeedTier.Legendary))
-            .AllowAnonymous();
+        MapStream(app, AppRoutes.LootFeedLeaguesStreamStandard, LootFeedScope.Leagues, LootFeedTier.Standard);
+        MapStream(app, AppRoutes.LootFeedLeaguesStreamUncommon, LootFeedScope.Leagues, LootFeedTier.Uncommon);
+        MapStream(app, AppRoutes.LootFeedLeaguesStreamRare, LootFeedScope.Leagues, LootFeedTier.Rare);
+        MapStream(app, AppRoutes.LootFeedLeaguesStreamEpic, LootFeedScope.Leagues, LootFeedTier.Epic);
+        return MapStream(app, AppRoutes.LootFeedLeaguesStreamLegendary, LootFeedScope.Leagues, LootFeedTier.Legendary);
     }
 
-    private static async Task<IResult> GetPage(ILootLogRepository lootLogRepository)
+    private static RouteHandlerBuilder MapStream(IEndpointRouteBuilder app, string route, LootFeedScope scope, LootFeedTier tier) =>
+        app.MapGet(route.FromApi(), (HttpContext ctx, ILootFeedService svc, IServiceProvider sp, ILoggerFactory lf) =>
+                StreamFeed(ctx, svc, sp, lf, scope, tier))
+            .AllowAnonymous();
+
+    private static async Task<IResult> GetPage(ILootLogRepository lootLogRepository, LootFeedScope scope)
     {
-        var tierData = await lootLogRepository.GetAllFeedTiers(50);
+        var tierData = await lootLogRepository.GetAllFeedTiers(50, scope);
 
         return IResultExtensions.Component<LootFeedContent>(new
         {
@@ -48,14 +53,15 @@ public sealed class LootFeedEndpoint : IEndpoint
             UncommonEntries = (IReadOnlyList<LootFeedEntry>)tierData[LootFeedTier.Uncommon],
             RareEntries = (IReadOnlyList<LootFeedEntry>)tierData[LootFeedTier.Rare],
             EpicEntries = (IReadOnlyList<LootFeedEntry>)tierData[LootFeedTier.Epic],
-            LegendaryEntries = (IReadOnlyList<LootFeedEntry>)tierData[LootFeedTier.Legendary]
+            LegendaryEntries = (IReadOnlyList<LootFeedEntry>)tierData[LootFeedTier.Legendary],
+            Scope = scope
         });
     }
 
-    private static async Task<IResult> GetGrid(ILootLogRepository lootLogRepository, string? tiers = null)
+    private static async Task<IResult> GetGrid(ILootLogRepository lootLogRepository, LootFeedScope scope, string? tiers)
     {
         var requestedTiers = ParseTiers(tiers);
-        var tierData = await lootLogRepository.GetAllFeedTiers(50, requestedTiers);
+        var tierData = await lootLogRepository.GetAllFeedTiers(50, scope, requestedTiers);
 
         return IResultExtensions.Component<LootFeedGrid>(new
         {
@@ -66,7 +72,8 @@ public sealed class LootFeedEndpoint : IEndpoint
             LegendaryEntries = (IReadOnlyList<LootFeedEntry>)tierData[LootFeedTier.Legendary],
             ActiveTiers = requestedTiers is not null
                 ? (IReadOnlyList<LootFeedTier>)requestedTiers.Order().ToList()
-                : (IReadOnlyList<LootFeedTier>)ILootFeedService.AllTiers
+                : (IReadOnlyList<LootFeedTier>)ILootFeedService.AllTiers,
+            Scope = scope
         });
     }
 
@@ -88,6 +95,7 @@ public sealed class LootFeedEndpoint : IEndpoint
         ILootFeedService feedService,
         IServiceProvider serviceProvider,
         ILoggerFactory loggerFactory,
+        LootFeedScope scope,
         LootFeedTier tier)
     {
         context.Response.ContentType = "text/event-stream";
@@ -96,7 +104,7 @@ public sealed class LootFeedEndpoint : IEndpoint
 
         var ct = context.RequestAborted;
 
-        await foreach (var broadcast in feedService.SubscribeAsync(tier, ct))
+        await foreach (var broadcast in feedService.SubscribeAsync(scope, tier, ct))
         {
             var entry = broadcast.Entry;
             var prev = broadcast.PreviousDomId;

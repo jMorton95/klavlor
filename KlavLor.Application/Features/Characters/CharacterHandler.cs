@@ -76,6 +76,20 @@ public sealed class CharacterHandler(
         return Result.Success();
     }
 
+    public async Task<Result> HandleToggleLeagues(int characterId)
+    {
+        var character = await characterRepository.GetById(characterId);
+        if (character is null)
+            return Result.Failure("Character not found.");
+
+        if (!currentUser.IsAdmin && character.UserId != currentUser.UserId)
+            return Result.Failure("Not authorized.");
+
+        character.IsLeagues = !character.IsLeagues;
+        await characterRepository.Save(character);
+        return Result.Success();
+    }
+
     public async Task<Result> HandleToggleAdminHidden(int characterId)
     {
         if (!currentUser.IsAdmin)
@@ -130,7 +144,7 @@ public sealed class CharacterHandler(
     private static CharacterSummary MapSummary(GameCharacter c, Dictionary<int, (int Sources, long Kills, long Value)> stats)
     {
         stats.TryGetValue(c.Id, out var s);
-        return new CharacterSummary(c.Id, c.RuneLiteId, c.DisplayName, c.IsVisible, c.IsAdminHidden, s.Sources, s.Kills, s.Value);
+        return new CharacterSummary(c.Id, c.RuneLiteId, c.DisplayName, c.IsVisible, c.IsAdminHidden, c.IsLeagues, s.Sources, s.Kills, s.Value);
     }
 }
 
@@ -140,6 +154,7 @@ public sealed record CharacterSummary(
     string? DisplayName,
     bool IsVisible,
     bool IsAdminHidden,
+    bool IsLeagues,
     int TotalSources = 0,
     long TotalKills = 0,
     long TotalValue = 0);

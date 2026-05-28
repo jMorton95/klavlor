@@ -307,6 +307,10 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
             .IsUnique()
             .HasFilter("\"DisplayName\" IS NOT NULL");
 
+        // Lets the feed-tier query prune by scope + visibility before joining loot rows.
+        modelBuilder.Entity<GameCharacter>()
+            .HasIndex(gc => new { gc.IsLeagues, gc.IsVisible, gc.IsAdminHidden });
+
         // CollectionLogItem configuration (wiki-synced reference table; ItemId is the natural key)
         modelBuilder.Entity<CollectionLogItem>()
             .Property(c => c.ItemId)
