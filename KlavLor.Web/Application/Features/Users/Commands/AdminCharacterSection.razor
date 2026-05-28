@@ -11,6 +11,13 @@
         </button>
     </div>
 
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <div class="mb-3 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 text-xs text-red-700 dark:text-red-300">
+            @ErrorMessage
+        </div>
+    }
+
     @if (Characters is not null && Characters.Count > 0)
     {
         <div class="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
@@ -30,16 +37,34 @@
                     {
                         <tr class="hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                             <td class="px-4 py-2 text-sm font-mono text-slate-700 dark:text-slate-300">@character.RuneLiteId</td>
-                            <td class="px-4 py-2 text-sm text-slate-700 dark:text-slate-300">@(character.DisplayName ?? "—")</td>
+                            <td class="px-4 py-2 text-sm text-slate-700 dark:text-slate-300">
+                                @* Inline display-name editor. Submits to the admin update-name endpoint
+                                   which delegates to the same handler the user-side form uses. *@
+                                <form hx-post="@AppRoutes.AdminCharacterUpdateName.Replace("{id:int}", UserId.ToString()).Replace("{characterId:int}", character.Id.ToString()).FromApi()"
+                                      hx-target="#admin-character-section"
+                                      hx-swap="outerHTML"
+                                      class="flex items-center gap-2">
+                                    <input type="text" name="displayName" value="@(character.DisplayName ?? "")"
+                                           placeholder="—"
+                                           class="flex-1 min-w-0 px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded focus:ring-1 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+                                    <button type="submit" class="shrink-0 px-2 py-1 text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-700 rounded hover:bg-amber-50 dark:hover:bg-amber-950 transition-colors cursor-pointer">Save</button>
+                                </form>
+                            </td>
                             <td class="px-4 py-2 text-center">
-                                @if (character.IsVisible)
-                                {
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300">Yes</span>
-                                }
-                                else
-                                {
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">No</span>
-                                }
+                                <button hx-post="@AppRoutes.AdminCharacterToggleVisibility.Replace("{id:int}", UserId.ToString()).Replace("{characterId:int}", character.Id.ToString()).FromApi()"
+                                        hx-target="#admin-character-section"
+                                        hx-swap="outerHTML"
+                                        class="cursor-pointer"
+                                        title="Toggle whether this character appears in feeds and drop logs">
+                                    @if (character.IsVisible)
+                                    {
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300">Yes</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">No</span>
+                                    }
+                                </button>
                             </td>
                             <td class="px-4 py-2 text-center">
                                 <button hx-post="@AppRoutes.AdminCharacterToggleLeagues.Replace("{id:int}", UserId.ToString()).Replace("{characterId:int}", character.Id.ToString()).FromApi()"
@@ -95,4 +120,5 @@
 @code {
     [Parameter] public int UserId { get; set; }
     [Parameter] public List<CharacterSummary>? Characters { get; set; }
+    [Parameter] public string? ErrorMessage { get; set; }
 }

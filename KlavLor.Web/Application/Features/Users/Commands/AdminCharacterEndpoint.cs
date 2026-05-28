@@ -26,6 +26,12 @@ public sealed class AdminCharacterEndpoint : IEndpoint
         app.MapPost(AppRoutes.AdminCharacterToggleLeagues.FromApi(), ToggleAdminLeagues)
             .RequireAuthorization(nameof(RoleName.Admin));
 
+        app.MapPost(AppRoutes.AdminCharacterToggleVisibility.FromApi(), ToggleAdminVisibility)
+            .RequireAuthorization(nameof(RoleName.Admin));
+
+        app.MapPost(AppRoutes.AdminCharacterUpdateName.FromApi(), UpdateAdminCharacterName)
+            .RequireAuthorization(nameof(RoleName.Admin));
+
         app.MapGet(AppRoutes.AdminCharacterDelete.FromApi(), GetDeleteCharacterConfirmation)
             .RequireAuthorization(nameof(RoleName.Admin));
 
@@ -77,6 +83,29 @@ public sealed class AdminCharacterEndpoint : IEndpoint
         await handler.HandleToggleLeagues(characterId);
         var result = await handler.HandleListForUser(id);
         return IResultExtensions.Component<AdminCharacterSection>(new { UserId = id, Characters = result.Value });
+    }
+
+    private static async Task<RazorComponentResult> ToggleAdminVisibility(int id, int characterId, CharacterHandler handler)
+    {
+        await handler.HandleToggleVisibility(characterId);
+        var result = await handler.HandleListForUser(id);
+        return IResultExtensions.Component<AdminCharacterSection>(new { UserId = id, Characters = result.Value });
+    }
+
+    private static async Task<RazorComponentResult> UpdateAdminCharacterName(
+        int id,
+        int characterId,
+        [Microsoft.AspNetCore.Mvc.FromForm] string? displayName,
+        CharacterHandler handler)
+    {
+        var updateResult = await handler.HandleUpdateName(characterId, displayName);
+        var result = await handler.HandleListForUser(id);
+        return IResultExtensions.Component<AdminCharacterSection>(new
+        {
+            UserId = id,
+            Characters = result.Value,
+            ErrorMessage = updateResult.IsSuccess ? (string?)null : updateResult.ErrorMessage
+        });
     }
 
     private static HtmxRetargetResult GetDeleteCharacterConfirmation(int id, int characterId)
