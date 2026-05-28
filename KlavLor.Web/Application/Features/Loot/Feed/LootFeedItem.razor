@@ -6,10 +6,15 @@
     Dictionary<string, object>? oobAttrs = IsMerge
         ? new Dictionary<string, object> { ["hx-swap-oob"] = "outerHTML" }
         : null;
+
+    // Any single drop (Qty × Price) crossing 250M lights the whole card with
+    // the legendary electric effect.
+    var entryHasLegendaryDrop = Entry.Drops.Any(d => (long)d.Quantity * d.Price >= 250_000_000);
+    var legendaryCardClass = entryHasLegendaryDrop ? "legendary-card" : "";
 }
 <div id="@Entry.DomId"
      @attributes="oobAttrs"
-     class="@(Animate ? "loot-feed-new " : "")bg-white dark:bg-slate-900 rounded-lg shadow border @GetValueTierClasses() p-2.5 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-amber-200 dark:hover:border-amber-700 transition-all duration-200">
+     class="@(Animate ? "loot-feed-new " : "")bg-white dark:bg-slate-900 rounded-lg shadow border @GetValueTierClasses() p-2.5 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-amber-200 dark:hover:border-amber-700 transition-all duration-200 @legendaryCardClass">
     @{
         var sourceQuery = "?name=" + Uri.EscapeDataString(Entry.SourceName);
         var sourceApi = Entry.GameCharacterId is not null
@@ -67,8 +72,38 @@
             @foreach (var drop in grouped.Take(8))
             {
                 var isNewUnique = drop.IsFirstTime && drop.IsCollectionLogItem;
-                <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] border @GetDropTierClasses(drop.Price) text-slate-700 dark:text-slate-200 @(isNewUnique ? GetFirstTimeRingClasses(Entry.Tier) : "")"
+                var dropTotal = (long)drop.Quantity * drop.Price;
+                var isLegendary = dropTotal >= 250_000_000;
+                <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] border @GetDropTierClasses(drop.Price) text-slate-700 dark:text-slate-200 @((isNewUnique && !isLegendary) ? GetFirstTimeRingClasses(Entry.Tier) : "") @(isLegendary ? "legendary-item" : "")"
                       title="@(isNewUnique ? "First-time collection log unlock" : null)">
+                    @if (isLegendary)
+                    {
+                        @* Jagged lightning border for the 250M+ pill itself. The global
+                           #legendary-electric SVG filter (App.razor) warps the stroked
+                           rect into a wiggling bolt; overflow:visible lets it spill out. *@
+                        <svg class="legendary-border" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            @* Two-layer bolt: a continuous wobbly baseline so the whole
+                               perimeter is always lit, plus a brighter dashed segment
+                               travelling on top via animated stroke-dashoffset. The
+                               displacement filter wiggles both into a jagged shape. *@
+                            <rect x="0" y="0" width="100%" height="100%" rx="6" ry="6"
+                                  fill="none"
+                                  stroke="url(#legendary-electric-grad)"
+                                  stroke-width="2"
+                                  opacity="0.75"
+                                  filter="url(#legendary-electric)" />
+                            <rect x="0" y="0" width="100%" height="100%" rx="6" ry="6"
+                                  fill="none"
+                                  stroke="#ffffff"
+                                  stroke-width="2"
+                                  stroke-linecap="round"
+                                  stroke-dasharray="40 160"
+                                  filter="url(#legendary-electric)">
+                                <animate attributeName="stroke-dashoffset" from="0" to="200"
+                                         dur="1.4s" repeatCount="indefinite" />
+                            </rect>
+                        </svg>
+                    }
                     @if (isNewUnique)
                     {
                         <span class="px-1 py-0 text-[9px] font-semibold rounded-sm bg-cyan-700 text-white">NEW</span>

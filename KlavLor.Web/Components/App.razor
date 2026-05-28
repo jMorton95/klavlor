@@ -21,6 +21,29 @@
     <HeadOutlet/>
 </head>
     <body class="bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
+        @* Hidden SVG defs for the legendary-card lightning border (referenced by URL
+           from any .legendary-card SVG rendered on the page). One filter shared by
+           all cards keeps the SMIL animation in sync and avoids per-card duplicate. *@
+        <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+            <defs>
+                <filter id="legendary-electric" x="-10%" y="-10%" width="120%" height="120%">
+                    <feTurbulence type="turbulence" baseFrequency="0.06" numOctaves="2" seed="0" result="turb">
+                        <animate attributeName="seed" values="0;3;1;5;2;4;0" dur="0.4s" repeatCount="indefinite" />
+                        <animate attributeName="baseFrequency" values="0.06;0.09;0.06" dur="0.6s" repeatCount="indefinite" />
+                    </feTurbulence>
+                    <feDisplacementMap in="SourceGraphic" in2="turb" scale="3">
+                        <animate attributeName="scale" values="2;4;3;5;3" dur="0.5s" repeatCount="indefinite" />
+                    </feDisplacementMap>
+                </filter>
+                <linearGradient id="legendary-electric-grad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stop-color="#fbbf24" stop-opacity="0.9" />
+                    <stop offset="25%" stop-color="#ffffff" stop-opacity="1" />
+                    <stop offset="50%" stop-color="#fbbf24" stop-opacity="0.7" />
+                    <stop offset="75%" stop-color="#ffffff" stop-opacity="0.95" />
+                    <stop offset="100%" stop-color="#fbbf24" stop-opacity="0.9" />
+                </linearGradient>
+            </defs>
+        </svg>
         <Routes/>
     </body>
 </html>
