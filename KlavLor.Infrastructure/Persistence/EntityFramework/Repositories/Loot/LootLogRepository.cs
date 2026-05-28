@@ -1249,6 +1249,9 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             // each item — i.e. the KC at which the item first dropped for this character.
             // DISTINCT ON picks that earliest row per item; the correlated subquery
             // computes the chronological ordinal (fallback when RuneLite gave no KC).
+            // Restrict to items that are in the real OSRS collection log so the tab
+            // matches its name; the in-game "All Drops" panel on LootLogSourceDetail
+            // still shows everything regardless of clog status.
             const string sql = """
                 WITH unrolled AS (
                     SELECT lr."Id", lr."OccurredAt", lr."KillCount",
@@ -1259,6 +1262,10 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                     FROM "LootRecords" lr,
                          jsonb_array_elements(lr."DropsJson") AS drop_elem
                     WHERE lr."GameCharacterId" = @cid AND lr."SourceName" = @source
+                      AND EXISTS (
+                          SELECT 1 FROM "CollectionLogItems" cli
+                          WHERE cli."ItemId" = (drop_elem->>'ItemId')::int
+                      )
                 ),
                 agg AS (
                     SELECT item_name,

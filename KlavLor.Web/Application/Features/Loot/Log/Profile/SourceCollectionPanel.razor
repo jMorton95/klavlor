@@ -2,6 +2,26 @@
 @using KlavLor.Application.Features.Loot.Log
 
 <div id="source-tab-content">
+    @* Tab strip mirrors the one in LootLogSourceDetail; lives inside the swap target
+       so clicking either tab brings its active-state along with the content. *@
+    <div class="border-b border-slate-200 dark:border-slate-700 flex items-center gap-1 mb-3">
+        <button type="button"
+                hx-get="@GetKillTabUrl()"
+                hx-target="#source-tab-content"
+                hx-select="#source-tab-content"
+                hx-swap="outerHTML"
+                class="px-3 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 cursor-pointer">
+            Kill Log
+        </button>
+        <button type="button"
+                hx-get="@GetCollectionTabUrl()"
+                hx-target="#source-tab-content"
+                hx-swap="outerHTML"
+                class="px-3 py-2 text-sm font-medium border-b-2 border-amber-500 text-amber-600 dark:text-amber-400">
+            Collection Log
+        </button>
+    </div>
+
     @if (Collection.Entries.Count == 0)
     {
         <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-6 text-center">
@@ -62,6 +82,14 @@
 @code {
     [Parameter] public required SourceCollection Collection { get; set; }
     [Parameter] public int CharacterId { get; set; }
+
+    private string GetKillTabUrl() =>
+        AppRoutes.LootLogSource.WithId(CharacterId).FromApi()
+        + "?name=" + Uri.EscapeDataString(Collection.SourceName);
+
+    private string GetCollectionTabUrl() =>
+        AppRoutes.LootLogSourceCollection.WithId(CharacterId).FromApi()
+        + "?name=" + Uri.EscapeDataString(Collection.SourceName);
 
     private static string FormatLocal(DateTimeOffset t)
     {
