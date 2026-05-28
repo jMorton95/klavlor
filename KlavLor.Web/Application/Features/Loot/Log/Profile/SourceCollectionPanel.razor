@@ -16,6 +16,7 @@
                     <tr>
                         <th class="px-4 py-2 text-left text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Item</th>
                         <th class="px-4 py-2 text-left text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">First received</th>
+                        <th class="px-4 py-2 text-right text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">KC</th>
                         <th class="px-4 py-2 text-right text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Total qty</th>
                         <th class="px-4 py-2 text-right text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Total value</th>
                     </tr>
@@ -34,6 +35,20 @@
                                 }
                             </td>
                             <td class="px-4 py-2 text-slate-600 dark:text-slate-300 text-xs">@FormatLocal(e.FirstReceivedAt)</td>
+                            <td class="px-4 py-2 text-right tabular-nums text-xs">
+                                @if (e.KillCount is not null)
+                                {
+                                    <span class="text-slate-700 dark:text-slate-200">#@e.KillCount.Value.ToString("N0")</span>
+                                }
+                                else if (e.KillOrdinal is not null)
+                                {
+                                    <span class="text-slate-500 dark:text-slate-400" title="Position in your kill log (RuneLite didn't report an in-game kill count)">#@e.KillOrdinal.Value.ToString("N0")</span>
+                                }
+                                else
+                                {
+                                    <span class="text-slate-400 dark:text-slate-500">—</span>
+                                }
+                            </td>
                             <td class="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-200">@e.TotalQuantity.ToString("N0")</td>
                             <td class="px-4 py-2 text-right tabular-nums text-amber-600 dark:text-amber-400 font-medium">@GoldFormat.Format(e.TotalValue)</td>
                         </tr>

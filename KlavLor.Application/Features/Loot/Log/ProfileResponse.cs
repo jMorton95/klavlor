@@ -77,7 +77,9 @@ public sealed record CollectionEntry(
     DateTimeOffset FirstReceivedAt,
     long TotalQuantity,
     long TotalValue,
-    bool MarkedFirstTime);
+    bool MarkedFirstTime,
+    int? KillCount,
+    int? KillOrdinal);
 
 public sealed record FirstTimeFeed(
     IReadOnlyList<FirstTimeEntry> Entries,
@@ -90,7 +92,9 @@ public sealed record FirstTimeEntry(
     LootSourceType SourceType,
     string ItemName,
     int Quantity,
-    long Value);
+    long Value,
+    int? KillCount,
+    int? KillOrdinal);
 
 public sealed record TopItemsList(
     IReadOnlyList<TopItem> Items);

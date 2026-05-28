@@ -1074,17 +1074,46 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             var connection = dataContext.Database.GetDbConnection();
             if (connection.State != System.Data.ConnectionState.Open) await connection.OpenAsync();
 
+            // KillCount/KillOrdinal correspond to the *earliest* LootRecord containing
+            // each item — i.e. the KC at which the item first dropped for this character.
+            // DISTINCT ON picks that earliest row per item; the correlated subquery
+            // computes the chronological ordinal (fallback when RuneLite gave no KC).
             const string sql = """
-                SELECT drop_elem->>'Name' AS item_name,
-                       MIN(lr."OccurredAt") AS first_received,
-                       SUM((drop_elem->>'Quantity')::bigint) AS qty,
-                       SUM((drop_elem->>'Quantity')::bigint * (drop_elem->>'Price')::bigint) AS value,
-                       bool_or((drop_elem->>'IsFirstTime')::boolean) AS has_first
-                FROM "LootRecords" lr,
-                     jsonb_array_elements(lr."DropsJson") AS drop_elem
-                WHERE lr."GameCharacterId" = @cid AND lr."SourceName" = @source
-                GROUP BY drop_elem->>'Name'
-                ORDER BY first_received ASC
+                WITH unrolled AS (
+                    SELECT lr."Id", lr."OccurredAt", lr."KillCount",
+                           drop_elem->>'Name' AS item_name,
+                           (drop_elem->>'Quantity')::bigint AS qty,
+                           ((drop_elem->>'Quantity')::bigint * (drop_elem->>'Price')::bigint) AS value,
+                           (drop_elem->>'IsFirstTime')::boolean AS first_time
+                    FROM "LootRecords" lr,
+                         jsonb_array_elements(lr."DropsJson") AS drop_elem
+                    WHERE lr."GameCharacterId" = @cid AND lr."SourceName" = @source
+                ),
+                agg AS (
+                    SELECT item_name,
+                           MIN("OccurredAt") AS first_received,
+                           SUM(qty) AS total_qty,
+                           SUM(value) AS total_value,
+                           bool_or(first_time) AS has_first
+                    FROM unrolled
+                    GROUP BY item_name
+                ),
+                first_row AS (
+                    SELECT DISTINCT ON (item_name)
+                           item_name, "Id", "OccurredAt", "KillCount"
+                    FROM unrolled
+                    ORDER BY item_name, "OccurredAt" ASC, "Id" ASC
+                )
+                SELECT a.item_name, a.first_received, a.total_qty, a.total_value, a.has_first,
+                       f."KillCount",
+                       (SELECT COUNT(*)::int FROM "LootRecords" o
+                        WHERE o."GameCharacterId" = @cid
+                          AND o."SourceName" = @source
+                          AND (o."OccurredAt" < f."OccurredAt"
+                               OR (o."OccurredAt" = f."OccurredAt" AND o."Id" <= f."Id"))) AS kill_ordinal
+                FROM agg a
+                JOIN first_row f ON f.item_name = a.item_name
+                ORDER BY a.first_received ASC
                 """;
 
             await using var cmd = connection.CreateCommand();
@@ -1101,7 +1130,9 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                     reader.GetFieldValue<DateTimeOffset>(1),
                     reader.GetInt64(2),
                     reader.IsDBNull(3) ? 0 : reader.GetInt64(3),
-                    !reader.IsDBNull(4) && reader.GetBoolean(4)));
+                    !reader.IsDBNull(4) && reader.GetBoolean(4),
+                    reader.IsDBNull(5) ? null : reader.GetInt32(5),
+                    reader.IsDBNull(6) ? null : reader.GetInt32(6)));
             }
             return new SourceCollection(sourceName, entries);
         }
@@ -1121,13 +1152,22 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
 
             // Pull one extra so we know whether more exist beyond this page.
             var take = pageSize + 1;
+            // KillOrdinal = chronological position of this kill within (character, source).
+            // Same correlated-count pattern as GetSourceDetail, used as fallback when
+            // RuneLite didn't report an in-game KillCount.
             const string sql = """
                 SELECT lr."OccurredAt",
                        lr."SourceName",
                        lr."SourceType"::text,
                        drop_elem->>'Name' AS item_name,
                        (drop_elem->>'Quantity')::int AS qty,
-                       ((drop_elem->>'Quantity')::bigint * (drop_elem->>'Price')::bigint) AS value
+                       ((drop_elem->>'Quantity')::bigint * (drop_elem->>'Price')::bigint) AS value,
+                       lr."KillCount",
+                       (SELECT COUNT(*)::int FROM "LootRecords" o
+                        WHERE o."GameCharacterId" = lr."GameCharacterId"
+                          AND o."SourceName" = lr."SourceName"
+                          AND (o."OccurredAt" < lr."OccurredAt"
+                               OR (o."OccurredAt" = lr."OccurredAt" AND o."Id" <= lr."Id"))) AS kill_ordinal
                 FROM "LootRecords" lr,
                      jsonb_array_elements(lr."DropsJson") AS drop_elem
                 WHERE lr."GameCharacterId" = @cid
@@ -1159,7 +1199,9 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                     sourceType,
                     reader.GetString(3),
                     reader.GetInt32(4),
-                    reader.IsDBNull(5) ? 0 : reader.GetInt64(5)));
+                    reader.IsDBNull(5) ? 0 : reader.GetInt64(5),
+                    reader.IsDBNull(6) ? null : reader.GetInt32(6),
+                    reader.IsDBNull(7) ? null : reader.GetInt32(7)));
             }
 
             var hasMore = rows.Count > pageSize;
