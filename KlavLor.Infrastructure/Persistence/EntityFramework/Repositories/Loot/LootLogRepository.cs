@@ -744,6 +744,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
         try
         {
             var character = await dataContext.GameCharacters
+                .AsNoTracking()
                 .Where(c => c.Id == characterId)
                 .Select(c => new
                 {
@@ -759,6 +760,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             var userName = $"{character.UserFirst} {character.UserLast}";
 
             var agg = await dataContext.LootRecords
+                .AsNoTracking()
                 .Where(r => r.GameCharacterId == characterId)
                 .GroupBy(_ => 1)
                 .Select(g => new
@@ -792,7 +794,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
     {
         try
         {
-            var q = dataContext.LootRecords.Where(r => r.GameCharacterId == characterId);
+            var q = dataContext.LootRecords.AsNoTracking().Where(r => r.GameCharacterId == characterId);
             if (from is not null) q = q.Where(r => r.OccurredAt >= from.Value);
             if (to is not null) q = q.Where(r => r.OccurredAt < to.Value);
 
@@ -1123,6 +1125,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
         {
             // Biggest single-kill (covered by IX_LootRecords_GameCharacterId_TotalValue_OccurredAt).
             var topKillRaw = await dataContext.LootRecords
+                .AsNoTracking()
                 .Where(r => r.GameCharacterId == characterId)
                 .OrderByDescending(r => r.TotalValue)
                 .Take(1)
@@ -1147,6 +1150,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
 
             // Top KC source — most kills of one source.
             var topKcSourceRaw = await dataContext.LootRecords
+                .AsNoTracking()
                 .Where(r => r.GameCharacterId == characterId)
                 .GroupBy(r => new { r.SourceName, r.SourceType })
                 .Select(g => new
@@ -1167,6 +1171,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             // Biggest day — reuse the activity calendar over all time (cheap row agg).
             DayBucket? biggestDay = null;
             var firstRecord = await dataContext.LootRecords
+                .AsNoTracking()
                 .Where(r => r.GameCharacterId == characterId)
                 .OrderBy(r => r.OccurredAt)
                 .Select(r => (DateTimeOffset?)r.OccurredAt)
@@ -1179,6 +1184,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
 
             // Best 1h window — load (OccurredAt, TotalValue) and run O(n) sliding window.
             var events = await dataContext.LootRecords
+                .AsNoTracking()
                 .Where(r => r.GameCharacterId == characterId)
                 .OrderBy(r => r.OccurredAt)
                 .Select(r => new { r.OccurredAt, r.TotalValue })

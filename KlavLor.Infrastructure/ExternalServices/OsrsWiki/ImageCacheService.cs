@@ -22,7 +22,7 @@ public sealed class ImageCacheService(
         "image/"
     ];
 
-    public async Task<CachedImage?> GetOrCache(string sourceUrl)
+    public async Task<CachedImage?> GetOrCache(string sourceUrl, ImageProfile profile)
     {
         var existing = await cachedImageRepository.GetBySourceUrl(sourceUrl);
         if (existing is not null)
@@ -64,11 +64,13 @@ public sealed class ImageCacheService(
                 return null;
             }
 
+            var (storedData, storedContentType) = TryEncodeWebp(imageData, contentType, profile, sourceUrl);
+
             var cached = new CachedImage
             {
                 SourceUrl = sourceUrl,
-                ImageData = imageData,
-                ContentType = contentType,
+                ImageData = storedData,
+                ContentType = storedContentType,
                 CachedAt = DateTimeOffset.UtcNow
             };
 
@@ -81,7 +83,7 @@ public sealed class ImageCacheService(
         }
     }
 
-    public async Task<CachedImage?> GetOrCacheFromDataUri(string dataUri)
+    public async Task<CachedImage?> GetOrCacheFromDataUri(string dataUri, ImageProfile profile)
     {
         try
         {
@@ -115,11 +117,13 @@ public sealed class ImageCacheService(
             if (existing is not null)
                 return existing;
 
+            var (storedData, storedContentType) = TryEncodeWebp(imageData, contentType, profile, sourceKey);
+
             var cached = new CachedImage
             {
                 SourceUrl = sourceKey,
-                ImageData = imageData,
-                ContentType = contentType,
+                ImageData = storedData,
+                ContentType = storedContentType,
                 CachedAt = DateTimeOffset.UtcNow
             };
 
@@ -129,6 +133,22 @@ public sealed class ImageCacheService(
         {
             logger.LogWarning(ex, "Failed to parse and cache data URI");
             return null;
+        }
+    }
+
+    private (byte[] Data, string ContentType) TryEncodeWebp(byte[] original, string originalContentType, ImageProfile profile, string source)
+    {
+        try
+        {
+            var encoded = WebpEncoder.TryEncode(original, profile);
+            return encoded is not null
+                ? (encoded, WebpEncoder.ContentType)
+                : (original, originalContentType);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to re-encode image from {Source} as WebP, storing original", source);
+            return (original, originalContentType);
         }
     }
 

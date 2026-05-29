@@ -1,7 +1,7 @@
 ARG VERSION=10.0-alpine
 
 FROM mcr.microsoft.com/dotnet/aspnet:$VERSION AS base
-RUN apk add --no-cache tzdata
+RUN apk add --no-cache tzdata libstdc++
 WORKDIR /app
 EXPOSE 8080
 

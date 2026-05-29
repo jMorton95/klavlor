@@ -1,7 +1,9 @@
 using System.Globalization;
 using System.Text.Json;
+using Microsoft.Extensions.Caching.Memory;
 using KlavLor.Application.Common;
 using KlavLor.Application.Features.Loot.Feed;
+using KlavLor.Application.Features.Loot.Log;
 using KlavLor.Application.Interfaces.Authentication;
 using KlavLor.Application.Interfaces.Repositories;
 using KlavLor.Application.Interfaces.Services;
@@ -17,7 +19,8 @@ public sealed class LootIngestHandler(
     ICurrentUser currentUser,
     ILootFeedService lootFeedService,
     IUserRepository userRepository,
-    ICollectionLogCache collectionLogCache)
+    ICollectionLogCache collectionLogCache,
+    IMemoryCache memoryCache)
 {
     private static readonly string[] DateFormats =
     [
@@ -65,6 +68,9 @@ public sealed class LootIngestHandler(
         // re-sweep so any pre-existing later records lose their stale IsFirstTime flag.
         if (record.IsImported && character is not null)
             await lootRecordRepository.RecomputeFirstTimeFlags(character.Id);
+
+        if (character is not null)
+            LootStatsCache.Invalidate(memoryCache, character.Id);
 
         if (ShouldPublishToFeed(record, character))
             await PublishToFeed(userId.Value, record, character);
@@ -163,6 +169,9 @@ public sealed class LootIngestHandler(
             foreach (var cid in charactersTouched)
                 await lootRecordRepository.RecomputeFirstTimeFlags(cid);
         }
+
+        foreach (var cid in charactersTouched)
+            LootStatsCache.Invalidate(memoryCache, cid);
 
         var liveRecords = parsedItems
             .Where(p => ShouldPublishToFeed(p.Parsed.Record, p.Character))

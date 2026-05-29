@@ -57,6 +57,7 @@ builder.Services.AddInfrastructure();
 builder.Services.AddHostedService<ImageCacheBackfillService>();
 builder.Services.AddHostedService<ItemIconBackfillService>();
 builder.Services.AddHostedService<SourceIconBackfillService>();
+builder.Services.AddHostedService<CachedImageReprocessService>();
 builder.Services.AddHostedService<CollectionLogSyncService>();
 
 builder.Services.AddRateLimiter(options =>

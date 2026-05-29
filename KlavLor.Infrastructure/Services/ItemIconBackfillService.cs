@@ -87,7 +87,7 @@ public sealed class ItemIconBackfillService(IServiceScopeFactory scopeFactory, I
 
                     if (match?.IconUrl is not null)
                     {
-                        var cached = await imageCacheService.GetOrCache(match.IconUrl);
+                        var cached = await imageCacheService.GetOrCache(match.IconUrl, ImageProfile.ItemIcon);
                         if (cached is not null)
                         {
                             icon.CachedImageId = cached.Id;

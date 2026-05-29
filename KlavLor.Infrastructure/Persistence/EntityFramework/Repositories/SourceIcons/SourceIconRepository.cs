@@ -12,7 +12,9 @@ internal sealed class SourceIconRepository(DataContext dataContext, ILogger<Sour
     {
         try
         {
-            return await dataContext.SourceIcons.FirstOrDefaultAsync(s => s.SourceName == sourceName);
+            var normalized = sourceName.Trim().ToLower();
+            return await dataContext.SourceIcons
+                .FirstOrDefaultAsync(s => s.SourceName.ToLower() == normalized);
         }
         catch (Exception ex)
         {
@@ -31,7 +33,7 @@ internal sealed class SourceIconRepository(DataContext dataContext, ILogger<Sour
                     SELECT DISTINCT lr."SourceName"
                     FROM "LootRecords" lr
                     WHERE NOT EXISTS (
-                        SELECT 1 FROM "SourceIcons" si WHERE si."SourceName" = lr."SourceName"
+                        SELECT 1 FROM "SourceIcons" si WHERE LOWER(si."SourceName") = LOWER(lr."SourceName")
                     )
                     LIMIT {0}
                     """, limit)

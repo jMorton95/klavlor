@@ -250,7 +250,7 @@ public sealed class NodeEndpoints : IEndpoint
         if (string.IsNullOrEmpty(iconUrl) || !iconUrl.StartsWith(WikiImagesPrefix))
             return iconUrl;
 
-        var cached = await imageCacheService.GetOrCache(iconUrl);
+        var cached = await imageCacheService.GetOrCache(iconUrl, ImageProfile.TemplateAsset);
         return cached is not null
             ? $"data:{cached.ContentType};base64,{Convert.ToBase64String(cached.ImageData)}"
             : null;

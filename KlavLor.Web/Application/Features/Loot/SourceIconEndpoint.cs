@@ -22,7 +22,8 @@ public sealed class SourceIconEndpoint : IEndpoint
         IMemoryCache memoryCache,
         HttpContext httpContext)
     {
-        var cacheKey = $"source-icon:{name}";
+        name = name.Trim();
+        var cacheKey = $"source-icon:{name.ToLowerInvariant()}";
 
         if (memoryCache.TryGetValue(cacheKey, out CachedIconResult? cached))
         {

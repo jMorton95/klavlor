@@ -12,7 +12,9 @@ internal sealed class ItemIconRepository(DataContext dataContext, ILogger<ItemIc
     {
         try
         {
-            return await dataContext.ItemIcons.FirstOrDefaultAsync(i => i.ItemName == itemName);
+            var normalized = itemName.Trim().ToLower();
+            return await dataContext.ItemIcons
+                .FirstOrDefaultAsync(i => i.ItemName.ToLower() == normalized);
         }
         catch (Exception ex)
         {
@@ -33,7 +35,7 @@ internal sealed class ItemIconRepository(DataContext dataContext, ILogger<ItemIc
                     FROM "LootRecords" lr,
                          jsonb_array_elements(lr."DropsJson") AS drop_elem
                     WHERE NOT EXISTS (
-                        SELECT 1 FROM "ItemIcons" ii WHERE ii."ItemName" = drop_elem->>'Name'
+                        SELECT 1 FROM "ItemIcons" ii WHERE LOWER(ii."ItemName") = LOWER(drop_elem->>'Name')
                     )
                     GROUP BY drop_elem->>'Name'
                     LIMIT {0}

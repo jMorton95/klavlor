@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Caching.Memory;
 using KlavLor.Application.Common;
 using KlavLor.Application.Interfaces.Repositories;
 
@@ -5,7 +6,8 @@ namespace KlavLor.Application.Features.Loot.Log;
 
 public sealed class LootCharacterProfileHandler(
     ILootLogRepository lootLogRepository,
-    CharacterAccessChecker accessChecker)
+    CharacterAccessChecker accessChecker,
+    IMemoryCache cache)
 {
     public async Task<Result<ProfileHeader>> HandleHeader(int characterId)
     {
@@ -37,16 +39,21 @@ public sealed class LootCharacterProfileHandler(
         if (!await accessChecker.CanAccess(characterId))
             return Result<MonthlyTrend>.Failure("Character not found.");
 
-        var now = DateTimeOffset.UtcNow;
-        var to = now.AddDays(1);
-        // "12m" = last 12 *calendar* months (inclusive of current). Anchor on the first
-        // of the month 11 back so the bar count is stable across the month transition.
-        DateTimeOffset? from = range == "all"
-            ? null
-            : new DateTimeOffset(new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc)).AddMonths(-11);
-
-        var trend = await lootLogRepository.GetMonthlyTrend(characterId, from, to, range);
-        return Result<MonthlyTrend>.Success(trend);
+        var version = LootStatsCache.GetVersion(cache, characterId);
+        var key = LootStatsCache.EntryKey(characterId, version, nameof(HandleMonthlyTrend), range);
+        var trend = await cache.GetOrCreateAsync(key, async entry =>
+        {
+            entry.SlidingExpiration = LootStatsCache.EntryTtl;
+            var now = DateTimeOffset.UtcNow;
+            var to = now.AddDays(1);
+            // "12m" = last 12 *calendar* months (inclusive of current). Anchor on the first
+            // of the month 11 back so the bar count is stable across the month transition.
+            DateTimeOffset? from = range == "all"
+                ? null
+                : new DateTimeOffset(new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc)).AddMonths(-11);
+            return await lootLogRepository.GetMonthlyTrend(characterId, from, to, range);
+        });
+        return Result<MonthlyTrend>.Success(trend!);
     }
 
     public async Task<Result<HeatmapData>> HandleHeatmap(int characterId, HeatmapMode mode)
@@ -54,15 +61,21 @@ public sealed class LootCharacterProfileHandler(
         if (!await accessChecker.CanAccess(characterId))
             return Result<HeatmapData>.Failure("Character not found.");
 
-        var now = DateTimeOffset.UtcNow;
-        var from = now.AddDays(-364); // 365 cells inclusive
-        var days = await lootLogRepository.GetActivityCalendar(characterId, from, now.AddDays(1));
-
-        return Result<HeatmapData>.Success(new HeatmapData(
-            DateOnly.FromDateTime(from.UtcDateTime),
-            DateOnly.FromDateTime(now.UtcDateTime),
-            mode,
-            days));
+        var version = LootStatsCache.GetVersion(cache, characterId);
+        var key = LootStatsCache.EntryKey(characterId, version, nameof(HandleHeatmap), mode.ToString());
+        var data = await cache.GetOrCreateAsync(key, async entry =>
+        {
+            entry.SlidingExpiration = LootStatsCache.EntryTtl;
+            var now = DateTimeOffset.UtcNow;
+            var from = now.AddDays(-364); // 365 cells inclusive
+            var days = await lootLogRepository.GetActivityCalendar(characterId, from, now.AddDays(1));
+            return new HeatmapData(
+                DateOnly.FromDateTime(from.UtcDateTime),
+                DateOnly.FromDateTime(now.UtcDateTime),
+                mode,
+                days);
+        });
+        return Result<HeatmapData>.Success(data!);
     }
 
     public async Task<Result<PersonalRecords>> HandleRecords(int characterId)
@@ -70,8 +83,14 @@ public sealed class LootCharacterProfileHandler(
         if (!await accessChecker.CanAccess(characterId))
             return Result<PersonalRecords>.Failure("Character not found.");
 
-        var records = await lootLogRepository.GetPersonalRecords(characterId);
-        return Result<PersonalRecords>.Success(records);
+        var version = LootStatsCache.GetVersion(cache, characterId);
+        var key = LootStatsCache.EntryKey(characterId, version, nameof(HandleRecords));
+        var records = await cache.GetOrCreateAsync(key, async entry =>
+        {
+            entry.SlidingExpiration = LootStatsCache.EntryTtl;
+            return await lootLogRepository.GetPersonalRecords(characterId);
+        });
+        return Result<PersonalRecords>.Success(records!);
     }
 
     public async Task<Result<SourceCollection>> HandleSourceCollection(int characterId, string sourceName)
@@ -88,8 +107,15 @@ public sealed class LootCharacterProfileHandler(
         if (!await accessChecker.CanAccess(characterId))
             return Result<FirstTimeFeed>.Success(new FirstTimeFeed([], null, false));
 
-        var feed = await lootLogRepository.GetFirstTimeFeed(characterId, before, pageSize);
-        return Result<FirstTimeFeed>.Success(feed);
+        var version = LootStatsCache.GetVersion(cache, characterId);
+        var args = $"{before?.UtcTicks.ToString() ?? "null"}:{pageSize}";
+        var key = LootStatsCache.EntryKey(characterId, version, nameof(HandleFirstTimeFeed), args);
+        var feed = await cache.GetOrCreateAsync(key, async entry =>
+        {
+            entry.SlidingExpiration = LootStatsCache.EntryTtl;
+            return await lootLogRepository.GetFirstTimeFeed(characterId, before, pageSize);
+        });
+        return Result<FirstTimeFeed>.Success(feed!);
     }
 
     public async Task<Result<TopItemsList>> HandleTopItems(int characterId, int limit)
@@ -97,8 +123,14 @@ public sealed class LootCharacterProfileHandler(
         if (!await accessChecker.CanAccess(characterId))
             return Result<TopItemsList>.Failure("Character not found.");
 
-        var data = await lootLogRepository.GetTopItems(characterId, limit);
-        return Result<TopItemsList>.Success(data);
+        var version = LootStatsCache.GetVersion(cache, characterId);
+        var key = LootStatsCache.EntryKey(characterId, version, nameof(HandleTopItems), limit.ToString());
+        var data = await cache.GetOrCreateAsync(key, async entry =>
+        {
+            entry.SlidingExpiration = LootStatsCache.EntryTtl;
+            return await lootLogRepository.GetTopItems(characterId, limit);
+        });
+        return Result<TopItemsList>.Success(data!);
     }
 
     public async Task<Result<CharacterDayFeed>> HandleDayFeed(int characterId, DateOnly day)

@@ -45,7 +45,7 @@ public sealed class ImageCacheBackfillService(IServiceScopeFactory scopeFactory,
                 foreach (var node in dataUriNodes)
                 {
                     var dataUri = node.IconUrl!;
-                    var cached = await imageCacheService.GetOrCacheFromDataUri(dataUri);
+                    var cached = await imageCacheService.GetOrCacheFromDataUri(dataUri, ImageProfile.TemplateAsset);
                     if (cached is not null)
                     {
                         node.IconUrl = $"/api/images/{cached.Id}";
@@ -60,7 +60,7 @@ public sealed class ImageCacheBackfillService(IServiceScopeFactory scopeFactory,
             {
                 if (stoppingToken.IsCancellationRequested) break;
 
-                var cached = await imageCacheService.GetOrCache(node.IconUrl!);
+                var cached = await imageCacheService.GetOrCache(node.IconUrl!, ImageProfile.TemplateAsset);
                 if (cached is not null)
                 {
                     node.IconUrl = $"/api/images/{cached.Id}";
