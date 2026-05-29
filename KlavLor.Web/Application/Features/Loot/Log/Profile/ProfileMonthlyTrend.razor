@@ -127,6 +127,7 @@
             // Stack: named segments first (descending value), "Other" at top to absorb
             // everything not in the global top-N including non-top-10 long-tail items.
             var segments = new List<HistogramBars.BarSegment>();
+            var outsiders = new List<HistogramBars.BarSegment>();
             long namedTotal = 0;
             foreach (var seg in m.TopSegments.OrderByDescending(s => s.Value))
             {
@@ -141,6 +142,16 @@
                         ValueText: GoldFormat.Format(seg.Value)));
                     namedTotal += seg.Value;
                 }
+                else
+                {
+                    outsiders.Add(new HistogramBars.BarSegment(
+                        Label: $"{seg.ItemName} · {seg.SourceName} — {GoldFormat.Format(seg.Value)}",
+                        Value: seg.Value,
+                        FillClass: OtherFill,
+                        ItemName: seg.ItemName,
+                        SourceName: seg.SourceName,
+                        ValueText: GoldFormat.Format(seg.Value)));
+                }
             }
             var other = Math.Max(0, m.Gp - namedTotal);
             if (other > 0)
@@ -151,7 +162,8 @@
                     FillClass: OtherFill,
                     ItemName: "Other",
                     SourceName: $"items outside the top {SegmentPalette.Length}",
-                    ValueText: GoldFormat.Format(other)));
+                    ValueText: GoldFormat.Format(other),
+                    OverflowItems: outsiders.Count > 0 ? outsiders : null));
             }
 
             var tooltip = $"{monthShort} {m.Year} — {GoldFormat.Format(m.Gp)} gp · {m.Kills:N0} kills"

@@ -1015,9 +1015,10 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 }
             }
 
-            // Top 10 (item, source) contributors per month, by drop value. Used to stack
-            // each bar in the trend chart. Separate query keeps the monthly-aggregate plan
-            // simple and avoids re-unrolling DropsJson inside its CTE.
+            // Top 35 (item, source) contributors per month, by drop value. The first
+            // ~10 stack as named segments in the chart; the rest feed the "Other"
+            // segment's expanded tooltip. Separate query keeps the monthly-aggregate
+            // plan simple and avoids re-unrolling DropsJson inside its CTE.
             const string segmentsSql = """
                 WITH unrolled AS (
                     SELECT EXTRACT(year FROM ((lr."OccurredAt" AT TIME ZONE 'Europe/London')::date))::int AS y,
@@ -1043,7 +1044,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 )
                 SELECT y, m, item_name, source_name, total
                 FROM ranked
-                WHERE rn <= 10
+                WHERE rn <= 35
                 ORDER BY y, m, total DESC
                 """;
 

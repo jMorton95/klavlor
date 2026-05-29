@@ -94,24 +94,69 @@
                                     var isTop = si == bar.Segments.Count - 1;
                                     var rounded = isTop ? "rounded-t" : "";
 
-                                    <div class="hist-segment relative w-full @seg.FillClass @rounded hover:brightness-110 transition-[filter] cursor-default"
-                                         style="height: @(segPx.ToString("F2", System.Globalization.CultureInfo.InvariantCulture))px;">
-                                        @* Tooltip — escapes the bar bounds. min-w keeps it readable for long names. *@
-                                        <div class="hist-tooltip absolute z-20 left-1/2 -translate-x-1/2 bottom-full mb-2 min-w-[14rem] max-w-[20rem] pointer-events-none rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg p-2.5 text-left">
-                                            <div class="flex items-center gap-2 mb-1">
-                                                <span class="inline-block w-2.5 h-2.5 rounded-sm shrink-0 @seg.FillClass"></span>
-                                                <span class="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">@(seg.ItemName ?? seg.Label)</span>
-                                            </div>
-                                            @if (!string.IsNullOrEmpty(seg.SourceName))
-                                            {
-                                                <div class="text-[11px] text-slate-500 dark:text-slate-400 truncate">from @seg.SourceName</div>
-                                            }
-                                            <div class="mt-1 flex items-baseline gap-2">
-                                                <span class="text-sm font-semibold text-amber-600 dark:text-amber-400 tabular-nums">@(seg.ValueText ?? Format(seg.Value))</span>
-                                                <span class="text-[10px] text-slate-400 dark:text-slate-500 tabular-nums">@pct.ToString("F1")% of bar</span>
+                                    @if (seg.OverflowItems is { Count: > 0 } overflow)
+                                    {
+                                        @* Group wrapper keeps :hover alive while cursor crosses into the
+                                           scrollable tooltip. Tooltip is pointer-events:auto so it can scroll. *@
+                                        <div class="hist-segment-group relative w-full @seg.FillClass @rounded hover:brightness-110 transition-[filter] cursor-default"
+                                             style="height: @(segPx.ToString("F2", System.Globalization.CultureInfo.InvariantCulture))px;">
+                                            <div class="hist-tooltip-large absolute z-30 left-1/2 -translate-x-1/2 bottom-full min-w-[22rem] max-w-[24rem] rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg p-2.5 text-left">
+                                                <div class="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-slate-200 dark:border-slate-700">
+                                                    <div class="flex items-center gap-2 min-w-0">
+                                                        <span class="inline-block w-2.5 h-2.5 rounded-sm shrink-0 @seg.FillClass"></span>
+                                                        <span class="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">@(seg.ItemName ?? seg.Label)</span>
+                                                    </div>
+                                                    <div class="flex items-baseline gap-2 shrink-0">
+                                                        <span class="text-sm font-semibold text-amber-600 dark:text-amber-400 tabular-nums">@(seg.ValueText ?? Format(seg.Value))</span>
+                                                        <span class="text-[10px] text-slate-400 dark:text-slate-500 tabular-nums">@pct.ToString("F1")%</span>
+                                                    </div>
+                                                </div>
+                                                <div class="themed-scrollbar max-h-72 overflow-y-auto -mx-0.5 px-0.5">
+                                                    <ul class="divide-y divide-slate-100 dark:divide-slate-800">
+                                                        @foreach (var item in overflow)
+                                                        {
+                                                            var itemPct = bar.Value > 0 ? (double)item.Value / bar.Value * 100.0 : 0;
+                                                            <li class="flex items-center gap-2 py-1">
+                                                                <span class="inline-block w-2 h-2 rounded-sm shrink-0 @item.FillClass"></span>
+                                                                <span class="min-w-0 flex-1">
+                                                                    <span class="block text-[11px] font-medium text-slate-800 dark:text-slate-100 truncate">@(item.ItemName ?? item.Label)</span>
+                                                                    @if (!string.IsNullOrEmpty(item.SourceName))
+                                                                    {
+                                                                        <span class="block text-[10px] text-slate-500 dark:text-slate-400 truncate">from @item.SourceName</span>
+                                                                    }
+                                                                </span>
+                                                                <span class="shrink-0 text-right tabular-nums">
+                                                                    <span class="block text-[11px] font-semibold text-amber-600 dark:text-amber-400">@(item.ValueText ?? Format(item.Value))</span>
+                                                                    <span class="block text-[9px] text-slate-400 dark:text-slate-500">@itemPct.ToString("F1")%</span>
+                                                                </span>
+                                                            </li>
+                                                        }
+                                                    </ul>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="hist-segment relative w-full @seg.FillClass @rounded hover:brightness-110 transition-[filter] cursor-default"
+                                             style="height: @(segPx.ToString("F2", System.Globalization.CultureInfo.InvariantCulture))px;">
+                                            @* Tooltip — escapes the bar bounds. min-w keeps it readable for long names. *@
+                                            <div class="hist-tooltip absolute z-20 left-1/2 -translate-x-1/2 bottom-full mb-2 min-w-[14rem] max-w-[20rem] pointer-events-none rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg p-2.5 text-left">
+                                                <div class="flex items-center gap-2 mb-1">
+                                                    <span class="inline-block w-2.5 h-2.5 rounded-sm shrink-0 @seg.FillClass"></span>
+                                                    <span class="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">@(seg.ItemName ?? seg.Label)</span>
+                                                </div>
+                                                @if (!string.IsNullOrEmpty(seg.SourceName))
+                                                {
+                                                    <div class="text-[11px] text-slate-500 dark:text-slate-400 truncate">from @seg.SourceName</div>
+                                                }
+                                                <div class="mt-1 flex items-baseline gap-2">
+                                                    <span class="text-sm font-semibold text-amber-600 dark:text-amber-400 tabular-nums">@(seg.ValueText ?? Format(seg.Value))</span>
+                                                    <span class="text-[10px] text-slate-400 dark:text-slate-500 tabular-nums">@pct.ToString("F1")% of bar</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
                                 }
                             </div>
                         }
@@ -147,7 +192,8 @@
         string FillClass,
         string? ItemName = null,
         string? SourceName = null,
-        string? ValueText = null);
+        string? ValueText = null,
+        IReadOnlyList<BarSegment>? OverflowItems = null);
 
     [Parameter] public required IReadOnlyList<Bar> Bars { get; set; }
     [Parameter] public long? MaxValue { get; set; }

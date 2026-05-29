@@ -39,6 +39,14 @@ body:not(.history-panel-open) #completion-history-panel {
    setting z-index here creates a stacking context with the tooltip inside. */
 .hist-segment:hover { z-index: 50; }
 
+/* Expanded variant for the monthly-trend "Other" segment. The wrapper keeps
+   :hover alive while the cursor crosses into the scrollable tooltip body,
+   which is pointer-events:auto so the user can scroll inside it. */
+.hist-segment-group .hist-tooltip-large { display: none; }
+.hist-segment-group:hover .hist-tooltip-large { display: block; }
+.hist-segment-group:hover { z-index: 50; }
+
+
 /* Legendary card animation: applied to any loot-feed card whose total drop
    value (Qty × Price for a single item) crosses 250M.
 
