@@ -1,4 +1,5 @@
 using KlavLor.Application.Features.Characters;
+using KlavLor.Application.Interfaces.Services;
 using KlavLor.Domain.Shared;
 using KlavLor.Web.Application.Results;
 using Microsoft.AspNetCore.Mvc;
@@ -58,10 +59,13 @@ public sealed class CharacterEndpoint : IEndpoint
         return IResultExtensions.Component<CharacterList>(new { Characters = result.Value, UnassignedCount = unassigned });
     }
 
-    private static async Task<RazorComponentResult> ToggleLeagues(
+    private static async Task<IResult> ToggleLeagues(
         int id,
-        CharacterHandler handler)
+        CharacterHandler handler,
+        ISystemSettingsCache settings)
     {
+        if (!settings.IsLeaguesEnabled) return TypedResults.NotFound();
+
         await handler.HandleToggleLeagues(id);
         var result = await handler.HandleList();
         var unassigned = await handler.HandleUnassignedCount();

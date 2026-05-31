@@ -1,7 +1,13 @@
 @using KlavLor.Application.Common
 @using KlavLor.Application.Features.Users.Search
+@using KlavLor.Application.Interfaces.Services
+@using KlavLor.Web.Application.Features.Settings
+
+@inject ISystemSettingsCache SystemSettingsCache
 
 <div class="space-y-4">
+    <AdminSettingsToggleLeagues IsLeaguesEnabled="@SystemSettingsCache.IsLeaguesEnabled" />
+
     <div class="flex items-center justify-between">
         <div class="flex items-center gap-3">
             <input type="text" name="searchTerm" placeholder="Search users..." value="@Result?.SearchTerm"
@@ -18,7 +24,7 @@
         </a>
     </div>
 
-    <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+    <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
         <table class="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
             <thead class="bg-slate-50 dark:bg-slate-800">
                 <tr>

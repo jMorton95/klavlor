@@ -13,6 +13,7 @@ using KlavLor.Web.Application.Features.Loot;
 using KlavLor.Web.Application.Features.Loot.Feed;
 using KlavLor.Web.Application.Features.Loot.Ingest;
 using KlavLor.Web.Application.Features.Loot.Log;
+using KlavLor.Web.Application.Features.Settings;
 using KlavLor.Web.Application.Features.Viewer;
 
 namespace KlavLor.Web.Configuration;
@@ -59,7 +60,8 @@ public static class ConfigureEndpoints
             .MapEndpoints<SourceIconEndpoint>();
 
         web.MapEndpoints<ApiKeyManageEndpoint>()
-            .MapEndpoints<AdminCharacterEndpoint>();
+            .MapEndpoints<AdminCharacterEndpoint>()
+            .MapEndpoints<AdminSettingsEndpoint>();
 
         web.MapEndpoints<CharacterEndpoint>();
 

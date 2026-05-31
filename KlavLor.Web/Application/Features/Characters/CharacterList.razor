@@ -1,6 +1,9 @@
 @using KlavLor.Application.Common
 @using KlavLor.Application.Features.Characters
+@using KlavLor.Application.Interfaces.Services
 @using KlavLor.Web.Components.Layout
+
+@inject ISystemSettingsCache SystemSettingsCache
 
 @if (UpdateHeader)
 {
@@ -24,7 +27,7 @@
         <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
             @foreach (var character in Characters)
             {
-                <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5 space-y-4">
+                <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5 space-y-4">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-3">
                             <div class="w-10 h-10 bg-linear-to-br from-amber-500 to-orange-600 rounded-full flex items-center justify-center">
@@ -36,24 +39,27 @@
                             </div>
                         </div>
                         <div class="flex items-center gap-2">
-                            <button hx-post="@AppRoutes.CharacterToggleLeagues.WithId(character.Id).FromApi()"
-                                    hx-target="#hx-page-container"
-                                    hx-swap="innerHTML transition:true"
-                                    class="cursor-pointer"
-                                    title="Mark this character as a Leagues character — kills will appear on the Leagues feed instead of the main Loot Feed">
-                                @if (character.IsLeagues)
-                                {
-                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
-                                        Leagues
-                                    </span>
-                                }
-                                else
-                                {
-                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
-                                        Main
-                                    </span>
-                                }
-                            </button>
+                            @if (SystemSettingsCache.IsLeaguesEnabled)
+                            {
+                                <button hx-post="@AppRoutes.CharacterToggleLeagues.WithId(character.Id).FromApi()"
+                                        hx-target="#hx-page-container"
+                                        hx-swap="innerHTML transition:true"
+                                        class="cursor-pointer"
+                                        title="Mark this character as a Leagues character — kills will appear on the Leagues feed instead of the main Loot Feed">
+                                    @if (character.IsLeagues)
+                                    {
+                                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
+                                            Leagues
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                                            Main
+                                        </span>
+                                    }
+                                </button>
+                            }
                             <button hx-post="@AppRoutes.CharacterToggleVisibility.WithId(character.Id).FromApi()"
                                     hx-target="#hx-page-container"
                                     hx-swap="innerHTML transition:true"
@@ -137,7 +143,7 @@
     }
     else
     {
-        <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-12 text-center">
+        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-12 text-center">
             <div class="flex justify-center mb-4">
                 <div class="p-4 bg-amber-50 dark:bg-amber-950 rounded-full">
                     <svg class="w-8 h-8 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">

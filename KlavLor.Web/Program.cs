@@ -118,6 +118,13 @@ var collectionLogCache = scope.ServiceProvider.GetRequiredService<KlavLor.Applic
 var collectionLogItemRepository = scope.ServiceProvider.GetRequiredService<KlavLor.Domain.Interfaces.Repositories.ICollectionLogItemRepository>();
 collectionLogCache.Replace(await collectionLogItemRepository.GetAllItemIds());
 
+// Prime the system-settings cache so the sidebar / character pages / feed endpoints
+// can branch on feature flags without a DB hit per request.
+var systemSettingsCache = scope.ServiceProvider.GetRequiredService<KlavLor.Application.Interfaces.Services.ISystemSettingsCache>();
+var systemSettingsRepository = scope.ServiceProvider.GetRequiredService<KlavLor.Domain.Interfaces.Repositories.ISystemSettingsRepository>();
+var primedSettings = await systemSettingsRepository.GetOrCreate();
+systemSettingsCache.SetLeaguesEnabled(primedSettings.IsLeaguesEnabled);
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);

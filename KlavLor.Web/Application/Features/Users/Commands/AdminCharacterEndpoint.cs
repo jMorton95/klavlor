@@ -1,4 +1,5 @@
 using KlavLor.Application.Features.Characters;
+using KlavLor.Application.Interfaces.Services;
 using KlavLor.Domain.Shared;
 using KlavLor.Web.Application.Results;
 using KlavLor.Web.Components.Generic.Modals;
@@ -78,8 +79,10 @@ public sealed class AdminCharacterEndpoint : IEndpoint
         return IResultExtensions.Component<AdminCharacterSection>(new { UserId = id, Characters = result.Value });
     }
 
-    private static async Task<RazorComponentResult> ToggleAdminLeagues(int id, int characterId, CharacterHandler handler)
+    private static async Task<IResult> ToggleAdminLeagues(int id, int characterId, CharacterHandler handler, ISystemSettingsCache settings)
     {
+        if (!settings.IsLeaguesEnabled) return TypedResults.NotFound();
+
         await handler.HandleToggleLeagues(characterId);
         var result = await handler.HandleListForUser(id);
         return IResultExtensions.Component<AdminCharacterSection>(new { UserId = id, Characters = result.Value });

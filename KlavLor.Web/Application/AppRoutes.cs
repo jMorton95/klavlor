@@ -119,4 +119,6 @@ public static class AppRoutes
     public const string AdminCharacterAssign = "/characters/{id:int}/assign";
 
     public const string HealthCheck = "/healthcheck";
+
+    public const string AdminSettingsLeaguesToggle = "/admin/settings/leagues/toggle";
 }

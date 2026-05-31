@@ -25,22 +25,43 @@ public sealed class LootFeedEndpoint : IEndpoint
         MapStream(app, AppRoutes.LootFeedStreamLegendary, LootFeedScope.Main, LootFeedTier.Legendary);
 
         // Leagues feed routes — parallel set, filters to IsLeagues=true characters.
-        app.MapGet(AppRoutes.LootFeedLeagues.FromApi(), (ILootLogRepository repo) => GetPage(repo, LootFeedScope.Leagues))
+        // All Leagues endpoints short-circuit to 404 when the admin has disabled the feature.
+        app.MapGet(AppRoutes.LootFeedLeagues.FromApi(), async (ILootLogRepository repo, ISystemSettingsCache settings) =>
+            {
+                if (!settings.IsLeaguesEnabled) return TypedResults.NotFound();
+                return await GetPage(repo, LootFeedScope.Leagues);
+            })
             .AllowAnonymous();
 
-        app.MapGet(AppRoutes.LootFeedLeaguesGrid.FromApi(), (ILootLogRepository repo, string? tiers) => GetGrid(repo, LootFeedScope.Leagues, tiers))
+        app.MapGet(AppRoutes.LootFeedLeaguesGrid.FromApi(), async (ILootLogRepository repo, ISystemSettingsCache settings, string? tiers) =>
+            {
+                if (!settings.IsLeaguesEnabled) return TypedResults.NotFound();
+                return await GetGrid(repo, LootFeedScope.Leagues, tiers);
+            })
             .AllowAnonymous();
 
-        MapStream(app, AppRoutes.LootFeedLeaguesStreamStandard, LootFeedScope.Leagues, LootFeedTier.Standard);
-        MapStream(app, AppRoutes.LootFeedLeaguesStreamUncommon, LootFeedScope.Leagues, LootFeedTier.Uncommon);
-        MapStream(app, AppRoutes.LootFeedLeaguesStreamRare, LootFeedScope.Leagues, LootFeedTier.Rare);
-        MapStream(app, AppRoutes.LootFeedLeaguesStreamEpic, LootFeedScope.Leagues, LootFeedTier.Epic);
-        return MapStream(app, AppRoutes.LootFeedLeaguesStreamLegendary, LootFeedScope.Leagues, LootFeedTier.Legendary);
+        MapLeaguesStream(app, AppRoutes.LootFeedLeaguesStreamStandard, LootFeedTier.Standard);
+        MapLeaguesStream(app, AppRoutes.LootFeedLeaguesStreamUncommon, LootFeedTier.Uncommon);
+        MapLeaguesStream(app, AppRoutes.LootFeedLeaguesStreamRare, LootFeedTier.Rare);
+        MapLeaguesStream(app, AppRoutes.LootFeedLeaguesStreamEpic, LootFeedTier.Epic);
+        return MapLeaguesStream(app, AppRoutes.LootFeedLeaguesStreamLegendary, LootFeedTier.Legendary);
     }
 
     private static RouteHandlerBuilder MapStream(IEndpointRouteBuilder app, string route, LootFeedScope scope, LootFeedTier tier) =>
         app.MapGet(route.FromApi(), (HttpContext ctx, ILootFeedService svc, IServiceProvider sp, ILoggerFactory lf) =>
                 StreamFeed(ctx, svc, sp, lf, scope, tier))
+            .AllowAnonymous();
+
+    private static RouteHandlerBuilder MapLeaguesStream(IEndpointRouteBuilder app, string route, LootFeedTier tier) =>
+        app.MapGet(route.FromApi(), async (HttpContext ctx, ILootFeedService svc, ISystemSettingsCache settings, IServiceProvider sp, ILoggerFactory lf) =>
+            {
+                if (!settings.IsLeaguesEnabled)
+                {
+                    ctx.Response.StatusCode = StatusCodes.Status404NotFound;
+                    return;
+                }
+                await StreamFeed(ctx, svc, sp, lf, LootFeedScope.Leagues, tier);
+            })
             .AllowAnonymous();
 
     private static async Task<IResult> GetPage(ILootLogRepository lootLogRepository, LootFeedScope scope)

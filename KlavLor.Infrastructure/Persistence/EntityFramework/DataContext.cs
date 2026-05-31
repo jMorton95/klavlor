@@ -25,6 +25,7 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
     public virtual DbSet<SourceIcon> SourceIcons => Set<SourceIcon>();
     public virtual DbSet<GameCharacter> GameCharacters => Set<GameCharacter>();
     public virtual DbSet<CollectionLogItem> CollectionLogItems => Set<CollectionLogItem>();
+    public virtual DbSet<SystemSettings> SystemSettings => Set<SystemSettings>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
