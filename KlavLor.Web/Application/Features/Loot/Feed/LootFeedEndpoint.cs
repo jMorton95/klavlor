@@ -156,6 +156,27 @@ public sealed class LootFeedEndpoint : IEndpoint
                 html = cardHtml;
             }
 
+            // Highlight demote: the previous crown lost its ribbon. Re-render that
+            // card as an out-of-band outerHTML swap so the browser drops the trophy
+            // without us needing to track per-card state on the client. Skip when
+            // the demoted card is the same DOM node we just rendered above or the
+            // one we OOB-deleted — both already reflect the current state.
+            var demoted = broadcast.HighlightChange?.Demoted;
+            if (demoted is not null
+                && demoted.DomId != entry.DomId
+                && demoted.DomId != prev)
+            {
+                var demotedHtml = await RenderComponentToString<LootFeedItem>(
+                    serviceProvider, loggerFactory,
+                    new Dictionary<string, object?>
+                    {
+                        ["Entry"] = demoted,
+                        ["Animate"] = false,
+                        ["IsMerge"] = true // forces hx-swap-oob="outerHTML" on the rendered root
+                    });
+                html = demotedHtml + html;
+            }
+
             var ssePayload = string.Join("\n", html.Split('\n').Select(line => $"data: {line}"));
             await context.Response.WriteAsync($"{ssePayload}\n\n", ct);
             await context.Response.Body.FlushAsync(ct);

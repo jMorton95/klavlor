@@ -1,6 +1,7 @@
 @using KlavLor.Application.Common
 @using KlavLor.Application.Features.Loot.Log
 @using KlavLor.Domain.Entities
+@using KlavLor.Web.Application.Features.Loot.Log.Profile
 @using KlavLor.Web.Components.Layout
 
 @if (UpdateHeader)
@@ -22,7 +23,7 @@
 
     @if (Detail is not null)
     {
-        <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
             <div class="flex items-center justify-between mb-4">
                 <div>
                     <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100 inline-flex items-center gap-2">
@@ -83,12 +84,23 @@
             </div>
         }
 
-        @if (Detail.Kills.Count > 0)
+        @if (View != "kills" && Collection is not null && (Collection.Entries.Count > 0 || Collection.MissingItems.Count > 0))
         {
-            @* Tabs live inside #source-tab-content so swap-on-click brings the
-               active-state styling along with the content. *@
+            <SourceCollectionPanel Collection="Collection" CharacterId="CharacterId" />
+        }
+        else if (Detail.Kills.Count > 0)
+        {
+            @* Kill-log view. Tabs live inside #source-tab-content so swap-on-click brings
+               the active-state styling along with the content. *@
             <div id="source-tab-content">
                 <div class="border-b border-slate-200 dark:border-slate-700 flex items-center gap-1 mb-3">
+                    <button type="button"
+                            hx-get="@GetCollectionTabUrl()"
+                            hx-target="#source-tab-content"
+                            hx-swap="outerHTML"
+                            class="px-3 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 cursor-pointer">
+                        Collection Log
+                    </button>
                     <button type="button"
                             hx-get="@GetKillTabUrl()"
                             hx-target="#source-tab-content"
@@ -96,13 +108,6 @@
                             hx-swap="outerHTML"
                             class="px-3 py-2 text-sm font-medium border-b-2 border-amber-500 text-amber-600 dark:text-amber-400">
                         Kill Log
-                    </button>
-                    <button type="button"
-                            hx-get="@GetCollectionTabUrl()"
-                            hx-target="#source-tab-content"
-                            hx-swap="outerHTML"
-                            class="px-3 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 cursor-pointer">
-                        Collection Log
                     </button>
                 </div>
                 <div id="kill-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
@@ -122,6 +127,8 @@
 
 @code {
     [Parameter] public LootSourceDetail? Detail { get; set; }
+    [Parameter] public SourceCollection? Collection { get; set; }
+    [Parameter] public string? View { get; set; }
     [Parameter] public int CharacterId { get; set; }
     [Parameter] public int PageSize { get; set; } = 25;
     [Parameter] public bool UpdateHeader { get; set; } = true;
@@ -141,7 +148,7 @@
     private string GetKillTabUrl()
     {
         return AppRoutes.LootLogSource.WithId(CharacterId).FromApi()
-            + $"?name={Uri.EscapeDataString(Detail?.SourceName ?? "")}";
+            + $"?name={Uri.EscapeDataString(Detail?.SourceName ?? "")}&view=kills";
     }
 
     private string GetSourceTypeBadgeClasses() => Detail?.SourceType switch

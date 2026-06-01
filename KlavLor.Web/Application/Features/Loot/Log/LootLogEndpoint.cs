@@ -73,9 +73,11 @@ public sealed class LootLogEndpoint : IEndpoint
     private static async Task<RazorComponentResult> GetSourceDetail(
         int id,
         [FromQuery] string name,
+        [FromQuery] string? view = null,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 25,
-        LootLogHandler handler = default!)
+        LootLogHandler handler = default!,
+        LootCharacterProfileHandler profileHandler = default!)
     {
         var result = await handler.HandleSource(id, name, pageNumber, pageSize);
 
@@ -88,9 +90,14 @@ public sealed class LootLogEndpoint : IEndpoint
                 PageSize = pageSize
             });
 
+        // Sequential awaits — scoped DbContext is not safe under concurrent use.
+        var collection = await profileHandler.HandleSourceCollection(id, name);
+
         return IResultExtensions.Component<LootLogSourceDetail>(new
         {
             Detail = result.Value,
+            Collection = collection.Value,
+            View = view,
             CharacterId = id,
             PageSize = pageSize
         });

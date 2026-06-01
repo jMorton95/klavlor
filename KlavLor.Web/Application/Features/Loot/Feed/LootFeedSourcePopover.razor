@@ -1,0 +1,90 @@
+@using KlavLor.Application.Common
+@using KlavLor.Application.Features.Loot.Log
+@using KlavLor.Web.Application
+
+<div class="bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-lg p-3 space-y-2.5 text-slate-700 dark:text-slate-200">
+    <div class="flex items-center gap-2 min-w-0">
+        <img src="/api/images/source-icon?name=@Uri.EscapeDataString(Data.SourceName)" alt="@Data.SourceName"
+             class="w-5 h-5 rounded shrink-0"
+             loading="lazy"
+             onerror="this.style.display='none'" />
+        <a hx-get="@(AppRoutes.LootLogSource.WithId(CharacterId).FromApi() + "?name=" + Uri.EscapeDataString(Data.SourceName))"
+           hx-target="#hx-page-container"
+           hx-push-url="@(AppRoutes.LootLogSource.WithId(CharacterId) + "?name=" + Uri.EscapeDataString(Data.SourceName))"
+           hx-swap="innerHTML transition:true"
+           class="text-sm font-semibold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer truncate">@Data.SourceName</a>
+    </div>
+
+    <div class="grid grid-cols-2 gap-2 text-[11px]">
+        <div class="flex flex-col">
+            <span class="text-slate-500 dark:text-slate-400 uppercase tracking-wide text-[9px]">Kills</span>
+            <span class="font-semibold text-slate-900 dark:text-slate-100">@Data.KillCount.ToString("N0")</span>
+        </div>
+        <div class="flex flex-col">
+            <span class="text-slate-500 dark:text-slate-400 uppercase tracking-wide text-[9px]">Total GP</span>
+            <span class="font-semibold text-amber-600 dark:text-amber-400">@GoldFormat.Format(Data.TotalGp)</span>
+        </div>
+    </div>
+
+    @if (Data.ClogTotal > 0 || Data.ClogUnlocked > 0)
+    {
+        var pct = Data.ClogTotal > 0
+            ? Math.Min(100, (int)Math.Round(100.0 * Data.ClogUnlocked / Data.ClogTotal))
+            : 0;
+        <div class="space-y-1">
+            <div class="flex items-center justify-between text-[10px]">
+                <span class="text-slate-500 dark:text-slate-400 uppercase tracking-wide text-[9px]">Collection log</span>
+                <span class="font-medium text-slate-700 dark:text-slate-200">
+                    @if (Data.ClogTotal > 0)
+                    {
+                        @($"{Data.ClogUnlocked} / {Data.ClogTotal}")
+                    }
+                    else
+                    {
+                        @($"{Data.ClogUnlocked} unlocked")
+                    }
+                </span>
+            </div>
+            @if (Data.ClogTotal > 0)
+            {
+                <div class="h-1.5 w-full rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                    <div class="h-full bg-linear-to-r from-amber-500 to-yellow-400" style="width:@pct%"></div>
+                </div>
+            }
+        </div>
+    }
+
+    @if (Data.TopDrops.Count > 0)
+    {
+        <div class="space-y-1">
+            <div class="text-[9px] uppercase tracking-wide text-slate-500 dark:text-slate-400">Top drops</div>
+            <ul class="space-y-0.5 text-[11px]">
+                @foreach (var drop in Data.TopDrops)
+                {
+                    <li class="flex items-center gap-1.5 min-w-0">
+                        <img src="/api/images/item-icon?name=@Uri.EscapeDataString(drop.Name)" alt="@drop.Name"
+                             class="w-3.5 h-3.5 shrink-0"
+                             loading="lazy"
+                             onerror="this.style.display='none'" />
+                        <span class="truncate flex-1">@drop.Name</span>
+                        @if (!string.IsNullOrEmpty(drop.Rarity))
+                        {
+                            <span class="font-mono text-[10px] text-slate-500 dark:text-slate-400 shrink-0" title="Drop rate">@drop.Rarity</span>
+                        }
+                        <span class="font-medium text-amber-600 dark:text-amber-400 shrink-0">@GoldFormat.Format(drop.TotalValue)</span>
+                    </li>
+                }
+            </ul>
+        </div>
+    }
+
+    @if (Data.KillCount == 0)
+    {
+        <div class="text-[10px] text-slate-500 dark:text-slate-400 italic">No prior kills at this source.</div>
+    }
+</div>
+
+@code {
+    [Parameter] public int CharacterId { get; set; }
+    [Parameter] public required SourcePopoverData Data { get; set; }
+}

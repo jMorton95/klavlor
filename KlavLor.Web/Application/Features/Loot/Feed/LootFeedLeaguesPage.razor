@@ -2,19 +2,25 @@
 @using KlavLor.Application.Features.Loot.Feed
 @using KlavLor.Application.Interfaces.Repositories
 @using KlavLor.Application.Interfaces.Services
+@using KlavLor.Web.Application
 @using KlavLor.Web.Components.Layout
 
 @inject ILootLogRepository LootLogRepository
+@inject ISystemSettingsCache SystemSettingsCache
+@inject NavigationManager NavigationManager
 
-<PageLayout PageTitle="KlavLor - Leagues Feed" Title="Leagues Feed" Description="Real-time loot drops from leagues characters">
-    <LootFeedContent StandardEntries="@_standard"
-                     UncommonEntries="@_uncommon"
-                     RareEntries="@_rare"
-                     EpicEntries="@_epic"
-                     LegendaryEntries="@_legendary"
-                     Scope="LootFeedScope.Leagues"
-                     UpdateHeader="false" />
-</PageLayout>
+@if (SystemSettingsCache.IsLeaguesEnabled)
+{
+    <PageLayout PageTitle="KlavLor - Leagues Feed" Title="Leagues Feed" Description="Real-time loot drops from leagues characters">
+        <LootFeedContent StandardEntries="@_standard"
+                         UncommonEntries="@_uncommon"
+                         RareEntries="@_rare"
+                         EpicEntries="@_epic"
+                         LegendaryEntries="@_legendary"
+                         Scope="LootFeedScope.Leagues"
+                         UpdateHeader="false" />
+    </PageLayout>
+}
 
 @code {
     private IReadOnlyList<LootFeedEntry> _standard = [];
@@ -25,6 +31,12 @@
 
     protected override async Task OnInitializedAsync()
     {
+        if (!SystemSettingsCache.IsLeaguesEnabled)
+        {
+            NavigationManager.NavigateTo(AppRoutes.LootFeed, replace: true);
+            return;
+        }
+
         var tiers = await LootLogRepository.GetAllFeedTiers(50, LootFeedScope.Leagues);
         _standard = tiers[LootFeedTier.Standard];
         _uncommon = tiers[LootFeedTier.Uncommon];

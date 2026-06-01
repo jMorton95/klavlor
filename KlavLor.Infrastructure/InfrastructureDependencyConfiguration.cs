@@ -51,6 +51,7 @@ public static class InfrastructureDependencyConfiguration
             services.AddScoped<IDatabaseConnector, EntityFrameworkDatabaseConnector>();
             services.AddScoped<IMigrationService, EntityFrameworkMigrator>();
 
+            services.AddSingleton<ILootFeedHighlightTracker, LootFeedHighlightTracker>();
             services.AddSingleton<ILootFeedService, LootFeedService>();
             services.AddHostedService<LootFeedSeederService>();
 

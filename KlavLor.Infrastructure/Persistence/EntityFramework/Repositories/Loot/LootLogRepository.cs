@@ -155,16 +155,27 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
         if (connection.State != System.Data.ConnectionState.Open)
             await connection.OpenAsync();
 
+        // LEFT JOIN DropRates so the popover (and source-detail "all drops" panel) can
+        // show "1/1024" next to the gp value. Aggregation happens in a CTE first so the
+        // join doesn't fan out the SUMs.
         var sql = $"""
-            SELECT drop_elem->>'Name' as "Name",
-                   SUM((drop_elem->>'Quantity')::bigint) as "TotalQuantity",
-                   SUM((drop_elem->>'Quantity')::bigint * (drop_elem->>'Price')::bigint) as "TotalValue"
-            FROM "LootRecords" lr,
-                 jsonb_array_elements(lr."DropsJson") AS drop_elem
-            WHERE lr."GameCharacterId" = @characterId
-              AND lr."SourceName" = @sourceName
-            GROUP BY drop_elem->>'Name'
-            ORDER BY "TotalValue" DESC
+            WITH agg AS (
+                SELECT drop_elem->>'Name' as item_name,
+                       SUM((drop_elem->>'Quantity')::bigint) as total_qty,
+                       SUM((drop_elem->>'Quantity')::bigint * (drop_elem->>'Price')::bigint) as total_value
+                FROM "LootRecords" lr,
+                     jsonb_array_elements(lr."DropsJson") AS drop_elem
+                WHERE lr."GameCharacterId" = @characterId
+                  AND lr."SourceName" = @sourceName
+                GROUP BY drop_elem->>'Name'
+            )
+            SELECT a.item_name, a.total_qty, a.total_value,
+                   dr."Rarity", dr."RarityNumerator", dr."RarityDenominator"
+            FROM agg a
+            LEFT JOIN "DropRates" dr
+                ON dr."SourceName" = @sourceName
+               AND lower(dr."ItemName") = lower(a.item_name)
+            ORDER BY a.total_value DESC
             {(limit.HasValue ? $"LIMIT {limit.Value}" : "")}
             """;
 
@@ -180,7 +191,10 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             drops.Add(new LootDropSummary(
                 reader.GetString(0),
                 reader.GetInt64(1),
-                reader.GetInt64(2)));
+                reader.GetInt64(2),
+                reader.IsDBNull(3) ? null : reader.GetString(3),
+                reader.IsDBNull(4) ? null : reader.GetInt32(4),
+                reader.IsDBNull(5) ? null : reader.GetInt32(5)));
         }
 
         return drops;
@@ -1277,6 +1291,8 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 agg AS (
                     SELECT item_name,
                            MIN("OccurredAt") AS first_received,
+                           MAX("OccurredAt") AS last_received,
+                           COUNT(*)::int AS total_drops,
                            SUM(qty) AS total_qty,
                            SUM(value) AS total_value,
                            bool_or(first_time) AS has_first
@@ -1288,16 +1304,34 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                            item_name, "Id", "OccurredAt", "KillCount"
                     FROM unrolled
                     ORDER BY item_name, "OccurredAt" ASC, "Id" ASC
+                ),
+                last_row AS (
+                    SELECT DISTINCT ON (item_name)
+                           item_name, "Id", "OccurredAt", "KillCount"
+                    FROM unrolled
+                    ORDER BY item_name, "OccurredAt" DESC, "Id" DESC
                 )
-                SELECT a.item_name, a.first_received, a.total_qty, a.total_value, a.has_first,
-                       f."KillCount",
+                SELECT a.item_name, a.first_received, a.last_received, a.total_drops,
+                       a.total_qty, a.total_value, a.has_first,
+                       f."KillCount" AS first_kc,
                        (SELECT COUNT(*)::int FROM "LootRecords" o
                         WHERE o."GameCharacterId" = @cid
                           AND o."SourceName" = @source
                           AND (o."OccurredAt" < f."OccurredAt"
-                               OR (o."OccurredAt" = f."OccurredAt" AND o."Id" <= f."Id"))) AS kill_ordinal
+                               OR (o."OccurredAt" = f."OccurredAt" AND o."Id" <= f."Id"))) AS first_ordinal,
+                       l."KillCount" AS last_kc,
+                       (SELECT COUNT(*)::int FROM "LootRecords" o
+                        WHERE o."GameCharacterId" = @cid
+                          AND o."SourceName" = @source
+                          AND (o."OccurredAt" < l."OccurredAt"
+                               OR (o."OccurredAt" = l."OccurredAt" AND o."Id" <= l."Id"))) AS last_ordinal,
+                       dr."Rarity", dr."RarityNumerator", dr."RarityDenominator", dr."Rolls"
                 FROM agg a
                 JOIN first_row f ON f.item_name = a.item_name
+                JOIN last_row l ON l.item_name = a.item_name
+                LEFT JOIN "DropRates" dr
+                    ON dr."SourceName" = @source
+                   AND lower(dr."ItemName") = lower(a.item_name)
                 ORDER BY a.first_received ASC
                 """;
 
@@ -1307,24 +1341,150 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             cmd.Parameters.Add(new NpgsqlParameter("@source", sourceName));
 
             var entries = new List<CollectionEntry>();
-            await using var reader = await cmd.ExecuteReaderAsync();
-            while (await reader.ReadAsync())
+            await using (var reader = await cmd.ExecuteReaderAsync())
             {
-                entries.Add(new CollectionEntry(
-                    reader.GetString(0),
-                    reader.GetFieldValue<DateTimeOffset>(1),
-                    reader.GetInt64(2),
-                    reader.IsDBNull(3) ? 0 : reader.GetInt64(3),
-                    !reader.IsDBNull(4) && reader.GetBoolean(4),
-                    reader.IsDBNull(5) ? null : reader.GetInt32(5),
-                    reader.IsDBNull(6) ? null : reader.GetInt32(6)));
+                while (await reader.ReadAsync())
+                {
+                    entries.Add(new CollectionEntry(
+                        ItemName: reader.GetString(0),
+                        FirstReceivedAt: reader.GetFieldValue<DateTimeOffset>(1),
+                        LastReceivedAt: reader.GetFieldValue<DateTimeOffset>(2),
+                        TotalDrops: reader.GetInt32(3),
+                        TotalQuantity: reader.GetInt64(4),
+                        TotalValue: reader.IsDBNull(5) ? 0 : reader.GetInt64(5),
+                        MarkedFirstTime: !reader.IsDBNull(6) && reader.GetBoolean(6),
+                        KillCount: reader.IsDBNull(7) ? null : reader.GetInt32(7),
+                        KillOrdinal: reader.IsDBNull(8) ? null : reader.GetInt32(8),
+                        LastKillCount: reader.IsDBNull(9) ? null : reader.GetInt32(9),
+                        LastKillOrdinal: reader.IsDBNull(10) ? null : reader.GetInt32(10),
+                        Rarity: reader.IsDBNull(11) ? null : reader.GetString(11),
+                        RarityNumerator: reader.IsDBNull(12) ? null : reader.GetInt32(12),
+                        RarityDenominator: reader.IsDBNull(13) ? null : reader.GetInt32(13),
+                        Rolls: reader.IsDBNull(14) ? 1 : reader.GetInt32(14)));
+                }
             }
-            return new SourceCollection(sourceName, entries);
+
+            // Missing items: every clog entry whose Tabs array contains the source name,
+            // minus those the character has already received from this source. Empty when
+            // the source has no clog tab mapping (e.g. unrecognised RuneLite source name).
+            // LEFT JOIN DropRates so rarest items naturally float to the top of the panel.
+            var missingItems = new List<MissingClogItem>();
+            await using (var missingCmd = connection.CreateCommand())
+            {
+                missingCmd.CommandText = """
+                    SELECT cli."Name", dr."Rarity", dr."RarityNumerator", dr."RarityDenominator", dr."Rolls"
+                    FROM "CollectionLogItems" cli
+                    LEFT JOIN "DropRates" dr
+                        ON dr."SourceName" = @source
+                       AND lower(dr."ItemName") = lower(cli."Name")
+                    WHERE @source = ANY (cli."Tabs")
+                      AND NOT EXISTS (
+                          SELECT 1 FROM "LootRecords" lr,
+                                       jsonb_array_elements(lr."DropsJson") AS drop_elem
+                          WHERE lr."GameCharacterId" = @cid
+                            AND lr."SourceName" = @source
+                            AND (drop_elem->>'ItemId')::int = cli."ItemId"
+                      )
+                    ORDER BY dr."RarityDenominator" DESC NULLS LAST, cli."Name"
+                    """;
+                missingCmd.Parameters.Add(new NpgsqlParameter("@cid", characterId));
+                missingCmd.Parameters.Add(new NpgsqlParameter("@source", sourceName));
+                await using var missingReader = await missingCmd.ExecuteReaderAsync();
+                while (await missingReader.ReadAsync())
+                {
+                    missingItems.Add(new MissingClogItem(
+                        ItemName: missingReader.GetString(0),
+                        Rarity: missingReader.IsDBNull(1) ? null : missingReader.GetString(1),
+                        RarityNumerator: missingReader.IsDBNull(2) ? null : missingReader.GetInt32(2),
+                        RarityDenominator: missingReader.IsDBNull(3) ? null : missingReader.GetInt32(3),
+                        Rolls: missingReader.IsDBNull(4) ? 1 : missingReader.GetInt32(4)));
+                }
+            }
+
+            // Character KC at this source — denominator for the luck/expected calculations.
+            var characterKc = await dataContext.LootRecords
+                .CountAsync(r => r.GameCharacterId == characterId && r.SourceName == sourceName);
+
+            return new SourceCollection(sourceName, characterKc, entries, missingItems);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to get source collection for character {CharacterId}, source {Source}", characterId, sourceName);
             throw new RepositoryException("Failed to get source collection", ex);
+        }
+    }
+
+    public async Task<SourcePopoverData> GetSourcePopover(int characterId, string sourceName)
+    {
+        try
+        {
+            // Summary row: KC + total GP for this character at this source. Empty rows
+            // get a zeroed payload so the caller can still render the boss icon/name.
+            var summary = await dataContext.LootRecords
+                .Where(r => r.GameCharacterId == characterId && r.SourceName == sourceName)
+                .GroupBy(_ => 1)
+                .Select(g => new
+                {
+                    TotalKills = g.Count(),
+                    TotalValue = g.Sum(r => r.TotalValue)
+                })
+                .FirstOrDefaultAsync();
+
+            var topDrops = await GetTopDropsForSource(characterId, sourceName, limit: 5);
+
+            // Collection-log progress: numerator = distinct clog items this character has
+            // ever received from this source; denominator = clog items whose Tabs array
+            // contains the source name. Tabs is wiki-synced and can be unmapped for some
+            // sources (e.g. minigames named differently in RuneLite) — when ClogTotal=0
+            // the UI degrades to "X clog items" without the fraction.
+            var connection = dataContext.Database.GetDbConnection();
+            if (connection.State != System.Data.ConnectionState.Open) await connection.OpenAsync();
+
+            int clogUnlocked;
+            await using (var unlockedCmd = connection.CreateCommand())
+            {
+                unlockedCmd.CommandText = """
+                    SELECT COUNT(DISTINCT drop_elem->>'Name')::int
+                    FROM "LootRecords" lr,
+                         jsonb_array_elements(lr."DropsJson") AS drop_elem
+                    WHERE lr."GameCharacterId" = @cid
+                      AND lr."SourceName" = @source
+                      AND EXISTS (
+                          SELECT 1 FROM "CollectionLogItems" cli
+                          WHERE cli."ItemId" = (drop_elem->>'ItemId')::int
+                            AND @source = ANY (cli."Tabs")
+                      )
+                    """;
+                unlockedCmd.Parameters.Add(new NpgsqlParameter("@cid", characterId));
+                unlockedCmd.Parameters.Add(new NpgsqlParameter("@source", sourceName));
+                var raw = await unlockedCmd.ExecuteScalarAsync();
+                clogUnlocked = raw is null or DBNull ? 0 : Convert.ToInt32(raw);
+            }
+
+            int clogTotal;
+            await using (var totalCmd = connection.CreateCommand())
+            {
+                totalCmd.CommandText = """
+                    SELECT COUNT(*)::int FROM "CollectionLogItems"
+                    WHERE @source = ANY ("Tabs")
+                    """;
+                totalCmd.Parameters.Add(new NpgsqlParameter("@source", sourceName));
+                var raw = await totalCmd.ExecuteScalarAsync();
+                clogTotal = raw is null or DBNull ? 0 : Convert.ToInt32(raw);
+            }
+
+            return new SourcePopoverData(
+                sourceName,
+                summary?.TotalKills ?? 0,
+                summary?.TotalValue ?? 0,
+                clogUnlocked,
+                clogTotal,
+                topDrops);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get source popover for character {CharacterId}, source {Source}", characterId, sourceName);
+            throw new RepositoryException("Failed to get source popover", ex);
         }
     }
 

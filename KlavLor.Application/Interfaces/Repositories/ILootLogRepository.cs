@@ -21,6 +21,7 @@ public interface ILootLogRepository
     Task<CharacterDayFeed> GetCharacterDayFeed(int characterId, DateOnly day);
     Task<PersonalRecords> GetPersonalRecords(int characterId);
     Task<SourceCollection> GetSourceCollection(int characterId, string sourceName);
+    Task<SourcePopoverData> GetSourcePopover(int characterId, string sourceName);
     Task<FirstTimeFeed> GetFirstTimeFeed(int characterId, DateTimeOffset? before, int pageSize);
     Task<TopItemsList> GetTopItems(int characterId, int limit);
 }

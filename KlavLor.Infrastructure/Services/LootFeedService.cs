@@ -6,7 +6,7 @@ using KlavLor.Application.Interfaces.Services;
 
 namespace KlavLor.Infrastructure.Services;
 
-internal sealed class LootFeedService : ILootFeedService
+internal sealed class LootFeedService(ILootFeedHighlightTracker highlights) : ILootFeedService
 {
     private const int BufferCapacity = 50;
     private const int ChannelCapacity = 10;
@@ -72,6 +72,7 @@ internal sealed class LootFeedService : ILootFeedService
     public void SeedBuffer(LootFeedScope scope, IEnumerable<LootFeedEntry> entries)
     {
         // Input is ordered newest-first; buffer convention is First=oldest, Last=newest.
+        var touchedTiers = new HashSet<LootFeedTier>();
         foreach (var entry in entries)
         {
             var key = (scope, entry.Tier);
@@ -84,6 +85,20 @@ internal sealed class LootFeedService : ILootFeedService
                     EvictFirst(key);
                 }
             }
+            touchedTiers.Add(entry.Tier);
+        }
+
+        // Prime the highlight tracker once the buffer is fully populated, so the
+        // crown reflects every seeded entry (not just whichever tier landed last).
+        foreach (var tier in touchedTiers)
+        {
+            var key = (scope, tier);
+            LootFeedEntry[] snapshot;
+            lock (_bufferLocks[key])
+            {
+                snapshot = _buffers[key].ToArray();
+            }
+            highlights.SetInitial(scope, tier, snapshot);
         }
     }
 
@@ -95,6 +110,7 @@ internal sealed class LootFeedService : ILootFeedService
         lock (_bufferLocks[key])
         {
             var matchedNode = FindBestMatch(key, entry);
+            HighlightChange? highlightChange;
             if (matchedNode is not null)
             {
                 var previous = matchedNode.Value;
@@ -107,7 +123,8 @@ internal sealed class LootFeedService : ILootFeedService
                 var newNode = _buffers[key].AddLast(merged);
                 AddToIndex(key, merged.GroupKey, newNode);
 
-                broadcast = new LootFeedBroadcast(merged, previous.DomId);
+                highlightChange = highlights.OnBufferChanged(entry.Scope, entry.Tier, _buffers[key]);
+                broadcast = new LootFeedBroadcast(merged, previous.DomId, highlightChange);
             }
             else
             {
@@ -117,7 +134,8 @@ internal sealed class LootFeedService : ILootFeedService
                 {
                     EvictFirst(key);
                 }
-                broadcast = new LootFeedBroadcast(entry, null);
+                highlightChange = highlights.OnBufferChanged(entry.Scope, entry.Tier, _buffers[key]);
+                broadcast = new LootFeedBroadcast(entry, null, highlightChange);
             }
         }
 

@@ -41,7 +41,10 @@ public sealed record LootItemSourceBreakdown(
 public sealed record LootDropSummary(
     string Name,
     long TotalQuantity,
-    long TotalValue);
+    long TotalValue,
+    string? Rarity = null,
+    int? RarityNumerator = null,
+    int? RarityDenominator = null);
 
 public sealed record LootSourceDetail(
     string SourceName,

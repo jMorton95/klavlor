@@ -6,6 +6,13 @@
        so clicking either tab brings its active-state along with the content. *@
     <div class="border-b border-slate-200 dark:border-slate-700 flex items-center gap-1 mb-3">
         <button type="button"
+                hx-get="@GetCollectionTabUrl()"
+                hx-target="#source-tab-content"
+                hx-swap="outerHTML"
+                class="px-3 py-2 text-sm font-medium border-b-2 border-amber-500 text-amber-600 dark:text-amber-400">
+            Collection Log
+        </button>
+        <button type="button"
                 hx-get="@GetKillTabUrl()"
                 hx-target="#source-tab-content"
                 hx-select="#source-tab-content"
@@ -13,64 +20,110 @@
                 class="px-3 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 cursor-pointer">
             Kill Log
         </button>
-        <button type="button"
-                hx-get="@GetCollectionTabUrl()"
-                hx-target="#source-tab-content"
-                hx-swap="outerHTML"
-                class="px-3 py-2 text-sm font-medium border-b-2 border-amber-500 text-amber-600 dark:text-amber-400">
-            Collection Log
-        </button>
     </div>
 
-    @if (Collection.Entries.Count == 0)
+    @if (Collection.Entries.Count == 0 && Collection.MissingItems.Count == 0)
     {
-        <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-6 text-center">
+        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-6 text-center">
             <p class="text-sm text-slate-500 dark:text-slate-400">No collection-log data for this source yet.</p>
         </div>
     }
     else
     {
-        <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+        var unlocked = Collection.Entries.Count;
+        var total = unlocked + Collection.MissingItems.Count;
+        @* Drop overflow-hidden so the distribution-chart popovers can escape upward
+           past the table header. The thead retains visible rounding via its own
+           rounded-t-xl on the first/last header cells. *@
+        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+            <div class="px-4 py-2 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs">
+                <span class="text-slate-600 dark:text-slate-300 font-medium">
+                    @if (Collection.MissingItems.Count > 0)
+                    {
+                        @($"{unlocked} / {total} unlocked")
+                    }
+                    else
+                    {
+                        @($"{unlocked} unlocked")
+                    }
+                </span>
+                <span class="text-slate-500 dark:text-slate-400">
+                    @Collection.CharacterKc.ToString("N0") @(Collection.CharacterKc == 1 ? "kill" : "kills") at this source
+                </span>
+            </div>
             <table class="w-full text-sm">
                 <thead class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
                     <tr>
                         <th class="px-4 py-2 text-left text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Item</th>
-                        <th class="px-4 py-2 text-left text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">First received</th>
-                        <th class="px-4 py-2 text-right text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">KC</th>
-                        <th class="px-4 py-2 text-right text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Total qty</th>
+                        <th class="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Rate</th>
+                        <th class="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Luck</th>
+                        <th class="px-3 py-2 text-right text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Drops</th>
+                        <th class="px-3 py-2 text-right text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">KC</th>
+                        <th class="px-3 py-2 text-right text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Total qty</th>
                         <th class="px-4 py-2 text-right text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Total value</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-200 dark:divide-slate-700/50">
                     @foreach (var e in Collection.Entries)
                     {
+                        var luck = ComputeReceivedLuck(Collection.CharacterKc, e.TotalDrops, e.Rolls, e.RarityDenominator, e.RarityNumerator);
                         <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                            <td class="px-4 py-2 text-slate-800 dark:text-slate-100 inline-flex items-center gap-1.5">
-                                <img src="/api/images/item-icon?name=@Uri.EscapeDataString(e.ItemName)" alt="@e.ItemName"
-                                     class="w-4 h-4" loading="lazy" onerror="this.style.display='none'" />
-                                <span>@e.ItemName</span>
-                                @if (e.MarkedFirstTime)
+                            <td class="px-4 py-2 text-slate-800 dark:text-slate-100">
+                                <span class="inline-flex items-center gap-1.5">
+                                    <img src="/api/images/item-icon?name=@Uri.EscapeDataString(e.ItemName)" alt="@e.ItemName"
+                                         class="w-4 h-4" loading="lazy" onerror="this.style.display='none'" />
+                                    <span>@e.ItemName</span>
+                                    @if (e.MarkedFirstTime)
+                                    {
+                                        <span class="ml-1 px-1 py-0 text-[9px] font-semibold rounded-sm bg-cyan-700 text-white">NEW</span>
+                                    }
+                                </span>
+                            </td>
+                            <td class="px-3 py-2 text-slate-500 dark:text-slate-400 text-xs font-mono">@(e.Rarity ?? "")</td>
+                            <td class="px-3 py-2">
+                                @if (luck is not null)
                                 {
-                                    <span class="ml-1 px-1 py-0 text-[9px] font-semibold rounded-sm bg-cyan-700 text-white">NEW</span>
+                                    <span class="relative group inline-block">
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium cursor-help @luck.PillClasses">@luck.Text</span>
+                                        @RenderDistributionPopover(e.ItemName, Collection.CharacterKc, e.TotalDrops, e.Rolls, e.RarityNumerator, e.RarityDenominator)
+                                    </span>
                                 }
                             </td>
-                            <td class="px-4 py-2 text-slate-600 dark:text-slate-300 text-xs">@FormatLocal(e.FirstReceivedAt)</td>
-                            <td class="px-4 py-2 text-right tabular-nums text-xs">
-                                @if (e.KillCount is not null)
+                            <td class="px-3 py-2 text-right tabular-nums text-slate-700 dark:text-slate-200 text-xs">
+                                <span title="Number of times this item dropped">×@e.TotalDrops</span>
+                            </td>
+                            <td class="px-3 py-2 text-right tabular-nums text-xs">
+                                @RenderKcRange(e)
+                            </td>
+                            <td class="px-3 py-2 text-right tabular-nums text-slate-700 dark:text-slate-200 text-xs">@e.TotalQuantity.ToString("N0")</td>
+                            <td class="px-4 py-2 text-right tabular-nums text-amber-600 dark:text-amber-400 font-medium text-xs">@GoldFormat.Format(e.TotalValue)</td>
+                        </tr>
+                    }
+                    @foreach (var item in Collection.MissingItems)
+                    {
+                        var luck = ComputeMissingLuck(Collection.CharacterKc, item.Rolls, item.RarityDenominator, item.RarityNumerator);
+                        <tr class="opacity-60 hover:opacity-100 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-opacity">
+                            <td class="px-4 py-2 text-slate-500 dark:text-slate-400">
+                                <span class="inline-flex items-center gap-1.5">
+                                    <img src="/api/images/item-icon?name=@Uri.EscapeDataString(item.ItemName)" alt="@item.ItemName"
+                                         class="w-4 h-4 grayscale" loading="lazy" onerror="this.style.display='none'" />
+                                    <span>@item.ItemName</span>
+                                </span>
+                            </td>
+                            <td class="px-3 py-2 text-slate-500 dark:text-slate-400 text-xs font-mono">@(item.Rarity ?? "")</td>
+                            <td class="px-3 py-2">
+                                @if (luck is not null)
                                 {
-                                    <span class="text-slate-700 dark:text-slate-200">#@e.KillCount.Value.ToString("N0")</span>
-                                }
-                                else if (e.KillOrdinal is not null)
-                                {
-                                    <span class="text-slate-500 dark:text-slate-400" title="Position in your kill log (RuneLite didn't report an in-game kill count)">#@e.KillOrdinal.Value.ToString("N0")</span>
-                                }
-                                else
-                                {
-                                    <span class="text-slate-400 dark:text-slate-500">—</span>
+                                    <span class="relative group inline-block">
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium cursor-help @luck.PillClasses">@luck.Text</span>
+                                        @RenderDistributionPopover(item.ItemName, Collection.CharacterKc, 0, item.Rolls, item.RarityNumerator, item.RarityDenominator)
+                                    </span>
                                 }
                             </td>
-                            <td class="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-200">@e.TotalQuantity.ToString("N0")</td>
-                            <td class="px-4 py-2 text-right tabular-nums text-amber-600 dark:text-amber-400 font-medium">@GoldFormat.Format(e.TotalValue)</td>
+                            <td class="px-3 py-2 text-right text-slate-400 dark:text-slate-500 text-xs">×0</td>
+                            <td class="px-3 py-2 text-right text-slate-400 dark:text-slate-500 text-xs">—</td>
+                            <td class="px-3 py-2 text-right text-slate-400 dark:text-slate-500 text-xs">—</td>
+                            <td class="px-4 py-2 text-right text-slate-400 dark:text-slate-500 text-xs">—</td>
                         </tr>
                     }
                 </tbody>
@@ -85,17 +138,171 @@
 
     private string GetKillTabUrl() =>
         AppRoutes.LootLogSource.WithId(CharacterId).FromApi()
-        + "?name=" + Uri.EscapeDataString(Collection.SourceName);
+        + "?name=" + Uri.EscapeDataString(Collection.SourceName) + "&view=kills";
 
     private string GetCollectionTabUrl() =>
         AppRoutes.LootLogSourceCollection.WithId(CharacterId).FromApi()
         + "?name=" + Uri.EscapeDataString(Collection.SourceName);
 
-    private static string FormatLocal(DateTimeOffset t)
+    // Pre-computed factorials for the Poisson PMF — drop-rate charts never need k > 15
+    // (kMax is capped at 12 visually), so a small fixed table is plenty.
+    private static readonly double[] Factorials = InitFactorials();
+    private static double[] InitFactorials()
     {
-        var local = IngestTimezone.ToZoneTime(t);
-        return local.Year != DateTimeOffset.UtcNow.Year
-            ? local.ToString("MMM d yyyy")
-            : local.ToString("MMM d, HH:mm");
+        var arr = new double[20];
+        arr[0] = 1;
+        for (var i = 1; i < arr.Length; i++) arr[i] = arr[i - 1] * i;
+        return arr;
+    }
+
+    private static double PoissonPmf(int k, double lambda)
+    {
+        if (lambda <= 0) return k == 0 ? 1 : 0;
+        if (k < 0 || k >= Factorials.Length) return 0;
+        return Math.Exp(-lambda) * Math.Pow(lambda, k) / Factorials[k];
+    }
+
+    // Large hover popover showing a smooth normalised bell-curve of the drop's rarity
+    // — centred at the expected KC for the first drop (1/p_effective) so the shape is
+    // determined by the drop rate alone, not the character's progress. The amber
+    // vertical marker is the character's current KC; the dashed slate line is the
+    // expected first-drop KC. SVG is built as a string and emitted via MarkupString
+    // because Razor would otherwise commandeer the inner <text> elements.
+    private RenderFragment RenderDistributionPopover(string itemName, int kc, int totalDrops, int rolls, int? numerator, int? denominator) => __builder =>
+    {
+        if (denominator is null or 0 || kc <= 0) return;
+        var num = numerator ?? 1;
+        var pEffective = (double)rolls * num / denominator.Value;
+        if (pEffective <= 0) return;
+        var expectedKc = 1.0 / pEffective;
+        var svg = BuildDistributionSvg(expectedKc, kc);
+
+        <div class="hidden group-hover:block absolute bottom-full left-0 z-40 pb-2 w-[380px]" role="tooltip">
+            <div class="bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-xl p-3 space-y-1.5">
+                <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-semibold text-slate-700 dark:text-slate-200 truncate">@itemName</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400">@totalDrops @(totalDrops == 1 ? "drop" : "drops") at @kc.ToString("N0") KC</span>
+                </div>
+                @((MarkupString)svg)
+            </div>
+        </div>;
+    };
+
+    private static string BuildDistributionSvg(double expectedKc, int currentKc)
+    {
+        // σ is a visual heuristic — the true variance of the geometric distribution is
+        // (1-p)/p² ≈ expectedKc² which gives a wildly wide curve dominated by its tail.
+        // Halving it produces a recognisable bell while keeping the character's KC in
+        // a meaningful position relative to "expected".
+        var sigma = Math.Max(expectedKc * 0.5, 1.0);
+        const double xMin = 0.0;
+        var xMax = Math.Max(expectedKc + 3 * sigma, Math.Max(currentKc * 1.05, expectedKc * 1.5));
+
+        const int W = 360;
+        const int H = 180;
+        const int PadL = 14;
+        const int PadR = 14;
+        const int PadT = 22;
+        const int PadB = 30;
+        var plotW = W - PadL - PadR;
+        var plotH = H - PadT - PadB;
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+
+        const int samples = 80;
+        var line = new System.Text.StringBuilder();
+        var area = new System.Text.StringBuilder();
+        area.Append(PadL.ToString(inv)).Append(',').Append((PadT + plotH).ToString(inv)).Append(' ');
+        for (var i = 0; i <= samples; i++)
+        {
+            var t = i / (double)samples;
+            var x = xMin + t * (xMax - xMin);
+            var f = Math.Exp(-Math.Pow(x - expectedKc, 2) / (2 * sigma * sigma));
+            var px = PadL + t * plotW;
+            var py = PadT + (1 - f) * plotH;
+            if (i > 0) line.Append(' ');
+            line.Append(px.ToString("0.##", inv)).Append(',').Append(py.ToString("0.##", inv));
+            area.Append(px.ToString("0.##", inv)).Append(',').Append(py.ToString("0.##", inv)).Append(' ');
+        }
+        area.Append((PadL + plotW).ToString(inv)).Append(',').Append((PadT + plotH).ToString(inv));
+
+        double XToPx(double x) => PadL + Math.Clamp((x - xMin) / (xMax - xMin), 0, 1) * plotW;
+        var expectedX = XToPx(expectedKc);
+        var currentX = XToPx(currentKc);
+        var currentInRange = currentKc <= xMax + 0.5;
+
+        var sb = new System.Text.StringBuilder();
+        sb.Append("<svg viewBox=\"0 0 ").Append(W).Append(' ').Append(H).Append("\" class=\"w-full h-auto\" xmlns=\"http://www.w3.org/2000/svg\" aria-label=\"Drop rate distribution\">");
+        sb.Append("<line x1=\"").Append(PadL).Append("\" y1=\"").Append(PadT + plotH).Append("\" x2=\"").Append(PadL + plotW).Append("\" y2=\"").Append(PadT + plotH).Append("\" stroke=\"#cbd5e1\" stroke-width=\"1\" />");
+        sb.Append("<polygon points=\"").Append(area).Append("\" fill=\"#94a3b8\" opacity=\"0.18\" />");
+        sb.Append("<polyline points=\"").Append(line).Append("\" fill=\"none\" stroke=\"#94a3b8\" stroke-width=\"1.5\" />");
+        // Expected first-drop KC (1/p_effective) — dashed slate marker
+        sb.Append("<line x1=\"").Append(expectedX.ToString("0.##", inv)).Append("\" y1=\"").Append(PadT).Append("\" x2=\"").Append(expectedX.ToString("0.##", inv)).Append("\" y2=\"").Append(PadT + plotH).Append("\" stroke=\"#64748b\" stroke-width=\"1\" stroke-dasharray=\"4 3\" />");
+        sb.Append("<text x=\"").Append(expectedX.ToString("0.##", inv)).Append("\" y=\"").Append(PadT - 6).Append("\" text-anchor=\"middle\" font-size=\"10\" fill=\"#94a3b8\">Expected KC ").Append(expectedKc.ToString("0", inv)).Append("</text>");
+        // Character's current KC — solid amber marker
+        if (currentInRange)
+        {
+            sb.Append("<line x1=\"").Append(currentX.ToString("0.##", inv)).Append("\" y1=\"").Append(PadT).Append("\" x2=\"").Append(currentX.ToString("0.##", inv)).Append("\" y2=\"").Append(PadT + plotH).Append("\" stroke=\"#f59e0b\" stroke-width=\"2\" />");
+            sb.Append("<text x=\"").Append(currentX.ToString("0.##", inv)).Append("\" y=\"").Append(PadT + plotH + 14).Append("\" text-anchor=\"middle\" font-size=\"10\" fill=\"#f59e0b\" font-weight=\"bold\">You · KC ").Append(currentKc.ToString("N0", inv)).Append("</text>");
+        }
+        else
+        {
+            sb.Append("<text x=\"").Append(PadL + plotW - 4).Append("\" y=\"").Append(PadT + 14).Append("\" text-anchor=\"end\" font-size=\"10\" fill=\"#f59e0b\" font-weight=\"bold\">You · KC ").Append(currentKc.ToString("N0", inv)).Append(" (off-chart →)</text>");
+        }
+        sb.Append("<text x=\"").Append(PadL).Append("\" y=\"").Append(H - 12).Append("\" text-anchor=\"middle\" font-size=\"9\" fill=\"#94a3b8\">0</text>");
+        sb.Append("<text x=\"").Append(PadL + plotW).Append("\" y=\"").Append(H - 12).Append("\" text-anchor=\"middle\" font-size=\"9\" fill=\"#94a3b8\">").Append(xMax.ToString("0", inv)).Append("</text>");
+        sb.Append("<text x=\"").Append(PadL + plotW / 2.0).Append("\" y=\"").Append(H - 2).Append("\" text-anchor=\"middle\" font-size=\"9\" fill=\"#64748b\">kills</text>");
+        sb.Append("</svg>");
+        return sb.ToString();
+    }
+
+    private RenderFragment RenderKcRange(CollectionEntry e) => __builder =>
+    {
+        var first = e.KillCount ?? e.KillOrdinal;
+        var last = e.LastKillCount ?? e.LastKillOrdinal;
+        if (first is null && last is null)
+        {
+            <text><span class="text-slate-400 dark:text-slate-500">—</span></text>
+            return;
+        }
+        if (last is null || first == last)
+        {
+            <text><span class="text-slate-700 dark:text-slate-200">#@first!.Value.ToString("N0")</span></text>
+            return;
+        }
+        <text>
+            <span class="text-slate-500 dark:text-slate-400">#@first!.Value.ToString("N0")</span>
+            <span class="text-slate-400 dark:text-slate-500"> → </span>
+            <span class="text-slate-700 dark:text-slate-200">#@last.Value.ToString("N0")</span>
+        </text>;
+    };
+
+    private sealed record LuckLabel(string Text, string PillClasses);
+
+    // For items the character has received: compare actual count vs expected at current KC.
+    // Always show when we have any drops + rate data — being spooned at low expected is the
+    // most interesting case (e.g. a 1/3000 drop at 17 KC is a story worth telling).
+    private static LuckLabel? ComputeReceivedLuck(int kc, int totalDrops, int rolls, int? denominator, int? numerator)
+    {
+        if (denominator is null or 0 || kc <= 0 || totalDrops <= 0) return null;
+        var num = numerator ?? 1;
+        var expected = (double)kc * rolls * num / denominator.Value;
+        if (expected <= 0) return null;
+        var ratio = totalDrops / expected;
+        if (ratio >= 1.5) return new LuckLabel($"Spooned {ratio:0.0}×", "bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300");
+        if (ratio >= 0.85) return new LuckLabel("On rate", "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300");
+        var dryRatio = 1.0 / Math.Max(ratio, 0.01);
+        return new LuckLabel($"Dry {dryRatio:0.0}×", "bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300");
+    }
+
+    // For missing items: only flag when meaningfully dry. Anything below 0.5 expected is
+    // within normal variance and a pill would just add noise — leave the cell empty.
+    private static LuckLabel? ComputeMissingLuck(int kc, int rolls, int? denominator, int? numerator)
+    {
+        if (denominator is null or 0 || kc <= 0) return null;
+        var num = numerator ?? 1;
+        var expected = (double)kc * rolls * num / denominator.Value;
+        if (expected < 1.0) return null;
+        if (expected < 2) return new LuckLabel($"Dry · {expected:0.0} expected", "bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300");
+        return new LuckLabel($"Very dry · {expected:0.0} expected", "bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300");
     }
 }

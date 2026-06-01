@@ -87,6 +87,7 @@ public static class AppRoutes
     public const string LootFeedLeaguesStreamRare = "/loot/feed/leagues/stream/rare";
     public const string LootFeedLeaguesStreamEpic = "/loot/feed/leagues/stream/epic";
     public const string LootFeedLeaguesStreamLegendary = "/loot/feed/leagues/stream/legendary";
+    public const string LootFeedSourcePopover = "/loot/feed/source-popover/{id:int}";
     public const string LootLog = "/loot/log";
     public const string LootLogCharacter = "/loot/log/{id:int}";
     public const string LootLogSource = "/loot/log/{id:int}/source";

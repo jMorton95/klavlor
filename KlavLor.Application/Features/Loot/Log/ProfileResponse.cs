@@ -89,16 +89,46 @@ public sealed record BiggestItem(
 
 public sealed record SourceCollection(
     string SourceName,
-    IReadOnlyList<CollectionEntry> Entries);
+    int CharacterKc,
+    IReadOnlyList<CollectionEntry> Entries,
+    IReadOnlyList<MissingClogItem> MissingItems);
+
+public sealed record MissingClogItem(
+    string ItemName,
+    string? Rarity = null,
+    int? RarityNumerator = null,
+    int? RarityDenominator = null,
+    int Rolls = 1);
+
+/// <summary>
+/// Compact source overview rendered into the hover popover on a feed card.
+/// Per character+source: KC, total GP, collection-log progress (X of Y),
+/// and the five biggest drops they've ever received from this source.
+/// </summary>
+public sealed record SourcePopoverData(
+    string SourceName,
+    int KillCount,
+    long TotalGp,
+    int ClogUnlocked,
+    int ClogTotal,
+    IReadOnlyList<LootDropSummary> TopDrops);
 
 public sealed record CollectionEntry(
     string ItemName,
     DateTimeOffset FirstReceivedAt,
+    DateTimeOffset LastReceivedAt,
+    int TotalDrops,
     long TotalQuantity,
     long TotalValue,
     bool MarkedFirstTime,
     int? KillCount,
-    int? KillOrdinal);
+    int? KillOrdinal,
+    int? LastKillCount,
+    int? LastKillOrdinal,
+    string? Rarity = null,
+    int? RarityNumerator = null,
+    int? RarityDenominator = null,
+    int Rolls = 1);
 
 public sealed record FirstTimeFeed(
     IReadOnlyList<FirstTimeEntry> Entries,

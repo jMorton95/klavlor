@@ -1,0 +1,15 @@
+using KlavLor.Domain.Entities;
+
+namespace KlavLor.Domain.Interfaces.Repositories;
+
+public interface IDropRateRepository
+{
+    /// <summary>Transactionally replaces all drop-rate rows for one source. No-op when <paramref name="rates"/> is empty (never clobbers existing data on a failed sync).</summary>
+    Task ReplaceForSource(string sourceName, IReadOnlyCollection<DropRate> rates);
+
+    /// <summary>All distinct source names that any character has loot for (regardless of whether we've synced rates for them yet).</summary>
+    Task<IReadOnlyList<string>> GetKnownSourceNames();
+
+    /// <summary>(sourceName, MAX SyncedAt) pairs for the subset of <paramref name="knownSourceNames"/> that already have synced rates. Drives backlog-first ordering in the sync service.</summary>
+    Task<IReadOnlyDictionary<string, DateTimeOffset>> GetLastSyncedAtBySource(IReadOnlyCollection<string> knownSourceNames);
+}

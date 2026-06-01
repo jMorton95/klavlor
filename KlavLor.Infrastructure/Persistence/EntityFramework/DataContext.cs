@@ -25,6 +25,7 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
     public virtual DbSet<SourceIcon> SourceIcons => Set<SourceIcon>();
     public virtual DbSet<GameCharacter> GameCharacters => Set<GameCharacter>();
     public virtual DbSet<CollectionLogItem> CollectionLogItems => Set<CollectionLogItem>();
+    public virtual DbSet<DropRate> DropRates => Set<DropRate>();
     public virtual DbSet<SystemSettings> SystemSettings => Set<SystemSettings>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -320,6 +321,24 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
         modelBuilder.Entity<CollectionLogItem>()
             .Property(c => c.SyncedAt)
             .HasColumnType("timestamp with time zone");
+
+        // DropRate configuration (wiki-synced per (source, item); joined into source-detail
+        // and feed-popover queries). Unique index lets ReplaceForSource use a transactional
+        // delete+insert without worrying about duplicates leaking between sync cycles.
+        modelBuilder.Entity<DropRate>()
+            .HasIndex(d => new { d.SourceName, d.ItemName })
+            .IsUnique();
+
+        modelBuilder.Entity<DropRate>()
+            .HasIndex(d => d.SourceName);
+
+        modelBuilder.Entity<DropRate>()
+            .Property(d => d.SyncedAt)
+            .HasColumnType("timestamp with time zone");
+
+        modelBuilder.Entity<DropRate>()
+            .Property(d => d.Rolls)
+            .HasDefaultValue(1);
 
         // ApiKey configuration
         modelBuilder.Entity<ApiKey>()
