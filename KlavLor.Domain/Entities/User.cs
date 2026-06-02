@@ -63,6 +63,11 @@ public sealed class User : Entity
         IsActive = isActive;
     }
 
+    // Role add/remove deliberately does NOT bump the security stamp: the cookie validator syncs a
+    // user's role claims from the database on its normal revalidation interval, so grants/revocations
+    // take effect without forcing a logout. (Revocation timing is unchanged — it still lands at that
+    // same revalidation point.) The stamp is reserved for hard invalidation: deactivation,
+    // password changes, and explicit "sign out everywhere".
     public void AssignRole(Role role)
     {
         if(_userRoles.Any(ur => ur.RoleId == role.Id))
@@ -71,17 +76,15 @@ public sealed class User : Entity
         }
 
         _userRoles.Add(new UserRole { User = this, Role = role });
-        InvalidateSessions();
     }
 
     public void UnassignRole(Role role)
     {
         _userRoles.Remove(_userRoles.Single(ur => ur.RoleId == role.Id));
-        InvalidateSessions();
     }
 
-    // Regenerates the security stamp, invalidating all outstanding sessions for this user on
-    // their next server-side revalidation. Call on deactivation, role/privilege changes,
-    // password resets, or an explicit "sign out everywhere".
+    // Regenerates the security stamp, hard-invalidating all outstanding sessions for this user on
+    // their next server-side revalidation. Call on deactivation, password resets, or an explicit
+    // "sign out everywhere". (Role changes do NOT use this — see AssignRole/UnassignRole.)
     public void InvalidateSessions() => SecurityStamp = Guid.NewGuid().ToString("N");
 }

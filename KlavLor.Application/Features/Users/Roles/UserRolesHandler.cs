@@ -33,7 +33,8 @@ public sealed class UserRolesHandler(IUserRepository userRepository, IRoleReposi
         if (role is null)
             return Result<UserRolesResponse>.Failure("Role not found.");
 
-        // AssignRole/UnassignRole bump the security stamp, invalidating the user's active sessions.
+        // No logout: the cookie validator re-syncs role claims on its revalidation interval, so the
+        // change reaches the user's active sessions without a re-login.
         if (user.UserRoles.Any(ur => ur.RoleId == role.Id))
             user.UnassignRole(role);
         else
