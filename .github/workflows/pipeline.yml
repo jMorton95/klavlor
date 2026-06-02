@@ -60,15 +60,18 @@ jobs:
           DB_PASS: ${{ secrets.DB_PASSWORD }}
           AUTH_KEY: ${{ secrets.AUTH_KEY }}
         run: |
-          cat <<'EOF' > ./envfile
-          GIT_COMMIT_HASH=${{ github.sha }}
-          EOF
-
-          printf "APP_DOMAIN=\"%s\"\n" "$APP_DOMAIN" >> ./envfile
-          printf "SYSTEM_USERNAME=\"%s\"\n" "$SYS_USER" >> ./envfile
-          printf "SYSTEM_PASSWORD=\"%s\"\n" "$SYS_PASS" >> ./envfile
-          printf "DB_PASSWORD=\"%s\"\n" "$DB_PASS" >> ./envfile
-          printf "AUTH_KEY=\"%s\"\n" "$AUTH_KEY" >> ./envfile
+          # The deploy action `source`s this file as bash, so every value must be a valid
+          # shell assignment. Wrap each value in single quotes and escape any embedded single
+          # quote ('\''); $(...) also strips a stray trailing newline from a pasted secret.
+          sq() { printf "%s" "$1" | sed "s/'/'\\\\''/g"; }
+          {
+            printf "GIT_COMMIT_HASH=%s\n" "${{ github.sha }}"
+            printf "APP_DOMAIN='%s'\n" "$(sq "$APP_DOMAIN")"
+            printf "SYSTEM_USERNAME='%s'\n" "$(sq "$SYS_USER")"
+            printf "SYSTEM_PASSWORD='%s'\n" "$(sq "$SYS_PASS")"
+            printf "DB_PASSWORD='%s'\n" "$(sq "$DB_PASS")"
+            printf "AUTH_KEY='%s'\n" "$(sq "$AUTH_KEY")"
+          } > ./envfile
 
       - name: Deploy Docker Stack
         uses: cssnr/stack-deploy-action@v1
