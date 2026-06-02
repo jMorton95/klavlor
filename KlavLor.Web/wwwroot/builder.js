@@ -1148,7 +1148,7 @@
         modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-4';
         modal.innerHTML =
             '<div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" data-dismiss></div>' +
-            '<div class="relative bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-xl max-w-sm w-full overflow-hidden">' +
+            '<div class="relative bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-xl max-w-sm w-full overflow-hidden">' +
                 '<div class="px-6 py-5">' +
                     '<h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Confirm</h3>' +
                     '<p class="mt-2 text-sm text-slate-600 dark:text-slate-400" id="confirm-message"></p>' +

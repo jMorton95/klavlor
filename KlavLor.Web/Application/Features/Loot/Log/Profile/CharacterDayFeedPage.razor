@@ -14,7 +14,7 @@
 }
 
 <div class="space-y-5">
-    <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+    <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
         <a hx-get="@AppRoutes.LootLogCharacter.WithId(CharacterId).FromApi()"
            hx-target="#hx-page-container"
            hx-push-url="@AppRoutes.LootLogCharacter.WithId(CharacterId)"
@@ -61,7 +61,7 @@
 
     @if (Feed.Entries.Count == 0)
     {
-        <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-8 text-center">
+        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-8 text-center">
             <p class="text-xs text-slate-500 dark:text-slate-400">No drops worth 10K+ on this day.</p>
         </div>
     }
