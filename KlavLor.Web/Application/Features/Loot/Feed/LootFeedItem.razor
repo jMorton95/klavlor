@@ -28,8 +28,10 @@
     {
         rootAttrs["hx-get"] = popoverUrl;
         // `once` keeps the request to a single fetch per card lifetime; the cached
-        // result on the server keeps repeated hovers across cards cheap too.
-        rootAttrs["hx-trigger"] = "mouseenter delay:300ms once";
+        // result on the server keeps repeated hovers across cards cheap too. The
+        // 500ms delay matches the CSS show-delay on the popover container below, so
+        // a passing cursor doesn't trigger either the fetch or the visible reveal.
+        rootAttrs["hx-trigger"] = "mouseenter delay:500ms once";
         // Relative `find` selector so multi-tier kills (one DomId appearing on
         // Standard *and* Legendary, say a CoX Twisted-Bow drop) inject into the
         // hovered card's own popover instead of the first matching duplicate id.
@@ -184,11 +186,13 @@
     @if (popoverUrl is not null)
     {
         @* Empty hover popover container — HTMX fills its innerHTML on the first
-           hover (300ms delay, once-only). CSS group-hover toggles visibility so
-           subsequent hovers are instant after the first fetch. Targeted via the
-           data attribute so multi-tier kills don't collide on a duplicated id. *@
+           hover (500ms delay, once-only). Show is gated by an asymmetric CSS delay:
+           500ms on the way in (so a passing cursor doesn't reveal anything), 0ms
+           on the way out (so it disappears immediately when the cursor moves away).
+           Targeted via the data attribute so multi-tier kills don't collide on a
+           duplicated id. *@
         <div data-source-popover
-             class="hidden group-hover:block absolute top-full left-0 right-0 z-30 mt-1"></div>
+             class="opacity-0 invisible pointer-events-none group-hover:opacity-100 group-hover:visible group-hover:pointer-events-auto transition-[opacity,visibility] duration-100 [transition-delay:0ms] group-hover:[transition-delay:500ms] absolute top-full left-0 right-0 z-30 mt-1"></div>
     }
 </div>
 
