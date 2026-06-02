@@ -70,15 +70,12 @@ internal sealed class GlobalSourceRepository(DataContext dataContext, ILogger<Gl
     }
 
     public Task<List<GlobalSourceDrop>> GetTopDrops(string sourceName, int limit)
-        => QueryDrops(sourceName, term: null, limit);
+        => QueryDrops(sourceName, skip: 0, take: limit);
 
-    public Task<List<GlobalSourceDrop>> SearchDrops(string sourceName, string? term, int limit)
-        => QueryDrops(sourceName, string.IsNullOrWhiteSpace(term) ? null : term.Trim(), limit);
-
-    // Aggregate item drops across all visible characters at this source, optionally
-    // filtered by an item-name term. CTE aggregates before the DropRates join so the
-    // join can't fan out the sums (same shape as LootLogRepository.GetTopDropsForSource).
-    private async Task<List<GlobalSourceDrop>> QueryDrops(string sourceName, string? term, int limit)
+    // Top item drops by value across all visible characters. CTE aggregates before the
+    // DropRates join so the join can't fan out the sums (same shape as
+    // LootLogRepository.GetTopDropsForSource).
+    private async Task<List<GlobalSourceDrop>> QueryDrops(string sourceName, int skip, int take)
     {
         try
         {
@@ -96,7 +93,6 @@ internal sealed class GlobalSourceRepository(DataContext dataContext, ILogger<Gl
                        , jsonb_array_elements(lr."DropsJson") AS drop_elem
                     WHERE lr."SourceName" = @source
                       AND {VisibilityFilter}
-                      AND (@term IS NULL OR drop_elem->>'Name' ILIKE '%' || @term || '%')
                     GROUP BY drop_elem->>'Name'
                 )
                 SELECT a.item_name, a.total_qty, a.total_value,
@@ -106,14 +102,14 @@ internal sealed class GlobalSourceRepository(DataContext dataContext, ILogger<Gl
                     ON dr."SourceName" = @source
                    AND lower(dr."ItemName") = lower(a.item_name)
                 ORDER BY a.total_value DESC NULLS LAST
-                LIMIT @limit
+                OFFSET @skip LIMIT @take
                 """;
 
             await using var cmd = connection.CreateCommand();
             cmd.CommandText = sql;
             cmd.Parameters.Add(new NpgsqlParameter("@source", sourceName));
-            cmd.Parameters.Add(new NpgsqlParameter("@term", (object?)term ?? DBNull.Value));
-            cmd.Parameters.Add(new NpgsqlParameter("@limit", limit));
+            cmd.Parameters.Add(new NpgsqlParameter("@skip", skip));
+            cmd.Parameters.Add(new NpgsqlParameter("@take", take));
 
             var drops = new List<GlobalSourceDrop>();
             await using var reader = await cmd.ExecuteReaderAsync();
@@ -187,7 +183,7 @@ internal sealed class GlobalSourceRepository(DataContext dataContext, ILogger<Gl
         }
     }
 
-    public async Task<GlobalSourceCoverage> GetCollectionCoverage(string sourceName)
+    public async Task<List<SourceClogEvent>> GetRecentClogs(string sourceName, int limit)
     {
         try
         {
@@ -195,47 +191,189 @@ internal sealed class GlobalSourceRepository(DataContext dataContext, ILogger<Gl
             if (connection.State != System.Data.ConnectionState.Open)
                 await connection.OpenAsync();
 
-            // Denominator: clog items whose Tabs array contains this source.
-            int total;
-            await using (var totalCmd = connection.CreateCommand())
+            // First-time collection-log unlocks that happened at this source: a drop
+            // flagged IsFirstTime (first time that character received it) whose item is a
+            // real collection-log entry. Newest first — a running "who logged what" feed.
+            var sql = $"""
+                SELECT lr."OccurredAt",
+                       COALESCE(gc."DisplayName", u."FirstName" || ' ' || u."LastName") AS character_name,
+                       gc."Id" AS game_character_id,
+                       drop_elem->>'Name' AS item_name,
+                       lr."KillCount"
+                FROM "LootRecords" lr
+                JOIN "GameCharacters" gc ON gc."Id" = lr."GameCharacterId"
+                JOIN "Users" u ON u."Id" = gc."UserId"
+                   , jsonb_array_elements(lr."DropsJson") AS drop_elem
+                WHERE lr."SourceName" = @source
+                  AND {VisibilityFilter}
+                  AND (drop_elem->>'IsFirstTime')::boolean = true
+                  AND EXISTS (
+                      SELECT 1 FROM "CollectionLogItems" cli
+                      WHERE cli."ItemId" = (drop_elem->>'ItemId')::int
+                  )
+                ORDER BY lr."OccurredAt" DESC
+                LIMIT @limit
+                """;
+
+            await using var cmd = connection.CreateCommand();
+            cmd.CommandText = sql;
+            cmd.Parameters.Add(new NpgsqlParameter("@source", sourceName));
+            cmd.Parameters.Add(new NpgsqlParameter("@limit", limit));
+
+            var events = new List<SourceClogEvent>();
+            await using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
             {
-                totalCmd.CommandText = """
-                    SELECT COUNT(*)::int FROM "CollectionLogItems"
-                    WHERE @source = ANY ("Tabs")
-                    """;
-                totalCmd.Parameters.Add(new NpgsqlParameter("@source", sourceName));
-                var raw = await totalCmd.ExecuteScalarAsync();
-                total = raw is null or DBNull ? 0 : Convert.ToInt32(raw);
+                events.Add(new SourceClogEvent(
+                    CharacterName: reader.GetString(1),
+                    GameCharacterId: reader.GetInt32(2),
+                    ItemName: reader.GetString(3),
+                    OccurredAt: reader.GetFieldValue<DateTimeOffset>(0),
+                    KillCount: reader.IsDBNull(4) ? null : reader.GetInt32(4)));
             }
 
-            // Numerator: distinct clog items dropped from this source by any visible character.
-            int unlocked;
-            await using (var unlockedCmd = connection.CreateCommand())
-            {
-                unlockedCmd.CommandText = $"""
-                    SELECT COUNT(DISTINCT drop_elem->>'Name')::int
-                    FROM "LootRecords" lr
-                    JOIN "GameCharacters" gc ON gc."Id" = lr."GameCharacterId"
-                       , jsonb_array_elements(lr."DropsJson") AS drop_elem
-                    WHERE lr."SourceName" = @source
-                      AND {VisibilityFilter}
-                      AND EXISTS (
-                          SELECT 1 FROM "CollectionLogItems" cli
-                          WHERE cli."ItemId" = (drop_elem->>'ItemId')::int
-                            AND @source = ANY (cli."Tabs")
-                      )
-                    """;
-                unlockedCmd.Parameters.Add(new NpgsqlParameter("@source", sourceName));
-                var raw = await unlockedCmd.ExecuteScalarAsync();
-                unlocked = raw is null or DBNull ? 0 : Convert.ToInt32(raw);
-            }
-
-            return new GlobalSourceCoverage(unlocked, total);
+            return events;
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to get collection coverage for source {Source}", sourceName);
-            throw new RepositoryException("Failed to get source collection coverage", ex);
+            logger.LogError(ex, "Failed to get recent collection logs for source {Source}", sourceName);
+            throw new RepositoryException("Failed to get source recent collection logs", ex);
+        }
+    }
+
+    public async Task<List<SourceItemFrequency>> GetItemFrequency(string sourceName, string? term, int limit)
+    {
+        try
+        {
+            var connection = dataContext.Database.GetDbConnection();
+            if (connection.State != System.Data.ConnectionState.Open)
+                await connection.OpenAsync();
+
+            var normalized = string.IsNullOrWhiteSpace(term) ? null : term.Trim();
+
+            // Per (item, character) drop counts (a drop = a kill that yielded the item),
+            // grouped into per-item totals + a character breakdown in C#. Optional
+            // item-name filter for the in-panel search.
+            var sql = $"""
+                SELECT drop_elem->>'Name' AS item_name,
+                       COALESCE(gc."DisplayName", u."FirstName" || ' ' || u."LastName") AS character_name,
+                       COUNT(DISTINCT lr."Id")::bigint AS drops
+                FROM "LootRecords" lr
+                JOIN "GameCharacters" gc ON gc."Id" = lr."GameCharacterId"
+                JOIN "Users" u ON u."Id" = gc."UserId"
+                   , jsonb_array_elements(lr."DropsJson") AS drop_elem
+                WHERE lr."SourceName" = @source AND {VisibilityFilter}
+                  AND (@term IS NULL OR drop_elem->>'Name' ILIKE '%' || @term || '%')
+                GROUP BY drop_elem->>'Name', gc."Id", gc."DisplayName", u."FirstName", u."LastName"
+                """;
+
+            await using var cmd = connection.CreateCommand();
+            cmd.CommandText = sql;
+            cmd.Parameters.Add(new NpgsqlParameter("@source", sourceName));
+            cmd.Parameters.Add(new NpgsqlParameter("@term", NpgsqlTypes.NpgsqlDbType.Text)
+            {
+                Value = (object?)normalized ?? DBNull.Value
+            });
+
+            var rows = new List<(string Item, string Character, long Drops)>();
+            await using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+                rows.Add((reader.GetString(0), reader.GetString(1), reader.GetInt64(2)));
+
+            return rows
+                .GroupBy(r => r.Item)
+                .Select(g => new SourceItemFrequency(
+                    g.Key,
+                    g.Sum(x => x.Drops),
+                    g.OrderByDescending(x => x.Drops)
+                        .Select(x => new SourceItemCharacterCount(x.Character, x.Drops))
+                        .ToList()))
+                .OrderByDescending(i => i.TotalDrops)
+                .Take(limit)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get item frequency for source {Source}", sourceName);
+            throw new RepositoryException("Failed to get source item frequency", ex);
+        }
+    }
+
+    public async Task<List<SourceTrendPoint>> GetMonthlyTrend(string sourceName)
+    {
+        try
+        {
+            var connection = dataContext.Database.GetDbConnection();
+            if (connection.State != System.Data.ConnectionState.Open)
+                await connection.OpenAsync();
+
+            // Monthly kills + gp across all visible players, bucketed by Europe/London
+            // date to match the per-character trend's timezone handling.
+            var totalsSql = $"""
+                SELECT EXTRACT(year FROM ((lr."OccurredAt" AT TIME ZONE 'Europe/London')::date))::int AS y,
+                       EXTRACT(month FROM ((lr."OccurredAt" AT TIME ZONE 'Europe/London')::date))::int AS m,
+                       COUNT(*)::bigint AS kills,
+                       SUM(lr."TotalValue")::bigint AS val
+                FROM "LootRecords" lr
+                JOIN "GameCharacters" gc ON gc."Id" = lr."GameCharacterId"
+                WHERE lr."SourceName" = @source AND {VisibilityFilter}
+                GROUP BY 1, 2
+                ORDER BY y, m
+                """;
+
+            var totals = new List<(int Y, int M, long Kills, long Value)>();
+            await using (var cmd = connection.CreateCommand())
+            {
+                cmd.CommandText = totalsSql;
+                cmd.Parameters.Add(new NpgsqlParameter("@source", sourceName));
+                await using var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                    totals.Add((reader.GetInt32(0), reader.GetInt32(1), reader.GetInt64(2),
+                        reader.IsDBNull(3) ? 0 : reader.GetInt64(3)));
+            }
+
+            // Per (month, character) kills for the hover breakdown.
+            var charSql = $"""
+                SELECT EXTRACT(year FROM ((lr."OccurredAt" AT TIME ZONE 'Europe/London')::date))::int AS y,
+                       EXTRACT(month FROM ((lr."OccurredAt" AT TIME ZONE 'Europe/London')::date))::int AS m,
+                       COALESCE(gc."DisplayName", u."FirstName" || ' ' || u."LastName") AS character_name,
+                       COUNT(*)::bigint AS kills
+                FROM "LootRecords" lr
+                JOIN "GameCharacters" gc ON gc."Id" = lr."GameCharacterId"
+                JOIN "Users" u ON u."Id" = gc."UserId"
+                WHERE lr."SourceName" = @source AND {VisibilityFilter}
+                GROUP BY 1, 2, 3
+                ORDER BY y, m, kills DESC
+                """;
+
+            var byMonth = new Dictionary<(int, int), List<SourceTrendCharacter>>();
+            await using (var cmd = connection.CreateCommand())
+            {
+                cmd.CommandText = charSql;
+                cmd.Parameters.Add(new NpgsqlParameter("@source", sourceName));
+                await using var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    var key = (reader.GetInt32(0), reader.GetInt32(1));
+                    if (!byMonth.TryGetValue(key, out var list))
+                    {
+                        list = [];
+                        byMonth[key] = list;
+                    }
+                    list.Add(new SourceTrendCharacter(reader.GetString(2), reader.GetInt64(3)));
+                }
+            }
+
+            return totals
+                .Select(t => new SourceTrendPoint(
+                    t.Y, t.M, t.Kills, t.Value,
+                    byMonth.TryGetValue((t.Y, t.M), out var chars) ? chars : []))
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get monthly trend for source {Source}", sourceName);
+            throw new RepositoryException("Failed to get source monthly trend", ex);
         }
     }
 }

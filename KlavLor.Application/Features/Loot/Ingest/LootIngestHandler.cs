@@ -4,6 +4,7 @@ using Microsoft.Extensions.Caching.Memory;
 using KlavLor.Application.Common;
 using KlavLor.Application.Features.Loot.Feed;
 using KlavLor.Application.Features.Loot.Log;
+using KlavLor.Application.Features.Source;
 using KlavLor.Application.Interfaces.Authentication;
 using KlavLor.Application.Interfaces.Repositories;
 using KlavLor.Application.Interfaces.Services;
@@ -70,7 +71,11 @@ public sealed class LootIngestHandler(
             await lootRecordRepository.RecomputeFirstTimeFlags(character.Id);
 
         if (character is not null)
+        {
             LootStatsCache.Invalidate(memoryCache, character.Id);
+            // Source pages aggregate over all characters — bump the global source version.
+            GlobalSourceCache.Invalidate(memoryCache);
+        }
 
         if (ShouldPublishToFeed(record, character))
             await PublishToFeed(userId.Value, record, character);
@@ -172,6 +177,9 @@ public sealed class LootIngestHandler(
 
         foreach (var cid in charactersTouched)
             LootStatsCache.Invalidate(memoryCache, cid);
+
+        if (charactersTouched.Count > 0)
+            GlobalSourceCache.Invalidate(memoryCache);
 
         var liveRecords = parsedItems
             .Where(p => ShouldPublishToFeed(p.Parsed.Record, p.Character))

@@ -8,7 +8,8 @@ public interface IGlobalSourceRepository
 {
     Task<GlobalSourceOverview?> GetOverview(string sourceName);
     Task<List<GlobalSourceDrop>> GetTopDrops(string sourceName, int limit);
-    Task<List<GlobalSourceDrop>> SearchDrops(string sourceName, string? term, int limit);
     Task<List<SourcePlayerRow>> GetPlayers(string sourceName, int limit);
-    Task<GlobalSourceCoverage> GetCollectionCoverage(string sourceName);
+    Task<List<SourceClogEvent>> GetRecentClogs(string sourceName, int limit);
+    Task<List<SourceItemFrequency>> GetItemFrequency(string sourceName, string? term, int limit);
+    Task<List<SourceTrendPoint>> GetMonthlyTrend(string sourceName);
 }

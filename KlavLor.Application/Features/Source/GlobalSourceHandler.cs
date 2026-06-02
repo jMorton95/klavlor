@@ -1,25 +1,49 @@
+using Microsoft.Extensions.Caching.Memory;
 using KlavLor.Application.Interfaces.Repositories;
 
 namespace KlavLor.Application.Features.Source;
 
-public sealed class GlobalSourceHandler(IGlobalSourceRepository repository)
+public sealed class GlobalSourceHandler(IGlobalSourceRepository repository, IMemoryCache cache)
 {
     public const int TopDropsLimit = 12;
     public const int PlayersLimit = 12;
-    public const int DropSearchLimit = 50;
+    public const int ItemFrequencyLimit = 150;
+    public const int RecentClogsLimit = 20;
 
-    public Task<GlobalSourceOverview?> GetOverview(string sourceName) =>
-        repository.GetOverview(sourceName);
+    // The all-players aggregates are cached (versioned, 5-min TTL); the version is
+    // bumped on loot ingest. The within-source search is user-driven and not cached.
 
-    public Task<List<GlobalSourceDrop>> GetTopDrops(string sourceName) =>
-        repository.GetTopDrops(sourceName, TopDropsLimit);
+    public Task<GlobalSourceOverview?> GetOverview(string sourceName)
+        => Cached("overview", sourceName, () => repository.GetOverview(sourceName));
 
-    public Task<List<SourcePlayerRow>> GetPlayers(string sourceName) =>
-        repository.GetPlayers(sourceName, PlayersLimit);
+    public Task<List<GlobalSourceDrop>> GetTopDrops(string sourceName)
+        => Cached("topdrops", sourceName, () => repository.GetTopDrops(sourceName, TopDropsLimit));
 
-    public Task<List<GlobalSourceDrop>> SearchDrops(string sourceName, string? term) =>
-        repository.SearchDrops(sourceName, term, DropSearchLimit);
+    public Task<List<SourcePlayerRow>> GetPlayers(string sourceName)
+        => Cached("players", sourceName, () => repository.GetPlayers(sourceName, PlayersLimit));
 
-    public Task<GlobalSourceCoverage> GetCollectionCoverage(string sourceName) =>
-        repository.GetCollectionCoverage(sourceName);
+    public Task<List<SourceClogEvent>> GetRecentClogs(string sourceName)
+        => Cached("clogs", sourceName, () => repository.GetRecentClogs(sourceName, RecentClogsLimit));
+
+    public Task<List<SourceItemFrequency>> GetItemFrequency(string sourceName, string? term)
+        => string.IsNullOrWhiteSpace(term)
+            ? Cached("items", sourceName, () => repository.GetItemFrequency(sourceName, null, ItemFrequencyLimit))
+            : repository.GetItemFrequency(sourceName, term, ItemFrequencyLimit);
+
+    public Task<List<SourceTrendPoint>> GetMonthlyTrend(string sourceName)
+        => Cached("trend", sourceName, () => repository.GetMonthlyTrend(sourceName));
+
+    private async Task<T> Cached<T>(string method, string sourceName, Func<Task<T>> factory)
+    {
+        var version = GlobalSourceCache.GetVersion(cache);
+        var key = GlobalSourceCache.EntryKey(version, method, sourceName);
+
+        if (cache.TryGetValue(key, out T? hit) && hit is not null)
+            return hit;
+
+        var value = await factory();
+        if (value is not null)
+            cache.Set(key, value, GlobalSourceCache.EntryTtl);
+        return value;
+    }
 }

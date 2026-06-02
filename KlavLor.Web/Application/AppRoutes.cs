@@ -121,8 +121,9 @@ public static class AppRoutes
 
     public const string Source = "/source";
     public const string SourcePlayers = "/source/players";
-    public const string SourceDrops = "/source/drops";
-    public const string SourceCoverage = "/source/coverage";
+    public const string SourceClogs = "/source/clogs";
+    public const string SourceItems = "/source/items";
+    public const string SourceTrend = "/source/trend";
 
     public const string Characters = "/characters";
     public const string CharacterUpdateName = "/characters/{id:int}/name";
