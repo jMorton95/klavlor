@@ -24,7 +24,7 @@ public sealed class LoginEndpoint : IEndpoint
 
         var userRoles = result.Value.UserRoles.Select(r => r.Role?.Name.ToString()).OfType<string>().ToArray();
 
-        await sessionManager.LoginAsync(result.Value.Id, userRoles, loginCommand.RememberMe);
+        await sessionManager.LoginAsync(result.Value.Id, userRoles, result.Value.SecurityStamp, loginCommand.RememberMe);
 
         return result switch
         {

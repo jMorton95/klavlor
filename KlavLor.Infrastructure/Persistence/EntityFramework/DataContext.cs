@@ -1,10 +1,11 @@
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using KlavLor.Domain.Entities;
 using KlavLor.Domain.Shared;
 
 namespace KlavLor.Infrastructure.Persistence.EntityFramework;
 
-internal class DataContext(DbContextOptions<DataContext> options) : DbContext(options)
+internal class DataContext(DbContextOptions<DataContext> options) : DbContext(options), IDataProtectionKeyContext
 {
     public virtual DbSet<User> Users => Set<User>();
     public virtual DbSet<Role> Roles => Set<Role>();
@@ -27,6 +28,7 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
     public virtual DbSet<CollectionLogItem> CollectionLogItems => Set<CollectionLogItem>();
     public virtual DbSet<DropRate> DropRates => Set<DropRate>();
     public virtual DbSet<SystemSettings> SystemSettings => Set<SystemSettings>();
+    public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

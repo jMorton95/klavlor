@@ -23,9 +23,13 @@ public class AspNetSessionStateManager(IHttpContextAccessor httpContextAccessor,
         return null;
     }
 
-    public async Task LoginAsync(int userId, string[] roleNames, bool persistSession = false)
+    public async Task LoginAsync(int userId, string[] roleNames, string securityStamp, bool persistSession = false)
     {
-        List<Claim> claims = [new(ClaimTypes.NameIdentifier, userId.ToString())];
+        List<Claim> claims =
+        [
+            new(ClaimTypes.NameIdentifier, userId.ToString()),
+            new(AuthConstants.SecurityStampClaimType, securityStamp),
+        ];
 
         claims.AddRange(roleNames.Select(userRole => new Claim(ClaimTypes.Role, userRole)));
 
@@ -34,7 +38,7 @@ public class AspNetSessionStateManager(IHttpContextAccessor httpContextAccessor,
         var authProperties = new AuthenticationProperties
         {
             IsPersistent = persistSession,
-            ExpiresUtc = persistSession ? timeProvider.GetUtcNow().Add(TimeSpan.FromDays(30)) : null,
+            ExpiresUtc = persistSession ? timeProvider.GetUtcNow().Add(AuthConstants.SessionLifetime) : null,
             IssuedUtc = timeProvider.GetUtcNow(),
         };
 

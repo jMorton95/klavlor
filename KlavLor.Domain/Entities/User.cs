@@ -14,6 +14,7 @@ public sealed class User : Entity
         LastName = lastName;
         Email = email;
         IsActive = isActive;
+        SecurityStamp = Guid.NewGuid().ToString("N");
     }
 
     [Required, StringLength(50)]
@@ -37,6 +38,11 @@ public sealed class User : Entity
 
     public int AccessFailedCount { get; set; }
 
+    // Opaque token embedded in the auth cookie at login and re-checked server-side on an interval.
+    // Regenerating it invalidates every outstanding session for this user.
+    [Required, StringLength(64)]
+    public string SecurityStamp { get; private set; }
+
     private readonly List<UserRole> _userRoles = [];
 
     public IReadOnlyCollection<UserRole> UserRoles => _userRoles.AsReadOnly();
@@ -46,6 +52,10 @@ public sealed class User : Entity
         if (string.IsNullOrWhiteSpace(firstName)) throw new DomainException("First name cannot be empty.");
         if (string.IsNullOrWhiteSpace(lastName)) throw new DomainException("Last name cannot be empty.");
         if (string.IsNullOrWhiteSpace(email)) throw new DomainException("Email cannot be empty.");
+
+        // Deactivating a user must terminate their existing sessions, not just block future logins.
+        if (IsActive && !isActive)
+            InvalidateSessions();
 
         FirstName = firstName;
         LastName = lastName;
@@ -61,10 +71,17 @@ public sealed class User : Entity
         }
 
         _userRoles.Add(new UserRole { User = this, Role = role });
+        InvalidateSessions();
     }
 
     public void UnassignRole(Role role)
     {
         _userRoles.Remove(_userRoles.Single(ur => ur.RoleId == role.Id));
+        InvalidateSessions();
     }
+
+    // Regenerates the security stamp, invalidating all outstanding sessions for this user on
+    // their next server-side revalidation. Call on deactivation, role/privilege changes,
+    // password resets, or an explicit "sign out everywhere".
+    public void InvalidateSessions() => SecurityStamp = Guid.NewGuid().ToString("N");
 }

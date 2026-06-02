@@ -1,5 +1,8 @@
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -10,6 +13,7 @@ using KlavLor.Application.Interfaces.Services;
 using KlavLor.Infrastructure.ExternalServices.OsrsWiki;
 using KlavLor.Infrastructure.Persistence.EntityFramework;
 using KlavLor.Infrastructure.Persistence.EntityFramework.Interceptors;
+using KlavLor.Infrastructure.Security;
 using KlavLor.Infrastructure.Services;
 
 namespace KlavLor.Infrastructure;
@@ -18,7 +22,7 @@ public static class InfrastructureDependencyConfiguration
 {
     extension(IServiceCollection services)
     {
-        public void AddInfrastructure()
+        public void AddInfrastructure(IConfiguration configuration)
         {
             services.AddDbContext<DataContext>((serviceProvider, options) =>
             {
@@ -41,6 +45,21 @@ public static class InfrastructureDependencyConfiguration
                 if (interceptors.Length != 0)
                     options.AddInterceptors(interceptors);
             });
+
+            // Data Protection keys (which protect the auth + antiforgery cookies) are persisted
+            // to the database so they survive restarts/deploys. This lives here, in the assembly
+            // that owns DataContext, so DataContext can stay internal — no InternalsVisibleTo needed.
+            // The application name is fixed so payloads remain decryptable across deployments.
+            services.AddDataProtection()
+                .SetApplicationName("KlavLor.Web")
+                .PersistKeysToDbContext<DataContext>();
+
+            // Encrypt the key ring at rest with a key derived from AuthKey (injected via env in
+            // production, so it is not present in DB dumps/backups). Runs after AddDataProtection,
+            // so this XmlEncryptor wins over the (absent) default.
+            var dataProtectionKey = AuthKeyDerivation.DeriveKey(configuration);
+            services.Configure<KeyManagementOptions>(options =>
+                options.XmlEncryptor = new AuthKeyXmlEncryptor(dataProtectionKey));
 
             services.AddDomainRepositories();
             services.AddApplicationRepositories();

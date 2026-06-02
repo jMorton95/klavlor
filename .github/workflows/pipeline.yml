@@ -58,15 +58,17 @@ jobs:
           SYS_USER: ${{ secrets.SYSTEM_USERNAME }}
           SYS_PASS: ${{ secrets.SYSTEM_PASSWORD }}
           DB_PASS: ${{ secrets.DB_PASSWORD }}
+          AUTH_KEY: ${{ secrets.AUTH_KEY }}
         run: |
           cat <<'EOF' > ./envfile
           GIT_COMMIT_HASH=${{ github.sha }}
           EOF
-          
+
           printf "APP_DOMAIN=\"%s\"\n" "$APP_DOMAIN" >> ./envfile
           printf "SYSTEM_USERNAME=\"%s\"\n" "$SYS_USER" >> ./envfile
           printf "SYSTEM_PASSWORD=\"%s\"\n" "$SYS_PASS" >> ./envfile
           printf "DB_PASSWORD=\"%s\"\n" "$DB_PASS" >> ./envfile
+          printf "AUTH_KEY=\"%s\"\n" "$AUTH_KEY" >> ./envfile
 
       - name: Deploy Docker Stack
         uses: cssnr/stack-deploy-action@v1

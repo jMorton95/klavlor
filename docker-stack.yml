@@ -43,6 +43,7 @@ services:
       - DatabaseSettings__Password=${DB_PASSWORD}
       - SystemConfiguration__SystemUsername=${SYSTEM_USERNAME}
       - SystemConfiguration__SystemPassword=${SYSTEM_PASSWORD}
+      - AuthKey=${AUTH_KEY}
     deploy:
       update_config:
         order: start-first
