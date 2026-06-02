@@ -55,7 +55,8 @@ public sealed record LootSourceDetail(
     List<LootKillEntry> Kills,
     bool HasMore,
     int TotalCount = 0,
-    List<LootKillEntry>? NotableDrops = null);
+    List<LootKillEntry>? NotableDrops = null,
+    string? CharacterName = null);
 
 public sealed record LootKillEntry(
     DateTimeOffset OccurredAt,

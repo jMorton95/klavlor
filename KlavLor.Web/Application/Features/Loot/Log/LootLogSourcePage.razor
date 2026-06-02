@@ -5,7 +5,7 @@
 @inject LootLogHandler LogHandler
 @inject LootCharacterProfileHandler ProfileHandler
 
-<PageLayout PageTitle="KlavLor - Source Detail" Title="Source Detail" Description="Individual drop log for a source">
+<PageLayout PageTitle="@($"KlavLor - {HeaderText}")" Title="@HeaderText" Description="Individual drop log for a source">
     @if (_detail is not null)
     {
         <LootLogSourceDetail Detail="@_detail"
@@ -27,6 +27,13 @@
 
     private LootSourceDetail? _detail;
     private SourceCollection? _collection;
+
+    private string HeaderText => _detail switch
+    {
+        { CharacterName: { Length: > 0 } name, SourceName: var src } => $"{name}'s loot from {src}",
+        { SourceName: var src } => src,
+        _ => "Source Detail"
+    };
 
     protected override async Task OnInitializedAsync()
     {

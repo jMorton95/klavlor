@@ -275,6 +275,12 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
     {
         try
         {
+            // Whose log this is — drives the "X's loot from Y" page header. One cheap PK lookup.
+            var characterName = await dataContext.GameCharacters
+                .Where(c => c.Id == characterId)
+                .Select(c => c.DisplayName ?? c.User!.FirstName + " " + c.User.LastName)
+                .FirstOrDefaultAsync();
+
             var summary = await dataContext.LootRecords
                 .Where(r => r.GameCharacterId == characterId && r.SourceName == sourceName)
                 .GroupBy(r => new { r.SourceName, r.SourceType })
@@ -288,7 +294,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 .FirstOrDefaultAsync();
 
             if (summary is null)
-                return new LootSourceDetail(sourceName, LootSourceType.Unknown, 0, 0, [], [], false);
+                return new LootSourceDetail(sourceName, LootSourceType.Unknown, 0, 0, [], [], false, CharacterName: characterName);
 
             var allDrops = await GetTopDropsForSource(characterId, sourceName, limit: null);
 
@@ -361,7 +367,8 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 killEntries,
                 hasMore,
                 summary.TotalKills,
-                notableDrops);
+                notableDrops,
+                characterName);
         }
         catch (Exception ex)
         {
