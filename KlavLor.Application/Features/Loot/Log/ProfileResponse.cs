@@ -128,7 +128,10 @@ public sealed record CollectionEntry(
     string? Rarity = null,
     int? RarityNumerator = null,
     int? RarityDenominator = null,
-    int Rolls = 1);
+    int Rolls = 1,
+    IReadOnlyList<DropEvent>? DropEvents = null);
+
+public sealed record DropEvent(DateTimeOffset OccurredAt, int? KillCount, int? KillOrdinal);
 
 public sealed record FirstTimeFeed(
     IReadOnlyList<FirstTimeEntry> Entries,

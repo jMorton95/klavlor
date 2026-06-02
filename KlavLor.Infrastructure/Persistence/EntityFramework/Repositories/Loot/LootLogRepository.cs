@@ -1401,9 +1401,75 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 }
             }
 
-            // Character KC at this source — denominator for the luck/expected calculations.
-            var characterKc = await dataContext.LootRecords
-                .CountAsync(r => r.GameCharacterId == characterId && r.SourceName == sourceName);
+            // Character KC at this source — denominator for luck/expected calcs. Prefer
+            // RuneLite's reported KillCount (matches the in-game counter the player sees);
+            // fall back to the logged-row count when KillCount was never reported.
+            // Using COUNT instead understates progress when the player started syncing
+            // partway through their kills, which made luck pills nonsensical for any
+            // multi-drop item (e.g. 8 drops shown as "Spooned 30×" because the implicit
+            // KC was a fraction of the real in-game value).
+            var maxKc = await dataContext.LootRecords
+                .Where(r => r.GameCharacterId == characterId && r.SourceName == sourceName && r.KillCount != null && r.KillCount > 0)
+                .MaxAsync(r => (int?)r.KillCount);
+            int characterKc;
+            if (maxKc.HasValue)
+            {
+                characterKc = maxKc.Value;
+            }
+            else
+            {
+                characterKc = await dataContext.LootRecords
+                    .CountAsync(r => r.GameCharacterId == characterId && r.SourceName == sourceName);
+            }
+
+            // Per-item drop events. Drives the KC-column hover popover that lists every
+            // drop occurrence for an item. Only rows that show up as clog entries get
+            // populated, so the join cost is bounded.
+            var eventsByItem = new Dictionary<string, List<DropEvent>>(StringComparer.OrdinalIgnoreCase);
+            if (entries.Count > 0)
+            {
+                await using var eventsCmd = connection.CreateCommand();
+                eventsCmd.CommandText = """
+                    SELECT drop_elem->>'Name' AS item_name,
+                           lr."OccurredAt",
+                           lr."KillCount",
+                           (SELECT COUNT(*)::int FROM "LootRecords" o
+                            WHERE o."GameCharacterId" = @cid
+                              AND o."SourceName" = @source
+                              AND (o."OccurredAt" < lr."OccurredAt"
+                                   OR (o."OccurredAt" = lr."OccurredAt" AND o."Id" <= lr."Id"))) AS kill_ordinal
+                    FROM "LootRecords" lr,
+                         jsonb_array_elements(lr."DropsJson") AS drop_elem
+                    WHERE lr."GameCharacterId" = @cid AND lr."SourceName" = @source
+                      AND EXISTS (
+                          SELECT 1 FROM "CollectionLogItems" cli
+                          WHERE cli."ItemId" = (drop_elem->>'ItemId')::int
+                      )
+                    ORDER BY drop_elem->>'Name', lr."OccurredAt" ASC, lr."Id" ASC
+                    """;
+                eventsCmd.Parameters.Add(new NpgsqlParameter("@cid", characterId));
+                eventsCmd.Parameters.Add(new NpgsqlParameter("@source", sourceName));
+                await using var eventsReader = await eventsCmd.ExecuteReaderAsync();
+                while (await eventsReader.ReadAsync())
+                {
+                    var name = eventsReader.GetString(0);
+                    if (!eventsByItem.TryGetValue(name, out var list))
+                    {
+                        list = new List<DropEvent>();
+                        eventsByItem[name] = list;
+                    }
+                    list.Add(new DropEvent(
+                        eventsReader.GetFieldValue<DateTimeOffset>(1),
+                        eventsReader.IsDBNull(2) ? null : eventsReader.GetInt32(2),
+                        eventsReader.IsDBNull(3) ? null : eventsReader.GetInt32(3)));
+                }
+
+                for (var i = 0; i < entries.Count; i++)
+                {
+                    if (eventsByItem.TryGetValue(entries[i].ItemName, out var ev))
+                        entries[i] = entries[i] with { DropEvents = ev };
+                }
+            }
 
             return new SourceCollection(sourceName, characterKc, entries, missingItems);
         }

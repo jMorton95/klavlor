@@ -5,24 +5,41 @@
 <TopBarMetaData PageTitle="@($"KlavLor - {Header?.CharacterName ?? "Character"}")" Title="" Description="" />
 
 <div class="space-y-6">
-    @if (Header is not null)
+    @* One full-width lifetime card: character header strip on top, last-7d / last-
+       30d / all-time stats grid below. Inner panels render frameless via Embedded so
+       there's a single visible card frame around the whole band. *@
+    @if (Header is not null && Windows is not null)
+    {
+        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 px-4 py-3 space-y-2.5">
+            <ProfileHeaderPanel Header="@Header" Embedded="true" />
+            <div class="border-t border-slate-200 dark:border-slate-700/60 pt-2.5">
+                <ProfileStatCards Windows="@Windows" Embedded="true" />
+            </div>
+        </div>
+    }
+    else if (Header is not null)
     {
         <ProfileHeaderPanel Header="@Header" />
     }
-
-    @if (Windows is not null)
+    else if (Windows is not null)
     {
         <ProfileStatCards Windows="@Windows" />
     }
 
-    @* Skeleton heights match each panel's rendered inner content so the card
-       size stays stable when HTMX swaps in the real component. *@
+    @* Latest collection logs (recent firsts) *@
+    <div hx-get="@(AppRoutes.LootLogCharacterRecentFirsts.WithId(CharacterId).FromApi())"
+         hx-trigger="load"
+         hx-swap="outerHTML">
+        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+            <div class="h-60 animate-pulse bg-slate-100 dark:bg-slate-800 rounded"></div>
+        </div>
+    </div>
 
+    @* Activity heatmap — kept silently because it pairs naturally with the trend chart. *@
     <div hx-get="@(AppRoutes.LootLogCharacterHeatmap.WithId(CharacterId).FromApi())"
          hx-trigger="load"
          hx-swap="outerHTML">
-        <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
-            @* Mirrors ProfileHeatmap structure: title + subtotal on the left, mode toggle on the right, grid below, legend strip at bottom. *@
+        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
             <div class="flex items-start justify-between mb-3 gap-2">
                 <div class="space-y-2">
                     <div class="h-4 w-48 animate-pulse bg-slate-100 dark:bg-slate-800 rounded"></div>
@@ -30,48 +47,16 @@
                 </div>
                 <div class="h-7 w-28 animate-pulse bg-slate-100 dark:bg-slate-800 rounded"></div>
             </div>
-            @* Grid height tracks HeatmapGrid's SVG, which renders at ~187px when its
-               707×105 viewBox fits the container width with preserveAspectRatio. *@
             <div class="h-[11.75rem] animate-pulse bg-slate-100 dark:bg-slate-800 rounded"></div>
             <div class="mt-3 h-[15px] w-72 animate-pulse bg-slate-100 dark:bg-slate-800 rounded"></div>
         </div>
     </div>
 
-    <div hx-get="@(AppRoutes.LootLogCharacterRecentFirsts.WithId(CharacterId).FromApi())"
-         hx-trigger="load"
-         hx-swap="outerHTML">
-        <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
-            <div class="h-60 animate-pulse bg-slate-100 dark:bg-slate-800 rounded"></div>
-        </div>
-    </div>
-
-    <div hx-get="@(AppRoutes.LootLogCharacterRecords.WithId(CharacterId).FromApi())"
-         hx-trigger="load"
-         hx-swap="outerHTML">
-        <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
-            <div class="h-64 animate-pulse bg-slate-100 dark:bg-slate-800 rounded"></div>
-        </div>
-    </div>
-
-    @if (SearchResult is not null)
-    {
-        <LootLogGrid Result="@SearchResult" CharacterId="@CharacterId" UpdateHeader="false" Embedded="true" />
-    }
-
-    <div hx-get="@(AppRoutes.LootLogCharacterTopItems.WithId(CharacterId).FromApi())"
-         hx-trigger="load"
-         hx-swap="outerHTML">
-        <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
-            <div class="h-[34rem] animate-pulse bg-slate-100 dark:bg-slate-800 rounded"></div>
-        </div>
-    </div>
-
+    @* Monthly trend *@
     <div hx-get="@(AppRoutes.LootLogCharacterMonthly.WithId(CharacterId).FromApi())"
          hx-trigger="load"
          hx-swap="outerHTML">
-        <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
-            @* Mirrors ProfileMonthlyTrend structure: header row (title+subtotal | range toggle),
-               the 270px chart with its Y-axis + month labels, then a legend strip below. *@
+        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
             <div class="flex items-start justify-between mb-3 gap-2">
                 <div class="space-y-2">
                     <div class="h-4 w-44 animate-pulse bg-slate-100 dark:bg-slate-800 rounded"></div>
@@ -83,6 +68,21 @@
             <div class="mt-4 h-8 animate-pulse bg-slate-100 dark:bg-slate-800 rounded"></div>
         </div>
     </div>
+
+    @* Lifetime item ranking *@
+    <div hx-get="@(AppRoutes.LootLogCharacterTopItems.WithId(CharacterId).FromApi())"
+         hx-trigger="load"
+         hx-swap="outerHTML">
+        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+            <div class="h-[34rem] animate-pulse bg-slate-100 dark:bg-slate-800 rounded"></div>
+        </div>
+    </div>
+
+    @* Source lookup *@
+    @if (SearchResult is not null)
+    {
+        <LootLogGrid Result="@SearchResult" CharacterId="@CharacterId" UpdateHeader="false" Embedded="true" />
+    }
 </div>
 
 @code {

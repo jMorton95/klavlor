@@ -20,7 +20,6 @@
 
     // Hover popover only makes sense when the card is tied to a known character —
     // anonymous/historical cards (no GameCharacterId) have nothing to summarise.
-    var popoverContainerId = $"popover-{Entry.DomId}";
     var popoverUrl = Entry.GameCharacterId is not null
         ? AppRoutes.LootFeedSourcePopover.WithId(Entry.GameCharacterId.Value).FromApi()
             + "?name=" + Uri.EscapeDataString(Entry.SourceName)
@@ -31,7 +30,10 @@
         // `once` keeps the request to a single fetch per card lifetime; the cached
         // result on the server keeps repeated hovers across cards cheap too.
         rootAttrs["hx-trigger"] = "mouseenter delay:300ms once";
-        rootAttrs["hx-target"] = "#" + popoverContainerId;
+        // Relative `find` selector so multi-tier kills (one DomId appearing on
+        // Standard *and* Legendary, say a CoX Twisted-Bow drop) inject into the
+        // hovered card's own popover instead of the first matching duplicate id.
+        rootAttrs["hx-target"] = "find [data-source-popover]";
         rootAttrs["hx-swap"] = "innerHTML";
     }
 }
@@ -183,8 +185,9 @@
     {
         @* Empty hover popover container — HTMX fills its innerHTML on the first
            hover (300ms delay, once-only). CSS group-hover toggles visibility so
-           subsequent hovers are instant after the first fetch. *@
-        <div id="@popoverContainerId"
+           subsequent hovers are instant after the first fetch. Targeted via the
+           data attribute so multi-tier kills don't collide on a duplicated id. *@
+        <div data-source-popover
              class="hidden group-hover:block absolute top-full left-0 right-0 z-30 mt-1"></div>
     }
 </div>

@@ -9,7 +9,7 @@
     <TopBarMetaData PageTitle="@($"KlavLor - {Detail?.SourceName ?? "Source Detail"}")" Title="@(Detail?.SourceName ?? "Source Detail")" Description="Individual drop log for a source" />
 }
 
-<div class="space-y-6">
+<div class="space-y-6 pb-[40vh]">
     <a hx-get="@AppRoutes.LootLogCharacter.WithId(CharacterId).FromApi()"
        hx-target="#hx-page-container"
        hx-push-url="@AppRoutes.LootLogCharacter.WithId(CharacterId)"
