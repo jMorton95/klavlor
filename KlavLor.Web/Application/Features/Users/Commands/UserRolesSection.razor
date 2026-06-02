@@ -1,0 +1,51 @@
+@using KlavLor.Application.Features.Users.Roles
+@using KlavLor.Domain.Shared
+
+<div id="user-roles-section" class="max-w-2xl mt-8">
+    <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Roles</h2>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mb-3">
+        Grant access to role-gated areas. Changing a user's roles signs them out of any active sessions.
+    </p>
+
+    @if (ErrorMessage != null)
+    {
+        <p class="text-sm text-red-600 dark:text-red-400 mb-3">@ErrorMessage</p>
+    }
+
+    <div class="space-y-2">
+        @foreach (var role in UserRolesHandler.AssignableRoles)
+        {
+            var isAssigned = Roles?.AssignedRoles.Contains(role) == true;
+            <div class="flex items-center justify-between bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5">
+                <div class="min-w-0">
+                    <span class="text-sm font-medium text-slate-800 dark:text-slate-100">@role</span>
+                    <span class="ml-2 text-xs text-slate-500 dark:text-slate-400">@RoleDescription(role)</span>
+                </div>
+                <button type="button"
+                        hx-post="@(AppRoutes.UserRoleToggle.WithId(UserId).FromApi() + "?role=" + role)"
+                        hx-target="#user-roles-section"
+                        hx-swap="outerHTML"
+                        class="@ToggleClasses(isAssigned)">
+                    @(isAssigned ? "Assigned" : "Assign")
+                </button>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public int UserId { get; set; }
+    [Parameter] public UserRolesResponse? Roles { get; set; }
+    [Parameter] public string? ErrorMessage { get; set; }
+
+    private static string RoleDescription(RoleName role) => role switch
+    {
+        RoleName.User => "Base access for all authenticated users.",
+        RoleName.Auditor => "Can view the Sync Log (records ingested from sync clients).",
+        _ => ""
+    };
+
+    private static string ToggleClasses(bool isAssigned) => isAssigned
+        ? "shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 hover:bg-red-100 dark:hover:bg-red-900/40 hover:text-red-700 dark:hover:text-red-300 transition-colors cursor-pointer"
+        : "shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 hover:text-amber-700 dark:hover:text-amber-300 transition-colors cursor-pointer";
+}

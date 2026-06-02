@@ -12,6 +12,7 @@ using KlavLor.Web.Application.Features.Users.Queries;
 using KlavLor.Web.Application.Features.Loot;
 using KlavLor.Web.Application.Features.Loot.Feed;
 using KlavLor.Web.Application.Features.Loot.Ingest;
+using KlavLor.Web.Application.Features.Loot.Ingest.Audit;
 using KlavLor.Web.Application.Features.Loot.Log;
 using KlavLor.Web.Application.Features.Settings;
 using KlavLor.Web.Application.Features.Viewer;
@@ -32,7 +33,8 @@ public static class ConfigureEndpoints
         web.MapEndpoints<UserSearchEndpoint>()
             .MapEndpoints<UserCreateEndpoint>()
             .MapEndpoints<UserEditEndpoint>()
-            .MapEndpoints<UserDeleteEndpoint>();
+            .MapEndpoints<UserDeleteEndpoint>()
+            .MapEndpoints<UserRolesEndpoint>();
 
         web.MapEndpoints<TemplateSearchEndpoint>()
             .MapEndpoints<TemplateCreateEndpoint>()
@@ -57,6 +59,7 @@ public static class ConfigureEndpoints
             .MapEndpoints<SourcePopoverEndpoint>()
             .MapEndpoints<LootLogEndpoint>()
             .MapEndpoints<LootCharacterProfileEndpoint>()
+            .MapEndpoints<SyncLogEndpoint>()
             .MapEndpoints<ItemIconEndpoint>()
             .MapEndpoints<SourceIconEndpoint>();
 

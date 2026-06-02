@@ -1,5 +1,6 @@
 @using KlavLor.Application.Interfaces.Authentication
 @using KlavLor.Application.Interfaces.Services
+@using KlavLor.Domain.Shared
 @using KlavLor.Web.Application
 
 @inject ISessionStateManager SessionStateManager
@@ -45,13 +46,19 @@
 
                         @if (IsUserAdministrator)
                         {
-                            @foreach (var item in GetAdminNavItems())
-                            {
-                                <a href="@item.Route" data-section="@item.ActiveArea" hx-get="@item.HxRoute" hx-swap="innerHTML transition:true" hx-target="#hx-page-container" hx-push-url="@item.Route" class="@GetNavItemClasses()">
-                                    @item.Icon
-                                    <span class="ml-3">@item.Label</span>
-                                </a>
-                            }
+                            <a href="@AppRoutes.UsersSearch" data-section="users" hx-get="@AppRoutes.UsersSearch.FromApi()" hx-swap="innerHTML transition:true" hx-target="#hx-page-container" hx-push-url="@AppRoutes.UsersSearch" class="@GetNavItemClasses()">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                                <span class="ml-3">User Management</span>
+                            </a>
+                        }
+
+                        @* Sync Logs is visible to Auditors and Admins (Admin supersedes the Auditor role). *@
+                        @if (IsUserAdministrator || IsAuditor)
+                        {
+                            <a href="@AppRoutes.SyncLog" data-section="sync-log" hx-get="@AppRoutes.SyncLog.FromApi()" hx-swap="innerHTML transition:true" hx-target="#hx-page-container" hx-push-url="@AppRoutes.SyncLog" class="@GetNavItemClasses()">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                <span class="ml-3">Sync Logs</span>
+                            </a>
                         }
                     </div>
                 }
@@ -63,11 +70,13 @@
 @code {
     private bool IsAuthenticated { get; set; }
     private bool IsUserAdministrator { get; set; }
+    private bool IsAuditor { get; set; }
 
     protected override void OnInitialized()
     {
         IsAuthenticated = SessionStateManager.IsAuthenticated();
         IsUserAdministrator = SessionStateManager.IsUserSessionAdministrator();
+        IsAuditor = SessionStateManager.IsInRole(RoleName.Auditor);
     }
 
     private record NavItem(string Route, string HxRoute, string Label, RenderFragment Icon, string ActiveArea);
@@ -97,13 +106,6 @@
 
         return items.ToArray();
     }
-
-    private NavItem[] GetAdminNavItems() =>
-    [
-        new(AppRoutes.UsersSearch, AppRoutes.UsersSearch.FromApi(), "User Management",
-            @<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>,
-            "users")
-    ];
 
     private string GetNavItemClasses() => "cursor-pointer group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-150 text-slate-300 hover:bg-slate-700/50 hover:text-white aria-[current=page]:text-amber-400 aria-[current=page]:bg-slate-700/50";
 }

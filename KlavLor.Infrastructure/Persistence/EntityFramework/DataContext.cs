@@ -166,7 +166,8 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
         modelBuilder.Entity<Role>()
             .HasData([
                 new Role { Id = 1, Name = RoleName.Admin },
-                new Role { Id = 2, Name = RoleName.User }
+                new Role { Id = 2, Name = RoleName.User },
+                new Role { Id = 3, Name = RoleName.Auditor }
             ]);
 
         // LayoutSnapshot configuration

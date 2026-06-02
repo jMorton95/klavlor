@@ -106,7 +106,13 @@ public static class ConfigureApplication
                 .AddPolicy(nameof(RoleName.Admin), policy => policy
                     .AddAuthenticationSchemes(CookieAuthenticationDefaults.AuthenticationScheme, ApiKeyAuthenticationHandler.SchemeName)
                     .RequireAuthenticatedUser()
-                    .RequireRole(nameof(RoleName.Admin)));
+                    .RequireRole(nameof(RoleName.Admin)))
+                // Auditor content is also visible to Admins — RequireRole with multiple roles is OR,
+                // so the Admin role supersedes Auditor without needing to be assigned it.
+                .AddPolicy(nameof(RoleName.Auditor), policy => policy
+                    .AddAuthenticationSchemes(CookieAuthenticationDefaults.AuthenticationScheme, ApiKeyAuthenticationHandler.SchemeName)
+                    .RequireAuthenticatedUser()
+                    .RequireRole(nameof(RoleName.Auditor), nameof(RoleName.Admin)));
         }
 
         public void ConfigureLoggingProviders()

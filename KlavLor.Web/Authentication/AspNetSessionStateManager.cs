@@ -58,6 +58,8 @@ public class AspNetSessionStateManager(IHttpContextAccessor httpContextAccessor,
 
     public bool IsUserSessionAdministrator() => HasSpecificRole(RoleName.Admin);
 
+    public bool IsInRole(RoleName roleName) => HasSpecificRole(roleName);
+
     private bool HasSpecificRole(RoleName roleName)
     {
         if (!Enum.IsDefined(roleName))

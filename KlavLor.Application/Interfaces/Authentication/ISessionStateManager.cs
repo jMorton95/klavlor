@@ -7,4 +7,5 @@ public interface ISessionStateManager
     Task LogoutAsync();
     bool IsAuthenticated();
     bool IsUserSessionAdministrator();
+    bool IsInRole(KlavLor.Domain.Shared.RoleName roleName);
 }

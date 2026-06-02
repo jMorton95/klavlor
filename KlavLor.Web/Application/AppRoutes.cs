@@ -25,6 +25,11 @@ public static class AppRoutes
     public const string UsersEdit = "/admin/users/edit/{id:int}";
     public const string UsersDelete = "/admin/users/delete/{id:int}";
 
+    public const string UserRolesSection = "/admin/users/{id:int}/roles";
+    public const string UserRoleToggle = "/admin/users/{id:int}/roles/toggle";
+
+    public const string SyncLog = "/admin/sync-log";
+
     public const string TemplatesSearch = "/templates";
     public const string TemplatesCreate = "/templates/create";
     public const string TemplatesEdit = "/templates/edit/{id:int}";

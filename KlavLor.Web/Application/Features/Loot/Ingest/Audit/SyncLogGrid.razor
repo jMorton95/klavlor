@@ -1,0 +1,90 @@
+@using KlavLor.Application.Features.Loot.Ingest.Audit
+@using KlavLor.Web.Components.Layout
+
+@if (UpdateHeader)
+{
+    <TopBarMetaData PageTitle="KlavLor - Sync Log" Title="Sync Log" Description="Loot records ingested from sync clients" />
+}
+
+<div id="sync-log-results" class="space-y-4 pb-[20vh]">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="text-sm text-slate-600 dark:text-slate-300">
+            <span class="font-semibold text-slate-900 dark:text-slate-100">@Result.TotalCount.ToString("N0")</span> records shown
+            <span class="text-slate-400 dark:text-slate-500 mx-1">·</span>
+            <span class="text-emerald-600 dark:text-emerald-400">@Result.LiveCount.ToString("N0") live</span>
+            <span class="text-slate-400 dark:text-slate-500 mx-1">·</span>
+            <span class="text-slate-500 dark:text-slate-400">@Result.BackfillCount.ToString("N0") backfill</span>
+        </div>
+        <label class="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 cursor-pointer select-none">
+            <input type="checkbox" checked="@Query.IncludeBackfill"
+                   hx-get="@FlipBackfillUrl()"
+                   hx-target="#sync-log-results"
+                   hx-select="#sync-log-results"
+                   hx-swap="outerHTML"
+                   hx-trigger="change"
+                   class="w-4 h-4 text-amber-600 border-slate-300 rounded focus:ring-amber-500" />
+            Show backfill
+        </label>
+    </div>
+
+    <div class="bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
+                <tr>
+                    <th class="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Ingested</th>
+                    <th class="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Kill time</th>
+                    <th class="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">User</th>
+                    <th class="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Character</th>
+                    <th class="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Source</th>
+                    <th class="px-3 py-2 text-right text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">KC</th>
+                    <th class="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Items</th>
+                    <th class="px-3 py-2 text-right text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Stream</th>
+                </tr>
+            </thead>
+            <tbody id="sync-log-rows" class="divide-y divide-slate-200 dark:divide-slate-700/50">
+                @foreach (var entry in Result.Entries)
+                {
+                    <SyncLogRow Entry="entry" />
+                }
+                @if (Result.Entries.Count == 0)
+                {
+                    <tr>
+                        <td colspan="8" class="px-3 py-8 text-center text-sm text-slate-500 dark:text-slate-400">
+                            No ingested records@(Query.IncludeBackfill ? "" : " on the live stream") yet.
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (Result.HasMore)
+    {
+        <div id="sync-log-more" class="flex justify-center">
+            <button type="button"
+                    hx-get="@NextPageUrl()"
+                    hx-target="#sync-log-rows"
+                    hx-swap="beforeend"
+                    class="px-6 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer">
+                Show more
+            </button>
+        </div>
+    }
+    else
+    {
+        <div id="sync-log-more"></div>
+    }
+</div>
+
+@code {
+    [Parameter] public required IngestLogResult Result { get; set; }
+    [Parameter] public required IngestLogQuery Query { get; set; }
+    [Parameter] public bool UpdateHeader { get; set; } = true;
+
+    private string FlipBackfillUrl() =>
+        AppRoutes.SyncLog.FromApi() + "?includeBackfill=" + (!Query.IncludeBackfill ? "true" : "false");
+
+    private string NextPageUrl() =>
+        AppRoutes.SyncLog.FromApi()
+        + $"?pageNumber={Query.PageNumber + 1}&pageSize={Query.PageSize}&includeBackfill={Query.IncludeBackfill.ToString().ToLowerInvariant()}";
+}

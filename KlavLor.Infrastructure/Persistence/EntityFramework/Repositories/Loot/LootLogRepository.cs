@@ -5,6 +5,7 @@ using Npgsql;
 using KlavLor.Application.Common;
 using KlavLor.Application.Common.Exceptions;
 using KlavLor.Application.Features.Loot.Feed;
+using KlavLor.Application.Features.Loot.Ingest.Audit;
 using KlavLor.Application.Features.Loot.Log;
 using KlavLor.Application.Interfaces.Repositories;
 using KlavLor.Application.Interfaces.Services;
@@ -15,6 +16,71 @@ namespace KlavLor.Infrastructure.Persistence.EntityFramework.Repositories.Loot;
 internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLogRepository> logger, ICollectionLogCache collectionLogCache)
     : ILootLogRepository
 {
+    // Admin "Sync Log": every ingested record, newest-ingest-first, across all users/characters.
+    // Ordered by SavedAt (ingest time) so it reads as a live feed of what clients have sent.
+    public async Task<IngestLogResult> GetIngestLog(IngestLogQuery query)
+    {
+        try
+        {
+            var filtered = query.IncludeBackfill
+                ? dataContext.LootRecords
+                : dataContext.LootRecords.Where(r => !r.IsImported);
+
+            var total = await filtered.CountAsync();
+            var liveCount = await dataContext.LootRecords.CountAsync(r => !r.IsImported);
+            var backfillCount = await dataContext.LootRecords.CountAsync(r => r.IsImported);
+
+            var skip = (query.PageNumber - 1) * query.PageSize;
+
+            // Left joins via nullable navigations — legacy records without a linked character
+            // should still appear in the audit log.
+            var rows = await filtered
+                .OrderByDescending(r => r.SavedAt)
+                .ThenByDescending(r => r.Id)
+                .Skip(skip)
+                .Take(query.PageSize + 1)
+                .Select(r => new
+                {
+                    r.Id,
+                    r.SavedAt,
+                    r.OccurredAt,
+                    r.SourceName,
+                    r.SourceType,
+                    r.KillCount,
+                    r.IsImported,
+                    r.DropsJson,
+                    r.GameCharacterId,
+                    CharacterDisplayName = r.GameCharacter != null ? r.GameCharacter.DisplayName : null,
+                    UserFirstName = r.User!.FirstName,
+                    UserLastName = r.User.LastName
+                })
+                .ToListAsync();
+
+            var hasMore = rows.Count > query.PageSize;
+
+            var entries = rows.Take(query.PageSize).Select(r =>
+            {
+                var drops = JsonSerializer.Deserialize<List<LootDrop>>(r.DropsJson) ?? [];
+                var userName = $"{r.UserFirstName} {r.UserLastName}".Trim();
+                var characterName = r.CharacterDisplayName ?? (r.GameCharacterId != null ? userName : null);
+                var itemNames = drops
+                    .Select(d => d.Quantity > 1 ? $"{d.Name} ×{d.Quantity:N0}" : d.Name)
+                    .ToList();
+
+                return new IngestLogEntry(
+                    r.Id, r.SavedAt, r.OccurredAt, userName, characterName,
+                    r.SourceName, r.SourceType, r.KillCount, r.IsImported, itemNames);
+            }).ToList();
+
+            return new IngestLogResult(entries, hasMore, total, liveCount, backfillCount);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get ingest log");
+            throw new RepositoryException("Failed to get ingest log", ex);
+        }
+    }
+
     public async Task<List<LootLogCharacterSummary>> GetCharactersWithLoot(bool includeHidden = false)
     {
         try

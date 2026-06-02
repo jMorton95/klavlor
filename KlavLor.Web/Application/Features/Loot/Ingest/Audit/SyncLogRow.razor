@@ -1,0 +1,61 @@
+@using KlavLor.Application.Common
+@using KlavLor.Application.Features.Loot.Ingest.Audit
+@using KlavLor.Domain.Entities
+
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 align-top">
+    <td class="px-3 py-2 whitespace-nowrap text-xs text-slate-600 dark:text-slate-300 tabular-nums">@FormatLocal(Entry.SavedAt)</td>
+    <td class="px-3 py-2 whitespace-nowrap text-xs text-slate-500 dark:text-slate-400 tabular-nums">@FormatLocal(Entry.OccurredAt)</td>
+    <td class="px-3 py-2 whitespace-nowrap text-xs text-slate-700 dark:text-slate-200">@Entry.UserName</td>
+    <td class="px-3 py-2 whitespace-nowrap text-xs text-slate-700 dark:text-slate-200">@(Entry.CharacterName ?? "—")</td>
+    <td class="px-3 py-2 whitespace-nowrap text-xs">
+        <span class="text-slate-700 dark:text-slate-200">@Entry.SourceName</span>
+        <span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium @SourceBadge(Entry.SourceType)">@Entry.SourceType</span>
+    </td>
+    <td class="px-3 py-2 whitespace-nowrap text-right text-xs tabular-nums text-slate-600 dark:text-slate-300">@(Entry.KillCount?.ToString("N0") ?? "—")</td>
+    <td class="px-3 py-2 text-xs text-slate-600 dark:text-slate-300 min-w-[16rem]">
+        @if (Entry.ItemNames.Count == 0)
+        {
+            <span class="text-slate-400 dark:text-slate-500">—</span>
+        }
+        else
+        {
+            <div class="flex flex-wrap gap-1">
+                @foreach (var item in Entry.ItemNames)
+                {
+                    <span class="inline-block px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[11px] text-slate-700 dark:text-slate-200">@item</span>
+                }
+            </div>
+        }
+    </td>
+    <td class="px-3 py-2 whitespace-nowrap text-right">
+        @if (Entry.IsImported)
+        {
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">Backfill</span>
+        }
+        else
+        {
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300">Live</span>
+        }
+    </td>
+</tr>
+
+@code {
+    [Parameter] public required IngestLogEntry Entry { get; set; }
+
+    private static string FormatLocal(DateTimeOffset t)
+    {
+        var local = IngestTimezone.ToZoneTime(t);
+        return local.Year != DateTimeOffset.UtcNow.Year
+            ? local.ToString("MMM d yyyy, HH:mm")
+            : local.ToString("MMM d, HH:mm");
+    }
+
+    private static string SourceBadge(LootSourceType type) => type switch
+    {
+        LootSourceType.Npc => "bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300",
+        LootSourceType.Event => "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300",
+        LootSourceType.Pickpocket => "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300",
+        LootSourceType.Player => "bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300",
+        _ => "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+    };
+}

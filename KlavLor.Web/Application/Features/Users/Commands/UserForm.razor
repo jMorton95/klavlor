@@ -35,6 +35,11 @@
             </div>
         </EditForm>
 
+        <div hx-get="@(AppRoutes.UserRolesSection.WithId(editCommand!.Id).FromApi())"
+             hx-trigger="load" hx-swap="outerHTML">
+            <p class="max-w-2xl mt-8 text-sm text-slate-500 dark:text-slate-400">Loading roles...</p>
+        </div>
+
         <div hx-get="@(AppRoutes.UserApiKeySection.WithId(editCommand!.Id).FromApi())"
              hx-trigger="load" hx-swap="outerHTML">
             <p class="max-w-2xl mt-8 text-sm text-slate-500 dark:text-slate-400">Loading API key...</p>

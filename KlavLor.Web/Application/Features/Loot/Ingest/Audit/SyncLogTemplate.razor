@@ -1,0 +1,31 @@
+@page "/admin/sync-log"
+@attribute [Authorize(Roles = "Auditor,Admin")]
+@using Microsoft.AspNetCore.Authorization
+@using KlavLor.Application.Features.Loot.Ingest.Audit
+@using KlavLor.Web.Components.Layout
+
+@inject IngestLogHandler Handler
+
+<PageLayout PageTitle="KlavLor - Sync Log" Title="Sync Log" Description="Loot records ingested from sync clients">
+    @if (_result is not null)
+    {
+        <SyncLogGrid Result="@_result" Query="@_query" UpdateHeader="false" />
+    }
+</PageLayout>
+
+@code {
+    [SupplyParameterFromQuery(Name = "includeBackfill")] public bool? IncludeBackfillParam { get; set; }
+
+    private IngestLogResult? _result;
+    private IngestLogQuery _query = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _query = new IngestLogQuery(IncludeBackfill: IncludeBackfillParam ?? true);
+        var result = await Handler.Handle(_query);
+        if (result.IsSuccess)
+        {
+            _result = result.Value;
+        }
+    }
+}
