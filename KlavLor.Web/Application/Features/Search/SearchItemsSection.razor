@@ -1,0 +1,42 @@
+@using KlavLor.Application.Features.Search
+
+<SearchSectionFrame Title="Items" Count="Results.Count">
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
+        @foreach (var item in Results)
+        {
+            <a href="@WikiLink(item)" target="_blank" rel="noopener"
+               class="group flex items-center gap-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-3 hover:border-amber-200 dark:hover:border-amber-700 transition-colors cursor-pointer">
+                <img src="@IconUrl(item)" alt="@item.Name"
+                     class="w-6 h-6 shrink-0" loading="lazy" onerror="this.style.display='none'" />
+                <div class="min-w-0 flex-1">
+                    <p class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">@item.Name</p>
+                    <p class="text-xs text-slate-400 dark:text-slate-500">@KindLabel(item.Kind)</p>
+                </div>
+                <svg class="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 group-hover:text-amber-500 shrink-0 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                </svg>
+            </a>
+        }
+    </div>
+</SearchSectionFrame>
+
+@code {
+    [Parameter] public List<SearchItemResult> Results { get; set; } = [];
+
+    private static string IconUrl(SearchItemResult item) =>
+        !string.IsNullOrEmpty(item.ImageUrl)
+            ? item.ImageUrl
+            : $"/api/images/item-icon?name={Uri.EscapeDataString(item.Name)}";
+
+    private static string WikiLink(SearchItemResult item) =>
+        !string.IsNullOrEmpty(item.WikiUrl)
+            ? item.WikiUrl
+            : $"https://oldschool.runescape.wiki/w/{Uri.EscapeDataString(item.Name.Replace(' ', '_'))}";
+
+    private static string KindLabel(SearchItemKind kind) => kind switch
+    {
+        SearchItemKind.GearItem => "Gear item",
+        SearchItemKind.CollectionLogItem => "Collection log",
+        _ => ""
+    };
+}

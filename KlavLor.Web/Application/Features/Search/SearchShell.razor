@@ -1,0 +1,29 @@
+@using KlavLor.Web.Components.Layout
+
+@if (UpdateHeader)
+{
+    <TopBarMetaData PageTitle="KlavLor - Search" Title="Search" Description="Search across characters, sources, items and templates" />
+}
+
+<div class="space-y-6">
+    <div class="relative max-w-2xl">
+        <svg class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+        <input type="text" name="searchTerm" placeholder="Search characters, sources, items, templates…" value="@SearchTerm"
+               autofocus onfocus="this.setSelectionRange(this.value.length, this.value.length)"
+               autocomplete="off"
+               hx-get="@AppRoutes.SearchSections.FromApi()"
+               hx-trigger="keyup changed delay:300ms"
+               hx-target="#search-sections"
+               hx-swap="outerHTML transition:true"
+               class="w-full pl-10 pr-4 py-2.5 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+    </div>
+
+    <SearchSections SearchTerm="@SearchTerm" />
+</div>
+
+@code {
+    [Parameter] public string? SearchTerm { get; set; }
+    [Parameter] public bool UpdateHeader { get; set; } = true;
+}

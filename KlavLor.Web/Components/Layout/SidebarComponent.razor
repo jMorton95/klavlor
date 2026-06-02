@@ -27,6 +27,14 @@
             </div>
 
             <nav class="flex-1 px-4 py-6 space-y-1">
+                @if (IsAuthenticated)
+                {
+                    <a href="@AppRoutes.Search" data-section="search" hx-get="@AppRoutes.Search.FromApi()" hx-swap="innerHTML transition:true" hx-target="#hx-page-container" hx-push-url="@AppRoutes.Search" class="@GetNavItemClasses()">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                        <span class="ml-3">Search</span>
+                    </a>
+                }
+
                 @foreach (var item in GetNavItems())
                 {
                     <a href="@item.Route" data-section="@item.ActiveArea" hx-get="@item.HxRoute" hx-swap="innerHTML transition:true" hx-target="#hx-page-container" hx-push-url="@item.Route" class="@GetNavItemClasses()">

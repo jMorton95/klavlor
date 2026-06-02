@@ -1,0 +1,41 @@
+@using KlavLor.Application.Common
+@using KlavLor.Application.Features.Source
+
+<div>
+    <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">Players</h2>
+    @if (Players.Count == 0)
+    {
+        <p class="text-sm text-slate-400 dark:text-slate-500">No tracked players have killed this source yet.</p>
+    }
+    else
+    {
+        <div class="space-y-1.5">
+            @foreach (var (player, index) in Players.Select((p, i) => (p, i)))
+            {
+                @* Links to this player's own (character-scoped) view of the source. *@
+                <a hx-get="@(AppRoutes.LootLogSource.WithId(player.GameCharacterId).FromApi() + "?name=" + Uri.EscapeDataString(SourceName))"
+                   hx-target="#hx-page-container"
+                   hx-push-url="@(AppRoutes.LootLogSource.WithId(player.GameCharacterId) + "?name=" + Uri.EscapeDataString(SourceName))"
+                   hx-swap="innerHTML transition:true"
+                   class="flex items-center justify-between gap-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-2.5 hover:border-amber-200 dark:hover:border-amber-700 transition-colors cursor-pointer">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <span class="text-xs font-semibold text-slate-400 dark:text-slate-500 w-5 text-right shrink-0">@(index + 1)</span>
+                        <div class="min-w-0">
+                            <p class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">@player.CharacterName</p>
+                            <p class="text-xs text-slate-400 dark:text-slate-500 truncate">@player.UserName</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400 shrink-0">
+                        <span>@player.TotalKills.ToString("N0") kills</span>
+                        <span class="font-medium text-amber-600 dark:text-amber-400">@GoldFormat.Format(player.TotalValue) gp</span>
+                    </div>
+                </a>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string SourceName { get; set; } = "";
+    [Parameter] public List<SourcePlayerRow> Players { get; set; } = [];
+}

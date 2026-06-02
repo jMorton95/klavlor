@@ -14,6 +14,8 @@ using KlavLor.Web.Application.Features.Loot.Feed;
 using KlavLor.Web.Application.Features.Loot.Ingest;
 using KlavLor.Web.Application.Features.Loot.Ingest.Audit;
 using KlavLor.Web.Application.Features.Loot.Log;
+using KlavLor.Web.Application.Features.Search;
+using KlavLor.Web.Application.Features.Source;
 using KlavLor.Web.Application.Features.Settings;
 using KlavLor.Web.Application.Features.Viewer;
 
@@ -68,6 +70,9 @@ public static class ConfigureEndpoints
             .MapEndpoints<AdminSettingsEndpoint>();
 
         web.MapEndpoints<CharacterEndpoint>();
+
+        web.MapEndpoints<SearchEndpoint>()
+            .MapEndpoints<SourceEndpoint>();
 
         web.MapEndpoints<HealthCheckEndpoint>();
     }

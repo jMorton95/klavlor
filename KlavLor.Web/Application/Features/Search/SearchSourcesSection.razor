@@ -1,0 +1,44 @@
+@using KlavLor.Application.Common
+@using KlavLor.Application.Features.Search
+@using KlavLor.Domain.Entities
+
+<SearchSectionFrame Title="Sources" Count="Results.Count">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
+        @foreach (var s in Results)
+        {
+            <a hx-get="@SourceUrl(s.SourceName).FromApi()"
+               hx-target="#hx-page-container"
+               hx-push-url="@SourceUrl(s.SourceName)"
+               hx-swap="innerHTML transition:true"
+               class="block bg-slate-50 dark:bg-slate-900 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 p-4 hover:shadow-md hover:border-amber-200 dark:hover:border-amber-700 transition-all duration-200 cursor-pointer">
+                <div class="flex items-center justify-between gap-2 mb-2">
+                    <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate inline-flex items-center gap-1.5">
+                        <img src="/api/images/source-icon?name=@Uri.EscapeDataString(s.SourceName)" alt="@s.SourceName"
+                             class="w-5 h-5 rounded shrink-0" loading="lazy" onerror="this.style.display='none'" />
+                        @s.SourceName
+                    </h3>
+                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium shrink-0 @GetSourceTypeBadgeClasses(s.SourceType)">@s.SourceType</span>
+                </div>
+                <div class="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+                    <span>@s.TotalKills.ToString("N0") kills</span>
+                    <span class="font-medium text-amber-600 dark:text-amber-400">@GoldFormat.Format(s.TotalValue) gp</span>
+                </div>
+            </a>
+        }
+    </div>
+</SearchSectionFrame>
+
+@code {
+    [Parameter] public List<SearchSourceResult> Results { get; set; } = [];
+
+    private static string SourceUrl(string sourceName) => AppRoutes.Source + "?name=" + Uri.EscapeDataString(sourceName);
+
+    private static string GetSourceTypeBadgeClasses(LootSourceType type) => type switch
+    {
+        LootSourceType.Npc => "bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300",
+        LootSourceType.Event => "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300",
+        LootSourceType.Pickpocket => "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300",
+        LootSourceType.Player => "bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300",
+        _ => "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+    };
+}

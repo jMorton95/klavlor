@@ -6,6 +6,9 @@
 # dotenv files
 .env
 
+# Temp compile-check output (created when the running app locks bin/)
+_buildcheck/
+
 # User-specific files
 *.rsuser
 *.suo

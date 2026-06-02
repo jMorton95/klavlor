@@ -1,0 +1,31 @@
+@page "/source"
+@using KlavLor.Application.Features.Source
+@using KlavLor.Web.Components.Layout
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+
+@inject GlobalSourceHandler Handler
+
+<PageLayout PageTitle="@($"KlavLor - {Name}")" Title="@(Name ?? "Source")" Description="Source overview across all players">
+    @if (!string.IsNullOrWhiteSpace(Name))
+    {
+        <GlobalSourceDetail SourceName="@Name" Overview="@_overview" TopDrops="@_topDrops" />
+    }
+</PageLayout>
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "name")]
+    public string? Name { get; set; }
+
+    private GlobalSourceOverview? _overview;
+    private List<GlobalSourceDrop> _topDrops = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrWhiteSpace(Name)) return;
+
+        _overview = await Handler.GetOverview(Name);
+        if (_overview is not null)
+            _topDrops = await Handler.GetTopDrops(Name);
+    }
+}

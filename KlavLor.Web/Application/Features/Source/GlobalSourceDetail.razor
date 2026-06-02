@@ -1,0 +1,110 @@
+@using KlavLor.Application.Common
+@using KlavLor.Application.Features.Source
+@using KlavLor.Domain.Entities
+@using KlavLor.Web.Components.Layout
+
+<TopBarMetaData PageTitle="@($"KlavLor - {SourceName}")" Title="@SourceName" Description="Source overview across all players" />
+
+<div class="space-y-6">
+    <a onclick="history.back()"
+       class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-amber-600 dark:text-slate-400 dark:hover:text-amber-400 cursor-pointer transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+        Back
+    </a>
+
+    @if (Overview is null)
+    {
+        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-12 text-center">
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">No data for this source</h3>
+            <p class="text-sm text-slate-500 dark:text-slate-400">No tracked, visible characters have recorded loot from &ldquo;@SourceName&rdquo; yet.</p>
+        </div>
+    }
+    else
+    {
+        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+            <div class="flex items-center gap-3 mb-4">
+                <img src="/api/images/source-icon?name=@Uri.EscapeDataString(SourceName)" alt="@SourceName"
+                     class="w-9 h-9 rounded shrink-0" loading="lazy" onerror="this.style.display='none'" />
+                <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100 truncate">@SourceName</h1>
+                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium shrink-0 @GetSourceTypeBadgeClasses()">@Overview.SourceType</span>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                <Stat Label="Kills" Value="@Overview.TotalKills.ToString("N0")" />
+                <Stat Label="Total value" Value="@($"{GoldFormat.Format(Overview.TotalValue)} gp")" Accent="true" />
+                <Stat Label="Characters" Value="@Overview.DistinctCharacters.ToString("N0")" />
+                <Stat Label="Players" Value="@Overview.DistinctPlayers.ToString("N0")" />
+                <Stat Label="First seen" Value="@(Overview.FirstSeen?.ToString("d MMM yyyy") ?? "—")" />
+                <Stat Label="Last seen" Value="@(Overview.LastSeen?.ToString("d MMM yyyy") ?? "—")" />
+            </div>
+        </div>
+
+        <div>
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">Top drops</h2>
+            @if (TopDrops.Count == 0)
+            {
+                <p class="text-sm text-slate-400 dark:text-slate-500">No drops recorded.</p>
+            }
+            else
+            {
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-1.5">
+                    @foreach (var drop in TopDrops)
+                    {
+                        <SourceDropRow Drop="@drop" />
+                    }
+                </div>
+            }
+        </div>
+
+        @* Collection-log coverage loads independently. *@
+        <div hx-get="@Url(AppRoutes.SourceCoverage)" hx-trigger="load" hx-swap="outerHTML">
+            <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+                <div class="h-16 animate-pulse bg-slate-100 dark:bg-slate-800 rounded"></div>
+            </div>
+        </div>
+
+        @* Player leaderboard loads independently. *@
+        <div hx-get="@Url(AppRoutes.SourcePlayers)" hx-trigger="load" hx-swap="outerHTML">
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">Players</h2>
+            <div class="space-y-1.5">
+                @for (var i = 0; i < 3; i++)
+                {
+                    <div class="h-12 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
+                }
+            </div>
+        </div>
+
+        <div>
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">Find an item</h2>
+            <input type="search" name="searchTerm" placeholder="Search items dropped by this source…"
+                   autocomplete="off"
+                   hx-get="@Url(AppRoutes.SourceDrops)"
+                   hx-trigger="keyup changed delay:300ms, load"
+                   hx-target="#source-drops-results"
+                   hx-swap="outerHTML transition:true"
+                   class="mb-3 w-full max-w-md px-4 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+            <div id="source-drops-results" class="space-y-1.5">
+                <div class="h-24 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string SourceName { get; set; } = "";
+    [Parameter] public GlobalSourceOverview? Overview { get; set; }
+    [Parameter] public List<GlobalSourceDrop> TopDrops { get; set; } = [];
+
+    private string Url(string route) => $"{route.FromApi()}?name={Uri.EscapeDataString(SourceName)}";
+
+    private string GetSourceTypeBadgeClasses() => Overview?.SourceType switch
+    {
+        LootSourceType.Npc => "bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300",
+        LootSourceType.Event => "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300",
+        LootSourceType.Pickpocket => "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300",
+        LootSourceType.Player => "bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300",
+        _ => "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+    };
+}

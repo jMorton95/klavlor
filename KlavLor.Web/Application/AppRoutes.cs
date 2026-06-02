@@ -110,6 +110,20 @@ public static class AppRoutes
     public const string UserApiKeyGenerate = "/admin/users/{id:int}/api-key/generate";
     public const string UserApiKeyRevoke = "/admin/users/{id:int}/api-key/revoke";
 
+    public const string Search = "/search";
+    public const string SearchSections = "/search/sections";
+    public const string SearchSectionCharacters = "/search/sections/characters";
+    public const string SearchSectionSources = "/search/sections/sources";
+    public const string SearchSectionDrops = "/search/sections/drops";
+    public const string SearchSectionItems = "/search/sections/items";
+    public const string SearchSectionTemplates = "/search/sections/templates";
+    public const string SearchSectionUsers = "/search/sections/users";
+
+    public const string Source = "/source";
+    public const string SourcePlayers = "/source/players";
+    public const string SourceDrops = "/source/drops";
+    public const string SourceCoverage = "/source/coverage";
+
     public const string Characters = "/characters";
     public const string CharacterUpdateName = "/characters/{id:int}/name";
     public const string CharacterToggleVisibility = "/characters/{id:int}/visibility";

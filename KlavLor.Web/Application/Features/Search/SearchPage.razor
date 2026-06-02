@@ -1,0 +1,13 @@
+@page "/search"
+@using KlavLor.Web.Components.Layout
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+
+<PageLayout PageTitle="KlavLor - Search" Title="Search" Description="Search across characters, sources, items and templates">
+    <SearchShell SearchTerm="@SearchTerm" UpdateHeader="false" />
+</PageLayout>
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "searchTerm")]
+    public string? SearchTerm { get; set; }
+}

@@ -1,0 +1,54 @@
+@using KlavLor.Application.Features.Search
+@using KlavLor.Application.Interfaces.Authentication
+
+@inject ISessionStateManager SessionStateManager
+
+<div id="search-sections" class="space-y-8">
+    @if (!SearchHandler.IsSearchable(SearchTerm))
+    {
+        <div class="text-sm text-slate-500 dark:text-slate-400 py-8 text-center">
+            Type at least @SearchHandler.MinTermLength characters to search.
+        </div>
+    }
+    else
+    {
+        @* Each section loads independently in its own request/scope, so a slow section
+           never blocks the others. *@
+        <div hx-get="@SectionUrl(AppRoutes.SearchSectionCharacters)" hx-trigger="load" hx-swap="outerHTML">
+            <SearchSectionSkeleton Title="Characters" />
+        </div>
+
+        <div hx-get="@SectionUrl(AppRoutes.SearchSectionSources)" hx-trigger="load" hx-swap="outerHTML">
+            <SearchSectionSkeleton Title="Sources" />
+        </div>
+
+        <div hx-get="@SectionUrl(AppRoutes.SearchSectionItems)" hx-trigger="load" hx-swap="outerHTML">
+            <SearchSectionSkeleton Title="Items" />
+        </div>
+
+        <div hx-get="@SectionUrl(AppRoutes.SearchSectionDrops)" hx-trigger="load" hx-swap="outerHTML">
+            <SearchSectionSkeleton Title="Drops" />
+        </div>
+
+        <div hx-get="@SectionUrl(AppRoutes.SearchSectionTemplates)" hx-trigger="load" hx-swap="outerHTML">
+            <SearchSectionSkeleton Title="Templates" />
+        </div>
+
+        @if (_isAdmin)
+        {
+            <div hx-get="@SectionUrl(AppRoutes.SearchSectionUsers)" hx-trigger="load" hx-swap="outerHTML">
+                <SearchSectionSkeleton Title="Users" />
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public string? SearchTerm { get; set; }
+
+    private bool _isAdmin;
+
+    protected override void OnInitialized() => _isAdmin = SessionStateManager.IsUserSessionAdministrator();
+
+    private string SectionUrl(string route) => $"{route.FromApi()}?searchTerm={Uri.EscapeDataString(SearchTerm!.Trim())}";
+}

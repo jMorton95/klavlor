@@ -1,0 +1,10 @@
+<div>
+    <p class="text-xs text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-0.5">@Label</p>
+    <p class="text-lg font-semibold @(Accent ? "text-amber-600 dark:text-amber-400" : "text-slate-900 dark:text-slate-100")">@Value</p>
+</div>
+
+@code {
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public string Value { get; set; } = "";
+    [Parameter] public bool Accent { get; set; }
+}

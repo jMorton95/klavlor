@@ -1,0 +1,13 @@
+<div>
+    <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">@Title</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        @for (var i = 0; i < 3; i++)
+        {
+            <div class="h-20 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Title { get; set; } = "";
+}
