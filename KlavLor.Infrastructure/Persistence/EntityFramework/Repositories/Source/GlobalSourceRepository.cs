@@ -195,13 +195,25 @@ internal sealed class GlobalSourceRepository(DataContext dataContext, ILogger<Gl
             // First-time collection-log unlocks that happened at this source: a drop
             // flagged IsFirstTime (first time that character received it) whose item is a
             // real collection-log entry. Newest first — a running "who logged what" feed.
+            //
+            // KillCount is rarely recorded by RuneLite, so we derive a running kill number
+            // per character at this source ordered by time and prefer the recorded value.
             var sql = $"""
+                WITH kills AS (
+                    SELECT lr."Id" AS loot_id,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY lr."GameCharacterId"
+                               ORDER BY lr."OccurredAt", lr."Id") AS running_kc
+                    FROM "LootRecords" lr
+                    WHERE lr."SourceName" = @source
+                )
                 SELECT lr."OccurredAt",
                        COALESCE(gc."DisplayName", u."FirstName" || ' ' || u."LastName") AS character_name,
                        gc."Id" AS game_character_id,
                        drop_elem->>'Name' AS item_name,
-                       lr."KillCount"
+                       COALESCE(lr."KillCount", k.running_kc)::int AS kc
                 FROM "LootRecords" lr
+                JOIN kills k ON k.loot_id = lr."Id"
                 JOIN "GameCharacters" gc ON gc."Id" = lr."GameCharacterId"
                 JOIN "Users" u ON u."Id" = gc."UserId"
                    , jsonb_array_elements(lr."DropsJson") AS drop_elem
@@ -351,13 +363,26 @@ internal sealed class GlobalSourceRepository(DataContext dataContext, ILogger<Gl
             // duplicates, each annotated with the KC it dropped at — drives the
             // per-character hover detail. (Unlike "Recent collection logs", this is not
             // limited to first-time unlocks.)
+            //
+            // RuneLite rarely records an absolute KillCount on a loot record (most rows are
+            // null), so we derive a running kill number per character at this source ordered
+            // by time, and prefer the recorded KillCount when one is present.
             var clogSql = $"""
+                WITH kills AS (
+                    SELECT lr."Id" AS loot_id,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY lr."GameCharacterId"
+                               ORDER BY lr."OccurredAt", lr."Id") AS running_kc
+                    FROM "LootRecords" lr
+                    WHERE lr."SourceName" = @source
+                )
                 SELECT EXTRACT(year FROM ((lr."OccurredAt" AT TIME ZONE 'Europe/London')::date))::int AS y,
                        EXTRACT(month FROM ((lr."OccurredAt" AT TIME ZONE 'Europe/London')::date))::int AS m,
                        COALESCE(gc."DisplayName", u."FirstName" || ' ' || u."LastName") AS character_name,
                        drop_elem->>'Name' AS item_name,
-                       lr."KillCount"
+                       COALESCE(lr."KillCount", k.running_kc)::int AS kc
                 FROM "LootRecords" lr
+                JOIN kills k ON k.loot_id = lr."Id"
                 JOIN "GameCharacters" gc ON gc."Id" = lr."GameCharacterId"
                 JOIN "Users" u ON u."Id" = gc."UserId"
                    , jsonb_array_elements(lr."DropsJson") AS drop_elem
