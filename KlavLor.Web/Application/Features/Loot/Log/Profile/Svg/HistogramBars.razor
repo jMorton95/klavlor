@@ -127,7 +127,10 @@
                                                                 </span>
                                                                 <span class="shrink-0 text-right tabular-nums">
                                                                     <span class="block text-[11px] font-semibold text-amber-600 dark:text-amber-400">@(item.ValueText ?? Format(item.Value))</span>
-                                                                    <span class="block text-[9px] text-slate-400 dark:text-slate-500">@itemPct.ToString("F1")%</span>
+                                                                    @if (item.Value > 0)
+                                                                    {
+                                                                        <span class="block text-[9px] text-slate-400 dark:text-slate-500">@itemPct.ToString("F1")%</span>
+                                                                    }
                                                                 </span>
                                                             </li>
                                                         }

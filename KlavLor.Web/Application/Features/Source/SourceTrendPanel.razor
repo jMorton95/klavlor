@@ -101,6 +101,17 @@
             long namedTotal = 0;
             foreach (var c in m.Characters.OrderByDescending(c => c.Kills))
             {
+                // The character's collection-log unlocks that month become the tooltip's
+                // detail list (item · KC). Present only when they logged something.
+                var clogItems = c.Clogs.Count > 0
+                    ? c.Clogs.Select(cl => new HistogramBars.BarSegment(
+                        Label: cl.ItemName,
+                        Value: 0,
+                        FillClass: "bg-cyan-500 dark:bg-cyan-400",
+                        ItemName: cl.ItemName,
+                        ValueText: cl.KillCount is > 0 ? $"KC {cl.KillCount.Value:N0}" : "logged")).ToList()
+                    : null;
+
                 if (fillByName.TryGetValue(c.CharacterName, out var fill))
                 {
                     named.Add(new HistogramBars.BarSegment(
@@ -108,7 +119,8 @@
                         Value: c.Kills,
                         FillClass: fill,
                         ItemName: c.CharacterName,
-                        ValueText: $"{c.Kills:N0} kills"));
+                        ValueText: $"{c.Kills:N0} kills",
+                        OverflowItems: clogItems));
                     namedTotal += c.Kills;
                 }
                 else

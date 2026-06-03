@@ -11,9 +11,10 @@ namespace KlavLor.Infrastructure.Persistence.EntityFramework.Repositories.Source
 internal sealed class GlobalSourceRepository(DataContext dataContext, ILogger<GlobalSourceRepository> logger)
     : IGlobalSourceRepository
 {
-    // Only visible, non-admin-hidden characters contribute — same rule as the public
-    // drop-log grid (GetCharactersWithLoot) and the live feed.
-    private const string VisibilityFilter = """gc."IsVisible" = true AND gc."IsAdminHidden" = false""";
+    // Only visible, non-admin-hidden, non-Leagues characters contribute. The global
+    // source page is a main-game view; seasonal Leagues loot lives in its own feed scope
+    // and must not bleed into these aggregates.
+    private const string VisibilityFilter = """gc."IsVisible" = true AND gc."IsAdminHidden" = false AND gc."IsLeagues" = false""";
 
     public async Task<GlobalSourceOverview?> GetOverview(string sourceName)
     {
@@ -346,6 +347,46 @@ internal sealed class GlobalSourceRepository(DataContext dataContext, ILogger<Gl
                 ORDER BY y, m, kills DESC
                 """;
 
+            // Per (month, character) collection-log item receipts at this source, including
+            // duplicates, each annotated with the KC it dropped at — drives the
+            // per-character hover detail. (Unlike "Recent collection logs", this is not
+            // limited to first-time unlocks.)
+            var clogSql = $"""
+                SELECT EXTRACT(year FROM ((lr."OccurredAt" AT TIME ZONE 'Europe/London')::date))::int AS y,
+                       EXTRACT(month FROM ((lr."OccurredAt" AT TIME ZONE 'Europe/London')::date))::int AS m,
+                       COALESCE(gc."DisplayName", u."FirstName" || ' ' || u."LastName") AS character_name,
+                       drop_elem->>'Name' AS item_name,
+                       lr."KillCount"
+                FROM "LootRecords" lr
+                JOIN "GameCharacters" gc ON gc."Id" = lr."GameCharacterId"
+                JOIN "Users" u ON u."Id" = gc."UserId"
+                   , jsonb_array_elements(lr."DropsJson") AS drop_elem
+                WHERE lr."SourceName" = @source AND {VisibilityFilter}
+                  AND EXISTS (
+                      SELECT 1 FROM "CollectionLogItems" cli
+                      WHERE cli."ItemId" = (drop_elem->>'ItemId')::int
+                  )
+                ORDER BY lr."OccurredAt"
+                """;
+
+            var clogsByMonthChar = new Dictionary<(int, int, string), List<SourceTrendClog>>();
+            await using (var cmd = connection.CreateCommand())
+            {
+                cmd.CommandText = clogSql;
+                cmd.Parameters.Add(new NpgsqlParameter("@source", sourceName));
+                await using var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    var key = (reader.GetInt32(0), reader.GetInt32(1), reader.GetString(2));
+                    if (!clogsByMonthChar.TryGetValue(key, out var list))
+                    {
+                        list = [];
+                        clogsByMonthChar[key] = list;
+                    }
+                    list.Add(new SourceTrendClog(reader.GetString(3), reader.IsDBNull(4) ? null : reader.GetInt32(4)));
+                }
+            }
+
             var byMonth = new Dictionary<(int, int), List<SourceTrendCharacter>>();
             await using (var cmd = connection.CreateCommand())
             {
@@ -354,13 +395,16 @@ internal sealed class GlobalSourceRepository(DataContext dataContext, ILogger<Gl
                 await using var reader = await cmd.ExecuteReaderAsync();
                 while (await reader.ReadAsync())
                 {
-                    var key = (reader.GetInt32(0), reader.GetInt32(1));
-                    if (!byMonth.TryGetValue(key, out var list))
+                    var y = reader.GetInt32(0);
+                    var m = reader.GetInt32(1);
+                    var name = reader.GetString(2);
+                    if (!byMonth.TryGetValue((y, m), out var list))
                     {
                         list = [];
-                        byMonth[key] = list;
+                        byMonth[(y, m)] = list;
                     }
-                    list.Add(new SourceTrendCharacter(reader.GetString(2), reader.GetInt64(3)));
+                    var clogs = clogsByMonthChar.TryGetValue((y, m, name), out var cl) ? cl : [];
+                    list.Add(new SourceTrendCharacter(name, reader.GetInt64(3), clogs));
                 }
             }
 

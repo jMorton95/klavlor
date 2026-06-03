@@ -58,4 +58,10 @@ public sealed record SourceTrendPoint(
     long Value,
     IReadOnlyList<SourceTrendCharacter> Characters);
 
-public sealed record SourceTrendCharacter(string CharacterName, long Kills);
+public sealed record SourceTrendCharacter(
+    string CharacterName,
+    long Kills,
+    IReadOnlyList<SourceTrendClog> Clogs);
+
+// A collection-log item a character first received in a given month at the source.
+public sealed record SourceTrendClog(string ItemName, int? KillCount);
