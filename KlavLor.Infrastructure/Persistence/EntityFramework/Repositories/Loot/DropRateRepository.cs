@@ -102,4 +102,27 @@ internal sealed class DropRateRepository(DataContext dataContext, ILogger<DropRa
         var lastSynced = await dataContext.DropRates.MaxAsync(d => (DateTimeOffset?)d.SyncedAt);
         return (sourceCount, rateCount, lastSynced);
     }
+
+    public async Task MarkNoWikiData(string sourceName)
+    {
+        var exists = await dataContext.DropRateMisses.AnyAsync(d => d.SourceName == sourceName);
+        if (exists) return;
+
+        dataContext.DropRateMisses.Add(new DropRateMiss { SourceName = sourceName });
+        await dataContext.SaveChangesAsync();
+    }
+
+    public async Task ClearNoWikiData(string sourceName)
+    {
+        await dataContext.DropRateMisses
+            .Where(d => d.SourceName == sourceName)
+            .ExecuteDeleteAsync();
+    }
+
+    public async Task<IReadOnlyList<string>> GetNoWikiDataSources()
+    {
+        return await dataContext.DropRateMisses
+            .Select(d => d.SourceName)
+            .ToListAsync();
+    }
 }

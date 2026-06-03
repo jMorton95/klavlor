@@ -28,6 +28,7 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
     public virtual DbSet<CollectionLogItem> CollectionLogItems => Set<CollectionLogItem>();
     public virtual DbSet<CollectionLogExclusion> CollectionLogExclusions => Set<CollectionLogExclusion>();
     public virtual DbSet<DropRate> DropRates => Set<DropRate>();
+    public virtual DbSet<DropRateMiss> DropRateMisses => Set<DropRateMiss>();
     public virtual DbSet<SystemSettings> SystemSettings => Set<SystemSettings>();
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
@@ -329,6 +330,11 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
         // CollectionLogExclusion configuration (admin blacklist; ItemId is the business key).
         modelBuilder.Entity<CollectionLogExclusion>()
             .HasIndex(e => e.ItemId)
+            .IsUnique();
+
+        // DropRateMiss configuration (sources confirmed to have no wiki drop-rate data).
+        modelBuilder.Entity<DropRateMiss>()
+            .HasIndex(d => d.SourceName)
             .IsUnique();
 
         // DropRate configuration (wiki-synced per (source, item); joined into source-detail

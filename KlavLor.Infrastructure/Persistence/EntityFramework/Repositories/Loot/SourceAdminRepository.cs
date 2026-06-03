@@ -21,12 +21,17 @@ internal sealed class SourceAdminRepository(DataContext dataContext, ILogger<Sou
                 query = query.Where(r => EF.Functions.ILike(r.SourceName, pattern));
             }
 
-            return await query
+            // Project to an anonymous type so EF translates the GROUP BY / COUNT cleanly;
+            // map to the DTO in memory (a record constructor inside the SQL projection
+            // isn't translatable).
+            var rows = await query
                 .GroupBy(r => r.SourceName)
-                .Select(g => new SourceNameRow(g.Key, g.Count()))
-                .OrderByDescending(r => r.LootCount)
+                .Select(g => new { SourceName = g.Key, Count = g.Count() })
+                .OrderByDescending(x => x.Count)
                 .Take(limit)
                 .ToListAsync();
+
+            return rows.Select(r => new SourceNameRow(r.SourceName, r.Count)).ToList();
         }
         catch (Exception ex)
         {

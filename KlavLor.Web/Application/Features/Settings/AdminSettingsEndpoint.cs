@@ -110,9 +110,10 @@ public sealed class AdminSettingsEndpoint : IEndpoint
 
     private static async Task<RazorComponentResult> SearchDropRates(
         [FromQuery] string? searchTerm,
+        [FromQuery] bool showNoData,
         DropRateAdminHandler handler)
     {
-        var items = await handler.Search(searchTerm);
+        var items = await handler.Search(searchTerm, showNoData);
         return IResultExtensions.Component<DropRateResults>(new { Items = items, SearchTerm = searchTerm });
     }
 

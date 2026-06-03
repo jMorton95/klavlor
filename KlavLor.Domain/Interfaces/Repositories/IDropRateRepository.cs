@@ -24,4 +24,13 @@ public interface IDropRateRepository
 
     /// <summary>(sources with rates, total rate rows, most recent SyncedAt) for the admin sync-health panel.</summary>
     Task<(int SourceCount, int RateCount, DateTimeOffset? LastSynced)> GetStatus();
+
+    /// <summary>Records that a source has no wiki drop-rate data (idempotent).</summary>
+    Task MarkNoWikiData(string sourceName);
+
+    /// <summary>Clears the "no wiki data" mark for a source (e.g. once a fetch finds data).</summary>
+    Task ClearNoWikiData(string sourceName);
+
+    /// <summary>All source names currently marked as having no wiki drop-rate data.</summary>
+    Task<IReadOnlyList<string>> GetNoWikiDataSources();
 }

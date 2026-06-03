@@ -28,7 +28,12 @@ internal sealed class DropRateSyncRunner(IDropRateRepository repository, IOsrsWi
         }
 
         if (wikiRates.Count == 0)
+        {
+            // Record that this source has nothing on the wiki so it drops out of the
+            // admin "missing rates" backlog until explicitly re-checked.
+            await repository.MarkNoWikiData(sourceName);
             return new DropRateSyncResult(sourceName, 0, FoundWikiData: false);
+        }
 
         var rates = wikiRates
             // Same item can appear twice (e.g. normal + hard mode); collapse by name keeping
@@ -49,6 +54,7 @@ internal sealed class DropRateSyncRunner(IDropRateRepository repository, IOsrsWi
             .ToList();
 
         await repository.ReplaceForSource(sourceName, rates);
+        await repository.ClearNoWikiData(sourceName); // it has data now — un-hide if previously marked
         return new DropRateSyncResult(sourceName, rates.Count, FoundWikiData: true);
     }
 

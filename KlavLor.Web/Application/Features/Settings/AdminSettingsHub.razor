@@ -5,7 +5,7 @@
 
 <TopBarMetaData PageTitle="KlavLor - Admin Area" Title="Admin Area" Description="Site administration" />
 
-<div class="space-y-8 max-w-3xl pb-32">
+<div class="space-y-8 max-w-5xl mx-auto pb-32">
     <section>
         <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">Sync status</h2>
         <div hx-get="@AppRoutes.AdminSyncStatus.FromApi()" hx-trigger="load" hx-swap="innerHTML">
@@ -61,17 +61,30 @@
         <p class="text-sm text-slate-500 dark:text-slate-400 mb-3">
             Manually fetch per-source drop rates from the wiki when some are missing. The list below shows sources with loot but no stored rates; search to re-fetch any source.
         </p>
-        <div class="relative max-w-md mb-3">
-            <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-            </svg>
-            <input type="search" name="searchTerm" placeholder="Search sources (blank = missing rates)…"
-                   autocomplete="off"
-                   hx-get="@AppRoutes.AdminDropRatesSearch.FromApi()"
-                   hx-trigger="keyup changed delay:300ms, load"
-                   hx-target="#drate-results"
-                   hx-swap="innerHTML"
-                   class="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+        <div class="flex items-center gap-3 mb-3 flex-wrap">
+            <div class="relative flex-1 min-w-56 max-w-md">
+                <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+                <input id="drate-search" type="search" name="searchTerm" placeholder="Search sources (blank = missing rates)…"
+                       autocomplete="off"
+                       hx-get="@AppRoutes.AdminDropRatesSearch.FromApi()"
+                       hx-trigger="keyup changed delay:300ms, load"
+                       hx-target="#drate-results"
+                       hx-swap="innerHTML"
+                       hx-include="#drate-nodata"
+                       class="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+            </div>
+            <label class="inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 cursor-pointer whitespace-nowrap">
+                <input id="drate-nodata" type="checkbox" name="showNoData" value="true"
+                       hx-get="@AppRoutes.AdminDropRatesSearch.FromApi()"
+                       hx-trigger="change"
+                       hx-target="#drate-results"
+                       hx-swap="innerHTML"
+                       hx-include="#drate-search"
+                       class="rounded border-slate-300 dark:border-slate-600 text-amber-500 focus:ring-amber-500" />
+                Show sources with no wiki data
+            </label>
         </div>
         <div id="drate-results">
             <div class="h-20 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>

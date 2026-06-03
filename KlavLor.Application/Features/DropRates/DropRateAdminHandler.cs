@@ -9,21 +9,37 @@ public sealed class DropRateAdminHandler(IDropRateRepository repository, IDropRa
 {
     public const int SearchLimit = 40;
 
-    public async Task<List<DropRateSourceRow>> Search(string? term)
+    public async Task<List<DropRateSourceRow>> Search(string? term, bool showNoData)
     {
         var known = await repository.GetKnownSourceNames();
         var counts = await repository.GetRateCountsBySource();
+        var noData = (await repository.GetNoWikiDataSources()).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        // Blank term → sources with loot but no stored rates (the actionable backlog);
-        // otherwise any known source matching the term, so existing rates can be re-fetched.
-        IEnumerable<string> sources = string.IsNullOrWhiteSpace(term)
-            ? known.Where(s => !counts.TryGetValue(s, out var c) || c == 0)
-            : known.Where(s => s.Contains(term.Trim(), StringComparison.OrdinalIgnoreCase));
+        IEnumerable<string> sources;
+        if (!string.IsNullOrWhiteSpace(term))
+        {
+            // Explicit search shows everything matching, including no-data sources.
+            var t = term.Trim();
+            sources = known.Where(s => s.Contains(t, StringComparison.OrdinalIgnoreCase));
+        }
+        else if (showNoData)
+        {
+            // The "previously found no wiki data" view, for re-checking.
+            sources = known.Where(s => noData.Contains(s));
+        }
+        else
+        {
+            // Default backlog: loot but no stored rates, and not already known-empty.
+            sources = known.Where(s => (!counts.TryGetValue(s, out var c) || c == 0) && !noData.Contains(s));
+        }
 
         return sources
             .OrderBy(s => s, StringComparer.OrdinalIgnoreCase)
             .Take(SearchLimit)
-            .Select(s => new DropRateSourceRow(s, counts.TryGetValue(s, out var c) ? c : 0))
+            .Select(s => new DropRateSourceRow(
+                s,
+                counts.TryGetValue(s, out var c) ? c : 0,
+                noData.Contains(s) ? "no wiki data" : null))
             .ToList();
     }
 
