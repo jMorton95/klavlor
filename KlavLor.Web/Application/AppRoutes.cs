@@ -148,4 +148,9 @@ public static class AppRoutes
     public const string AdminClogInclude = "/admin/settings/collection-log/include";
     public const string AdminDropRatesSearch = "/admin/settings/drop-rates/search";
     public const string AdminDropRatesSync = "/admin/settings/drop-rates/sync";
+    public const string AdminDropRatesMismatches = "/admin/settings/drop-rates/mismatches";
+    public const string AdminIcons = "/admin/settings/icons";
+    public const string AdminIconsRetry = "/admin/settings/icons/retry";
+    public const string AdminSyncStatus = "/admin/settings/sync-status";
+    public const string AdminClogSyncNow = "/admin/settings/collection-log/sync-now";
 }

@@ -8,4 +8,5 @@ public interface ICachedImageRepository
     Task<CachedImage?> GetBySourceUrl(string sourceUrl);
     Task<CachedImage> Save(CachedImage image);
     Task<List<string>> GetAllSourceUrls();
+    Task<int> Count();
 }

@@ -8,6 +8,8 @@ namespace KlavLor.Infrastructure.Persistence.EntityFramework.Repositories.Cached
 
 internal sealed class CachedImageRepository(DataContext dataContext, ILogger<CachedImageRepository> logger) : ICachedImageRepository
 {
+    public Task<int> Count() => dataContext.CachedImages.CountAsync();
+
     public async Task<CachedImage?> GetById(int id)
     {
         try

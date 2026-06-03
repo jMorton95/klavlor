@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using KlavLor.Application.Common.Exceptions;
+using KlavLor.Application.Features.Maintenance;
 using KlavLor.Application.Interfaces.Repositories;
 using KlavLor.Domain.Entities;
 
@@ -8,6 +9,34 @@ namespace KlavLor.Infrastructure.Persistence.EntityFramework.Repositories.ItemIc
 
 internal sealed class ItemIconRepository(DataContext dataContext, ILogger<ItemIconRepository> logger) : IItemIconRepository
 {
+    public async Task<List<ItemIcon>> GetFailedIcons(int limit)
+    {
+        return await dataContext.ItemIcons
+            .Where(i => i.CachedImageId == null && i.FailCount >= 3)
+            .OrderBy(i => i.ItemName)
+            .Take(limit)
+            .ToListAsync();
+    }
+
+    public async Task ResetFailure(int id)
+    {
+        // Clear the failure state so the backfill service re-attempts on its next cycle.
+        await dataContext.ItemIcons
+            .Where(i => i.Id == id)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(i => i.FailCount, 0)
+                .SetProperty(i => i.LastAttemptAt, (DateTimeOffset?)null));
+    }
+
+    public async Task<IconStats> GetStats()
+    {
+        var total = await dataContext.ItemIcons.CountAsync();
+        var cached = await dataContext.ItemIcons.CountAsync(i => i.CachedImageId != null);
+        var failed = await dataContext.ItemIcons.CountAsync(i => i.CachedImageId == null && i.FailCount >= 3);
+        var last = await dataContext.ItemIcons.MaxAsync(i => (DateTimeOffset?)i.LastAttemptAt);
+        return new IconStats(total, cached, total - cached - failed, failed, last);
+    }
+
     public async Task<ItemIcon?> GetByItemName(string itemName)
     {
         try

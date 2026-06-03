@@ -35,4 +35,20 @@ public sealed class DropRateAdminHandler(IDropRateRepository repository, IDropRa
             : "No drop-rate data found on the wiki";
         return new DropRateSourceRow(sourceName, result.RatesStored, note);
     }
+
+    public const int MissingLimit = 100;
+
+    public async Task<(List<ClogMissingRate> Items, int Total)> GetMissingRates()
+    {
+        var items = await repository.GetClogItemsMissingRates(MissingLimit);
+        var total = await repository.CountClogItemsMissingRates();
+
+        var rows = items
+            .Select(c => new ClogMissingRate(
+                c.Name,
+                c.Tabs is { Length: > 0 } ? string.Join(", ", c.Tabs) : null))
+            .ToList();
+
+        return (rows, total);
+    }
 }

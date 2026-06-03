@@ -7,6 +7,13 @@
 
 <div class="space-y-8 max-w-3xl pb-32">
     <section>
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">Sync status</h2>
+        <div hx-get="@AppRoutes.AdminSyncStatus.FromApi()" hx-trigger="load" hx-swap="innerHTML">
+            <div class="h-24 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
+        </div>
+    </section>
+
+    <section>
         <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">Leagues</h2>
         <AdminSettingsToggleLeagues IsLeaguesEnabled="@SystemSettingsCache.IsLeaguesEnabled" />
     </section>
@@ -67,6 +74,23 @@
                    class="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
         </div>
         <div id="drate-results">
+            <div class="h-20 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
+        </div>
+
+        <div class="mt-4">
+            <h3 class="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-1">Collection-log items with no drop rate</h3>
+            <div id="drate-missing" hx-get="@AppRoutes.AdminDropRatesMismatches.FromApi()" hx-trigger="load" hx-swap="innerHTML">
+                <div class="h-16 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Broken icons</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mb-3">
+            Item and source icons that gave up after repeated failed wiki lookups (so they show no image anywhere). Retry clears the failure and the backfill re-attempts within a couple of minutes.
+        </p>
+        <div id="icon-results" hx-get="@AppRoutes.AdminIcons.FromApi()" hx-trigger="load" hx-swap="innerHTML">
             <div class="h-20 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
         </div>
     </section>

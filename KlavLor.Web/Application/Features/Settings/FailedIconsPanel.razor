@@ -1,0 +1,20 @@
+@using KlavLor.Application.Features.Maintenance
+
+@if (Icons.Count == 0)
+{
+    <p class="text-sm text-slate-400 dark:text-slate-500 py-2">No icons are stuck — all item and source icons resolved (or are still retrying automatically).</p>
+}
+else
+{
+    <p class="text-xs text-slate-400 dark:text-slate-500 mb-2">@Icons.Count icon@(Icons.Count == 1 ? "" : "s") gave up after repeated wiki lookups</p>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-1">
+        @foreach (var icon in Icons)
+        {
+            <FailedIconRow Icon="@icon" />
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public List<FailedIcon> Icons { get; set; } = [];
+}

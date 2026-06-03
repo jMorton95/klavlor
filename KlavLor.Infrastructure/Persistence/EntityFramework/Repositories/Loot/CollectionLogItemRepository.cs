@@ -18,6 +18,15 @@ internal sealed class CollectionLogItemRepository(DataContext dataContext, ILogg
             .ToListAsync();
     }
 
+    public async Task<(int Count, DateTimeOffset? LastSynced)> GetStatus()
+    {
+        var agg = await dataContext.CollectionLogItems
+            .GroupBy(_ => 1)
+            .Select(g => new { Count = g.Count(), LastSynced = (DateTimeOffset?)g.Max(c => c.SyncedAt) })
+            .FirstOrDefaultAsync();
+        return (agg?.Count ?? 0, agg?.LastSynced);
+    }
+
     public async Task ReplaceAll(IReadOnlyCollection<CollectionLogItem> items)
     {
         // Guard: never wipe the reference set with an empty payload (e.g. a failed wiki fetch).

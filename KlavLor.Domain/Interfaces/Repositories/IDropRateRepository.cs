@@ -15,4 +15,13 @@ public interface IDropRateRepository
 
     /// <summary>(sourceName, number of stored drop-rate rows) for every source that has any. Used by the admin drop-rate panel to flag sources missing rates.</summary>
     Task<IReadOnlyDictionary<string, int>> GetRateCountsBySource();
+
+    /// <summary>Collection-log items that have no linked drop rate (no DropRate row resolved to their ItemId) — i.e. clog slots showing no rate on the site. Used by the admin audit.</summary>
+    Task<IReadOnlyList<CollectionLogItem>> GetClogItemsMissingRates(int limit);
+
+    /// <summary>Total count of collection-log items with no linked drop rate.</summary>
+    Task<int> CountClogItemsMissingRates();
+
+    /// <summary>(sources with rates, total rate rows, most recent SyncedAt) for the admin sync-health panel.</summary>
+    Task<(int SourceCount, int RateCount, DateTimeOffset? LastSynced)> GetStatus();
 }

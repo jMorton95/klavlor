@@ -1,0 +1,33 @@
+@using KlavLor.Application.Features.DropRates
+
+@if (Items.Count == 0)
+{
+    <p class="text-sm text-slate-400 dark:text-slate-500 py-2">Every collection-log item has a drop rate. 🎉</p>
+}
+else
+{
+    <p class="text-xs text-slate-400 dark:text-slate-500 mb-2">
+        @Total collection-log item@(Total == 1 ? "" : "s") with no drop rate@(Total > Items.Count ? $" (showing first {Items.Count})" : "") — fetch the listed source above to populate.
+    </p>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+        @foreach (var item in Items)
+        {
+            <div class="flex items-center justify-between gap-2 text-sm py-1 border-b border-slate-100 dark:border-slate-800/60">
+                <span class="inline-flex items-center gap-1.5 min-w-0">
+                    <img src="/api/images/item-icon?name=@Uri.EscapeDataString(item.Name)" alt="@item.Name"
+                         class="w-4 h-4 shrink-0" loading="lazy" onerror="this.style.display='none'" />
+                    <span class="text-slate-700 dark:text-slate-100 truncate">@item.Name</span>
+                </span>
+                @if (!string.IsNullOrEmpty(item.Sources))
+                {
+                    <span class="text-[10px] text-slate-400 dark:text-slate-500 truncate shrink-0 max-w-[50%]" title="@item.Sources">@item.Sources</span>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public List<ClogMissingRate> Items { get; set; } = [];
+    [Parameter] public int Total { get; set; }
+}

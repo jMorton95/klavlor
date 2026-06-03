@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using KlavLor.Application.Features.CollectionLog;
 using KlavLor.Application.Features.DropRates;
+using KlavLor.Application.Features.Maintenance;
 using KlavLor.Application.Features.Settings;
 using KlavLor.Application.Interfaces.Services;
 using KlavLor.Domain.Shared;
@@ -35,7 +36,24 @@ public sealed class AdminSettingsEndpoint : IEndpoint
         app.MapGet(AppRoutes.AdminDropRatesSearch.FromApi(), SearchDropRates)
             .RequireAuthorization(nameof(RoleName.Admin));
 
-        return app.MapPost(AppRoutes.AdminDropRatesSync.FromApi(), SyncDropRates)
+        app.MapPost(AppRoutes.AdminDropRatesSync.FromApi(), SyncDropRates)
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("mutation");
+
+        app.MapGet(AppRoutes.AdminDropRatesMismatches.FromApi(), GetDropRateMismatches)
+            .RequireAuthorization(nameof(RoleName.Admin));
+
+        app.MapGet(AppRoutes.AdminIcons.FromApi(), GetIcons)
+            .RequireAuthorization(nameof(RoleName.Admin));
+
+        app.MapPost(AppRoutes.AdminIconsRetry.FromApi(), RetryIcon)
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("mutation");
+
+        app.MapGet(AppRoutes.AdminSyncStatus.FromApi(), GetSyncStatus)
+            .RequireAuthorization(nameof(RoleName.Admin));
+
+        return app.MapPost(AppRoutes.AdminClogSyncNow.FromApi(), ClogSyncNow)
             .RequireAuthorization(nameof(RoleName.Admin))
             .RequireRateLimiting("mutation");
     }
@@ -94,5 +112,43 @@ public sealed class AdminSettingsEndpoint : IEndpoint
     {
         var row = await handler.Sync(source);
         return IResultExtensions.Component<DropRateRow>(new { Item = row });
+    }
+
+    private static async Task<RazorComponentResult> GetDropRateMismatches(DropRateAdminHandler handler)
+    {
+        var (items, total) = await handler.GetMissingRates();
+        return IResultExtensions.Component<ClogMissingRatesPanel>(new { Items = items, Total = total });
+    }
+
+    private static async Task<RazorComponentResult> GetIcons(IconAuditHandler handler)
+    {
+        var icons = await handler.GetFailed();
+        return IResultExtensions.Component<FailedIconsPanel>(new { Icons = icons });
+    }
+
+    private static async Task<RazorComponentResult> RetryIcon(
+        [FromQuery] IconKind kind,
+        [FromQuery] int id,
+        [FromQuery] string name,
+        IconAuditHandler handler)
+    {
+        await handler.Retry(kind, id);
+        return IResultExtensions.Component<FailedIconRow>(new
+        {
+            Icon = new FailedIcon(kind, id, name, 0, null),
+            Queued = true
+        });
+    }
+
+    private static async Task<RazorComponentResult> GetSyncStatus(SyncStatusHandler handler)
+    {
+        var status = await handler.Get();
+        return IResultExtensions.Component<SyncStatusPanel>(new { Status = status });
+    }
+
+    private static async Task<RazorComponentResult> ClogSyncNow(SyncStatusHandler handler)
+    {
+        var status = await handler.RunClogSyncNow();
+        return IResultExtensions.Component<SyncStatusPanel>(new { Status = status });
     }
 }

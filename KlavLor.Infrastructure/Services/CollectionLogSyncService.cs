@@ -1,7 +1,5 @@
 using KlavLor.Application.Interfaces.Services;
-using KlavLor.Domain.Entities;
 using KlavLor.Domain.Interfaces.Repositories;
-using KlavLor.Infrastructure.ExternalServices.OsrsWiki;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -51,7 +49,7 @@ public sealed class CollectionLogSyncService(
         {
             using var scope = scopeFactory.CreateScope();
             var repository = scope.ServiceProvider.GetRequiredService<ICollectionLogItemRepository>();
-            var wikiClient = scope.ServiceProvider.GetRequiredService<IOsrsWikiClient>();
+            var runner = scope.ServiceProvider.GetRequiredService<ICollectionLogSyncRunner>();
 
             // Prime the cache from the persisted table once, so a restart classifies correctly
             // before the (slower) wiki fetch completes.
@@ -66,31 +64,11 @@ public sealed class CollectionLogSyncService(
                 _primed = true;
             }
 
-            var fetched = await wikiClient.FetchCollectionLogItems();
-            if (fetched.Count == 0)
-            {
+            var stored = await runner.RunOnce(stoppingToken);
+            if (stored == 0)
                 logger.LogWarning("Collection log sync: wiki returned no items, keeping existing data");
-                return;
-            }
-
-            var items = fetched
-                .GroupBy(i => i.Id)              // defend against duplicate ids in the source
-                .Select(g => g.First())
-                .Select(i => new CollectionLogItem
-                {
-                    ItemId = i.Id,
-                    Name = i.Name,
-                    Tabs = i.Tabs?.ToArray(),
-                    SyncedAt = DateTimeOffset.UtcNow
-                })
-                .ToList();
-
-            await repository.ReplaceAll(items);
-            // Re-read the effective set (synced minus admin blacklist) so re-synced items
-            // still honour exclusions.
-            cache.Replace(await repository.GetAllItemIds());
-
-            logger.LogInformation("Collection log sync: stored {Count} collection-log items", items.Count);
+            else
+                logger.LogInformation("Collection log sync: stored {Count} collection-log items", stored);
         }
         catch (OperationCanceledException)
         {

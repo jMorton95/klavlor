@@ -79,4 +79,27 @@ internal sealed class DropRateRepository(DataContext dataContext, ILogger<DropRa
 
         return rows.ToDictionary(r => r.SourceName, r => r.Count);
     }
+
+    public async Task<IReadOnlyList<CollectionLogItem>> GetClogItemsMissingRates(int limit)
+    {
+        return await dataContext.CollectionLogItems
+            .Where(c => !dataContext.DropRates.Any(d => d.ItemId == c.ItemId))
+            .OrderBy(c => c.Name)
+            .Take(limit)
+            .ToListAsync();
+    }
+
+    public Task<int> CountClogItemsMissingRates()
+    {
+        return dataContext.CollectionLogItems
+            .CountAsync(c => !dataContext.DropRates.Any(d => d.ItemId == c.ItemId));
+    }
+
+    public async Task<(int SourceCount, int RateCount, DateTimeOffset? LastSynced)> GetStatus()
+    {
+        var rateCount = await dataContext.DropRates.CountAsync();
+        var sourceCount = await dataContext.DropRates.Select(d => d.SourceName).Distinct().CountAsync();
+        var lastSynced = await dataContext.DropRates.MaxAsync(d => (DateTimeOffset?)d.SyncedAt);
+        return (sourceCount, rateCount, lastSynced);
+    }
 }
