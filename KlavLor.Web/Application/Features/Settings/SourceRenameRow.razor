@@ -1,0 +1,19 @@
+@using KlavLor.Application.Features.Maintenance
+
+<div id="src-row-@RowIndex" class="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm">
+    @if (Result.MovedRecords > 0)
+    {
+        <span class="text-green-600 dark:text-green-400">
+            ✓ Moved @Result.MovedRecords.ToString("N0") record@(Result.MovedRecords == 1 ? "" : "s") from &ldquo;@Result.From&rdquo; → &ldquo;@Result.To&rdquo;
+        </span>
+    }
+    else
+    {
+        <span class="text-slate-400 dark:text-slate-500">No change — name was empty, unchanged, or had no loot.</span>
+    }
+</div>
+
+@code {
+    [Parameter] public required SourceRenameResult Result { get; set; }
+    [Parameter] public int RowIndex { get; set; }
+}

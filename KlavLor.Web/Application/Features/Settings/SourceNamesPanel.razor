@@ -1,0 +1,22 @@
+@using KlavLor.Application.Features.Maintenance
+
+@if (Items.Count == 0)
+{
+    <p class="text-sm text-slate-400 dark:text-slate-500 py-2">
+        @(string.IsNullOrWhiteSpace(SearchTerm) ? "No loot sources yet." : "No source names match your search.")
+    </p>
+}
+else
+{
+    <div class="space-y-1">
+        @foreach (var (item, i) in Items.Select((x, i) => (x, i)))
+        {
+            <SourceNameRowItem Item="@item" RowIndex="@i" />
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public List<SourceNameRow> Items { get; set; } = [];
+    [Parameter] public string? SearchTerm { get; set; }
+}

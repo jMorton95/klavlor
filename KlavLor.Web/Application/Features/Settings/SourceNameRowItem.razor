@@ -1,0 +1,33 @@
+@using KlavLor.Application.Common
+@using KlavLor.Application.Features.Maintenance
+
+<div id="src-row-@RowIndex" class="flex items-center justify-between gap-2 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2">
+    <span class="inline-flex items-center gap-1.5 min-w-0">
+        <img src="/api/images/source-icon?name=@Uri.EscapeDataString(Item.SourceName)" alt="@Item.SourceName"
+             class="w-5 h-5 rounded shrink-0" loading="lazy" onerror="this.style.display='none'" />
+        <span class="text-sm text-slate-700 dark:text-slate-100 truncate">@Item.SourceName</span>
+        <span class="text-[10px] text-slate-400 dark:text-slate-500 shrink-0">@Item.LootCount.ToString("N0") kills</span>
+    </span>
+
+    <span class="flex items-center gap-1 shrink-0">
+        <input id="src-to-@RowIndex" name="to" value="@Item.SourceName"
+               class="w-40 px-2 py-1 text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded outline-none focus:ring-1 focus:ring-amber-500" />
+        <button hx-post="@RenameUrl"
+                hx-include="#src-to-@RowIndex"
+                hx-target="#src-row-@RowIndex"
+                hx-swap="outerHTML"
+                hx-disabled-elt="this"
+                hx-confirm="Repoint all loot from &quot;@Item.SourceName&quot; to the entered name? If the target already exists this MERGES them. Drop rates and the source icon are re-derived. This cannot be undone."
+                class="px-2.5 py-1 rounded text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-amber-100 dark:hover:bg-amber-900/50 hover:text-amber-700 dark:hover:text-amber-300 cursor-pointer disabled:opacity-50">
+            Rename
+        </button>
+    </span>
+</div>
+
+@code {
+    [Parameter] public required SourceNameRow Item { get; set; }
+    [Parameter] public int RowIndex { get; set; }
+
+    private string RenameUrl =>
+        $"{AppRoutes.AdminSourceRename.FromApi()}?from={Uri.EscapeDataString(Item.SourceName)}&rowIndex={RowIndex}";
+}

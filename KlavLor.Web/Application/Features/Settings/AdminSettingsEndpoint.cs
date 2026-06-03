@@ -53,9 +53,19 @@ public sealed class AdminSettingsEndpoint : IEndpoint
         app.MapGet(AppRoutes.AdminSyncStatus.FromApi(), GetSyncStatus)
             .RequireAuthorization(nameof(RoleName.Admin));
 
-        return app.MapPost(AppRoutes.AdminClogSyncNow.FromApi(), ClogSyncNow)
+        app.MapPost(AppRoutes.AdminClogSyncNow.FromApi(), ClogSyncNow)
             .RequireAuthorization(nameof(RoleName.Admin))
             .RequireRateLimiting("mutation");
+
+        app.MapGet(AppRoutes.AdminSourceSearch.FromApi(), SearchSources)
+            .RequireAuthorization(nameof(RoleName.Admin));
+
+        // Rename takes the new name from a form field (dynamic), so antiforgery is disabled;
+        // it's admin-gated, rate-limited, and the auth cookie is SameSite=Strict.
+        return app.MapPost(AppRoutes.AdminSourceRename.FromApi(), RenameSource)
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("mutation")
+            .DisableAntiforgery();
     }
 
     private static RazorComponentResult GetHub()
@@ -150,5 +160,23 @@ public sealed class AdminSettingsEndpoint : IEndpoint
     {
         var status = await handler.RunClogSyncNow();
         return IResultExtensions.Component<SyncStatusPanel>(new { Status = status });
+    }
+
+    private static async Task<RazorComponentResult> SearchSources(
+        [FromQuery] string? searchTerm,
+        SourceAdminHandler handler)
+    {
+        var items = await handler.Search(searchTerm);
+        return IResultExtensions.Component<SourceNamesPanel>(new { Items = items, SearchTerm = searchTerm });
+    }
+
+    private static async Task<RazorComponentResult> RenameSource(
+        [FromQuery] string from,
+        [FromForm] string to,
+        [FromQuery] int rowIndex,
+        SourceAdminHandler handler)
+    {
+        var result = await handler.Rename(from, to);
+        return IResultExtensions.Component<SourceRenameRow>(new { Result = result, RowIndex = rowIndex });
     }
 }

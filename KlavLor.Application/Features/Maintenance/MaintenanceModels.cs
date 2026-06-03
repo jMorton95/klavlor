@@ -20,3 +20,9 @@ public sealed record SyncStatus(
     IconStats ItemIcons,
     IconStats SourceIcons,
     int CachedImageCount);
+
+// A distinct loot-source name and how many records use it — for the rename/merge tool.
+public sealed record SourceNameRow(string SourceName, long LootCount);
+
+// Outcome of a rename/merge: loot records repointed from one name to another.
+public sealed record SourceRenameResult(string From, string To, int MovedRecords);

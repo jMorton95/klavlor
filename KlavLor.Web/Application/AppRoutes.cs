@@ -153,4 +153,6 @@ public static class AppRoutes
     public const string AdminIconsRetry = "/admin/settings/icons/retry";
     public const string AdminSyncStatus = "/admin/settings/sync-status";
     public const string AdminClogSyncNow = "/admin/settings/collection-log/sync-now";
+    public const string AdminSourceSearch = "/admin/settings/sources/search";
+    public const string AdminSourceRename = "/admin/settings/sources/rename";
 }
