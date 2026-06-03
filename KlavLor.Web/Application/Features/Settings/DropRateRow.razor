@@ -1,0 +1,35 @@
+@using KlavLor.Application.Features.DropRates
+
+<div class="drate-row flex items-center justify-between gap-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2">
+    <span class="min-w-0">
+        <span class="inline-flex items-center gap-1.5 text-sm text-slate-700 dark:text-slate-100">
+            <img src="/api/images/source-icon?name=@Uri.EscapeDataString(Item.SourceName)" alt="@Item.SourceName"
+                 class="w-5 h-5 rounded shrink-0" loading="lazy" onerror="this.style.display='none'" />
+            <span class="truncate">@Item.SourceName</span>
+        </span>
+        <span class="block text-xs @StatusClass">@StatusText</span>
+    </span>
+
+    <button hx-post="@SyncUrl"
+            hx-target="closest .drate-row"
+            hx-swap="outerHTML"
+            hx-disabled-elt="this"
+            class="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-amber-100 dark:hover:bg-amber-900/50 hover:text-amber-700 dark:hover:text-amber-300 cursor-pointer disabled:opacity-50"
+            title="Fetch drop rates for this source from the wiki">
+        Fetch
+    </button>
+</div>
+
+@code {
+    [Parameter] public required DropRateSourceRow Item { get; set; }
+
+    private string SyncUrl => $"{AppRoutes.AdminDropRatesSync.FromApi()}?source={Uri.EscapeDataString(Item.SourceName)}";
+
+    // Note is set only right after a manual fetch.
+    private string StatusText => Item.Note
+        ?? (Item.RateCount > 0 ? $"{Item.RateCount} rates stored" : "No drop rates yet");
+
+    private string StatusClass => Item.Note is not null
+        ? (Item.RateCount > 0 ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400")
+        : (Item.RateCount > 0 ? "text-slate-400 dark:text-slate-500" : "text-amber-600 dark:text-amber-400");
+}

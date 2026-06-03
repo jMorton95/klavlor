@@ -209,7 +209,7 @@ internal sealed class GlobalSourceRepository(DataContext dataContext, ILogger<Gl
                   AND {VisibilityFilter}
                   AND (drop_elem->>'IsFirstTime')::boolean = true
                   AND EXISTS (
-                      SELECT 1 FROM "CollectionLogItems" cli
+                      SELECT 1 FROM "EffectiveCollectionLogItems" cli
                       WHERE cli."ItemId" = (drop_elem->>'ItemId')::int
                   )
                 ORDER BY lr."OccurredAt" DESC
@@ -363,7 +363,7 @@ internal sealed class GlobalSourceRepository(DataContext dataContext, ILogger<Gl
                    , jsonb_array_elements(lr."DropsJson") AS drop_elem
                 WHERE lr."SourceName" = @source AND {VisibilityFilter}
                   AND EXISTS (
-                      SELECT 1 FROM "CollectionLogItems" cli
+                      SELECT 1 FROM "EffectiveCollectionLogItems" cli
                       WHERE cli."ItemId" = (drop_elem->>'ItemId')::int
                   )
                 ORDER BY lr."OccurredAt"

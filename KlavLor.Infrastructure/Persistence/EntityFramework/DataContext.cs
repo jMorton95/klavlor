@@ -26,6 +26,7 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
     public virtual DbSet<SourceIcon> SourceIcons => Set<SourceIcon>();
     public virtual DbSet<GameCharacter> GameCharacters => Set<GameCharacter>();
     public virtual DbSet<CollectionLogItem> CollectionLogItems => Set<CollectionLogItem>();
+    public virtual DbSet<CollectionLogExclusion> CollectionLogExclusions => Set<CollectionLogExclusion>();
     public virtual DbSet<DropRate> DropRates => Set<DropRate>();
     public virtual DbSet<SystemSettings> SystemSettings => Set<SystemSettings>();
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
@@ -324,6 +325,11 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
         modelBuilder.Entity<CollectionLogItem>()
             .Property(c => c.SyncedAt)
             .HasColumnType("timestamp with time zone");
+
+        // CollectionLogExclusion configuration (admin blacklist; ItemId is the business key).
+        modelBuilder.Entity<CollectionLogExclusion>()
+            .HasIndex(e => e.ItemId)
+            .IsUnique();
 
         // DropRate configuration (wiki-synced per (source, item); joined into source-detail
         // and feed-popover queries). Unique index lets ReplaceForSource use a transactional

@@ -12,4 +12,7 @@ public interface IDropRateRepository
 
     /// <summary>(sourceName, MAX SyncedAt) pairs for the subset of <paramref name="knownSourceNames"/> that already have synced rates. Drives backlog-first ordering in the sync service.</summary>
     Task<IReadOnlyDictionary<string, DateTimeOffset>> GetLastSyncedAtBySource(IReadOnlyCollection<string> knownSourceNames);
+
+    /// <summary>(sourceName, number of stored drop-rate rows) for every source that has any. Used by the admin drop-rate panel to flag sources missing rates.</summary>
+    Task<IReadOnlyDictionary<string, int>> GetRateCountsBySource();
 }

@@ -1,6 +1,5 @@
-using KlavLor.Domain.Entities;
+using KlavLor.Application.Interfaces.Services;
 using KlavLor.Domain.Interfaces.Repositories;
-using KlavLor.Infrastructure.ExternalServices.OsrsWiki;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -51,7 +50,7 @@ public sealed class DropRateSyncService(
         {
             using var scope = scopeFactory.CreateScope();
             var repository = scope.ServiceProvider.GetRequiredService<IDropRateRepository>();
-            var wikiClient = scope.ServiceProvider.GetRequiredService<IOsrsWikiClient>();
+            var runner = scope.ServiceProvider.GetRequiredService<IDropRateSyncRunner>();
 
             var knownSources = await repository.GetKnownSourceNames();
             if (knownSources.Count == 0)
@@ -74,44 +73,9 @@ public sealed class DropRateSyncService(
             {
                 if (stoppingToken.IsCancellationRequested) break;
 
-                var mapping = SourceNameAliases.Resolve(sourceName);
-                var wikiRates = await wikiClient.FetchDropRatesForSource(mapping.PageTitle);
-                if (mapping.SectionFilter is not null)
-                {
-                    // Filter to rows whose section heading contains the filter token so a
-                    // shared wiki page (e.g. The Gauntlet) feeds the right variant rates
-                    // to each in-game source name.
-                    wikiRates = wikiRates
-                        .Where(r => r.Section is not null && r.Section.Contains(mapping.SectionFilter, StringComparison.OrdinalIgnoreCase))
-                        .ToList();
-                }
-                if (wikiRates.Count == 0)
-                {
-                    emptied++;
-                    continue;
-                }
-
-                var rates = wikiRates
-                    // Same item can appear twice (e.g. normal-mode + hard-mode sections);
-                    // collapse by name keeping the rarer (smaller probability) entry so the
-                    // unique index doesn't reject the batch.
-                    .GroupBy(r => r.ItemName, StringComparer.OrdinalIgnoreCase)
-                    .Select(g => g.OrderBy(EffectiveProbability).First())
-                    .Select(r => new DropRate
-                    {
-                        SourceName = sourceName,
-                        ItemName = r.ItemName,
-                        Rarity = r.Rarity,
-                        RarityNumerator = r.Numerator,
-                        RarityDenominator = r.Denominator,
-                        Rolls = r.Rolls,
-                        Quantity = r.Quantity,
-                        Notes = r.Section
-                    })
-                    .ToList();
-
-                await repository.ReplaceForSource(sourceName, rates);
-                synced++;
+                var result = await runner.SyncSource(sourceName, stoppingToken);
+                if (result.FoundWikiData) synced++;
+                else emptied++;
 
                 try
                 {
@@ -133,13 +97,5 @@ public sealed class DropRateSyncService(
         {
             logger.LogError(ex, "Drop rate sync cycle failed");
         }
-    }
-
-    // Sort key for dedup: rarer drops (lower probability) win. Rates with unparseable
-    // denominators sink to the bottom since we can't compare them numerically.
-    private static double EffectiveProbability(WikiDropRate r)
-    {
-        if (r.Denominator is null or 0 || r.Numerator is null) return double.MaxValue;
-        return (double)r.Numerator.Value / r.Denominator.Value;
     }
 }

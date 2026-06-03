@@ -77,6 +77,8 @@ public static class InfrastructureDependencyConfiguration
             services.AddSingleton<ICollectionLogCache, CollectionLogCache>();
             services.AddSingleton<ISystemSettingsCache, SystemSettingsCache>();
 
+            services.AddScoped<IDropRateSyncRunner, DropRateSyncRunner>();
+
             services.AddTransient<OsrsWikiRateLimitHandler>();
             services.AddOsrsWikiClient();
             services.AddImageCacheService();

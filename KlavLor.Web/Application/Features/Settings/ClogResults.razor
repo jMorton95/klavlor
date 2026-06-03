@@ -1,0 +1,26 @@
+@using KlavLor.Application.Features.CollectionLog
+
+@if (Items.Count == 0)
+{
+    <p class="text-sm text-slate-400 dark:text-slate-500 py-2">
+        @(string.IsNullOrWhiteSpace(SearchTerm) ? "No items are excluded." : "No collection-log items match your search.")
+    </p>
+}
+else
+{
+    @if (string.IsNullOrWhiteSpace(SearchTerm))
+    {
+        <p class="text-xs text-slate-400 dark:text-slate-500 mb-2">@Items.Count excluded item@(Items.Count == 1 ? "" : "s")</p>
+    }
+    <div class="space-y-1">
+        @foreach (var item in Items)
+        {
+            <ClogResultRow Item="@item" />
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public List<ClogItemRow> Items { get; set; } = [];
+    [Parameter] public string? SearchTerm { get; set; }
+}

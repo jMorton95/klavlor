@@ -69,4 +69,14 @@ internal sealed class DropRateRepository(DataContext dataContext, ILogger<DropRa
 
         return rows.ToDictionary(r => r.SourceName, r => r.LastSynced);
     }
+
+    public async Task<IReadOnlyDictionary<string, int>> GetRateCountsBySource()
+    {
+        var rows = await dataContext.DropRates
+            .GroupBy(d => d.SourceName)
+            .Select(g => new { SourceName = g.Key, Count = g.Count() })
+            .ToListAsync();
+
+        return rows.ToDictionary(r => r.SourceName, r => r.Count);
+    }
 }

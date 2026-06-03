@@ -10,7 +10,10 @@ internal sealed class CollectionLogItemRepository(DataContext dataContext, ILogg
 {
     public async Task<IReadOnlyList<int>> GetAllItemIds()
     {
+        // Effective set: synced items minus the admin blacklist, so the in-memory cache
+        // (and anything primed from it) never treats an excluded item as a clog item.
         return await dataContext.CollectionLogItems
+            .Where(c => !dataContext.CollectionLogExclusions.Any(e => e.ItemId == c.ItemId))
             .Select(c => c.ItemId)
             .ToListAsync();
     }

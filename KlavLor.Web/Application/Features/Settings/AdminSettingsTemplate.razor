@@ -1,0 +1,8 @@
+@page "/admin/settings"
+@using Microsoft.AspNetCore.Authorization
+@using KlavLor.Web.Components.Layout
+@attribute [Authorize(Roles = "Admin")]
+
+<PageLayout PageTitle="KlavLor - Admin Area" Title="Admin Area" Description="Site administration">
+    <AdminSettingsHub />
+</PageLayout>

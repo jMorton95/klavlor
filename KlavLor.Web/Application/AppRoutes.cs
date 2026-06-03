@@ -141,5 +141,11 @@ public static class AppRoutes
 
     public const string HealthCheck = "/healthcheck";
 
+    public const string AdminSettings = "/admin/settings";
     public const string AdminSettingsLeaguesToggle = "/admin/settings/leagues/toggle";
+    public const string AdminClogSearch = "/admin/settings/collection-log/search";
+    public const string AdminClogExclude = "/admin/settings/collection-log/exclude";
+    public const string AdminClogInclude = "/admin/settings/collection-log/include";
+    public const string AdminDropRatesSearch = "/admin/settings/drop-rates/search";
+    public const string AdminDropRatesSync = "/admin/settings/drop-rates/sync";
 }

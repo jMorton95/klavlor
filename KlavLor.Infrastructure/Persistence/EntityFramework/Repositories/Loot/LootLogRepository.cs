@@ -1005,7 +1005,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                       AND lr."OccurredAt" < @to
                       AND (drop_elem->>'IsFirstTime')::boolean = true
                       AND EXISTS (
-                          SELECT 1 FROM "CollectionLogItems" cli
+                          SELECT 1 FROM "EffectiveCollectionLogItems" cli
                           WHERE cli."ItemId" = (drop_elem->>'ItemId')::int
                       )
                     GROUP BY 1
@@ -1073,7 +1073,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                       AND lr."OccurredAt" < @to
                       AND (drop_elem->>'IsFirstTime')::boolean = true
                       AND EXISTS (
-                          SELECT 1 FROM "CollectionLogItems" cli
+                          SELECT 1 FROM "EffectiveCollectionLogItems" cli
                           WHERE cli."ItemId" = (drop_elem->>'ItemId')::int
                       )
                     GROUP BY 1, 2
@@ -1357,7 +1357,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                          jsonb_array_elements(lr."DropsJson") AS drop_elem
                     WHERE lr."GameCharacterId" = @cid AND lr."SourceName" = @source
                       AND EXISTS (
-                          SELECT 1 FROM "CollectionLogItems" cli
+                          SELECT 1 FROM "EffectiveCollectionLogItems" cli
                           WHERE cli."ItemId" = (drop_elem->>'ItemId')::int
                       )
                 ),
@@ -1446,7 +1446,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             {
                 missingCmd.CommandText = """
                     SELECT cli."Name", dr."Rarity", dr."RarityNumerator", dr."RarityDenominator", dr."Rolls"
-                    FROM "CollectionLogItems" cli
+                    FROM "EffectiveCollectionLogItems" cli
                     LEFT JOIN "DropRates" dr
                         ON dr."SourceName" = @source
                        AND lower(dr."ItemName") = lower(cli."Name")
@@ -1515,7 +1515,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                          jsonb_array_elements(lr."DropsJson") AS drop_elem
                     WHERE lr."GameCharacterId" = @cid AND lr."SourceName" = @source
                       AND EXISTS (
-                          SELECT 1 FROM "CollectionLogItems" cli
+                          SELECT 1 FROM "EffectiveCollectionLogItems" cli
                           WHERE cli."ItemId" = (drop_elem->>'ItemId')::int
                       )
                     ORDER BY drop_elem->>'Name', lr."OccurredAt" ASC, lr."Id" ASC
@@ -1589,7 +1589,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                     WHERE lr."GameCharacterId" = @cid
                       AND lr."SourceName" = @source
                       AND EXISTS (
-                          SELECT 1 FROM "CollectionLogItems" cli
+                          SELECT 1 FROM "EffectiveCollectionLogItems" cli
                           WHERE cli."ItemId" = (drop_elem->>'ItemId')::int
                             AND @source = ANY (cli."Tabs")
                       )
@@ -1604,7 +1604,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             await using (var totalCmd = connection.CreateCommand())
             {
                 totalCmd.CommandText = """
-                    SELECT COUNT(*)::int FROM "CollectionLogItems"
+                    SELECT COUNT(*)::int FROM "EffectiveCollectionLogItems"
                     WHERE @source = ANY ("Tabs")
                     """;
                 totalCmd.Parameters.Add(new NpgsqlParameter("@source", sourceName));
@@ -1657,7 +1657,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 WHERE lr."GameCharacterId" = @cid
                   AND (drop_elem->>'IsFirstTime')::boolean = true
                   AND EXISTS (
-                      SELECT 1 FROM "CollectionLogItems" cli
+                      SELECT 1 FROM "EffectiveCollectionLogItems" cli
                       WHERE cli."ItemId" = (drop_elem->>'ItemId')::int
                   )
                   AND (@before IS NULL OR lr."OccurredAt" < @before)

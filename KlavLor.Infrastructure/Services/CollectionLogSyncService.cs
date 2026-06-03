@@ -86,7 +86,9 @@ public sealed class CollectionLogSyncService(
                 .ToList();
 
             await repository.ReplaceAll(items);
-            cache.Replace(items.Select(i => i.ItemId));
+            // Re-read the effective set (synced minus admin blacklist) so re-synced items
+            // still honour exclusions.
+            cache.Replace(await repository.GetAllItemIds());
 
             logger.LogInformation("Collection log sync: stored {Count} collection-log items", items.Count);
         }
