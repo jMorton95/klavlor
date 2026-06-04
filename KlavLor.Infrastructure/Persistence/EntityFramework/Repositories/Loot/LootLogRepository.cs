@@ -395,7 +395,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                         k.KillCount,
                         k.Ordinal,
                         k.TotalValue,
-                        drops.Select(d => new LootKillDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime))
+                        drops.Select(d => new LootKillDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId)))
                             .OrderByDescending(d => (long)d.Quantity * d.Price)
                             .ToList());
                 }).ToList();
@@ -491,6 +491,268 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             throw new RepositoryException("Failed to get source detail kills page", ex);
         }
     }
+
+    // Groups a character's kills at one source into play "sessions": consecutive kills with
+    // no gap longer than LootFeedGrouping.MaxGap (mirrors the live feed). Gap-and-islands in
+    // SQL (no JSONB) so it rides IX_LootRecords_GameCharacterId_SourceName; drops are then
+    // aggregated only for the requested page of sessions.
+    public async Task<LootSourceSessions> GetSourceSessions(int characterId, string sourceName, int pageNumber, int pageSize)
+    {
+        try
+        {
+            var characterName = await dataContext.GameCharacters
+                .Where(c => c.Id == characterId)
+                .Select(c => c.DisplayName ?? c.User!.FirstName + " " + c.User.LastName)
+                .FirstOrDefaultAsync();
+
+            var summary = await dataContext.LootRecords
+                .Where(r => r.GameCharacterId == characterId && r.SourceName == sourceName)
+                .GroupBy(r => new { r.SourceName, r.SourceType })
+                .Select(g => new { g.Key.SourceName, g.Key.SourceType, TotalKills = g.Count(), TotalValue = g.Sum(r => r.TotalValue) })
+                .FirstOrDefaultAsync();
+
+            if (summary is null)
+                return new LootSourceSessions(sourceName, LootSourceType.Unknown, characterName, 0, 0, [], false, 0);
+
+            var connection = dataContext.Database.GetDbConnection();
+            if (connection.State != System.Data.ConnectionState.Open)
+                await connection.OpenAsync();
+
+            var skip = (pageNumber - 1) * pageSize;
+
+            // session_no starts at 1 for the oldest kill; rank orders newest-session-first for paging.
+            const string sessionsSql = """
+                WITH ordered AS (
+                    SELECT "Id", "OccurredAt", "KillCount", "TotalValue",
+                           LAG("OccurredAt") OVER (ORDER BY "OccurredAt", "Id") AS prev_at,
+                           ROW_NUMBER() OVER (ORDER BY "OccurredAt", "Id") AS kill_ord
+                    FROM "LootRecords"
+                    WHERE "GameCharacterId" = @cid AND "SourceName" = @src
+                ),
+                marked AS (
+                    SELECT *, CASE WHEN prev_at IS NULL OR ("OccurredAt" - prev_at) > @gap THEN 1 ELSE 0 END AS new_sess
+                    FROM ordered
+                ),
+                sessioned AS (
+                    SELECT *, SUM(new_sess) OVER (ORDER BY "OccurredAt", "Id") AS session_no
+                    FROM marked
+                ),
+                summ AS (
+                    SELECT session_no,
+                           MIN("OccurredAt") AS started, MAX("OccurredAt") AS ended,
+                           COUNT(*)::int AS kills,
+                           MIN("KillCount") AS min_kc, MAX("KillCount") AS max_kc,
+                           MIN(kill_ord)::int AS min_ord, MAX(kill_ord)::int AS max_ord,
+                           SUM("TotalValue")::bigint AS total_gp
+                    FROM sessioned GROUP BY session_no
+                ),
+                ranked AS (
+                    SELECT *, ROW_NUMBER() OVER (ORDER BY started DESC) AS rnk,
+                           (COUNT(*) OVER ())::int AS total_sessions
+                    FROM summ
+                )
+                SELECT session_no, started, ended, kills, min_kc, max_kc, min_ord, max_ord, total_gp, total_sessions
+                FROM ranked
+                WHERE rnk > @skip AND rnk <= @skip + @take
+                ORDER BY started DESC
+                """;
+
+            var rows = new List<SessionRow>();
+            var totalSessions = 0;
+            await using (var cmd = connection.CreateCommand())
+            {
+                cmd.CommandText = sessionsSql;
+                cmd.Parameters.Add(new NpgsqlParameter("@cid", characterId));
+                cmd.Parameters.Add(new NpgsqlParameter("@src", sourceName));
+                cmd.Parameters.Add(new NpgsqlParameter("@gap", LootFeedGrouping.MaxGap));
+                cmd.Parameters.Add(new NpgsqlParameter("@skip", skip));
+                cmd.Parameters.Add(new NpgsqlParameter("@take", pageSize));
+                await using var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    rows.Add(new SessionRow(
+                        reader.GetInt64(0),
+                        reader.GetFieldValue<DateTimeOffset>(1),
+                        reader.GetFieldValue<DateTimeOffset>(2),
+                        reader.GetInt32(3),
+                        reader.IsDBNull(4) ? null : reader.GetInt32(4),
+                        reader.IsDBNull(5) ? null : reader.GetInt32(5),
+                        reader.GetInt32(6),
+                        reader.GetInt32(7),
+                        reader.GetInt64(8)));
+                    totalSessions = reader.GetInt32(9);
+                }
+            }
+
+            // Aggregate drops only for the sessions on this page (JSONB unnest is bounded by
+            // the session_no filter). Same gap CTE so session_no lines up with the list above.
+            var dropsBySession = new Dictionary<long, List<LootKillDrop>>();
+            if (rows.Count > 0)
+            {
+                var sessionNos = rows.Select(r => r.SessionNo).ToArray();
+                const string dropsSql = """
+                    WITH ordered AS (
+                        SELECT "Id", "OccurredAt", "DropsJson",
+                               LAG("OccurredAt") OVER (ORDER BY "OccurredAt", "Id") AS prev_at
+                        FROM "LootRecords"
+                        WHERE "GameCharacterId" = @cid AND "SourceName" = @src
+                    ),
+                    marked AS (
+                        SELECT *, CASE WHEN prev_at IS NULL OR ("OccurredAt" - prev_at) > @gap THEN 1 ELSE 0 END AS new_sess
+                        FROM ordered
+                    ),
+                    sessioned AS (
+                        SELECT *, SUM(new_sess) OVER (ORDER BY "OccurredAt", "Id") AS session_no
+                        FROM marked
+                    )
+                    SELECT s.session_no,
+                           drop_elem->>'Name' AS name,
+                           SUM((drop_elem->>'Quantity')::bigint) AS qty,
+                           SUM((drop_elem->>'Quantity')::bigint * (drop_elem->>'Price')::bigint) AS val,
+                           MAX((drop_elem->>'Price')::int) AS price,
+                           bool_or(COALESCE((drop_elem->>'IsFirstTime')::boolean, false)) AS first_time,
+                           MAX((drop_elem->>'ItemId')::int) AS item_id
+                    FROM sessioned s,
+                         jsonb_array_elements(s."DropsJson") AS drop_elem
+                    WHERE s.session_no = ANY(@sessionNos)
+                    GROUP BY s.session_no, drop_elem->>'Name'
+                    ORDER BY s.session_no, val DESC
+                    """;
+
+                await using var cmd = connection.CreateCommand();
+                cmd.CommandText = dropsSql;
+                cmd.Parameters.Add(new NpgsqlParameter("@cid", characterId));
+                cmd.Parameters.Add(new NpgsqlParameter("@src", sourceName));
+                cmd.Parameters.Add(new NpgsqlParameter("@gap", LootFeedGrouping.MaxGap));
+                cmd.Parameters.Add(new NpgsqlParameter("@sessionNos", sessionNos));
+                await using var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    var sn = reader.GetInt64(0);
+                    if (!dropsBySession.TryGetValue(sn, out var list))
+                    {
+                        list = [];
+                        dropsBySession[sn] = list;
+                    }
+                    var qty = reader.GetInt64(2);
+                    list.Add(new LootKillDrop(
+                        reader.GetString(1),
+                        (int)Math.Min(qty, int.MaxValue),
+                        reader.GetInt32(4),
+                        reader.GetBoolean(5),
+                        collectionLogCache.IsCollectionLogItem(reader.GetInt32(6))));
+                }
+            }
+
+            const int topDropsPerSession = 8;
+            var sessions = rows.Select(r =>
+            {
+                var drops = dropsBySession.TryGetValue(r.SessionNo, out var d) ? d : [];
+                return new LootSession(
+                    (int)r.SessionNo,
+                    r.Started,
+                    r.Ended,
+                    r.Kills,
+                    r.MinKc,
+                    r.MaxKc,
+                    r.MinOrd,
+                    r.MaxOrd,
+                    r.TotalGp,
+                    drops.Take(topDropsPerSession).ToList(),
+                    drops.Count);
+            }).ToList();
+
+            return new LootSourceSessions(
+                summary.SourceName,
+                summary.SourceType,
+                characterName,
+                summary.TotalKills,
+                summary.TotalValue,
+                sessions,
+                skip + rows.Count < totalSessions,
+                totalSessions);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get source sessions for character {CharacterId}, source {Source}", characterId, sourceName);
+            throw new RepositoryException("Failed to get source sessions", ex);
+        }
+    }
+
+    // The individual kills inside one session (identified by its session_no), newest-first.
+    // Reuses the same gap CTE so ordinals (kill_ord) and grouping match the session list.
+    public async Task<List<LootKillEntry>> GetSessionKills(int characterId, string sourceName, int sessionNo)
+    {
+        try
+        {
+            var connection = dataContext.Database.GetDbConnection();
+            if (connection.State != System.Data.ConnectionState.Open)
+                await connection.OpenAsync();
+
+            const string sql = """
+                WITH ordered AS (
+                    SELECT "Id", "OccurredAt", "KillCount", "TotalValue", "DropsJson",
+                           LAG("OccurredAt") OVER (ORDER BY "OccurredAt", "Id") AS prev_at,
+                           ROW_NUMBER() OVER (ORDER BY "OccurredAt", "Id") AS kill_ord
+                    FROM "LootRecords"
+                    WHERE "GameCharacterId" = @cid AND "SourceName" = @src
+                ),
+                marked AS (
+                    SELECT *, CASE WHEN prev_at IS NULL OR ("OccurredAt" - prev_at) > @gap THEN 1 ELSE 0 END AS new_sess
+                    FROM ordered
+                ),
+                sessioned AS (
+                    SELECT *, SUM(new_sess) OVER (ORDER BY "OccurredAt", "Id") AS session_no
+                    FROM marked
+                )
+                SELECT "OccurredAt", "KillCount", "TotalValue", "DropsJson", kill_ord
+                FROM sessioned
+                WHERE session_no = @sessionNo
+                ORDER BY "OccurredAt" DESC, kill_ord DESC
+                """;
+
+            await using var cmd = connection.CreateCommand();
+            cmd.CommandText = sql;
+            cmd.Parameters.Add(new NpgsqlParameter("@cid", characterId));
+            cmd.Parameters.Add(new NpgsqlParameter("@src", sourceName));
+            cmd.Parameters.Add(new NpgsqlParameter("@gap", LootFeedGrouping.MaxGap));
+            cmd.Parameters.Add(new NpgsqlParameter("@sessionNo", (long)sessionNo));
+
+            var entries = new List<LootKillEntry>();
+            await using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                var json = reader.GetString(3);
+                var drops = JsonSerializer.Deserialize<List<LootDrop>>(json) ?? [];
+                entries.Add(new LootKillEntry(
+                    reader.GetFieldValue<DateTimeOffset>(0),
+                    reader.IsDBNull(1) ? null : reader.GetInt32(1),
+                    (int)reader.GetInt64(4),
+                    reader.GetInt64(2),
+                    drops.Select(d => new LootKillDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId)))
+                        .OrderByDescending(d => (long)d.Quantity * d.Price)
+                        .ToList()));
+            }
+
+            return entries;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get session kills for character {CharacterId}, source {Source}, session {Session}", characterId, sourceName, sessionNo);
+            throw new RepositoryException("Failed to get session kills", ex);
+        }
+    }
+
+    private sealed record SessionRow(
+        long SessionNo,
+        DateTimeOffset Started,
+        DateTimeOffset Ended,
+        int Kills,
+        int? MinKc,
+        int? MaxKc,
+        int MinOrd,
+        int MaxOrd,
+        long TotalGp);
 
     public async Task<Dictionary<LootFeedTier, List<LootFeedEntry>>> GetAllFeedTiers(
         int countPerTier, LootFeedScope scope = LootFeedScope.Main, IReadOnlySet<LootFeedTier>? requestedTiers = null)

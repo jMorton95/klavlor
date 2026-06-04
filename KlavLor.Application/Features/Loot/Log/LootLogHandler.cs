@@ -43,4 +43,24 @@ public sealed class LootLogHandler(
         return Result<LootSourceDetail>.Success(result);
     }
 
+    public const int SessionsPageSize = 15;
+
+    public async Task<Result<LootSourceSessions>> HandleSourceSessions(int characterId, string sourceName, int pageNumber = 1)
+    {
+        if (!await accessChecker.CanAccess(characterId))
+            return Result<LootSourceSessions>.Failure("Character not found.");
+
+        var result = await lootLogRepository.GetSourceSessions(characterId, sourceName, pageNumber, SessionsPageSize);
+        return Result<LootSourceSessions>.Success(result);
+    }
+
+    public async Task<Result<List<LootKillEntry>>> HandleSessionKills(int characterId, string sourceName, int sessionNo)
+    {
+        if (!await accessChecker.CanAccess(characterId))
+            return Result<List<LootKillEntry>>.Failure("Character not found.");
+
+        var result = await lootLogRepository.GetSessionKills(characterId, sourceName, sessionNo);
+        return Result<List<LootKillEntry>>.Success(result);
+    }
+
 }

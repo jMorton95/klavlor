@@ -12,6 +12,11 @@ public interface ILootLogRepository
     Task<LootLogSearchResult> SearchLootLog(int characterId, LootLogQuery query);
     Task<LootSourceDetail> GetSourceDetail(int characterId, string sourceName, int pageNumber, int pageSize);
     Task<LootSourceDetail> GetSourceDetailKillsPage(int characterId, string sourceName, int pageNumber, int pageSize);
+
+    // Kill Sessions: consecutive kills grouped into play sessions (a gap > LootFeedGrouping.MaxGap
+    // starts a new one), paged newest-first. GetSessionKills returns one session's individual kills.
+    Task<LootSourceSessions> GetSourceSessions(int characterId, string sourceName, int pageNumber, int pageSize);
+    Task<List<LootKillEntry>> GetSessionKills(int characterId, string sourceName, int sessionNo);
     Task<Dictionary<LootFeedTier, List<LootFeedEntry>>> GetAllFeedTiers(int countPerTier, LootFeedScope scope = LootFeedScope.Main, IReadOnlySet<LootFeedTier>? requestedTiers = null);
     Task DeleteAllForCharacter(int characterId);
     Task DeleteAllForUser(int userId);

@@ -69,4 +69,32 @@ public sealed record LootKillDrop(
     string Name,
     int Quantity,
     int Price,
-    bool IsFirstTime = false);
+    bool IsFirstTime = false,
+    bool IsCollectionLogItem = false);
+
+// A continuous play session at a source: consecutive kills with no gap longer than
+// LootFeedGrouping.MaxGap (1h). MinKillCount/MaxKillCount are the real RuneLite KC range
+// when reported; MinKillOrdinal/MaxKillOrdinal are the derived position range (1 = oldest
+// kill at this source), used as the honest "Kill #a–b" fallback.
+public sealed record LootSession(
+    int Index,
+    DateTimeOffset StartedAt,
+    DateTimeOffset EndedAt,
+    int KillCount,
+    int? MinKillCount,
+    int? MaxKillCount,
+    int MinKillOrdinal,
+    int MaxKillOrdinal,
+    long TotalValue,
+    List<LootKillDrop> TopDrops,
+    int DistinctDropCount);
+
+public sealed record LootSourceSessions(
+    string SourceName,
+    LootSourceType SourceType,
+    string? CharacterName,
+    int TotalKills,
+    long TotalValue,
+    List<LootSession> Sessions,
+    bool HasMore,
+    int TotalSessions);

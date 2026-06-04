@@ -1,0 +1,134 @@
+@using KlavLor.Application.Common
+@using KlavLor.Application.Features.Loot.Log
+@using KlavLor.Domain.Entities
+
+@{
+    var start = IngestTimezone.ToZoneTime(Session.StartedAt);
+    var end = IngestTimezone.ToZoneTime(Session.EndedAt);
+    var killNoun = SourceType == LootSourceType.Event ? "rolls" : SourceType == LootSourceType.Pickpocket ? "thefts" : "kills";
+    var hasRealKc = Session.MinKillCount is not null && Session.MaxKillCount is not null;
+}
+
+<details class="group bg-slate-50 dark:bg-slate-900 rounded-lg shadow border border-slate-200 dark:border-slate-700 hover:border-amber-200 dark:hover:border-amber-700 transition-colors">
+    <summary hx-get="@ExpandUrl"
+             hx-target="#sess-kills-@Session.Index"
+             hx-swap="innerHTML"
+             hx-trigger="click once"
+             class="list-none cursor-pointer p-3 [&::-webkit-details-marker]:hidden">
+        <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+                <div class="flex items-center gap-1.5 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    <svg class="w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                    <span class="whitespace-nowrap">@start.ToString("d MMM yyyy")</span>
+                    <span class="text-slate-400 dark:text-slate-500 font-normal whitespace-nowrap">@start.ToString("HH:mm")@(SameMinute ? "" : $"–{end:HH:mm}")</span>
+                    <span class="text-[10px] font-normal text-slate-400 dark:text-slate-500 whitespace-nowrap">· @DurationText</span>
+                </div>
+                <div class="flex items-center gap-1.5 mt-0.5 ml-5 text-[11px] text-slate-500 dark:text-slate-400">
+                    <span class="whitespace-nowrap">@Session.KillCount.ToString("N0") @killNoun</span>
+                    <span aria-hidden="true">·</span>
+                    @if (hasRealKc)
+                    {
+                        <span class="whitespace-nowrap">@KcRange</span>
+                    }
+                    else
+                    {
+                        <span class="whitespace-nowrap" title="Position in the kill log at this source (RuneLite didn't report an in-game kill count)">@KcRange</span>
+                    }
+                </div>
+            </div>
+            @if (Session.TotalValue > 0)
+            {
+                <div class="text-right shrink-0">
+                    <div class="text-sm font-semibold text-amber-600 dark:text-amber-400 whitespace-nowrap">@GoldFormat.Format(Session.TotalValue)</div>
+                    <div class="text-[10px] text-slate-400 dark:text-slate-500">gp</div>
+                </div>
+            }
+        </div>
+
+        @if (Session.TopDrops.Count > 0)
+        {
+            <div class="flex flex-wrap gap-1.5 mt-2 ml-5">
+                @foreach (var drop in Session.TopDrops)
+                {
+                    var isNew = drop.IsFirstTime && drop.IsCollectionLogItem;
+                    <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] border @GetDropTierClasses(drop.Price) text-slate-700 dark:text-slate-200"
+                          title="@(isNew ? "First-time collection log unlock" : null)">
+                        @if (isNew)
+                        {
+                            <span class="px-1 py-0 text-[9px] font-semibold rounded-sm bg-cyan-700 text-white">NEW</span>
+                        }
+                        <img src="/api/images/item-icon?name=@Uri.EscapeDataString(drop.Name)" alt="@drop.Name"
+                             class="w-3 h-3 inline-block" loading="lazy" onerror="this.style.display='none'" />
+                        @if (drop.Quantity > 1)
+                        {
+                            <span class="font-medium text-amber-600 dark:text-amber-400">@drop.Quantity.ToString("N0")x</span>
+                        }
+                        <span>@drop.Name</span>
+                        @if (drop.Price > 0)
+                        {
+                            <span class="text-slate-700 dark:text-slate-200">(@GoldFormat.Format((long)drop.Quantity * drop.Price))</span>
+                        }
+                    </span>
+                }
+                @if (Session.DistinctDropCount > Session.TopDrops.Count)
+                {
+                    <span class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                        +@(Session.DistinctDropCount - Session.TopDrops.Count) more
+                    </span>
+                }
+            </div>
+        }
+    </summary>
+
+    <div id="sess-kills-@Session.Index" class="px-3 pb-3 pt-1">
+        <div class="h-16 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
+    </div>
+</details>
+
+@code {
+    [Parameter] public required LootSession Session { get; set; }
+    [Parameter] public int CharacterId { get; set; }
+    [Parameter] public string SourceName { get; set; } = "";
+    [Parameter] public LootSourceType SourceType { get; set; }
+
+    private bool SameMinute => (Session.EndedAt - Session.StartedAt).TotalMinutes < 1;
+
+    private string DurationText
+    {
+        get
+        {
+            if (Session.KillCount <= 1) return "single kill";
+            var d = Session.EndedAt - Session.StartedAt;
+            if (d.TotalHours >= 1) return $"{(int)d.TotalHours}h {d.Minutes:D2}m";
+            if (d.TotalMinutes >= 1) return $"{(int)d.TotalMinutes}m";
+            return $"{(int)d.TotalSeconds}s";
+        }
+    }
+
+    private string KcRange
+    {
+        get
+        {
+            if (Session.MinKillCount is int mn && Session.MaxKillCount is int mx)
+                return mn == mx ? $"KC #{mn:N0}" : $"KC #{mn:N0}–{mx:N0}";
+            return Session.MinKillOrdinal == Session.MaxKillOrdinal
+                ? $"Kill #{Session.MinKillOrdinal:N0}"
+                : $"Kill #{Session.MinKillOrdinal:N0}–{Session.MaxKillOrdinal:N0}";
+        }
+    }
+
+    private string ExpandUrl =>
+        AppRoutes.LootLogSourceSession.WithId(CharacterId).FromApi()
+        + $"?name={Uri.EscapeDataString(SourceName)}&session={Session.Index}";
+
+    private static string GetDropTierClasses(long dropValue) => dropValue switch
+    {
+        >= 100_000_000 => "bg-amber-100 dark:bg-amber-950 border-amber-400",
+        >= 10_000_000 => "bg-purple-100 dark:bg-purple-950 border-purple-400",
+        >= 1_000_000 => "bg-blue-100 dark:bg-blue-950 border-blue-400",
+        >= 100_000 => "bg-green-100 dark:bg-green-950 border-green-400",
+        _ => "bg-slate-200 dark:bg-slate-800 border-slate-300 dark:border-slate-700"
+    };
+}

@@ -1,0 +1,62 @@
+@using KlavLor.Application.Common
+@using KlavLor.Application.Features.Loot.Log
+
+@if (Kills.Count == 0)
+{
+    <p class="text-xs text-slate-400 dark:text-slate-500 py-2">No individual kills found for this session.</p>
+}
+else
+{
+    @* Dense per-kill rows: KC/time on the left, drop chips in the middle, kill value on
+       the right. No per-row card chrome — just thin dividers — so a long session reads
+       as a tight ledger. *@
+    <ul class="divide-y divide-slate-100 dark:divide-slate-800/70 border-t border-slate-100 dark:border-slate-800/70">
+        @foreach (var kill in Kills)
+        {
+            <li class="flex items-start gap-2 py-1">
+                <div class="shrink-0 w-[4.5rem] leading-tight pt-0.5">
+                    <div class="text-[10px] font-medium text-slate-500 dark:text-slate-300 tabular-nums whitespace-nowrap">@KcLabel(kill)</div>
+                    <div class="text-[9px] text-slate-400 dark:text-slate-500 tabular-nums">@LocalTime(kill.OccurredAt)</div>
+                </div>
+                <div class="flex flex-wrap gap-1 flex-1 min-w-0">
+                    @foreach (var drop in kill.Drops)
+                    {
+                        var isNew = drop.IsFirstTime && drop.IsCollectionLogItem;
+                        <span class="inline-flex items-center gap-0.5 px-1 py-0 rounded text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 @(isNew ? "ring-1 ring-cyan-400 dark:ring-cyan-500/70" : "")"
+                              title="@(isNew ? $"{drop.Name} — first-time collection log unlock" : drop.Name)">
+                            @if (isNew)
+                            {
+                                <span class="px-0.5 text-[7px] font-bold rounded-sm bg-cyan-700 text-white leading-none">NEW</span>
+                            }
+                            <img src="/api/images/item-icon?name=@Uri.EscapeDataString(drop.Name)" alt="@drop.Name"
+                                 class="w-3 h-3 inline-block" loading="lazy" onerror="this.style.display='none'" />
+                            @if (drop.Quantity > 1)
+                            {
+                                <span class="font-medium text-amber-600 dark:text-amber-400">@drop.Quantity.ToString("N0")x</span>
+                            }
+                            <span class="truncate max-w-[8rem]">@drop.Name</span>
+                        </span>
+                    }
+                </div>
+                @if (kill.TotalValue > 0)
+                {
+                    <span class="shrink-0 text-[10px] font-medium text-amber-600 dark:text-amber-400 tabular-nums pt-0.5 whitespace-nowrap">@GoldFormat.Format(kill.TotalValue)</span>
+                }
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    [Parameter] public List<LootKillEntry> Kills { get; set; } = [];
+
+    private static string KcLabel(LootKillEntry kill) =>
+        kill.KillCount is not null
+            ? $"KC #{kill.KillCount.Value:N0}"
+            : kill.KillOrdinal is not null
+                ? $"Kill #{kill.KillOrdinal.Value:N0}"
+                : "";
+
+    private static string LocalTime(DateTimeOffset at) =>
+        IngestTimezone.ToZoneTime(at).ToString("HH:mm");
+}

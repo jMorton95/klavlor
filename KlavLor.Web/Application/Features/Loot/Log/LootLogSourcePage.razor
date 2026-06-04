@@ -9,10 +9,10 @@
     @if (_detail is not null)
     {
         <LootLogSourceDetail Detail="@_detail"
+                             Sessions="@_sessions"
                              Collection="@_collection"
                              View="@ViewParam"
                              CharacterId="@Id"
-                             PageSize="@(PageSizeParam ?? 25)"
                              UpdateHeader="false" />
     }
 </PageLayout>
@@ -26,6 +26,7 @@
     [SupplyParameterFromQuery(Name = "pageSize")] public int? PageSizeParam { get; set; }
 
     private LootSourceDetail? _detail;
+    private LootSourceSessions? _sessions;
     private SourceCollection? _collection;
 
     private string HeaderText => _detail switch
@@ -40,8 +41,11 @@
         if (string.IsNullOrEmpty(NameParam)) return;
 
         // Sequential awaits — the scoped DbContext isn't safe under concurrent use.
-        var detailResult = await LogHandler.HandleSource(Id, NameParam, PageNumberParam ?? 1, PageSizeParam ?? 25);
+        var detailResult = await LogHandler.HandleSource(Id, NameParam);
         if (detailResult.IsSuccess) _detail = detailResult.Value;
+
+        var sessionsResult = await LogHandler.HandleSourceSessions(Id, NameParam);
+        if (sessionsResult.IsSuccess) _sessions = sessionsResult.Value;
 
         var collectionResult = await ProfileHandler.HandleSourceCollection(Id, NameParam);
         if (collectionResult.IsSuccess) _collection = collectionResult.Value;

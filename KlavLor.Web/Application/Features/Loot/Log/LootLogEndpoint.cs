@@ -17,9 +17,12 @@ public sealed class LootLogEndpoint : IEndpoint
             .AllowAnonymous()
             .AddEndpointFilter<HtmxNavigationFilter>();
 
-        return app.MapGet(AppRoutes.LootLogSource.FromApi(), GetSourceDetail)
+        app.MapGet(AppRoutes.LootLogSource.FromApi(), GetSourceDetail)
             .AllowAnonymous()
             .AddEndpointFilter<HtmxNavigationFilter>();
+
+        return app.MapGet(AppRoutes.LootLogSourceSession.FromApi(), GetSessionKills)
+            .AllowAnonymous();
     }
 
     private static async Task<RazorComponentResult> GetCharacters(LootLogHandler handler)
@@ -75,31 +78,46 @@ public sealed class LootLogEndpoint : IEndpoint
         [FromQuery] string name,
         [FromQuery] string? view = null,
         [FromQuery] int pageNumber = 1,
-        [FromQuery] int pageSize = 25,
         LootLogHandler handler = default!,
         LootCharacterProfileHandler profileHandler = default!)
     {
-        var result = await handler.HandleSource(id, name, pageNumber, pageSize);
-
+        // Page 2+ is session pagination — just append the next batch of session cards.
         if (pageNumber > 1)
-            return IResultExtensions.Component<LootLogSourceMoreKills>(new
+        {
+            var more = await handler.HandleSourceSessions(id, name, pageNumber);
+            return IResultExtensions.Component<LootLogSessionMore>(new
             {
-                Detail = result.Value,
+                Sessions = more.Value,
                 CharacterId = id,
-                PageNumber = pageNumber,
-                PageSize = pageSize
+                PageNumber = pageNumber
             });
+        }
 
         // Sequential awaits — scoped DbContext is not safe under concurrent use.
+        var detail = await handler.HandleSource(id, name);
+        var sessions = await handler.HandleSourceSessions(id, name);
         var collection = await profileHandler.HandleSourceCollection(id, name);
 
         return IResultExtensions.Component<LootLogSourceDetail>(new
         {
-            Detail = result.Value,
+            Detail = detail.Value,
+            Sessions = sessions.Value,
             Collection = collection.Value,
             View = view,
-            CharacterId = id,
-            PageSize = pageSize
+            CharacterId = id
+        });
+    }
+
+    private static async Task<RazorComponentResult> GetSessionKills(
+        int id,
+        [FromQuery] string name,
+        [FromQuery] int session,
+        LootLogHandler handler)
+    {
+        var result = await handler.HandleSessionKills(id, name, session);
+        return IResultExtensions.Component<LootLogSessionKills>(new
+        {
+            Kills = result.Value ?? []
         });
     }
 }
