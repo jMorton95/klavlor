@@ -6,6 +6,9 @@
         <RootNamespace>KlavLor.Infrastructure</RootNamespace>
     </PropertyGroup>
     <ItemGroup>
+        <InternalsVisibleTo Include="KlavLor.IntegrationTests" />
+    </ItemGroup>
+    <ItemGroup>
         <ProjectReference Include="..\KlavLor.Domain\KlavLor.Domain.csproj" />
         <ProjectReference Include="..\KlavLor.Application\KlavLor.Application.csproj" />
     </ItemGroup>
