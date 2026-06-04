@@ -86,15 +86,15 @@ internal sealed class GlobalSourceRepository(DataContext dataContext, ILogger<Gl
 
             var sql = $"""
                 WITH agg AS (
-                    SELECT drop_elem->>'Name' AS item_name,
-                           SUM((drop_elem->>'Quantity')::bigint) AS total_qty,
-                           SUM((drop_elem->>'Quantity')::bigint * (drop_elem->>'Price')::bigint) AS total_value
+                    SELECT ld."Name" AS item_name,
+                           SUM(ld."Quantity"::bigint) AS total_qty,
+                           SUM(ld."Quantity"::bigint * ld."Price"::bigint) AS total_value
                     FROM "LootRecords" lr
                     JOIN "GameCharacters" gc ON gc."Id" = lr."GameCharacterId"
-                       , jsonb_array_elements(lr."DropsJson") AS drop_elem
+                    JOIN "LootDrops" ld ON ld."LootRecordId" = lr."Id"
                     WHERE lr."SourceName" = @source
                       AND {VisibilityFilter}
-                    GROUP BY drop_elem->>'Name'
+                    GROUP BY ld."Name"
                 )
                 SELECT a.item_name, a.total_qty, a.total_value,
                        dr."Rarity", dr."RarityNumerator", dr."RarityDenominator"
@@ -212,20 +212,20 @@ internal sealed class GlobalSourceRepository(DataContext dataContext, ILogger<Gl
                 SELECT lr."OccurredAt",
                        COALESCE(gc."DisplayName", u."FirstName" || ' ' || u."LastName") AS character_name,
                        gc."Id" AS game_character_id,
-                       drop_elem->>'Name' AS item_name,
+                       ld."Name" AS item_name,
                        lr."KillCount" AS kc,
                        k.running_kc::int AS kill_ordinal
                 FROM "LootRecords" lr
                 JOIN kills k ON k.loot_id = lr."Id"
                 JOIN "GameCharacters" gc ON gc."Id" = lr."GameCharacterId"
                 JOIN "Users" u ON u."Id" = gc."UserId"
-                   , jsonb_array_elements(lr."DropsJson") AS drop_elem
+                JOIN "LootDrops" ld ON ld."LootRecordId" = lr."Id"
                 WHERE lr."SourceName" = @source
                   AND {VisibilityFilter}
-                  AND (drop_elem->>'IsFirstTime')::boolean = true
+                  AND ld."IsFirstTime" = true
                   AND EXISTS (
                       SELECT 1 FROM "EffectiveCollectionLogItems" cli
-                      WHERE cli."ItemId" = (drop_elem->>'ItemId')::int
+                      WHERE cli."ItemId" = ld."ItemId"
                   )
                 ORDER BY lr."OccurredAt" DESC
                 LIMIT @limit
@@ -272,16 +272,16 @@ internal sealed class GlobalSourceRepository(DataContext dataContext, ILogger<Gl
             // grouped into per-item totals + a character breakdown in C#. Optional
             // item-name filter for the in-panel search.
             var sql = $"""
-                SELECT drop_elem->>'Name' AS item_name,
+                SELECT ld."Name" AS item_name,
                        COALESCE(gc."DisplayName", u."FirstName" || ' ' || u."LastName") AS character_name,
                        COUNT(DISTINCT lr."Id")::bigint AS drops
                 FROM "LootRecords" lr
                 JOIN "GameCharacters" gc ON gc."Id" = lr."GameCharacterId"
                 JOIN "Users" u ON u."Id" = gc."UserId"
-                   , jsonb_array_elements(lr."DropsJson") AS drop_elem
+                JOIN "LootDrops" ld ON ld."LootRecordId" = lr."Id"
                 WHERE lr."SourceName" = @source AND {VisibilityFilter}
-                  AND (@term IS NULL OR drop_elem->>'Name' ILIKE '%' || @term || '%')
-                GROUP BY drop_elem->>'Name', gc."Id", gc."DisplayName", u."FirstName", u."LastName"
+                  AND (@term IS NULL OR ld."Name" ILIKE '%' || @term || '%')
+                GROUP BY ld."Name", gc."Id", gc."DisplayName", u."FirstName", u."LastName"
                 """;
 
             await using var cmd = connection.CreateCommand();
@@ -384,18 +384,18 @@ internal sealed class GlobalSourceRepository(DataContext dataContext, ILogger<Gl
                 SELECT EXTRACT(year FROM ((lr."OccurredAt" AT TIME ZONE 'Europe/London')::date))::int AS y,
                        EXTRACT(month FROM ((lr."OccurredAt" AT TIME ZONE 'Europe/London')::date))::int AS m,
                        COALESCE(gc."DisplayName", u."FirstName" || ' ' || u."LastName") AS character_name,
-                       drop_elem->>'Name' AS item_name,
+                       ld."Name" AS item_name,
                        lr."KillCount" AS kc,
                        k.running_kc::int AS kill_ordinal
                 FROM "LootRecords" lr
                 JOIN kills k ON k.loot_id = lr."Id"
                 JOIN "GameCharacters" gc ON gc."Id" = lr."GameCharacterId"
                 JOIN "Users" u ON u."Id" = gc."UserId"
-                   , jsonb_array_elements(lr."DropsJson") AS drop_elem
+                JOIN "LootDrops" ld ON ld."LootRecordId" = lr."Id"
                 WHERE lr."SourceName" = @source AND {VisibilityFilter}
                   AND EXISTS (
                       SELECT 1 FROM "EffectiveCollectionLogItems" cli
-                      WHERE cli."ItemId" = (drop_elem->>'ItemId')::int
+                      WHERE cli."ItemId" = ld."ItemId"
                   )
                 ORDER BY lr."OccurredAt"
                 """;

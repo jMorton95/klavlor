@@ -59,14 +59,13 @@ internal sealed class ItemIconRepository(DataContext dataContext, ILogger<ItemIc
             var results = await dataContext.Database
                 .SqlQueryRaw<UncataloguedItem>(
                     """
-                    SELECT DISTINCT drop_elem->>'Name' AS "ItemName",
-                           MIN((drop_elem->>'ItemId')::int) AS "ItemId"
-                    FROM "LootRecords" lr,
-                         jsonb_array_elements(lr."DropsJson") AS drop_elem
+                    SELECT DISTINCT ld."Name" AS "ItemName",
+                           MIN(ld."ItemId") AS "ItemId"
+                    FROM "LootDrops" ld
                     WHERE NOT EXISTS (
-                        SELECT 1 FROM "ItemIcons" ii WHERE LOWER(ii."ItemName") = LOWER(drop_elem->>'Name')
+                        SELECT 1 FROM "ItemIcons" ii WHERE LOWER(ii."ItemName") = LOWER(ld."Name")
                     )
-                    GROUP BY drop_elem->>'Name'
+                    GROUP BY ld."Name"
                     LIMIT {0}
                     """, limit)
                 .ToListAsync();

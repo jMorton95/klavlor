@@ -226,14 +226,14 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
         // join doesn't fan out the SUMs.
         var sql = $"""
             WITH agg AS (
-                SELECT drop_elem->>'Name' as item_name,
-                       SUM((drop_elem->>'Quantity')::bigint) as total_qty,
-                       SUM((drop_elem->>'Quantity')::bigint * (drop_elem->>'Price')::bigint) as total_value
-                FROM "LootRecords" lr,
-                     jsonb_array_elements(lr."DropsJson") AS drop_elem
+                SELECT ld."Name" as item_name,
+                       SUM(ld."Quantity"::bigint) as total_qty,
+                       SUM(ld."Quantity"::bigint * ld."Price"::bigint) as total_value
+                FROM "LootRecords" lr
+                JOIN "LootDrops" ld ON ld."LootRecordId" = lr."Id"
                 WHERE lr."GameCharacterId" = @characterId
                   AND lr."SourceName" = @sourceName
-                GROUP BY drop_elem->>'Name'
+                GROUP BY ld."Name"
             )
             SELECT a.item_name, a.total_qty, a.total_value,
                    dr."Rarity", dr."RarityNumerator", dr."RarityDenominator"
@@ -278,15 +278,15 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
         const string sql = """
             SELECT lr."SourceName", lr."SourceType"::text,
                    COUNT(DISTINCT lr."Id") as "TotalKills",
-                   drop_elem->>'Name' as "ItemName",
-                   SUM((drop_elem->>'Quantity')::bigint) as "TotalQuantity",
-                   SUM((drop_elem->>'Quantity')::bigint * (drop_elem->>'Price')::bigint) as "TotalItemValue"
-            FROM "LootRecords" lr,
-                 jsonb_array_elements(lr."DropsJson") AS drop_elem
+                   ld."Name" as "ItemName",
+                   SUM(ld."Quantity"::bigint) as "TotalQuantity",
+                   SUM(ld."Quantity"::bigint * ld."Price"::bigint) as "TotalItemValue"
+            FROM "LootRecords" lr
+            JOIN "LootDrops" ld ON ld."LootRecordId" = lr."Id"
             WHERE lr."GameCharacterId" = @characterId
-              AND drop_elem->>'Name' ILIKE '%' || @searchTerm || '%'
+              AND ld."Name" ILIKE '%' || @searchTerm || '%'
               AND lr."SourceName" NOT ILIKE '%' || @searchTerm || '%'
-            GROUP BY lr."SourceName", lr."SourceType", drop_elem->>'Name'
+            GROUP BY lr."SourceName", lr."SourceType", ld."Name"
             ORDER BY "TotalItemValue" DESC
             LIMIT 500
             """;
@@ -606,16 +606,16 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                         FROM marked
                     )
                     SELECT s.session_no,
-                           drop_elem->>'Name' AS name,
-                           SUM((drop_elem->>'Quantity')::bigint) AS qty,
-                           SUM((drop_elem->>'Quantity')::bigint * (drop_elem->>'Price')::bigint) AS val,
-                           MAX((drop_elem->>'Price')::int) AS price,
-                           bool_or(COALESCE((drop_elem->>'IsFirstTime')::boolean, false)) AS first_time,
-                           MAX((drop_elem->>'ItemId')::int) AS item_id
-                    FROM sessioned s,
-                         jsonb_array_elements(s."DropsJson") AS drop_elem
+                           ld."Name" AS name,
+                           SUM(ld."Quantity"::bigint) AS qty,
+                           SUM(ld."Quantity"::bigint * ld."Price"::bigint) AS val,
+                           MAX(ld."Price") AS price,
+                           bool_or(ld."IsFirstTime") AS first_time,
+                           MAX(ld."ItemId") AS item_id
+                    FROM sessioned s
+                    JOIN "LootDrops" ld ON ld."LootRecordId" = s."Id"
                     WHERE s.session_no = ANY(@sessionNos)
-                    GROUP BY s.session_no, drop_elem->>'Name'
+                    GROUP BY s.session_no, ld."Name"
                     ORDER BY s.session_no, val DESC
                     """;
 
@@ -1210,11 +1210,11 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
         if (connection.State != System.Data.ConnectionState.Open) await connection.OpenAsync();
 
         var sql = """
-            SELECT COUNT(DISTINCT drop_elem->>'Name')::int
-            FROM "LootRecords" lr,
-                 jsonb_array_elements(lr."DropsJson") AS drop_elem
+            SELECT COUNT(DISTINCT ld."Name")::int
+            FROM "LootRecords" lr
+            JOIN "LootDrops" ld ON ld."LootRecordId" = lr."Id"
             WHERE lr."GameCharacterId" = @cid
-              AND (drop_elem->>'IsFirstTime')::boolean = true
+              AND ld."IsFirstTime" = true
               AND (@from IS NULL OR lr."OccurredAt" >= @from)
               AND (@to IS NULL OR lr."OccurredAt" < @to)
             """;
@@ -1260,15 +1260,15 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 LEFT JOIN (
                     SELECT (("OccurredAt" AT TIME ZONE 'Europe/London')::date) AS day,
                            COUNT(*)::int AS clogs
-                    FROM "LootRecords" lr,
-                         jsonb_array_elements(lr."DropsJson") AS drop_elem
+                    FROM "LootRecords" lr
+                    JOIN "LootDrops" ld ON ld."LootRecordId" = lr."Id"
                     WHERE lr."GameCharacterId" = @cid
                       AND lr."OccurredAt" >= @from
                       AND lr."OccurredAt" < @to
-                      AND (drop_elem->>'IsFirstTime')::boolean = true
+                      AND ld."IsFirstTime" = true
                       AND EXISTS (
                           SELECT 1 FROM "EffectiveCollectionLogItems" cli
-                          WHERE cli."ItemId" = (drop_elem->>'ItemId')::int
+                          WHERE cli."ItemId" = ld."ItemId"
                       )
                     GROUP BY 1
                 ) c USING (day)
@@ -1328,15 +1328,15 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                     SELECT EXTRACT(year FROM ((lr."OccurredAt" AT TIME ZONE 'Europe/London')::date))::int AS y,
                            EXTRACT(month FROM ((lr."OccurredAt" AT TIME ZONE 'Europe/London')::date))::int AS m,
                            COUNT(*)::int AS clogs
-                    FROM "LootRecords" lr,
-                         jsonb_array_elements(lr."DropsJson") AS drop_elem
+                    FROM "LootRecords" lr
+                    JOIN "LootDrops" ld ON ld."LootRecordId" = lr."Id"
                     WHERE lr."GameCharacterId" = @cid
                       AND (@from IS NULL OR lr."OccurredAt" >= @from)
                       AND lr."OccurredAt" < @to
-                      AND (drop_elem->>'IsFirstTime')::boolean = true
+                      AND ld."IsFirstTime" = true
                       AND EXISTS (
                           SELECT 1 FROM "EffectiveCollectionLogItems" cli
-                          WHERE cli."ItemId" = (drop_elem->>'ItemId')::int
+                          WHERE cli."ItemId" = ld."ItemId"
                       )
                     GROUP BY 1, 2
                 ) c USING (y, m)
@@ -1373,10 +1373,10 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                     SELECT EXTRACT(year FROM ((lr."OccurredAt" AT TIME ZONE 'Europe/London')::date))::int AS y,
                            EXTRACT(month FROM ((lr."OccurredAt" AT TIME ZONE 'Europe/London')::date))::int AS m,
                            lr."SourceName" AS source_name,
-                           drop_elem->>'Name' AS item_name,
-                           ((drop_elem->>'Quantity')::bigint * (drop_elem->>'Price')::bigint) AS value
-                    FROM "LootRecords" lr,
-                         jsonb_array_elements(lr."DropsJson") AS drop_elem
+                           ld."Name" AS item_name,
+                           (ld."Quantity"::bigint * ld."Price"::bigint) AS value
+                    FROM "LootRecords" lr
+                    JOIN "LootDrops" ld ON ld."LootRecordId" = lr."Id"
                     WHERE lr."GameCharacterId" = @cid
                       AND (@from IS NULL OR lr."OccurredAt" >= @from)
                       AND lr."OccurredAt" < @to
@@ -1567,13 +1567,13 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
         if (connection.State != System.Data.ConnectionState.Open) await connection.OpenAsync();
 
         const string sql = """
-            SELECT drop_elem->>'Name' AS item_name,
-                   (drop_elem->>'Quantity')::int AS qty,
-                   ((drop_elem->>'Quantity')::bigint * (drop_elem->>'Price')::bigint) AS value,
+            SELECT ld."Name" AS item_name,
+                   ld."Quantity" AS qty,
+                   (ld."Quantity"::bigint * ld."Price"::bigint) AS value,
                    lr."SourceName",
                    lr."OccurredAt"
-            FROM "LootRecords" lr,
-                 jsonb_array_elements(lr."DropsJson") AS drop_elem
+            FROM "LootRecords" lr
+            JOIN "LootDrops" ld ON ld."LootRecordId" = lr."Id"
             WHERE lr."GameCharacterId" = @cid
             ORDER BY value DESC NULLS LAST
             LIMIT 1
@@ -1611,16 +1611,16 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             const string sql = """
                 WITH unrolled AS (
                     SELECT lr."Id", lr."OccurredAt", lr."KillCount",
-                           drop_elem->>'Name' AS item_name,
-                           (drop_elem->>'Quantity')::bigint AS qty,
-                           ((drop_elem->>'Quantity')::bigint * (drop_elem->>'Price')::bigint) AS value,
-                           (drop_elem->>'IsFirstTime')::boolean AS first_time
-                    FROM "LootRecords" lr,
-                         jsonb_array_elements(lr."DropsJson") AS drop_elem
+                           ld."Name" AS item_name,
+                           ld."Quantity"::bigint AS qty,
+                           (ld."Quantity"::bigint * ld."Price"::bigint) AS value,
+                           ld."IsFirstTime" AS first_time
+                    FROM "LootRecords" lr
+                    JOIN "LootDrops" ld ON ld."LootRecordId" = lr."Id"
                     WHERE lr."GameCharacterId" = @cid AND lr."SourceName" = @source
                       AND EXISTS (
                           SELECT 1 FROM "EffectiveCollectionLogItems" cli
-                          WHERE cli."ItemId" = (drop_elem->>'ItemId')::int
+                          WHERE cli."ItemId" = ld."ItemId"
                       )
                 ),
                 agg AS (
@@ -1714,11 +1714,11 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                        AND lower(dr."ItemName") = lower(cli."Name")
                     WHERE @source = ANY (cli."Tabs")
                       AND NOT EXISTS (
-                          SELECT 1 FROM "LootRecords" lr,
-                                       jsonb_array_elements(lr."DropsJson") AS drop_elem
+                          SELECT 1 FROM "LootRecords" lr
+                          JOIN "LootDrops" ld ON ld."LootRecordId" = lr."Id"
                           WHERE lr."GameCharacterId" = @cid
                             AND lr."SourceName" = @source
-                            AND (drop_elem->>'ItemId')::int = cli."ItemId"
+                            AND ld."ItemId" = cli."ItemId"
                       )
                     ORDER BY dr."RarityDenominator" DESC NULLS LAST, cli."Name"
                     """;
@@ -1765,7 +1765,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             {
                 await using var eventsCmd = connection.CreateCommand();
                 eventsCmd.CommandText = """
-                    SELECT drop_elem->>'Name' AS item_name,
+                    SELECT ld."Name" AS item_name,
                            lr."OccurredAt",
                            lr."KillCount",
                            (SELECT COUNT(*)::int FROM "LootRecords" o
@@ -1773,14 +1773,14 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                               AND o."SourceName" = @source
                               AND (o."OccurredAt" < lr."OccurredAt"
                                    OR (o."OccurredAt" = lr."OccurredAt" AND o."Id" <= lr."Id"))) AS kill_ordinal
-                    FROM "LootRecords" lr,
-                         jsonb_array_elements(lr."DropsJson") AS drop_elem
+                    FROM "LootRecords" lr
+                    JOIN "LootDrops" ld ON ld."LootRecordId" = lr."Id"
                     WHERE lr."GameCharacterId" = @cid AND lr."SourceName" = @source
                       AND EXISTS (
                           SELECT 1 FROM "EffectiveCollectionLogItems" cli
-                          WHERE cli."ItemId" = (drop_elem->>'ItemId')::int
+                          WHERE cli."ItemId" = ld."ItemId"
                       )
-                    ORDER BY drop_elem->>'Name', lr."OccurredAt" ASC, lr."Id" ASC
+                    ORDER BY ld."Name", lr."OccurredAt" ASC, lr."Id" ASC
                     """;
                 eventsCmd.Parameters.Add(new NpgsqlParameter("@cid", characterId));
                 eventsCmd.Parameters.Add(new NpgsqlParameter("@source", sourceName));
@@ -1845,14 +1845,14 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             await using (var unlockedCmd = connection.CreateCommand())
             {
                 unlockedCmd.CommandText = """
-                    SELECT COUNT(DISTINCT drop_elem->>'Name')::int
-                    FROM "LootRecords" lr,
-                         jsonb_array_elements(lr."DropsJson") AS drop_elem
+                    SELECT COUNT(DISTINCT ld."Name")::int
+                    FROM "LootRecords" lr
+                    JOIN "LootDrops" ld ON ld."LootRecordId" = lr."Id"
                     WHERE lr."GameCharacterId" = @cid
                       AND lr."SourceName" = @source
                       AND EXISTS (
                           SELECT 1 FROM "EffectiveCollectionLogItems" cli
-                          WHERE cli."ItemId" = (drop_elem->>'ItemId')::int
+                          WHERE cli."ItemId" = ld."ItemId"
                             AND @source = ANY (cli."Tabs")
                       )
                     """;
@@ -1905,22 +1905,22 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 SELECT lr."OccurredAt",
                        lr."SourceName",
                        lr."SourceType"::text,
-                       drop_elem->>'Name' AS item_name,
-                       (drop_elem->>'Quantity')::int AS qty,
-                       ((drop_elem->>'Quantity')::bigint * (drop_elem->>'Price')::bigint) AS value,
+                       ld."Name" AS item_name,
+                       ld."Quantity" AS qty,
+                       (ld."Quantity"::bigint * ld."Price"::bigint) AS value,
                        lr."KillCount",
                        (SELECT COUNT(*)::int FROM "LootRecords" o
                         WHERE o."GameCharacterId" = lr."GameCharacterId"
                           AND o."SourceName" = lr."SourceName"
                           AND (o."OccurredAt" < lr."OccurredAt"
                                OR (o."OccurredAt" = lr."OccurredAt" AND o."Id" <= lr."Id"))) AS kill_ordinal
-                FROM "LootRecords" lr,
-                     jsonb_array_elements(lr."DropsJson") AS drop_elem
+                FROM "LootRecords" lr
+                JOIN "LootDrops" ld ON ld."LootRecordId" = lr."Id"
                 WHERE lr."GameCharacterId" = @cid
-                  AND (drop_elem->>'IsFirstTime')::boolean = true
+                  AND ld."IsFirstTime" = true
                   AND EXISTS (
                       SELECT 1 FROM "EffectiveCollectionLogItems" cli
-                      WHERE cli."ItemId" = (drop_elem->>'ItemId')::int
+                      WHERE cli."ItemId" = ld."ItemId"
                   )
                   AND (@before IS NULL OR lr."OccurredAt" < @before)
                 ORDER BY lr."OccurredAt" DESC
@@ -1975,12 +1975,12 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             const string sql = """
                 WITH unrolled AS (
                     SELECT lr."OccurredAt", lr."SourceName",
-                           d->>'Name' AS item_name,
-                           (d->>'Quantity')::bigint AS qty,
-                           ((d->>'Quantity')::bigint * (d->>'Price')::bigint) AS value,
-                           (d->>'IsFirstTime')::boolean AS first_time
-                    FROM "LootRecords" lr,
-                         jsonb_array_elements(lr."DropsJson") AS d
+                           ld."Name" AS item_name,
+                           ld."Quantity"::bigint AS qty,
+                           (ld."Quantity"::bigint * ld."Price"::bigint) AS value,
+                           ld."IsFirstTime" AS first_time
+                    FROM "LootRecords" lr
+                    JOIN "LootDrops" ld ON ld."LootRecordId" = lr."Id"
                     WHERE lr."GameCharacterId" = @cid
                 ),
                 top_source AS (
