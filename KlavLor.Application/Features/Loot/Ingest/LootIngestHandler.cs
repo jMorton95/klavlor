@@ -340,6 +340,17 @@ public sealed class LootIngestHandler(
 
     private static void FinalizeDrops(LootRecord record, List<LootDrop> drops)
     {
+        // DropsJson stays the canonical record; the normalised LootDrop rows are written
+        // from the same finalised list so both representations agree. EF inserts the child
+        // rows when the LootRecord is added (single- or batch-ingest both funnel here).
         record.DropsJson = JsonSerializer.Serialize(drops);
+        record.ReplaceDropRows(drops.Select(d => new LootDropRow
+        {
+            ItemId = d.ItemId,
+            Name = d.Name,
+            Quantity = d.Quantity,
+            Price = d.Price,
+            IsFirstTime = d.IsFirstTime
+        }));
     }
 }

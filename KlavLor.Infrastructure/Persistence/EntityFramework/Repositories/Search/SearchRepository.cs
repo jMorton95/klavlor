@@ -121,21 +121,21 @@ internal sealed class SearchRepository(DataContext dataContext, ILogger<SearchRe
             if (connection.State != System.Data.ConnectionState.Open)
                 await connection.OpenAsync();
 
-            // Item-name matches inside actual loot (DropsJson), aggregated per item across
-            // every source it has dropped from. Visible characters only. This is the
-            // heaviest section (full JSONB unroll, no index on extracted names) so it is
-            // capped and lazy-loaded last on the search page.
+            // Item-name matches inside actual loot, aggregated per item across every source
+            // it has dropped from. Visible characters only. Reads the normalised LootDrops
+            // projection so the name match rides the gin_trgm index instead of unrolling
+            // every record's JSONB (the previous heaviest section).
             const string sql = """
                 WITH unrolled AS (
-                    SELECT d->>'Name' AS item_name,
+                    SELECT ld."Name" AS item_name,
                            lr."SourceName" AS source_name,
-                           (d->>'Quantity')::bigint AS qty,
-                           ((d->>'Quantity')::bigint * (d->>'Price')::bigint) AS value
-                    FROM "LootRecords" lr
+                           ld."Quantity"::bigint AS qty,
+                           (ld."Quantity"::bigint * ld."Price"::bigint) AS value
+                    FROM "LootDrops" ld
+                    JOIN "LootRecords" lr ON lr."Id" = ld."LootRecordId"
                     JOIN "GameCharacters" gc ON gc."Id" = lr."GameCharacterId"
-                       , jsonb_array_elements(lr."DropsJson") AS d
                     WHERE gc."IsVisible" = true AND gc."IsAdminHidden" = false
-                      AND d->>'Name' ILIKE '%' || @term || '%'
+                      AND ld."Name" ILIKE '%' || @term || '%'
                 ),
                 top_source AS (
                     SELECT item_name, source_name, SUM(value) AS sv,

@@ -137,7 +137,7 @@ internal sealed class LootRecordRepository(DataContext dataContext, ILogger<Loot
                         WHEN EXISTS (SELECT 1 FROM firsts f
                                      WHERE f.rec_id = lr."Id"
                                        AND f.item_name = d.elem->>'Name')
-                        THEN (d.elem - 'IsFirstTime') || '{"IsFirstTime": true}'::jsonb
+                        THEN (d.elem - 'IsFirstTime') || jsonb_build_object('IsFirstTime', true)
                         ELSE d.elem - 'IsFirstTime'
                     END
                     ORDER BY d.idx
@@ -149,6 +149,37 @@ internal sealed class LootRecordRepository(DataContext dataContext, ILogger<Loot
 
         await dataContext.Database.ExecuteSqlRawAsync(sql,
             new NpgsqlParameter("@cid", gameCharacterId));
+
+        // DropsJson just changed (IsFirstTime flags moved), so the normalised LootDrop
+        // projection for this character is now stale — rebuild it from the canonical JSON.
+        await RebuildDropsForCharacter(gameCharacterId);
+    }
+
+    // Rebuilds the LootDrop projection for one character's records straight from their
+    // (canonical) DropsJson. Used after a first-time reflag; also the recovery path if the
+    // projection ever drifts. Delete + reinsert keeps it provably equal to DropsJson.
+    public async Task RebuildDropsForCharacter(int gameCharacterId)
+    {
+        const string deleteSql = """
+            DELETE FROM "LootDrops" ld
+            USING "LootRecords" lr
+            WHERE ld."LootRecordId" = lr."Id" AND lr."GameCharacterId" = @cid
+            """;
+        const string insertSql = """
+            INSERT INTO "LootDrops" ("LootRecordId", "ItemId", "Name", "Quantity", "Price", "IsFirstTime")
+            SELECT lr."Id",
+                   COALESCE((d->>'ItemId')::int, 0),
+                   COALESCE(d->>'Name', ''),
+                   COALESCE((d->>'Quantity')::int, 0),
+                   COALESCE((d->>'Price')::int, 0),
+                   COALESCE((d->>'IsFirstTime')::boolean, false)
+            FROM "LootRecords" lr,
+                 jsonb_array_elements(lr."DropsJson") AS d
+            WHERE lr."GameCharacterId" = @cid
+            """;
+
+        await dataContext.Database.ExecuteSqlRawAsync(deleteSql, new NpgsqlParameter("@cid", gameCharacterId));
+        await dataContext.Database.ExecuteSqlRawAsync(insertSql, new NpgsqlParameter("@cid", gameCharacterId));
     }
 
     public async Task<int> GetKillOrdinal(int gameCharacterId, string sourceName, DateTimeOffset occurredAt, int recordId)

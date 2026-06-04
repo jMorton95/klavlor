@@ -39,4 +39,17 @@ public sealed class LootRecord : Entity
 
     [ForeignKey(nameof(GameCharacterId))]
     public GameCharacter? GameCharacter { get; set; }
+
+    // Normalised projection of DropsJson (see LootDropRow). DropsJson stays canonical;
+    // these rows are kept in lock-step on write and are fully rebuildable from it.
+    private readonly List<LootDropRow> _drops = [];
+    public IReadOnlyCollection<LootDropRow> Drops => _drops.AsReadOnly();
+
+    // Replaces the projected drop rows from the canonical drop list (called on ingest
+    // after the in-memory drops are finalised, so both representations agree).
+    public void ReplaceDropRows(IEnumerable<LootDropRow> rows)
+    {
+        _drops.Clear();
+        _drops.AddRange(rows);
+    }
 }

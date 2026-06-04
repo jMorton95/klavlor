@@ -21,6 +21,7 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
     public virtual DbSet<CanvasAnnotation> CanvasAnnotations => Set<CanvasAnnotation>();
     public virtual DbSet<CanvasRegion> CanvasRegions => Set<CanvasRegion>();
     public virtual DbSet<LootRecord> LootRecords => Set<LootRecord>();
+    public virtual DbSet<LootDropRow> LootDrops => Set<LootDropRow>();
     public virtual DbSet<ApiKey> ApiKeys => Set<ApiKey>();
     public virtual DbSet<ItemIcon> ItemIcons => Set<ItemIcon>();
     public virtual DbSet<SourceIcon> SourceIcons => Set<SourceIcon>();
@@ -297,6 +298,28 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
         modelBuilder.Entity<LootRecord>()
             .HasIndex(l => new { l.GameCharacterId, l.TotalValue, l.OccurredAt })
             .HasDatabaseName("IX_LootRecords_GameCharacterId_TotalValue_OccurredAt");
+
+        // LootDropRow configuration — normalised, rebuildable projection of DropsJson.
+        // Owned by its LootRecord (cascade delete); DropsJson remains the canonical source.
+        // The gin_trgm index on Name (for item-name ILIKE search) is added in the migration
+        // as raw SQL since EF's fluent API can't express operator-class indexes.
+        modelBuilder.Entity<LootRecord>()
+            .Navigation(l => l.Drops)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        modelBuilder.Entity<LootDropRow>()
+            .HasOne(d => d.LootRecord)
+            .WithMany(l => l.Drops)
+            .HasForeignKey(d => d.LootRecordId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<LootDropRow>()
+            .HasIndex(d => d.ItemId);
+
+        // Partial index backs the first-time collection-log feeds.
+        modelBuilder.Entity<LootDropRow>()
+            .HasIndex(d => d.IsFirstTime)
+            .HasFilter("\"IsFirstTime\"");
 
         // GameCharacter configuration
         modelBuilder.Entity<GameCharacter>()
