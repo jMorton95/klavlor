@@ -33,12 +33,16 @@ public sealed record SourcePlayerRow(
 
 // A historical "first-time collection-log item" event: the moment a character first
 // received a collection-log item from this source. Newest first.
+// KillCount is the real in-game KC RuneLite reported (usually absent); KillOrdinal is
+// the derived position in this character's kills at the source (always present) — shown
+// as a "Kill #N" fallback, matching the per-character LootLogKillEntry convention.
 public sealed record SourceClogEvent(
     string CharacterName,
     int GameCharacterId,
     string ItemName,
     DateTimeOffset OccurredAt,
-    int? KillCount);
+    int? KillCount,
+    int KillOrdinal);
 
 // Every item dropped at a source, ranked by how many times it has dropped (occurrence
 // count across all visible characters), with a per-character breakdown for the hover card.
@@ -63,5 +67,7 @@ public sealed record SourceTrendCharacter(
     long Kills,
     IReadOnlyList<SourceTrendClog> Clogs);
 
-// A collection-log item a character first received in a given month at the source.
-public sealed record SourceTrendClog(string ItemName, int? KillCount);
+// A collection-log item a character received in a given month at the source.
+// KillCount = real RuneLite-reported KC (usually null); KillOrdinal = derived running
+// kill position at this source (always present), shown as "Kill #N" when KC is absent.
+public sealed record SourceTrendClog(string ItemName, int? KillCount, int KillOrdinal);

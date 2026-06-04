@@ -60,6 +60,14 @@ public sealed class AdminSettingsEndpoint : IEndpoint
         app.MapGet(AppRoutes.AdminSourceSearch.FromApi(), SearchSources)
             .RequireAuthorization(nameof(RoleName.Admin));
 
+        // Read-only impact preview shown before a rename/merge is committed.
+        app.MapGet(AppRoutes.AdminSourceRenamePreview.FromApi(), PreviewRename)
+            .RequireAuthorization(nameof(RoleName.Admin));
+
+        // Re-renders a single source row (used to cancel out of the preview).
+        app.MapGet(AppRoutes.AdminSourceRow.FromApi(), GetSourceRow)
+            .RequireAuthorization(nameof(RoleName.Admin));
+
         // Rename takes the new name from a form field (dynamic), so antiforgery is disabled;
         // it's admin-gated, rate-limited, and the auth cookie is SameSite=Strict.
         return app.MapPost(AppRoutes.AdminSourceRename.FromApi(), RenameSource)
@@ -170,6 +178,32 @@ public sealed class AdminSettingsEndpoint : IEndpoint
         var items = await handler.Search(searchTerm);
         return IResultExtensions.Component<SourceNamesPanel>(new { Items = items, SearchTerm = searchTerm });
     }
+
+    private static async Task<RazorComponentResult> PreviewRename(
+        [FromQuery] string from,
+        [FromQuery] string to,
+        [FromQuery] int rowIndex,
+        [FromQuery] long count,
+        SourceAdminHandler handler)
+    {
+        var preview = await handler.Preview(from, to);
+        return IResultExtensions.Component<SourceRenamePreviewRow>(new
+        {
+            Preview = preview,
+            RowIndex = rowIndex,
+            LootCount = count
+        });
+    }
+
+    private static RazorComponentResult GetSourceRow(
+        [FromQuery] string name,
+        [FromQuery] long count,
+        [FromQuery] int rowIndex)
+        => IResultExtensions.Component<SourceNameRowItem>(new
+        {
+            Item = new SourceNameRow(name, count),
+            RowIndex = rowIndex
+        });
 
     private static async Task<RazorComponentResult> RenameSource(
         [FromQuery] string from,

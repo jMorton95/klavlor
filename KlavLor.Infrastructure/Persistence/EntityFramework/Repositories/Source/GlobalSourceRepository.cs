@@ -196,8 +196,10 @@ internal sealed class GlobalSourceRepository(DataContext dataContext, ILogger<Gl
             // flagged IsFirstTime (first time that character received it) whose item is a
             // real collection-log entry. Newest first — a running "who logged what" feed.
             //
-            // KillCount is rarely recorded by RuneLite, so we derive a running kill number
-            // per character at this source ordered by time and prefer the recorded value.
+            // RuneLite rarely records an absolute KillCount, so we also derive a running
+            // kill ordinal per character at this source. The real KC (nullable) and the
+            // ordinal are returned separately; the UI shows "KC #N" or falls back to
+            // "Kill #N", matching the per-character LootLogKillEntry convention.
             var sql = $"""
                 WITH kills AS (
                     SELECT lr."Id" AS loot_id,
@@ -211,7 +213,8 @@ internal sealed class GlobalSourceRepository(DataContext dataContext, ILogger<Gl
                        COALESCE(gc."DisplayName", u."FirstName" || ' ' || u."LastName") AS character_name,
                        gc."Id" AS game_character_id,
                        drop_elem->>'Name' AS item_name,
-                       COALESCE(lr."KillCount", k.running_kc)::int AS kc
+                       lr."KillCount" AS kc,
+                       k.running_kc::int AS kill_ordinal
                 FROM "LootRecords" lr
                 JOIN kills k ON k.loot_id = lr."Id"
                 JOIN "GameCharacters" gc ON gc."Id" = lr."GameCharacterId"
@@ -242,7 +245,8 @@ internal sealed class GlobalSourceRepository(DataContext dataContext, ILogger<Gl
                     GameCharacterId: reader.GetInt32(2),
                     ItemName: reader.GetString(3),
                     OccurredAt: reader.GetFieldValue<DateTimeOffset>(0),
-                    KillCount: reader.IsDBNull(4) ? null : reader.GetInt32(4)));
+                    KillCount: reader.IsDBNull(4) ? null : reader.GetInt32(4),
+                    KillOrdinal: reader.GetInt32(5)));
             }
 
             return events;
@@ -365,8 +369,9 @@ internal sealed class GlobalSourceRepository(DataContext dataContext, ILogger<Gl
             // limited to first-time unlocks.)
             //
             // RuneLite rarely records an absolute KillCount on a loot record (most rows are
-            // null), so we derive a running kill number per character at this source ordered
-            // by time, and prefer the recorded KillCount when one is present.
+            // null), so we also derive a running kill ordinal per character at this source.
+            // Real KC (nullable) and the ordinal are returned separately so the hover can
+            // show "KC #N" or fall back to "Kill #N", matching LootLogKillEntry.
             var clogSql = $"""
                 WITH kills AS (
                     SELECT lr."Id" AS loot_id,
@@ -380,7 +385,8 @@ internal sealed class GlobalSourceRepository(DataContext dataContext, ILogger<Gl
                        EXTRACT(month FROM ((lr."OccurredAt" AT TIME ZONE 'Europe/London')::date))::int AS m,
                        COALESCE(gc."DisplayName", u."FirstName" || ' ' || u."LastName") AS character_name,
                        drop_elem->>'Name' AS item_name,
-                       COALESCE(lr."KillCount", k.running_kc)::int AS kc
+                       lr."KillCount" AS kc,
+                       k.running_kc::int AS kill_ordinal
                 FROM "LootRecords" lr
                 JOIN kills k ON k.loot_id = lr."Id"
                 JOIN "GameCharacters" gc ON gc."Id" = lr."GameCharacterId"
@@ -408,7 +414,10 @@ internal sealed class GlobalSourceRepository(DataContext dataContext, ILogger<Gl
                         list = [];
                         clogsByMonthChar[key] = list;
                     }
-                    list.Add(new SourceTrendClog(reader.GetString(3), reader.IsDBNull(4) ? null : reader.GetInt32(4)));
+                    list.Add(new SourceTrendClog(
+                        reader.GetString(3),
+                        reader.IsDBNull(4) ? null : reader.GetInt32(4),
+                        reader.GetInt32(5)));
                 }
             }
 

@@ -40,6 +40,33 @@ internal sealed class SourceAdminRepository(DataContext dataContext, ILogger<Sou
         }
     }
 
+    public async Task<SourceRenamePreview> PreviewRename(string from, string to)
+    {
+        try
+        {
+            var recordsToMove = await dataContext.LootRecords.CountAsync(r => r.SourceName == from);
+            var targetExisting = await dataContext.LootRecords.CountAsync(r => r.SourceName == to);
+            var dropRatesAffected = await dataContext.DropRates.CountAsync(d => d.SourceName == from);
+            var hasIcon = await dataContext.SourceIcons.AnyAsync(i => i.SourceName == from);
+
+            return new SourceRenamePreview(
+                From: from,
+                To: to,
+                RecordsToMove: recordsToMove,
+                IsMerge: targetExisting > 0,
+                TargetExistingRecords: targetExisting,
+                DropRatesAffected: dropRatesAffected,
+                HasIcon: hasIcon,
+                IsNoop: false,
+                NoopReason: null);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to preview rename '{From}' to '{To}'", from, to);
+            throw new RepositoryException("Failed to preview source rename", ex);
+        }
+    }
+
     public async Task<int> RenameSource(string from, string to)
     {
         try

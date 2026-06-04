@@ -105,6 +105,7 @@ public static class AppRoutes
     public const string LootLogCharacterFirsts = "/loot/log/{id:int}/records";
     public const string LootLogCharacterDay = "/loot/log/{id:int}/day/{date}";
     public const string LootLogSourceCollection = "/loot/log/{id:int}/source/collection";
+    public const string LootLogSourceSession = "/loot/log/{id:int}/source/session";
 
     public const string UserApiKeySection = "/admin/users/{id:int}/api-key";
     public const string UserApiKeyGenerate = "/admin/users/{id:int}/api-key/generate";
@@ -154,5 +155,7 @@ public static class AppRoutes
     public const string AdminSyncStatus = "/admin/settings/sync-status";
     public const string AdminClogSyncNow = "/admin/settings/collection-log/sync-now";
     public const string AdminSourceSearch = "/admin/settings/sources/search";
+    public const string AdminSourceRenamePreview = "/admin/settings/sources/rename/preview";
     public const string AdminSourceRename = "/admin/settings/sources/rename";
+    public const string AdminSourceRow = "/admin/settings/sources/row";
 }

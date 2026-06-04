@@ -35,7 +35,7 @@ public sealed class GlobalSourceHandler(IGlobalSourceRepository repository, IMem
 
     private async Task<T> Cached<T>(string method, string sourceName, Func<Task<T>> factory)
     {
-        var version = GlobalSourceCache.GetVersion(cache);
+        var version = GlobalSourceCache.GetVersion(cache, sourceName);
         var key = GlobalSourceCache.EntryKey(version, method, sourceName);
 
         if (cache.TryGetValue(key, out T? hit) && hit is not null)

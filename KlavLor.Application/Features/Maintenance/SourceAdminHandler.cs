@@ -18,6 +18,21 @@ public sealed class SourceAdminHandler(
 
     public Task<List<SourceNameRow>> Search(string? term) => repository.Search(term, SearchLimit);
 
+    // Read-only impact estimate, used to show the admin what a rename/merge would do
+    // before they commit. Detects no-ops up front so the UI can disable confirmation.
+    public async Task<SourceRenamePreview> Preview(string from, string to)
+    {
+        from = from.Trim();
+        to = to.Trim();
+
+        if (from.Length == 0 || to.Length == 0)
+            return new SourceRenamePreview(from, to, 0, false, 0, 0, false, true, "Enter a target name.");
+        if (string.Equals(from, to, StringComparison.Ordinal))
+            return new SourceRenamePreview(from, to, 0, false, 0, 0, false, true, "The name is unchanged.");
+
+        return await repository.PreviewRename(from, to);
+    }
+
     public async Task<SourceRenameResult> Rename(string from, string to)
     {
         from = from.Trim();
@@ -30,7 +45,8 @@ public sealed class SourceAdminHandler(
         var moved = await repository.RenameSource(from, to);
 
         // Global source-page aggregates changed for both the old and new names.
-        GlobalSourceCache.Invalidate(cache);
+        GlobalSourceCache.Invalidate(cache, from);
+        GlobalSourceCache.Invalidate(cache, to);
 
         logger.LogWarning("Admin {UserId} renamed loot source {From} -> {To} ({Moved} records moved)",
             currentUser.UserId, from, to, moved);

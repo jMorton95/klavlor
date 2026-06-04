@@ -73,8 +73,8 @@ public sealed class LootIngestHandler(
         if (character is not null)
         {
             LootStatsCache.Invalidate(memoryCache, character.Id);
-            // Source pages aggregate over all characters — bump the global source version.
-            GlobalSourceCache.Invalidate(memoryCache);
+            // Source pages aggregate over all characters — bump only this source's version.
+            GlobalSourceCache.Invalidate(memoryCache, record.SourceName);
         }
 
         if (ShouldPublishToFeed(record, character))
@@ -178,8 +178,14 @@ public sealed class LootIngestHandler(
         foreach (var cid in charactersTouched)
             LootStatsCache.Invalidate(memoryCache, cid);
 
-        if (charactersTouched.Count > 0)
-            GlobalSourceCache.Invalidate(memoryCache);
+        // Source pages aggregate over all visible characters — bump only the versions of
+        // the sources this batch actually touched (records tied to a character).
+        var sourcesTouched = parsedItems
+            .Where(p => p.Character is not null)
+            .Select(p => p.Parsed.Record.SourceName)
+            .Distinct(StringComparer.Ordinal);
+        foreach (var source in sourcesTouched)
+            GlobalSourceCache.Invalidate(memoryCache, source);
 
         var liveRecords = parsedItems
             .Where(p => ShouldPublishToFeed(p.Parsed.Record, p.Character))
