@@ -1,0 +1,48 @@
+@page "/loot/log/{Id:int}/sources"
+@using KlavLor.Application.Common
+@using KlavLor.Application.Features.Loot.Log
+@using KlavLor.Web.Components.Layout
+
+@inject LootLogHandler LogHandler
+@inject LootCharacterProfileHandler ProfileHandler
+
+<PageLayout PageTitle="KlavLor - Sources" Title="@HeaderText" Description="Every source this character has loot from">
+    @if (_table is not null)
+    {
+        <CharacterSourcesContent Table="@_table" CharacterId="@Id" CharacterName="@_characterName" UpdateHeader="false" />
+    }
+</PageLayout>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    [SupplyParameterFromQuery(Name = "searchTerm")] public string? SearchTermParam { get; set; }
+    [SupplyParameterFromQuery(Name = "sortBy")] public string? SortByParam { get; set; }
+    [SupplyParameterFromQuery(Name = "sortDirection")] public string? SortDirectionParam { get; set; }
+    [SupplyParameterFromQuery(Name = "pageNumber")] public int? PageNumberParam { get; set; }
+
+    private SourceTable? _table;
+    private string? _characterName;
+
+    private string HeaderText => string.IsNullOrEmpty(_characterName) ? "Sources" : $"{_characterName}'s sources";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var dir = Enum.TryParse<SortDirection>(SortDirectionParam, ignoreCase: true, out var d)
+            ? d : SortDirection.Descending;
+
+        var query = new LootLogQuery(
+            PageSize: 20,
+            PageNumber: PageNumberParam ?? 1,
+            SortBy: SortByParam,
+            SearchTerm: SearchTermParam,
+            SortDirection: dir);
+
+        // Sequential awaits — scoped DbContext is not safe under concurrent use.
+        var result = await LogHandler.HandleSourceTable(Id, query);
+        if (result.IsSuccess) _table = result.Value;
+
+        var header = await ProfileHandler.HandleHeader(Id);
+        if (header.IsSuccess) _characterName = header.Value!.CharacterName;
+    }
+}

@@ -1,0 +1,41 @@
+@using KlavLor.Application.Features.Loot.Log
+
+@foreach (var row in Table.Rows)
+{
+    <SourceTableRowItem Row="row" CharacterId="CharacterId" />
+}
+
+@{
+    const int pageSize = 20;
+    var shown = PageNumber * pageSize;
+    if (shown > Table.TotalSources) shown = Table.TotalSources;
+}
+@if (Table.HasMore)
+{
+    <div id="source-table-more" hx-swap-oob="true" class="flex justify-center py-2"
+         hx-get="@MoreUrl(PageNumber + 1)" hx-target="#source-table-rows" hx-swap="beforeend" hx-trigger="click">
+        <button type="button"
+                class="px-6 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer">
+            Showing @shown of @Table.TotalSources sources
+        </button>
+    </div>
+}
+else
+{
+    <div id="source-table-more" hx-swap-oob="true"></div>
+}
+
+@code {
+    [Parameter] public required SourceTable Table { get; set; }
+    [Parameter] public int CharacterId { get; set; }
+    [Parameter] public int PageNumber { get; set; }
+
+    private string MoreUrl(int page)
+    {
+        var url = AppRoutes.LootLogCharacterSources.WithId(CharacterId).FromApi()
+            + $"?pageNumber={page}&sortBy={Table.SortBy}&sortDirection={Table.SortDirection}";
+        if (!string.IsNullOrEmpty(Table.SearchTerm))
+            url += $"&searchTerm={Uri.EscapeDataString(Table.SearchTerm)}";
+        return url;
+    }
+}

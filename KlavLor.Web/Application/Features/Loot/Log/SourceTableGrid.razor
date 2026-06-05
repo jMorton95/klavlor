@@ -1,0 +1,105 @@
+@using KlavLor.Application.Common
+@using KlavLor.Application.Features.Loot.Log
+
+<div id="source-table">
+    @* Hidden sort state — lives inside the swapped region so the search box (which
+       hx-includes these by id) always sends the current sort after a header click. *@
+    <input type="hidden" id="st-sort" name="sortBy" value="@Table.SortBy" />
+    <input type="hidden" id="st-dir" name="sortDirection" value="@Table.SortDirection" />
+
+    <div class="bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
+                <tr>
+                    @foreach (var col in Columns)
+                    {
+                        <th class="px-3 py-2 text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 @(col.Right ? "text-right" : "text-left")">
+                            <a hx-get="@SortUrl(col.Key)" hx-target="#source-table" hx-swap="outerHTML"
+                               class="inline-flex items-center gap-1 cursor-pointer hover:text-slate-700 dark:hover:text-slate-200 @(IsActive(col.Key) ? "text-amber-600 dark:text-amber-400" : "")">
+                                <span>@col.Label</span>
+                                <span class="text-[8px] leading-none w-2">@Arrow(col.Key)</span>
+                            </a>
+                        </th>
+                    }
+                </tr>
+            </thead>
+            <tbody id="source-table-rows" class="divide-y divide-slate-200 dark:divide-slate-700/50">
+                @if (Table.Rows.Count == 0)
+                {
+                    <tr><td colspan="@Columns.Length" class="px-3 py-8 text-center text-sm text-slate-400 dark:text-slate-500">No sources match.</td></tr>
+                }
+                else
+                {
+                    @foreach (var row in Table.Rows)
+                    {
+                        <SourceTableRowItem Row="row" CharacterId="CharacterId" />
+                    }
+                }
+            </tbody>
+            @if (Table.TotalSources > 0)
+            {
+                <tfoot class="border-t-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 font-medium">
+                    <tr>
+                        <td class="px-3 py-2 text-slate-600 dark:text-slate-300">@Table.Totals.Sources.ToString("N0") sources</td>
+                        <td class="px-3 py-2"></td>
+                        <td class="px-3 py-2 text-right tabular-nums text-slate-600 dark:text-slate-300">@Table.Totals.Kills.ToString("N0")</td>
+                        <td class="px-3 py-2 text-right tabular-nums text-amber-600 dark:text-amber-400">@GoldFormat.Format(Table.Totals.TotalValue)</td>
+                        <td class="px-3 py-2"></td>
+                        <td class="px-3 py-2 text-right tabular-nums text-slate-500 dark:text-slate-400">@Table.Totals.DistinctItems.ToString("N0")</td>
+                        <td class="px-3 py-2 text-right tabular-nums text-slate-500 dark:text-slate-400">@Table.Totals.TotalDrops.ToString("N0")</td>
+                        <td class="px-3 py-2" colspan="4"></td>
+                    </tr>
+                </tfoot>
+            }
+        </table>
+    </div>
+
+    @if (Table.HasMore)
+    {
+        <div id="source-table-more" class="flex justify-center py-2"
+             hx-get="@MoreUrl(2)" hx-target="#source-table-rows" hx-swap="beforeend" hx-trigger="click">
+            <button type="button"
+                    class="px-6 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer">
+                Showing @Table.Rows.Count of @Table.TotalSources sources
+            </button>
+        </div>
+    }
+    else
+    {
+        <div id="source-table-more"></div>
+    }
+</div>
+
+@code {
+    [Parameter] public required SourceTable Table { get; set; }
+    [Parameter] public int CharacterId { get; set; }
+
+    private static readonly (string Label, string Key, bool Right)[] Columns =
+    {
+        ("Source", "name", false), ("Type", "type", false), ("Kills", "kills", true), ("Total gp", "value", true),
+        ("Sessions", "sessions", true), ("Items", "items", true), ("Drops", "drops", true),
+        ("Biggest drop", "biggest", false), ("First", "first", true), ("Last", "last", true), ("Clog", "clog", true)
+    };
+
+    private bool IsActive(string key) => string.Equals(Table.SortBy, key, StringComparison.OrdinalIgnoreCase);
+    private string Arrow(string key) => !IsActive(key) ? "" : (Table.SortDirection == SortDirection.Ascending ? "▲" : "▼");
+
+    private string SortUrl(string key)
+    {
+        // Toggle direction when re-clicking the active column; otherwise default to descending.
+        var dir = IsActive(key) && Table.SortDirection == SortDirection.Descending ? "Ascending" : "Descending";
+        var url = AppRoutes.LootLogCharacterSources.WithId(CharacterId).FromApi() + $"?sortBy={key}&sortDirection={dir}";
+        if (!string.IsNullOrEmpty(Table.SearchTerm))
+            url += $"&searchTerm={Uri.EscapeDataString(Table.SearchTerm)}";
+        return url;
+    }
+
+    private string MoreUrl(int page)
+    {
+        var url = AppRoutes.LootLogCharacterSources.WithId(CharacterId).FromApi()
+            + $"?pageNumber={page}&sortBy={Table.SortBy}&sortDirection={Table.SortDirection}";
+        if (!string.IsNullOrEmpty(Table.SearchTerm))
+            url += $"&searchTerm={Uri.EscapeDataString(Table.SearchTerm)}";
+        return url;
+    }
+}

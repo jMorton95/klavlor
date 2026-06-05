@@ -1,3 +1,4 @@
+using KlavLor.Application.Common;
 using KlavLor.Domain.Entities;
 
 namespace KlavLor.Application.Features.Loot.Log;
@@ -98,3 +99,51 @@ public sealed record LootSourceSessions(
     List<LootSession> Sessions,
     bool HasMore,
     int TotalSessions);
+
+// One session in a character's cross-source history: a per-source run (same grouping as a
+// source's Kill Sessions, but interleaved across every source the character has killed).
+// Session.Index is the per-source session number, so the existing GetSessionKills expand
+// works unchanged when given (SourceName, Index).
+public sealed record CharacterSession(
+    string SourceName,
+    LootSourceType SourceType,
+    LootSession Session);
+
+public sealed record CharacterSessionHistory(
+    List<CharacterSession> Sessions,
+    bool HasMore,
+    int TotalSessions);
+
+// One row of the per-character sources table — a source the character has loot from, with
+// the metrics surfaced in the data-dense sortable view.
+public sealed record SourceTableRow(
+    string SourceName,
+    LootSourceType SourceType,
+    long Kills,
+    long TotalValue,
+    DateTimeOffset FirstSeen,
+    DateTimeOffset LastSeen,
+    int Sessions,
+    int DistinctItems,
+    long TotalDrops,
+    string? BiggestDropName,
+    long BiggestDropValue,
+    int ClogUnlocked,
+    int ClogTotal);
+
+// Aggregate footer across every source matching the current filter (not just the page).
+public sealed record SourceTableTotals(
+    int Sources,
+    long Kills,
+    long TotalValue,
+    long DistinctItems,
+    long TotalDrops);
+
+public sealed record SourceTable(
+    List<SourceTableRow> Rows,
+    SourceTableTotals Totals,
+    bool HasMore,
+    int TotalSources,
+    string? SearchTerm,
+    string SortBy,
+    SortDirection SortDirection);

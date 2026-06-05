@@ -43,6 +43,15 @@ public sealed class LootLogHandler(
         return Result<LootSourceDetail>.Success(result);
     }
 
+    public async Task<Result<SourceTable>> HandleSourceTable(int characterId, LootLogQuery query)
+    {
+        if (!await accessChecker.CanAccess(characterId))
+            return Result<SourceTable>.Failure("Character not found.");
+
+        var result = await lootLogRepository.GetCharacterSourceTable(characterId, query);
+        return Result<SourceTable>.Success(result);
+    }
+
     public const int SessionsPageSize = 15;
 
     public async Task<Result<LootSourceSessions>> HandleSourceSessions(int characterId, string sourceName, int pageNumber = 1)

@@ -754,6 +754,369 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
         int MaxOrd,
         long TotalGp);
 
+    // A character's play sessions across ALL sources. Gap-and-islands PARTITIONED by source
+    // (so each source's runs are independent sessions, matching the live feed's per-source
+    // grouping), then every session interleaved newest-first by end time and paged. The
+    // per-source session_no lines up with GetSessionKills, so expand reuses that unchanged.
+    private const char SessionKeySep = '\u0001';
+
+    public async Task<CharacterSessionHistory> GetCharacterSessions(int characterId, int pageNumber, int pageSize)
+    {
+        try
+        {
+            var connection = dataContext.Database.GetDbConnection();
+            if (connection.State != System.Data.ConnectionState.Open)
+                await connection.OpenAsync();
+
+            var skip = (pageNumber - 1) * pageSize;
+
+            const string sessionsSql = """
+                WITH ordered AS (
+                    SELECT "Id", "SourceName", "SourceType", "OccurredAt", "KillCount", "TotalValue",
+                           LAG("OccurredAt") OVER (PARTITION BY "SourceName" ORDER BY "OccurredAt", "Id") AS prev_at,
+                           ROW_NUMBER() OVER (PARTITION BY "SourceName" ORDER BY "OccurredAt", "Id") AS kill_ord
+                    FROM "LootRecords"
+                    WHERE "GameCharacterId" = @cid
+                ),
+                marked AS (
+                    SELECT *, CASE WHEN prev_at IS NULL OR ("OccurredAt" - prev_at) > @gap THEN 1 ELSE 0 END AS new_sess
+                    FROM ordered
+                ),
+                sessioned AS (
+                    SELECT *, SUM(new_sess) OVER (PARTITION BY "SourceName" ORDER BY "OccurredAt", "Id") AS session_no
+                    FROM marked
+                ),
+                summ AS (
+                    SELECT "SourceName", MIN("SourceType") AS source_type, session_no,
+                           MIN("OccurredAt") AS started, MAX("OccurredAt") AS ended,
+                           COUNT(*)::int AS kills,
+                           MIN("KillCount") AS min_kc, MAX("KillCount") AS max_kc,
+                           MIN(kill_ord)::int AS min_ord, MAX(kill_ord)::int AS max_ord,
+                           SUM("TotalValue")::bigint AS total_gp
+                    FROM sessioned GROUP BY "SourceName", session_no
+                ),
+                ranked AS (
+                    SELECT *, ROW_NUMBER() OVER (ORDER BY ended DESC) AS rnk,
+                           (COUNT(*) OVER ())::int AS total_sessions
+                    FROM summ
+                )
+                SELECT "SourceName", source_type, session_no, started, ended, kills,
+                       min_kc, max_kc, min_ord, max_ord, total_gp, total_sessions
+                FROM ranked
+                WHERE rnk > @skip AND rnk <= @skip + @take
+                ORDER BY ended DESC
+                """;
+
+            var rows = new List<CharacterSessionRow>();
+            var totalSessions = 0;
+            await using (var cmd = connection.CreateCommand())
+            {
+                cmd.CommandText = sessionsSql;
+                cmd.Parameters.Add(new NpgsqlParameter("@cid", characterId));
+                cmd.Parameters.Add(new NpgsqlParameter("@gap", LootFeedGrouping.MaxGap));
+                cmd.Parameters.Add(new NpgsqlParameter("@skip", skip));
+                cmd.Parameters.Add(new NpgsqlParameter("@take", pageSize));
+                await using var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    rows.Add(new CharacterSessionRow(
+                        reader.GetString(0),
+                        Enum.TryParse<LootSourceType>(reader.GetString(1), ignoreCase: true, out var st) ? st : LootSourceType.Unknown,
+                        reader.GetInt64(2),
+                        reader.GetFieldValue<DateTimeOffset>(3),
+                        reader.GetFieldValue<DateTimeOffset>(4),
+                        reader.GetInt32(5),
+                        reader.IsDBNull(6) ? null : reader.GetInt32(6),
+                        reader.IsDBNull(7) ? null : reader.GetInt32(7),
+                        reader.GetInt32(8),
+                        reader.GetInt32(9),
+                        reader.GetInt64(10)));
+                    totalSessions = reader.GetInt32(11);
+                }
+            }
+
+            // Per-(source, session) drop aggregation for just the page's sessions, keyed by
+            // "sourcesession_no" so the composite filter is a simple text ANY().
+            var dropsByKey = new Dictionary<string, List<LootKillDrop>>();
+            if (rows.Count > 0)
+            {
+                var keys = rows.Select(r => r.SourceName + SessionKeySep + r.SessionNo).ToArray();
+                const string dropsSql = """
+                    WITH ordered AS (
+                        SELECT "Id", "SourceName", "OccurredAt",
+                               LAG("OccurredAt") OVER (PARTITION BY "SourceName" ORDER BY "OccurredAt", "Id") AS prev_at
+                        FROM "LootRecords"
+                        WHERE "GameCharacterId" = @cid
+                    ),
+                    marked AS (
+                        SELECT *, CASE WHEN prev_at IS NULL OR ("OccurredAt" - prev_at) > @gap THEN 1 ELSE 0 END AS new_sess
+                        FROM ordered
+                    ),
+                    sessioned AS (
+                        SELECT *, SUM(new_sess) OVER (PARTITION BY "SourceName" ORDER BY "OccurredAt", "Id") AS session_no
+                        FROM marked
+                    )
+                    SELECT s."SourceName" || @sep || s.session_no::text AS skey,
+                           ld."Name" AS name,
+                           SUM(ld."Quantity"::bigint) AS qty,
+                           SUM(ld."Quantity"::bigint * ld."Price"::bigint) AS val,
+                           MAX(ld."Price") AS price,
+                           bool_or(ld."IsFirstTime") AS first_time,
+                           MAX(ld."ItemId") AS item_id
+                    FROM sessioned s
+                    JOIN "LootDrops" ld ON ld."LootRecordId" = s."Id"
+                    WHERE (s."SourceName" || @sep || s.session_no::text) = ANY(@keys)
+                    GROUP BY skey, ld."Name"
+                    ORDER BY skey, val DESC
+                    """;
+
+                await using var cmd = connection.CreateCommand();
+                cmd.CommandText = dropsSql;
+                cmd.Parameters.Add(new NpgsqlParameter("@cid", characterId));
+                cmd.Parameters.Add(new NpgsqlParameter("@gap", LootFeedGrouping.MaxGap));
+                cmd.Parameters.Add(new NpgsqlParameter("@sep", SessionKeySep.ToString()));
+                cmd.Parameters.Add(new NpgsqlParameter("@keys", keys));
+                await using var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    var key = reader.GetString(0);
+                    if (!dropsByKey.TryGetValue(key, out var list))
+                    {
+                        list = [];
+                        dropsByKey[key] = list;
+                    }
+                    var qty = reader.GetInt64(2);
+                    list.Add(new LootKillDrop(
+                        reader.GetString(1),
+                        (int)Math.Min(qty, int.MaxValue),
+                        reader.GetInt32(4),
+                        reader.GetBoolean(5),
+                        collectionLogCache.IsCollectionLogItem(reader.GetInt32(6))));
+                }
+            }
+
+            const int topDropsPerSession = 8;
+            var sessions = rows.Select(r =>
+            {
+                var drops = dropsByKey.TryGetValue(r.SourceName + SessionKeySep + r.SessionNo, out var d) ? d : [];
+                return new CharacterSession(
+                    r.SourceName,
+                    r.SourceType,
+                    new LootSession(
+                        (int)r.SessionNo,
+                        r.Started,
+                        r.Ended,
+                        r.Kills,
+                        r.MinKc,
+                        r.MaxKc,
+                        r.MinOrd,
+                        r.MaxOrd,
+                        r.TotalGp,
+                        drops.Take(topDropsPerSession).ToList(),
+                        drops.Count));
+            }).ToList();
+
+            return new CharacterSessionHistory(sessions, skip + rows.Count < totalSessions, totalSessions);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get character sessions for character {CharacterId}", characterId);
+            throw new RepositoryException("Failed to get character sessions", ex);
+        }
+    }
+
+    private sealed record CharacterSessionRow(
+        string SourceName,
+        LootSourceType SourceType,
+        long SessionNo,
+        DateTimeOffset Started,
+        DateTimeOffset Ended,
+        int Kills,
+        int? MinKc,
+        int? MaxKc,
+        int MinOrd,
+        int MaxOrd,
+        long TotalGp);
+
+    // Whitelist of sortable columns → safe ORDER BY expressions (never interpolate the raw
+    // SortBy string). Keyed by the token the table headers emit.
+    private static readonly Dictionary<string, string> SourceTableSortColumns = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["name"] = "src.\"SourceName\"",
+        ["type"] = "src.source_type",
+        ["kills"] = "src.kills",
+        ["value"] = "src.total_value",
+        ["first"] = "src.first_seen",
+        ["last"] = "src.last_seen",
+        ["sessions"] = "COALESCE(sess.sessions, 0)",
+        ["items"] = "COALESCE(dr.distinct_items, 0)",
+        ["drops"] = "COALESCE(dr.total_drops, 0)",
+        ["biggest"] = "COALESCE(big.v, 0)",
+        ["clog"] = "COALESCE(cl.unlocked, 0)"
+    };
+
+    // Per-character sources table: one indexed pass per page producing every surfaced metric
+    // (kills, gp, first/last seen, sessions, distinct items, total drops, biggest drop, clog
+    // unlocked/total), server-side sorted by a whitelisted column. Totals are computed across
+    // every matching source, not just the page.
+    public async Task<SourceTable> GetCharacterSourceTable(int characterId, LootLogQuery query)
+    {
+        try
+        {
+            var connection = dataContext.Database.GetDbConnection();
+            if (connection.State != System.Data.ConnectionState.Open)
+                await connection.OpenAsync();
+
+            var term = string.IsNullOrWhiteSpace(query.SearchTerm) ? null : query.SearchTerm.Trim();
+            var sortKey = query.SortBy is not null && SourceTableSortColumns.ContainsKey(query.SortBy)
+                ? query.SortBy.ToLowerInvariant()
+                : "value";
+            var sortExpr = SourceTableSortColumns[sortKey];
+            var dir = query.SortDirection == SortDirection.Ascending ? "ASC" : "DESC";
+            var skip = (query.PageNumber - 1) * query.PageSize;
+
+            var rows = new List<SourceTableRow>();
+            var totalSources = 0;
+
+            var sql = $"""
+                WITH base AS (
+                    SELECT lr."Id", lr."SourceName", lr."SourceType", lr."OccurredAt", lr."TotalValue"
+                    FROM "LootRecords" lr
+                    WHERE lr."GameCharacterId" = @cid
+                      AND (@term IS NULL OR lr."SourceName" ILIKE '%' || @term || '%')
+                ),
+                src AS (
+                    SELECT "SourceName", MAX("SourceType") AS source_type,
+                           COUNT(*)::bigint AS kills, SUM("TotalValue")::bigint AS total_value,
+                           MIN("OccurredAt") AS first_seen, MAX("OccurredAt") AS last_seen
+                    FROM base GROUP BY "SourceName"
+                ),
+                sess AS (
+                    SELECT "SourceName", SUM(new_sess)::int AS sessions
+                    FROM (
+                        SELECT "SourceName",
+                               CASE WHEN LAG("OccurredAt") OVER w IS NULL
+                                     OR ("OccurredAt" - LAG("OccurredAt") OVER w) > @gap
+                                    THEN 1 ELSE 0 END AS new_sess
+                        FROM base
+                        WINDOW w AS (PARTITION BY "SourceName" ORDER BY "OccurredAt", "Id")
+                    ) z GROUP BY "SourceName"
+                ),
+                dr AS (
+                    SELECT b."SourceName",
+                           COUNT(DISTINCT ld."Name")::int AS distinct_items,
+                           COUNT(*)::bigint AS total_drops
+                    FROM base b JOIN "LootDrops" ld ON ld."LootRecordId" = b."Id"
+                    GROUP BY b."SourceName"
+                ),
+                big AS (
+                    SELECT DISTINCT ON (b."SourceName") b."SourceName",
+                           ld."Name" AS biggest_name,
+                           (ld."Quantity"::bigint * ld."Price"::bigint) AS v
+                    FROM base b JOIN "LootDrops" ld ON ld."LootRecordId" = b."Id"
+                    ORDER BY b."SourceName", v DESC
+                ),
+                cl AS (
+                    SELECT b."SourceName", COUNT(DISTINCT ld."ItemId")::int AS unlocked
+                    FROM base b JOIN "LootDrops" ld ON ld."LootRecordId" = b."Id"
+                    WHERE ld."IsFirstTime"
+                      AND EXISTS (SELECT 1 FROM "EffectiveCollectionLogItems" cli WHERE cli."ItemId" = ld."ItemId")
+                    GROUP BY b."SourceName"
+                ),
+                clt AS (
+                    SELECT s."SourceName", COUNT(*)::int AS total
+                    FROM (SELECT DISTINCT "SourceName" FROM base) s
+                    JOIN "EffectiveCollectionLogItems" cli ON s."SourceName" = ANY (cli."Tabs")
+                    GROUP BY s."SourceName"
+                )
+                SELECT src."SourceName", src.source_type, src.kills, src.total_value,
+                       src.first_seen, src.last_seen,
+                       COALESCE(sess.sessions, 0) AS sessions,
+                       COALESCE(dr.distinct_items, 0) AS distinct_items,
+                       COALESCE(dr.total_drops, 0) AS total_drops,
+                       big.biggest_name, COALESCE(big.v, 0) AS biggest_value,
+                       COALESCE(cl.unlocked, 0) AS clog_unlocked,
+                       COALESCE(clt.total, 0) AS clog_total,
+                       (COUNT(*) OVER ())::int AS total_sources
+                FROM src
+                LEFT JOIN sess ON sess."SourceName" = src."SourceName"
+                LEFT JOIN dr ON dr."SourceName" = src."SourceName"
+                LEFT JOIN big ON big."SourceName" = src."SourceName"
+                LEFT JOIN cl ON cl."SourceName" = src."SourceName"
+                LEFT JOIN clt ON clt."SourceName" = src."SourceName"
+                ORDER BY {sortExpr} {dir} NULLS LAST, src."SourceName" ASC
+                OFFSET @skip LIMIT @take
+                """;
+
+            await using (var cmd = connection.CreateCommand())
+            {
+                cmd.CommandText = sql;
+                cmd.Parameters.Add(new NpgsqlParameter("@cid", characterId));
+                cmd.Parameters.Add(new NpgsqlParameter("@term", NpgsqlTypes.NpgsqlDbType.Text) { Value = (object?)term ?? DBNull.Value });
+                cmd.Parameters.Add(new NpgsqlParameter("@gap", LootFeedGrouping.MaxGap));
+                cmd.Parameters.Add(new NpgsqlParameter("@skip", skip));
+                cmd.Parameters.Add(new NpgsqlParameter("@take", query.PageSize));
+                await using var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    rows.Add(new SourceTableRow(
+                        reader.GetString(0),
+                        Enum.TryParse<LootSourceType>(reader.GetString(1), ignoreCase: true, out var st) ? st : LootSourceType.Unknown,
+                        reader.GetInt64(2),
+                        reader.GetInt64(3),
+                        reader.GetFieldValue<DateTimeOffset>(4),
+                        reader.GetFieldValue<DateTimeOffset>(5),
+                        reader.GetInt32(6),
+                        reader.GetInt32(7),
+                        reader.GetInt64(8),
+                        reader.IsDBNull(9) ? null : reader.GetString(9),
+                        reader.GetInt64(10),
+                        reader.GetInt32(11),
+                        reader.GetInt32(12)));
+                    totalSources = reader.GetInt32(13);
+                }
+            }
+
+            // Totals across the full matching set (not just this page).
+            var totals = new SourceTableTotals(0, 0, 0, 0, 0);
+            const string totalsSql = """
+                WITH base AS (
+                    SELECT lr."Id", lr."SourceName", lr."TotalValue"
+                    FROM "LootRecords" lr
+                    WHERE lr."GameCharacterId" = @cid
+                      AND (@term IS NULL OR lr."SourceName" ILIKE '%' || @term || '%')
+                )
+                SELECT (SELECT COUNT(DISTINCT "SourceName") FROM base)::int,
+                       (SELECT COUNT(*) FROM base)::bigint,
+                       (SELECT COALESCE(SUM("TotalValue"), 0) FROM base)::bigint,
+                       (SELECT COUNT(DISTINCT ld."Name") FROM base b JOIN "LootDrops" ld ON ld."LootRecordId" = b."Id")::bigint,
+                       (SELECT COUNT(*) FROM base b JOIN "LootDrops" ld ON ld."LootRecordId" = b."Id")::bigint
+                """;
+            await using (var cmd = connection.CreateCommand())
+            {
+                cmd.CommandText = totalsSql;
+                cmd.Parameters.Add(new NpgsqlParameter("@cid", characterId));
+                cmd.Parameters.Add(new NpgsqlParameter("@term", NpgsqlTypes.NpgsqlDbType.Text) { Value = (object?)term ?? DBNull.Value });
+                await using var reader = await cmd.ExecuteReaderAsync();
+                if (await reader.ReadAsync())
+                    totals = new SourceTableTotals(
+                        reader.GetInt32(0), reader.GetInt64(1), reader.GetInt64(2),
+                        reader.GetInt64(3), reader.GetInt64(4));
+            }
+
+            return new SourceTable(
+                rows, totals,
+                skip + rows.Count < totalSources,
+                totalSources,
+                term, sortKey, query.SortDirection);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get source table for character {CharacterId}", characterId);
+            throw new RepositoryException("Failed to get source table", ex);
+        }
+    }
+
     public async Task<Dictionary<LootFeedTier, List<LootFeedEntry>>> GetAllFeedTiers(
         int countPerTier, LootFeedScope scope = LootFeedScope.Main, IReadOnlySet<LootFeedTier>? requestedTiers = null)
     {

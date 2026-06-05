@@ -1,0 +1,77 @@
+@using KlavLor.Application.Common
+@using KlavLor.Application.Features.Loot.Log
+@using KlavLor.Domain.Entities
+
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+    <td class="px-3 py-1.5">
+        <a hx-get="@SourceUrl.FromApi()" hx-target="#hx-page-container" hx-push-url="@SourceUrl" hx-swap="innerHTML transition:true"
+           class="inline-flex items-center gap-1.5 text-amber-600 dark:text-amber-400 hover:underline cursor-pointer max-w-[14rem]">
+            <img src="/api/images/source-icon?name=@Uri.EscapeDataString(Row.SourceName)" alt="@Row.SourceName"
+                 class="w-4 h-4 rounded shrink-0" loading="lazy" onerror="this.style.display='none'" />
+            <span class="truncate">@Row.SourceName</span>
+        </a>
+    </td>
+    <td class="px-3 py-1.5">
+        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium @TypeClasses">@Row.SourceType</span>
+    </td>
+    <td class="px-3 py-1.5 text-right tabular-nums">@Row.Kills.ToString("N0")</td>
+    <td class="px-3 py-1.5 text-right tabular-nums font-medium text-amber-600 dark:text-amber-400">@GoldFormat.Format(Row.TotalValue)</td>
+    <td class="px-3 py-1.5 text-right tabular-nums text-slate-500 dark:text-slate-400">@Row.Sessions.ToString("N0")</td>
+    <td class="px-3 py-1.5 text-right tabular-nums text-slate-500 dark:text-slate-400">@Row.DistinctItems.ToString("N0")</td>
+    <td class="px-3 py-1.5 text-right tabular-nums text-slate-500 dark:text-slate-400">@Row.TotalDrops.ToString("N0")</td>
+    <td class="px-3 py-1.5">
+        @if (!string.IsNullOrEmpty(Row.BiggestDropName) && Row.BiggestDropValue > 0)
+        {
+            <span class="inline-flex items-center gap-1 text-xs">
+                <img src="/api/images/item-icon?name=@Uri.EscapeDataString(Row.BiggestDropName)" alt="@Row.BiggestDropName"
+                     class="w-3.5 h-3.5 inline-block" loading="lazy" onerror="this.style.display='none'" />
+                <span class="truncate max-w-[9rem] text-slate-600 dark:text-slate-300">@Row.BiggestDropName</span>
+                <span class="text-amber-600 dark:text-amber-400 tabular-nums">@GoldFormat.Format(Row.BiggestDropValue)</span>
+            </span>
+        }
+        else
+        {
+            <span class="text-slate-300 dark:text-slate-600">—</span>
+        }
+    </td>
+    <td class="px-3 py-1.5 text-right text-xs text-slate-400 dark:text-slate-500 tabular-nums whitespace-nowrap" title="@LocalDate(Row.FirstSeen)">@Ago(Row.FirstSeen)</td>
+    <td class="px-3 py-1.5 text-right text-xs text-slate-400 dark:text-slate-500 tabular-nums whitespace-nowrap" title="@LocalDate(Row.LastSeen)">@Ago(Row.LastSeen)</td>
+    <td class="px-3 py-1.5 text-right tabular-nums text-cyan-700 dark:text-cyan-300">@ClogText</td>
+</tr>
+
+@code {
+    [Parameter] public required SourceTableRow Row { get; set; }
+    [Parameter] public int CharacterId { get; set; }
+
+    private string SourceUrl =>
+        AppRoutes.LootLogSource.WithId(CharacterId) + "?name=" + Uri.EscapeDataString(Row.SourceName);
+
+    // Show "unlocked/total" only when the source maps to a clog tab (total is reliable);
+    // otherwise the tab name differs from the source name, so show just the unlocked count.
+    private string ClogText =>
+        Row.ClogTotal > 0 && Row.ClogTotal >= Row.ClogUnlocked
+            ? $"{Row.ClogUnlocked}/{Row.ClogTotal}"
+            : Row.ClogUnlocked.ToString("N0");
+
+    private string TypeClasses => Row.SourceType switch
+    {
+        LootSourceType.Npc => "bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300",
+        LootSourceType.Event => "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300",
+        LootSourceType.Pickpocket => "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300",
+        LootSourceType.Player => "bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300",
+        _ => "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+    };
+
+    private static string LocalDate(DateTimeOffset t) => IngestTimezone.ToZoneTime(t).ToString("d MMM yyyy, HH:mm");
+
+    private static string Ago(DateTimeOffset t)
+    {
+        var d = DateTimeOffset.UtcNow - t;
+        if (d.TotalMinutes < 1) return "now";
+        if (d.TotalMinutes < 60) return $"{(int)d.TotalMinutes}m";
+        if (d.TotalHours < 24) return $"{(int)d.TotalHours}h";
+        if (d.TotalDays < 30) return $"{(int)d.TotalDays}d";
+        if (d.TotalDays < 365) return $"{(int)(d.TotalDays / 30)}mo";
+        return $"{(int)(d.TotalDays / 365)}y";
+    }
+}

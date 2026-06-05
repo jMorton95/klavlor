@@ -78,11 +78,26 @@
         </div>
     </div>
 
-    @* Source lookup *@
-    @if (SearchResult is not null)
-    {
-        <LootLogGrid Result="@SearchResult" CharacterId="@CharacterId" UpdateHeader="false" Embedded="true" />
-    }
+    @* Session history (lazy) — cross-source play sessions, newest first *@
+    <div hx-get="@(AppRoutes.LootLogCharacterSessions.WithId(CharacterId).FromApi())"
+         hx-trigger="load"
+         hx-swap="outerHTML">
+        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+            <div class="h-[26rem] animate-pulse bg-slate-100 dark:bg-slate-800 rounded"></div>
+        </div>
+    </div>
+
+    @* Per-character source browsing now lives on its own page. *@
+    <div class="flex justify-center">
+        <a hx-get="@AppRoutes.LootLogCharacterSources.WithId(CharacterId).FromApi()"
+           hx-target="#hx-page-container"
+           hx-push-url="@AppRoutes.LootLogCharacterSources.WithId(CharacterId)"
+           hx-swap="innerHTML transition:true"
+           class="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 hover:border-amber-200 dark:hover:border-amber-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 cursor-pointer transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+            View all sources &amp; item search
+        </a>
+    </div>
 </div>
 
 @code {

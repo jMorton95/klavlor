@@ -17,6 +17,14 @@ public interface ILootLogRepository
     // starts a new one), paged newest-first. GetSessionKills returns one session's individual kills.
     Task<LootSourceSessions> GetSourceSessions(int characterId, string sourceName, int pageNumber, int pageSize);
     Task<List<LootKillEntry>> GetSessionKills(int characterId, string sourceName, int sessionNo);
+
+    // Cross-source play-session history for a character: per-source runs interleaved
+    // newest-first and paged. Expand reuses GetSessionKills (session_no is per-source).
+    Task<CharacterSessionHistory> GetCharacterSessions(int characterId, int pageNumber, int pageSize);
+
+    // Data-dense, server-side-sortable per-character sources table (one aggregated row per
+    // source) with totals across the full matching set.
+    Task<SourceTable> GetCharacterSourceTable(int characterId, LootLogQuery query);
     Task<Dictionary<LootFeedTier, List<LootFeedEntry>>> GetAllFeedTiers(int countPerTier, LootFeedScope scope = LootFeedScope.Main, IReadOnlySet<LootFeedTier>? requestedTiers = null);
     Task DeleteAllForCharacter(int characterId);
     Task DeleteAllForUser(int userId);

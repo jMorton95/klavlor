@@ -20,6 +20,17 @@ public sealed class LootCharacterProfileHandler(
             : Result<ProfileHeader>.Success(header);
     }
 
+    public const int SessionsPageSize = 20;
+
+    public async Task<Result<CharacterSessionHistory>> HandleCharacterSessions(int characterId, int pageNumber = 1)
+    {
+        if (!await accessChecker.CanAccess(characterId))
+            return Result<CharacterSessionHistory>.Failure("Character not found.");
+
+        var result = await lootLogRepository.GetCharacterSessions(characterId, pageNumber, SessionsPageSize);
+        return Result<CharacterSessionHistory>.Success(result);
+    }
+
     public async Task<Result<ProfileWindowStats>> HandleWindowStats(int characterId)
     {
         if (!await accessChecker.CanAccess(characterId))

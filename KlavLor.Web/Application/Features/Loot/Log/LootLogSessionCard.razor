@@ -11,7 +11,7 @@
 
 <details class="group bg-slate-50 dark:bg-slate-900 rounded-lg shadow border border-slate-200 dark:border-slate-700 hover:border-amber-200 dark:hover:border-amber-700 transition-colors">
     <summary hx-get="@ExpandUrl"
-             hx-target="#sess-kills-@Session.Index"
+             hx-target="#sess-kills-@Key"
              hx-swap="innerHTML"
              hx-trigger="click once"
              class="list-none cursor-pointer p-3 [&::-webkit-details-marker]:hidden">
@@ -21,7 +21,14 @@
                     <svg class="w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                     </svg>
-                    <span class="whitespace-nowrap">@start.ToString("d MMM yyyy")</span>
+                    @if (ShowSource)
+                    {
+                        <img src="/api/images/source-icon?name=@Uri.EscapeDataString(SourceName)" alt="@SourceName"
+                             class="w-4 h-4 rounded shrink-0" loading="lazy" onerror="this.style.display='none'" />
+                        <span class="truncate">@SourceName</span>
+                        <span class="text-slate-300 dark:text-slate-600 font-normal" aria-hidden="true">·</span>
+                    }
+                    <span class="whitespace-nowrap @(ShowSource ? "font-normal text-slate-500 dark:text-slate-400" : "")">@start.ToString("d MMM yyyy")</span>
                     <span class="text-slate-400 dark:text-slate-500 font-normal whitespace-nowrap">@start.ToString("HH:mm")@(SameMinute ? "" : $"–{end:HH:mm}")</span>
                     <span class="text-[10px] font-normal text-slate-400 dark:text-slate-500 whitespace-nowrap">· @DurationText</span>
                 </div>
@@ -82,7 +89,7 @@
         }
     </summary>
 
-    <div id="sess-kills-@Session.Index" class="px-3 pb-3 pt-1">
+    <div id="sess-kills-@Key" class="px-3 pb-3 pt-1">
         <div class="h-16 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
     </div>
 </details>
@@ -92,6 +99,13 @@
     [Parameter] public int CharacterId { get; set; }
     [Parameter] public string SourceName { get; set; } = "";
     [Parameter] public LootSourceType SourceType { get; set; }
+    [Parameter] public bool ShowSource { get; set; }
+
+    // Per-card DOM key. The source page can rely on Session.Index (unique within one source);
+    // the cross-source character history must disambiguate same-numbered sessions from
+    // different sources, so it passes an explicit unique key.
+    [Parameter] public string? DomKey { get; set; }
+    private string Key => DomKey ?? Session.Index.ToString();
 
     private bool SameMinute => (Session.EndedAt - Session.StartedAt).TotalMinutes < 1;
 

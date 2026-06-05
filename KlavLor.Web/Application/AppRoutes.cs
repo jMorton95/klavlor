@@ -102,10 +102,12 @@ public static class AppRoutes
     public const string LootLogCharacterRecords = "/loot/log/{id:int}/stats/records";
     public const string LootLogCharacterTopItems = "/loot/log/{id:int}/stats/top-items";
     public const string LootLogCharacterRecentFirsts = "/loot/log/{id:int}/stats/recent-firsts";
+    public const string LootLogCharacterSessions = "/loot/log/{id:int}/sessions";
     public const string LootLogCharacterFirsts = "/loot/log/{id:int}/records";
     public const string LootLogCharacterDay = "/loot/log/{id:int}/day/{date}";
     public const string LootLogSourceCollection = "/loot/log/{id:int}/source/collection";
     public const string LootLogSourceSession = "/loot/log/{id:int}/source/session";
+    public const string LootLogCharacterSources = "/loot/log/{id:int}/sources";
 
     public const string UserApiKeySection = "/admin/users/{id:int}/api-key";
     public const string UserApiKeyGenerate = "/admin/users/{id:int}/api-key/generate";

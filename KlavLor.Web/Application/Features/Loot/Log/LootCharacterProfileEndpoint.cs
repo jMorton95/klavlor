@@ -25,6 +25,13 @@ public sealed class LootCharacterProfileEndpoint : IEndpoint
         app.MapGet(AppRoutes.LootLogCharacterRecentFirsts.FromApi(), GetRecentFirsts)
             .AllowAnonymous();
 
+        app.MapGet(AppRoutes.LootLogCharacterSessions.FromApi(), GetSessions)
+            .AllowAnonymous();
+
+        app.MapGet(AppRoutes.LootLogCharacterSources.FromApi(), GetCharacterSources)
+            .AllowAnonymous()
+            .AddEndpointFilter<HtmxNavigationFilter>();
+
         app.MapGet(AppRoutes.LootLogSourceCollection.FromApi(), GetSourceCollection)
             .AllowAnonymous();
 
@@ -35,6 +42,63 @@ public sealed class LootCharacterProfileEndpoint : IEndpoint
         return app.MapGet(AppRoutes.LootLogCharacterDay.FromApi(), GetDayFeed)
             .AllowAnonymous()
             .AddEndpointFilter<HtmxNavigationFilter>();
+    }
+
+    private static async Task<IResult> GetSessions(
+        int id,
+        [FromQuery] int? pageNumber,
+        LootCharacterProfileHandler handler)
+    {
+        var page = pageNumber is null or < 1 ? 1 : pageNumber.Value;
+        var result = await handler.HandleCharacterSessions(id, page);
+        if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.NotFound();
+
+        // Page 2+ appends more cards; page 1 renders the whole section shell.
+        if (page > 1)
+            return IResultExtensions.Component<CharacterSessionMore>(new
+            {
+                History = result.Value,
+                CharacterId = id,
+                PageNumber = page
+            });
+
+        return IResultExtensions.Component<CharacterSessionHistoryPanel>(new
+        {
+            History = result.Value,
+            CharacterId = id
+        });
+    }
+
+    private static async Task<IResult> GetCharacterSources(
+        int id,
+        [AsParameters] LootLogQuery query,
+        LootLogHandler logHandler,
+        LootCharacterProfileHandler profileHandler)
+    {
+        var result = await logHandler.HandleSourceTable(id, query);
+        if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.NotFound();
+        var table = result.Value!;
+
+        // Page 2+ appends rows; a sort/filter request re-renders just the table; a fresh
+        // navigation returns the full page content (back link + table).
+        if (query.PageNumber > 1)
+            return IResultExtensions.Component<SourceTableRows>(new
+            {
+                Table = table,
+                CharacterId = id,
+                PageNumber = query.PageNumber
+            });
+
+        if (query.SortBy is not null || !string.IsNullOrWhiteSpace(query.SearchTerm))
+            return IResultExtensions.Component<SourceTableGrid>(new { Table = table, CharacterId = id });
+
+        var header = await profileHandler.HandleHeader(id);
+        return IResultExtensions.Component<CharacterSourcesContent>(new
+        {
+            Table = table,
+            CharacterId = id,
+            CharacterName = header.IsSuccess ? header.Value!.CharacterName : null
+        });
     }
 
     private static async Task<IResult> GetDayFeed(int id, string date, LootCharacterProfileHandler handler)

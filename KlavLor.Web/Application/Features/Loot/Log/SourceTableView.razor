@@ -1,0 +1,29 @@
+@using KlavLor.Application.Features.Loot.Log
+
+@* The search box lives outside #source-table so it keeps focus while typing; it hx-includes
+   the hidden sort inputs (inside the grid) so filtering preserves the current sort. Sort
+   header clicks and the search both swap only #source-table. *@
+<div class="space-y-3">
+    <div class="flex items-center gap-3 flex-wrap">
+        <div class="relative flex-1 min-w-56 max-w-xs">
+            <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            <input type="search" name="searchTerm" placeholder="Filter sources…" value="@Table.SearchTerm" autocomplete="off"
+                   hx-get="@AppRoutes.LootLogCharacterSources.WithId(CharacterId).FromApi()"
+                   hx-trigger="keyup changed delay:300ms"
+                   hx-include="#st-sort, #st-dir"
+                   hx-target="#source-table"
+                   hx-swap="outerHTML"
+                   class="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+        </div>
+        <span class="text-xs text-slate-400 dark:text-slate-500">@Table.TotalSources source@(Table.TotalSources == 1 ? "" : "s")</span>
+    </div>
+
+    <SourceTableGrid Table="Table" CharacterId="CharacterId" />
+</div>
+
+@code {
+    [Parameter] public required SourceTable Table { get; set; }
+    [Parameter] public int CharacterId { get; set; }
+}

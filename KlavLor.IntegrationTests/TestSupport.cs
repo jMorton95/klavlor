@@ -39,6 +39,19 @@ internal static class Seed
         return (user.Id, gc.Id);
     }
 
+    // Registers an item as a collection-log entry (the EffectiveCollectionLogItems view
+    // reads through to this table), optionally mapped to source "tabs".
+    public static void AddClogItem(DataContext ctx, int itemId, string name, params string[] tabs)
+    {
+        ctx.CollectionLogItems.Add(new CollectionLogItem
+        {
+            ItemId = itemId,
+            Name = name,
+            Tabs = tabs.Length > 0 ? tabs : null,
+            SyncedAt = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero)
+        });
+    }
+
     // Adds a kill via EF the same way ingest's FinalizeDrops does: DropsJson plus the
     // projected LootDrop rows from the same list.
     public static LootRecord AddKill(
