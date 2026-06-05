@@ -4,7 +4,7 @@
 
 <TopBarMetaData PageTitle="@($"KlavLor - {Header?.CharacterName ?? "Character"}")" Title="" Description="" />
 
-<div class="space-y-6">
+<div class="space-y-6 pb-24">
     @* One full-width lifetime card: character header strip on top, last-7d / last-
        30d / all-time stats grid below. Inner panels render frameless via Embedded so
        there's a single visible card frame around the whole band. *@
@@ -69,15 +69,6 @@
         </div>
     </div>
 
-    @* Lifetime item ranking *@
-    <div hx-get="@(AppRoutes.LootLogCharacterTopItems.WithId(CharacterId).FromApi())"
-         hx-trigger="load"
-         hx-swap="outerHTML">
-        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
-            <div class="h-[34rem] animate-pulse bg-slate-100 dark:bg-slate-800 rounded"></div>
-        </div>
-    </div>
-
     @* Session history (lazy) — cross-source play sessions, newest first *@
     <div hx-get="@(AppRoutes.LootLogCharacterSessions.WithId(CharacterId).FromApi())"
          hx-trigger="load"
@@ -87,7 +78,7 @@
         </div>
     </div>
 
-    @* Per-character source browsing now lives on its own page. *@
+    @* Link to the full per-character sources database, directly beneath the session history. *@
     <div class="flex justify-center">
         <a hx-get="@AppRoutes.LootLogCharacterSources.WithId(CharacterId).FromApi()"
            hx-target="#hx-page-container"
@@ -97,6 +88,15 @@
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
             View all sources &amp; item search
         </a>
+    </div>
+
+    @* Lifetime item ranking *@
+    <div hx-get="@(AppRoutes.LootLogCharacterTopItems.WithId(CharacterId).FromApi())"
+         hx-trigger="load"
+         hx-swap="outerHTML">
+        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+            <div class="h-[34rem] animate-pulse bg-slate-100 dark:bg-slate-800 rounded"></div>
+        </div>
     </div>
 </div>
 

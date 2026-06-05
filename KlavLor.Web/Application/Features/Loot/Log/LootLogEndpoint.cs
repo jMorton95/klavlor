@@ -115,8 +115,9 @@ public sealed class LootLogEndpoint : IEndpoint
         LootLogHandler handler)
     {
         var result = await handler.HandleSessionKills(id, name, session);
-        return IResultExtensions.Component<LootLogSessionKills>(new
+        return IResultExtensions.Component<SourceSessionModal>(new
         {
+            SourceName = name,
             Kills = result.Value ?? []
         });
     }

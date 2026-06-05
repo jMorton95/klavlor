@@ -1,0 +1,53 @@
+@using KlavLor.Application.Common
+@using KlavLor.Application.Features.Loot.Log
+
+@* A session's individual kills, shown in a popover modal. Rendered into #hx-modal-container;
+   closes on backdrop click or the X (same pattern as ConfirmationModal). *@
+<div id="modal-element" class="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
+    <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+         onclick="document.getElementById('modal-element').remove()"></div>
+
+    <div class="relative bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-lg border border-white/30 dark:border-slate-700 shadow-[0_8px_30px_rgb(0,0,0,0.18)] max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-scale-in">
+        <div class="px-5 py-3.5 border-b border-white/20 dark:border-slate-700 flex items-center justify-between shrink-0">
+            <div class="flex items-center gap-2 min-w-0">
+                <img src="/api/images/source-icon?name=@Uri.EscapeDataString(SourceName)" alt="@SourceName"
+                     class="w-5 h-5 rounded shrink-0" loading="lazy" onerror="this.style.display='none'" />
+                <div class="min-w-0">
+                    <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate">@SourceName</h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">@Summary</p>
+                </div>
+            </div>
+            <button type="button" onclick="this.closest('.fixed').remove()"
+                    class="p-2 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/40 dark:hover:bg-slate-700/40 rounded-lg transition-colors shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+
+        <div class="px-5 py-3 overflow-y-auto themed-scrollbar">
+            <LootLogSessionKills Kills="Kills" />
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string SourceName { get; set; } = "";
+    [Parameter] public List<LootKillEntry> Kills { get; set; } = [];
+
+    private string Summary
+    {
+        get
+        {
+            if (Kills.Count == 0) return "No kills";
+            // GetSessionKills returns newest-first.
+            var newest = IngestTimezone.ToZoneTime(Kills[0].OccurredAt);
+            var oldest = IngestTimezone.ToZoneTime(Kills[^1].OccurredAt);
+            var noun = Kills.Count == 1 ? "kill" : "kills";
+            var range = oldest.Date == newest.Date
+                ? (oldest == newest ? oldest.ToString("d MMM yyyy, HH:mm") : $"{oldest:d MMM yyyy} · {oldest:HH:mm}–{newest:HH:mm}")
+                : $"{oldest:d MMM yyyy} – {newest:d MMM yyyy}";
+            return $"{Kills.Count:N0} {noun} · {range}";
+        }
+    }
+}

@@ -6,7 +6,7 @@
     <TopBarMetaData PageTitle="KlavLor - Sources" Title="@HeaderText" Description="Every source this character has loot from" />
 }
 
-<div class="space-y-4">
+<div class="space-y-4 pb-24">
     <a hx-get="@AppRoutes.LootLogCharacter.WithId(CharacterId).FromApi()"
        hx-target="#hx-page-container"
        hx-push-url="@AppRoutes.LootLogCharacter.WithId(CharacterId)"
