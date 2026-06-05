@@ -3,11 +3,14 @@ package sender
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"sync"
 	"time"
@@ -32,15 +35,44 @@ type Sender struct {
 	onSent func(n int)
 }
 
-func New(apiURL, apiKey string, batchSize int, flushInterval time.Duration) *Sender {
+func New(apiURL, apiKey string, batchSize int, flushInterval time.Duration, insecure bool) *Sender {
+	client := &http.Client{Timeout: 30 * time.Second}
+
+	// TLS verification is only ever skipped for localhost/loopback targets, so
+	// the option cannot weaken security against a real server. Against any
+	// non-loopback host it is refused and verification stays on.
+	if insecure {
+		if isLoopback(apiURL) {
+			client.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+			slog.Warn("TLS verification disabled for local target (--insecure)", "api_url", apiURL)
+		} else {
+			slog.Warn("ignoring --insecure: only honored for localhost/loopback targets, not real servers", "api_url", apiURL)
+		}
+	}
+
 	return &Sender{
 		apiURL:    apiURL,
 		apiKey:    apiKey,
 		batchSize: batchSize,
 		flushInt:  flushInterval,
-		client:    &http.Client{Timeout: 30 * time.Second},
+		client:    client,
 		limiter:   rate.NewLimiter(rate.Every(1*time.Second), 1), // 1 req/s
 	}
+}
+
+// isLoopback reports whether the URL's host is a loopback address (localhost,
+// 127.0.0.0/8, or ::1). Used to gate the --insecure TLS skip to local dev only.
+func isLoopback(rawURL string) bool {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+	host := u.Hostname()
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 // OnSent registers a callback fired after each successful batch.

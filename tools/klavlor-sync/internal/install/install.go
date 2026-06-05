@@ -96,16 +96,17 @@ func Install() {
 	fmt.Printf("  ✓ Syncer → %s\n", dst)
 
 	// Create startup entry.
+	binName := filepath.Base(config.ExePath())
 	if err := createStartupEntry(dst); err != nil {
 		fmt.Printf("  ⚠ Could not create auto-start entry: %v\n", err)
-		fmt.Println("    You can manually add klavlor-sync.exe --background to your Startup folder.")
+		fmt.Printf("    You can manually run %s --background at login.\n", binName)
 	} else {
 		fmt.Println("  ✓ Auto-start enabled (runs silently on login)")
 	}
 
 	fmt.Println()
 	fmt.Println("Install complete! Sync will also start automatically on login.")
-	fmt.Println("To uninstall later: klavlor-sync.exe --uninstall")
+	fmt.Printf("To uninstall later: %s --uninstall\n", binName)
 	fmt.Println()
 	fmt.Println("Starting sync now...")
 	fmt.Println()
@@ -132,7 +133,7 @@ func Uninstall() {
 		dir := config.ConfigDir()
 
 		// Delete individual files first — the exe is locked by this process.
-		for _, name := range []string{"config.toml", "state.json", "klavlor-sync.log"} {
+		for _, name := range []string{"config.toml", "state.json", "klavlor-sync.log", "launchd.err.log"} {
 			p := filepath.Join(dir, name)
 			if err := os.Remove(p); err != nil && !os.IsNotExist(err) {
 				fmt.Printf("  ⚠ Could not remove %s: %v\n", p, err)

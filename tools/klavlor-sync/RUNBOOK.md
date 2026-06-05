@@ -14,7 +14,9 @@
 
 ## Option A: Interactive Install (Recommended)
 
-Build the binary and run the installer:
+Build the binary and run the installer.
+
+**Windows:**
 
 ```bash
 cd tools/klavlor-sync
@@ -22,14 +24,27 @@ go build -o klavlor-sync.exe .
 ./klavlor-sync.exe --install
 ```
 
+**macOS** (the binary is extension-less — drop the `.exe`):
+
+```bash
+cd tools/klavlor-sync
+go build -o klavlor-sync .
+./klavlor-sync --install
+```
+
+> Building natively on your Mac targets your own CPU automatically. To produce a
+> single universal (Intel + Apple-Silicon) binary for distribution, run `./build.sh`
+> on a Mac — it merges both architectures with `lipo`.
+
 The installer will:
 
 1. Auto-detect your `~/.runelite/loots/` directory (or prompt you for the path)
 2. Ask for your API key
 3. Ask for your server URL (defaults to `https://chart.joshuawoodward.dev`)
 4. Ask whether to sync all historical loot or start fresh
-5. Copy the binary to `~/.klavlor-sync/klavlor-sync.exe`
-6. Create a Windows Startup entry so it runs silently on login
+5. Copy the binary to `~/.klavlor-sync/` (`klavlor-sync.exe` on Windows, `klavlor-sync` on macOS)
+6. Register auto-start so it runs silently on login — a Startup-folder VBS entry on
+   Windows, a launchd LaunchAgent on macOS
 
 After install, you can delete the original downloaded binary.
 
@@ -40,7 +55,7 @@ Create `~/.klavlor-sync/config.toml`:
 ```toml
 api_url = "https://chart.joshuawoodward.dev"
 api_key = "your-api-key-here"
-loots_dir = "C:\\Users\\YourName\\.runelite\\loots"
+loots_dir = "C:\\Users\\YourName\\.runelite\\loots"  # macOS: "/Users/you/.runelite/loots"
 sync_all = true
 ```
 
@@ -90,6 +105,12 @@ klavlor-sync.exe --api-url https://my-server.dev --api-key abc123 --sync-all
 klavlor-sync.exe --tail    # skip history, only watch for new data
 ```
 
+`--insecure` skips TLS certificate verification, but **only** when the target is
+localhost/loopback (e.g. a local dev server on `https://localhost:7081` using the
+self-signed ASP.NET dev cert). Against any real (non-loopback) server it is
+ignored and verification stays on, so it can't be used to weaken a production
+connection. Intended for local development and the sandbox harness.
+
 ## File Locations
 
 | File | Path |
@@ -97,8 +118,9 @@ klavlor-sync.exe --tail    # skip history, only watch for new data
 | Config | `~/.klavlor-sync/config.toml` |
 | State | `~/.klavlor-sync/state.json` |
 | Log | `~/.klavlor-sync/klavlor-sync.log` |
-| Binary (after install) | `~/.klavlor-sync/klavlor-sync.exe` |
+| Binary (after install) | `~/.klavlor-sync/klavlor-sync.exe` (Windows) / `~/.klavlor-sync/klavlor-sync` (macOS) |
 | Startup entry (Windows) | `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\klavlor-sync.vbs` |
+| Startup entry (macOS) | `~/Library/LaunchAgents/dev.joshuawoodward.klavlor-sync.plist` |
 
 ## First Run Behavior
 

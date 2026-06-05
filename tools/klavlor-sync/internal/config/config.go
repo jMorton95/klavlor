@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/BurntSushi/toml"
@@ -20,6 +21,10 @@ type Config struct {
 	FlushInterval duration `toml:"flush_interval"`
 	SyncAll       bool     `toml:"-"`
 	Tail          bool     `toml:"-"`
+	// Insecure skips TLS verification. Only honored for localhost/loopback
+	// targets (see sender) — intended for local dev/sandbox against the
+	// self-signed ASP.NET dev cert, never a real server.
+	Insecure bool `toml:"insecure"`
 }
 
 // duration wraps time.Duration for TOML string parsing (e.g. "5s").
@@ -63,9 +68,14 @@ func LogPath() string {
 	return filepath.Join(ConfigDir(), "klavlor-sync.log")
 }
 
-// ExePath returns the installed executable path.
+// ExePath returns the installed executable path. The binary carries a .exe
+// suffix on Windows and is extension-less on other platforms.
 func ExePath() string {
-	return filepath.Join(ConfigDir(), "klavlor-sync.exe")
+	name := "klavlor-sync"
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	return filepath.Join(ConfigDir(), name)
 }
 
 // writeConfig is the TOML-serializable subset of Config.
@@ -136,6 +146,7 @@ func Load() (Config, error) {
 	lootsDir := fs.String("loots-dir", "", "Path to RuneLite loots directory")
 	syncAll := fs.Bool("sync-all", false, "Sync all historical data from offset 0")
 	tail := fs.Bool("tail", false, "Skip to current file ends (no historical sync)")
+	insecure := fs.Bool("insecure", false, "Skip TLS verification (localhost targets only — for local dev against the self-signed cert)")
 	_ = fs.Bool("background", false, "Run in background mode (log to file)")
 	_ = fs.Bool("install", false, "")
 	_ = fs.Bool("uninstall", false, "")
@@ -155,6 +166,9 @@ func Load() (Config, error) {
 	}
 	cfg.SyncAll = *syncAll
 	cfg.Tail = *tail
+	if *insecure {
+		cfg.Insecure = true // CLI flag enables; config-file value also respected
+	}
 
 	// If config has sync_all/tail from file, load them.
 	if !cfg.SyncAll && !cfg.Tail {

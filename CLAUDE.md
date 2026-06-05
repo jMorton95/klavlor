@@ -144,12 +144,16 @@ A Go binary (`tools/klavlor-sync/`) that monitors RuneLite's Loot Tracker plugin
 ### Fresh Install
 
 ```bash
-# Build (from repo root)
+# Build (from repo root) — Windows
 cd tools/klavlor-sync && go build -o klavlor-sync.exe .
-
-# Run interactive installer
 ./klavlor-sync.exe --install
+
+# Build — macOS (extension-less binary)
+cd tools/klavlor-sync && go build -o klavlor-sync .
+./klavlor-sync --install
 ```
+
+`build.sh` cross-compiles release artifacts (Windows `.exe` + macOS universal binary via `lipo` when run on a Mac).
 
 The installer walks through 4 steps:
 1. **Find RuneLite** — Auto-detects `~/.runelite/loots/` or prompts for manual path
@@ -159,8 +163,12 @@ The installer walks through 4 steps:
 
 After install:
 - Config saved to `~/.klavlor-sync/config.toml`
-- Binary copied to `~/.klavlor-sync/klavlor-sync.exe`
-- Windows startup entry created at `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\klavlor-sync.vbs` (launches hidden on login via `--background`)
+- Binary copied to `~/.klavlor-sync/klavlor-sync.exe` (Windows) or `~/.klavlor-sync/klavlor-sync` (macOS)
+- Auto-start registered (launches hidden on login via `--background`):
+  - **Windows** — Startup-folder VBS at `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\klavlor-sync.vbs`
+  - **macOS** — launchd LaunchAgent at `~/Library/LaunchAgents/dev.joshuawoodward.klavlor-sync.plist` (loaded via `launchctl bootstrap`)
+
+Platform-specific install backends live in `internal/install/install_windows.go` and `install_darwin.go` (Linux/other falls through to the unsupported stub in `install_other.go`). The shared interactive flow and the `atomicCopy` helper are in `install.go` / `install_common.go`.
 
 ### Key Commands
 

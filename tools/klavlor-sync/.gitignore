@@ -1,0 +1,13 @@
+# Build outputs
+/dist/
+
+# Locally-built binaries (extension-less macOS/Linux builds aren't caught by the
+# repo-wide *.exe rule)
+/klavlor-sync
+/klavlor-sync-darwin
+/klavlor-sync-macos*
+/klavlor-sync-linux*
+
+# Stray build output from `go build ./sandbox/gen`
+/gen
+/gen.exe

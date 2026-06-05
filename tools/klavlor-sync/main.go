@@ -64,7 +64,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	snd := sender.New(cfg.APIURL, cfg.APIKey, cfg.BatchSize, cfg.FlushInterval.Duration)
+	snd := sender.New(cfg.APIURL, cfg.APIKey, cfg.BatchSize, cfg.FlushInterval.Duration, cfg.Insecure)
 
 	// First-run: mark records as imported during the initial historical sync.
 	isImporting := store.IsEmpty() && !cfg.Tail
