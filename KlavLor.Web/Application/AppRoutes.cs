@@ -128,6 +128,12 @@ public static class AppRoutes
     public const string SourceItems = "/source/items";
     public const string SourceTrend = "/source/trend";
 
+    public const string Drop = "/drop";
+    public const string DropSources = "/drop/sources";
+    public const string DropCharacters = "/drop/characters";
+    public const string DropTrend = "/drop/trend";
+    public const string DropSessions = "/drop/sessions";
+
     public const string Characters = "/characters";
     public const string CharacterUpdateName = "/characters/{id:int}/name";
     public const string CharacterToggleVisibility = "/characters/{id:int}/visibility";

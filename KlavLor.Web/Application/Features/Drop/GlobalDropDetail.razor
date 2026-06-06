@@ -1,0 +1,84 @@
+@using KlavLor.Application.Common
+@using KlavLor.Application.Features.Drop
+@using KlavLor.Web.Application.Features.Source
+@using KlavLor.Web.Components.Layout
+
+<TopBarMetaData PageTitle="@($"KlavLor - {ItemName}")" Title="@ItemName" Description="Drop overview across all sources and players" />
+
+<div class="space-y-6 pb-64">
+    <a onclick="history.back()"
+       class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-amber-600 dark:text-slate-400 dark:hover:text-amber-400 cursor-pointer transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+        Back
+    </a>
+
+    @if (Overview is null)
+    {
+        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-12 text-center">
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">No data for this item</h3>
+            <p class="text-sm text-slate-500 dark:text-slate-400">No tracked, visible characters have recorded &ldquo;@ItemName&rdquo; as a drop yet.</p>
+        </div>
+    }
+    else
+    {
+        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+            <div class="flex items-center gap-3 mb-4">
+                <img src="/api/images/item-icon?name=@Uri.EscapeDataString(ItemName)" alt="@ItemName"
+                     class="w-9 h-9 shrink-0" loading="lazy" onerror="this.style.display='none'" />
+                <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100 truncate">@ItemName</h1>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                <Stat Label="Drops" Value="@Overview.TotalDrops.ToString("N0")" />
+                <Stat Label="Total value" Value="@($"{GoldFormat.Format(Overview.TotalValue)} gp")" Accent="true" />
+                <Stat Label="Quantity" Value="@Overview.TotalQuantity.ToString("N0")" />
+                <Stat Label="Sources" Value="@Overview.DistinctSources.ToString("N0")" />
+                <Stat Label="Characters" Value="@Overview.DistinctCharacters.ToString("N0")" />
+                <Stat Label="Players" Value="@Overview.DistinctPlayers.ToString("N0")" />
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mt-4">
+                <Stat Label="First seen" Value="@(Overview.FirstSeen?.ToString("d MMM yyyy") ?? "—")" />
+                <Stat Label="Last seen" Value="@(Overview.LastSeen?.ToString("d MMM yyyy") ?? "—")" />
+            </div>
+        </div>
+
+        @* Sources table (sortable + filterable, with observed vs wiki drop rate) loads independently. *@
+        <div hx-get="@Url(AppRoutes.DropSources)" hx-trigger="load" hx-swap="outerHTML">
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">Sources</h2>
+            <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+                <div class="h-40 animate-pulse bg-slate-100 dark:bg-slate-800 rounded"></div>
+            </div>
+        </div>
+
+        @* Characters table (sortable + filterable) loads independently. *@
+        <div hx-get="@Url(AppRoutes.DropCharacters)" hx-trigger="load" hx-swap="outerHTML">
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">Characters</h2>
+            <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+                <div class="h-40 animate-pulse bg-slate-100 dark:bg-slate-800 rounded"></div>
+            </div>
+        </div>
+
+        @* Monthly trend loads independently. *@
+        <div hx-get="@Url(AppRoutes.DropTrend)" hx-trigger="load" hx-swap="outerHTML">
+            <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+                <div class="h-32 animate-pulse bg-slate-100 dark:bg-slate-800 rounded"></div>
+            </div>
+        </div>
+
+        @* Recent sessions (across all players) that dropped this item load independently. *@
+        <div hx-get="@Url(AppRoutes.DropSessions)" hx-trigger="load" hx-swap="outerHTML">
+            <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+                <div class="h-40 animate-pulse bg-slate-100 dark:bg-slate-800 rounded"></div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string ItemName { get; set; } = "";
+    [Parameter] public GlobalDropOverview? Overview { get; set; }
+
+    private string Url(string route) => $"{route.FromApi()}?name={Uri.EscapeDataString(ItemName)}";
+}

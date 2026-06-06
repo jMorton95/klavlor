@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using Microsoft.Extensions.Caching.Memory;
 using KlavLor.Application.Common;
+using KlavLor.Application.Features.Drop;
 using KlavLor.Application.Features.Loot.Feed;
 using KlavLor.Application.Features.Loot.Log;
 using KlavLor.Application.Features.Source;
@@ -75,6 +76,9 @@ public sealed class LootIngestHandler(
             LootStatsCache.Invalidate(memoryCache, character.Id);
             // Source pages aggregate over all characters — bump only this source's version.
             GlobalSourceCache.Invalidate(memoryCache, record.SourceName);
+            // Drop pages aggregate per item — bump each dropped item's version.
+            foreach (var drop in drops)
+                GlobalDropCache.Invalidate(memoryCache, drop.Name);
         }
 
         if (ShouldPublishToFeed(record, character))
@@ -186,6 +190,15 @@ public sealed class LootIngestHandler(
             .Distinct(StringComparer.Ordinal);
         foreach (var source in sourcesTouched)
             GlobalSourceCache.Invalidate(memoryCache, source);
+
+        // Drop pages aggregate per item — bump each touched item's version (records tied to a
+        // character, matching the source/visibility rule above).
+        var itemsTouched = parsedItems
+            .Where(p => p.Character is not null)
+            .SelectMany(p => p.Parsed.Drops.Select(d => d.Name))
+            .Distinct(StringComparer.Ordinal);
+        foreach (var item in itemsTouched)
+            GlobalDropCache.Invalidate(memoryCache, item);
 
         var liveRecords = parsedItems
             .Where(p => ShouldPublishToFeed(p.Parsed.Record, p.Character))

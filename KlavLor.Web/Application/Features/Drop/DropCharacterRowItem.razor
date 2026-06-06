@@ -1,0 +1,37 @@
+@using KlavLor.Application.Common
+@using KlavLor.Application.Features.Drop
+
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+    <td class="px-3 py-1.5">
+        <a hx-get="@CharacterUrl.FromApi()" hx-target="#hx-page-container" hx-push-url="@CharacterUrl" hx-swap="innerHTML transition:true"
+           class="inline-flex items-center gap-1.5 text-amber-600 dark:text-amber-400 hover:underline cursor-pointer max-w-[14rem]">
+            <span class="truncate">@Row.CharacterName</span>
+        </a>
+    </td>
+    <td class="px-3 py-1.5 text-slate-500 dark:text-slate-400 truncate max-w-[12rem]">@Row.UserName</td>
+    <td class="px-3 py-1.5 text-right tabular-nums">@Row.Drops.ToString("N0")</td>
+    <td class="px-3 py-1.5 text-right tabular-nums text-slate-500 dark:text-slate-400">@Row.TotalQuantity.ToString("N0")</td>
+    <td class="px-3 py-1.5 text-right tabular-nums font-medium text-amber-600 dark:text-amber-400">@GoldFormat.Format(Row.TotalValue)</td>
+    <td class="px-3 py-1.5 text-right tabular-nums text-slate-500 dark:text-slate-400">@Row.DistinctSources.ToString("N0")</td>
+    <td class="px-3 py-1.5 text-right text-xs text-slate-400 dark:text-slate-500 tabular-nums whitespace-nowrap" title="@LocalDate(Row.FirstSeen)">@Ago(Row.FirstSeen)</td>
+    <td class="px-3 py-1.5 text-right text-xs text-slate-400 dark:text-slate-500 tabular-nums whitespace-nowrap" title="@LocalDate(Row.LastSeen)">@Ago(Row.LastSeen)</td>
+</tr>
+
+@code {
+    [Parameter] public required DropCharacterRow Row { get; set; }
+
+    private string CharacterUrl => AppRoutes.LootLogCharacter.WithId(Row.GameCharacterId);
+
+    private static string LocalDate(DateTimeOffset t) => IngestTimezone.ToZoneTime(t).ToString("d MMM yyyy, HH:mm");
+
+    private static string Ago(DateTimeOffset t)
+    {
+        var d = DateTimeOffset.UtcNow - t;
+        if (d.TotalMinutes < 1) return "now";
+        if (d.TotalMinutes < 60) return $"{(int)d.TotalMinutes}m";
+        if (d.TotalHours < 24) return $"{(int)d.TotalHours}h";
+        if (d.TotalDays < 30) return $"{(int)d.TotalDays}d";
+        if (d.TotalDays < 365) return $"{(int)(d.TotalDays / 30)}mo";
+        return $"{(int)(d.TotalDays / 365)}y";
+    }
+}

@@ -1,0 +1,27 @@
+@page "/drop"
+@using KlavLor.Application.Features.Drop
+@using KlavLor.Web.Components.Layout
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+
+@inject GlobalDropHandler Handler
+
+<PageLayout PageTitle="@($"KlavLor - {Name}")" Title="@(Name ?? "Drop")" Description="Drop overview across all sources and players">
+    @if (!string.IsNullOrWhiteSpace(Name))
+    {
+        <GlobalDropDetail ItemName="@Name" Overview="@_overview" />
+    }
+</PageLayout>
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "name")]
+    public string? Name { get; set; }
+
+    private GlobalDropOverview? _overview;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrWhiteSpace(Name)) return;
+        _overview = await Handler.GetOverview(Name);
+    }
+}

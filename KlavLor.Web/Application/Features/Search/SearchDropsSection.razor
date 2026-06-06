@@ -5,9 +5,9 @@
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2">
         @foreach (var d in Results)
         {
-            <a hx-get="@SourceUrl(d.TopSourceName).FromApi()"
+            <a hx-get="@DropUrl(d.ItemName).FromApi()"
                hx-target="#hx-page-container"
-               hx-push-url="@SourceUrl(d.TopSourceName)"
+               hx-push-url="@DropUrl(d.ItemName)"
                hx-swap="innerHTML transition:true"
                class="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 hover:border-amber-200 dark:hover:border-amber-700 transition-colors cursor-pointer">
                 <img src="/api/images/item-icon?name=@Uri.EscapeDataString(d.ItemName)" alt="@d.ItemName"
@@ -42,5 +42,5 @@
 @code {
     [Parameter] public List<SearchDropResult> Results { get; set; } = [];
 
-    private static string SourceUrl(string sourceName) => AppRoutes.Source + "?name=" + Uri.EscapeDataString(sourceName);
+    private static string DropUrl(string itemName) => AppRoutes.Drop + "?name=" + Uri.EscapeDataString(itemName);
 }

@@ -1,0 +1,84 @@
+@using KlavLor.Application.Common
+@using KlavLor.Application.Features.Drop
+
+@* Item-focused: one dense row per session that dropped this item, summarising only this
+   item's haul (drops / qty / value) plus session context. Click a row to drill into the
+   full session's kills. *@
+<div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+    <div class="flex items-baseline justify-between gap-2 mb-3">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Recent sessions</h2>
+        <span class="text-xs text-slate-400 dark:text-slate-500">play sessions that dropped this item · click for kills</span>
+    </div>
+
+    @if (Sessions.Count == 0)
+    {
+        <p class="text-sm text-slate-400 dark:text-slate-500">No sessions recorded yet.</p>
+    }
+    else
+    {
+        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
+                    <tr class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                        <th class="px-3 py-2 text-left">Player</th>
+                        <th class="px-3 py-2 text-left">Source</th>
+                        <th class="px-3 py-2 text-left">When</th>
+                        <th class="px-3 py-2 text-right">KC</th>
+                        <th class="px-3 py-2 text-right">Kills</th>
+                        <th class="px-3 py-2 text-right" title="Times this item dropped in the session">Drops</th>
+                        <th class="px-3 py-2 text-right">Qty</th>
+                        <th class="px-3 py-2 text-right">Value</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200 dark:divide-slate-700/50">
+                    @foreach (var s in Sessions)
+                    {
+                        <tr class="hover:bg-slate-100 dark:hover:bg-slate-800/40 cursor-pointer"
+                            hx-get="@ModalUrl(s)" hx-target="#hx-modal-container" hx-swap="innerHTML" hx-trigger="click">
+                            <td class="px-3 py-1.5 text-slate-700 dark:text-slate-200 truncate max-w-[10rem]">@s.CharacterName</td>
+                            <td class="px-3 py-1.5">
+                                <span class="inline-flex items-center gap-1.5 max-w-[12rem]">
+                                    <img src="/api/images/source-icon?name=@Uri.EscapeDataString(s.SourceName)" alt="@s.SourceName"
+                                         class="w-4 h-4 rounded shrink-0" loading="lazy" onerror="this.style.display='none'" />
+                                    <span class="truncate text-slate-600 dark:text-slate-300">@s.SourceName</span>
+                                </span>
+                            </td>
+                            <td class="px-3 py-1.5 whitespace-nowrap text-xs text-slate-500 dark:text-slate-400" title="@LocalRange(s)">@WhenText(s)</td>
+                            <td class="px-3 py-1.5 text-right whitespace-nowrap text-[11px] text-slate-400 dark:text-slate-500 tabular-nums">@KcRange(s)</td>
+                            <td class="px-3 py-1.5 text-right tabular-nums text-slate-500 dark:text-slate-400">@s.SessionKills.ToString("N0")</td>
+                            <td class="px-3 py-1.5 text-right tabular-nums font-medium text-slate-700 dark:text-slate-200">@s.ItemDrops.ToString("N0")</td>
+                            <td class="px-3 py-1.5 text-right tabular-nums text-slate-500 dark:text-slate-400">@s.ItemQuantity.ToString("N0")</td>
+                            <td class="px-3 py-1.5 text-right tabular-nums font-medium text-amber-600 dark:text-amber-400">@GoldFormat.Format(s.ItemValue)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public List<DropSessionRow> Sessions { get; set; } = [];
+
+    private static string ModalUrl(DropSessionRow s) =>
+        AppRoutes.LootLogSourceSession.WithId(s.GameCharacterId).FromApi()
+        + $"?name={Uri.EscapeDataString(s.SourceName)}&session={s.SessionIndex}";
+
+    private static string KcRange(DropSessionRow s) =>
+        s is { MinKillCount: int mn, MaxKillCount: int mx }
+            ? (mn == mx ? $"#{mn:N0}" : $"#{mn:N0}–{mx:N0}")
+            : (s.MinKillOrdinal == s.MaxKillOrdinal ? $"#{s.MinKillOrdinal:N0}" : $"#{s.MinKillOrdinal:N0}–{s.MaxKillOrdinal:N0}");
+
+    private static string WhenText(DropSessionRow s)
+    {
+        var start = IngestTimezone.ToZoneTime(s.StartedAt);
+        var end = IngestTimezone.ToZoneTime(s.EndedAt);
+        var sameMinute = (s.EndedAt - s.StartedAt).TotalMinutes < 1;
+        return sameMinute
+            ? $"{start:d MMM yyyy} {start:HH:mm}"
+            : $"{start:d MMM yyyy} {start:HH:mm}–{end:HH:mm}";
+    }
+
+    private static string LocalRange(DropSessionRow s) =>
+        $"{IngestTimezone.ToZoneTime(s.StartedAt):d MMM yyyy, HH:mm} → {IngestTimezone.ToZoneTime(s.EndedAt):HH:mm}";
+}
