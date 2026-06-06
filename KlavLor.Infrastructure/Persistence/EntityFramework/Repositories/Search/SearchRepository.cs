@@ -15,13 +15,14 @@ internal sealed class SearchRepository(DataContext dataContext, ILogger<SearchRe
         try
         {
             // Match on display name, RuneLite id, or owner name; respect the same
-            // visibility flags as the public drop-log grid. Loot stats come from
-            // correlated aggregates — cheap because the match set (and `limit`) is tiny.
+            // main-game visibility scope as the public drop-log grid (visible, not
+            // admin-hidden, not Leagues). Loot stats come from correlated aggregates —
+            // cheap because the match set (and `limit`) is tiny.
             var pattern = $"%{term}%";
 
             var rows = await dataContext.GameCharacters
                 .AsNoTracking()
-                .Where(c => c.IsVisible && !c.IsAdminHidden)
+                .Where(c => c.IsVisible && !c.IsAdminHidden && !c.IsLeagues)
                 .Where(c => EF.Functions.ILike(c.DisplayName!, pattern)
                             || EF.Functions.ILike(c.RuneLiteId, pattern)
                             || EF.Functions.ILike(c.User!.FirstName + " " + c.User.LastName, pattern))
@@ -70,15 +71,18 @@ internal sealed class SearchRepository(DataContext dataContext, ILogger<SearchRe
             if (connection.State != System.Data.ConnectionState.Open)
                 await connection.OpenAsync();
 
-            // Distinct source names matching the term, aggregated across *all* players.
-            // SourceType is persisted as its string label (HasConversion<string>).
+            // Distinct source names matching the term, aggregated across all visible,
+            // main-game players (not admin-hidden, not Leagues) — the same scope as the
+            // source page. SourceType is persisted as its string label (HasConversion<string>).
             const string sql = """
                 SELECT lr."SourceName",
                        lr."SourceType",
                        COUNT(*)::bigint AS total_kills,
                        SUM(lr."TotalValue")::bigint AS total_value
                 FROM "LootRecords" lr
-                WHERE lr."SourceName" ILIKE '%' || @term || '%'
+                JOIN "GameCharacters" gc ON gc."Id" = lr."GameCharacterId"
+                WHERE gc."IsVisible" = true AND gc."IsAdminHidden" = false AND gc."IsLeagues" = false
+                  AND lr."SourceName" ILIKE '%' || @term || '%'
                 GROUP BY lr."SourceName", lr."SourceType"
                 ORDER BY total_value DESC NULLS LAST
                 LIMIT @limit
@@ -122,7 +126,8 @@ internal sealed class SearchRepository(DataContext dataContext, ILogger<SearchRe
                 await connection.OpenAsync();
 
             // Item-name matches inside actual loot, aggregated per item across every source
-            // it has dropped from. Visible characters only. Reads the normalised LootDrops
+            // it has dropped from. Visible, main-game characters only (not admin-hidden, not
+            // Leagues) — matching the source/drop pages. Reads the normalised LootDrops
             // projection so the name match rides the gin_trgm index instead of unrolling
             // every record's JSONB (the previous heaviest section).
             const string sql = """
@@ -134,7 +139,7 @@ internal sealed class SearchRepository(DataContext dataContext, ILogger<SearchRe
                     FROM "LootDrops" ld
                     JOIN "LootRecords" lr ON lr."Id" = ld."LootRecordId"
                     JOIN "GameCharacters" gc ON gc."Id" = lr."GameCharacterId"
-                    WHERE gc."IsVisible" = true AND gc."IsAdminHidden" = false
+                    WHERE gc."IsVisible" = true AND gc."IsAdminHidden" = false AND gc."IsLeagues" = false
                       AND ld."Name" ILIKE '%' || @term || '%'
                 ),
                 top_source AS (

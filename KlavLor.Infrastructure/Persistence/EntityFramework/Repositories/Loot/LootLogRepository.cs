@@ -89,9 +89,12 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             if (connection.State != System.Data.ConnectionState.Open)
                 await connection.OpenAsync();
 
+            // Public list = main-game scope: visible, not admin-hidden, not Leagues
+            // (seasonal Leagues characters live in their own feed scope). includeHidden
+            // is the admin "show everything" path and applies no filter.
             var visibilityFilter = includeHidden
                 ? ""
-                : """AND gc."IsVisible" = true AND gc."IsAdminHidden" = false""";
+                : """AND gc."IsVisible" = true AND gc."IsAdminHidden" = false AND gc."IsLeagues" = false""";
 
             var sql = $"""
                 SELECT gc."Id",
