@@ -1,10 +1,10 @@
 @using System.Globalization
 @using KlavLor.Application.Common
-@using KlavLor.Application.Features.Source
+@using KlavLor.Application.Features.Drop
 @using KlavLor.Web.Application.Features.Loot.Log.Profile.Svg
 
-@* Reuses the histogram + SourceTrendPoint shape from the Source page, but the per-month value
-   here is the item's DROP count (not kills) across all visible players. *@
+@* Stacked histogram of the item's monthly DROP count across all visible players, coloured by
+   character. Hovering a character segment expands to the sources that produced its drops. *@
 <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
     <div class="flex items-baseline justify-between gap-2 mb-4">
         <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Drops over time</h2>
@@ -37,7 +37,7 @@
 </div>
 
 @code {
-    [Parameter] public List<SourceTrendPoint> Points { get; set; } = [];
+    [Parameter] public List<DropTrendPoint> Points { get; set; } = [];
 
     // 10 distinguishable palette entries, listed literally so Tailwind's content scanner
     // emits the classes. Order: biggest overall contributor first.
@@ -67,7 +67,7 @@
     {
         var recent = Points.Count > 12 ? Points.GetRange(Points.Count - 12, 12) : Points;
         _recentCount = recent.Count;
-        _totalDrops = recent.Sum(p => p.Kills);
+        _totalDrops = recent.Sum(p => p.Drops);
 
         // Rank characters by total drops across the window so colours are stable; the top-N
         // get palette colours, everyone else folds into "Other" within each bar.
@@ -76,7 +76,7 @@
             foreach (var c in month.Characters)
             {
                 totals.TryGetValue(c.CharacterName, out var existing);
-                totals[c.CharacterName] = existing + c.Kills;
+                totals[c.CharacterName] = existing + c.Drops;
             }
 
         var top = totals
@@ -101,30 +101,42 @@
             var named = new List<HistogramBars.BarSegment>();
             var outsiders = new List<HistogramBars.BarSegment>();
             long namedTotal = 0;
-            foreach (var c in m.Characters.OrderByDescending(c => c.Kills))
+            foreach (var c in m.Characters.OrderByDescending(c => c.Drops))
             {
+                // Each character's per-source breakdown becomes the segment's hover detail
+                // (source · drops). Value carries drops so the tooltip's % is share-of-month.
+                var sources = c.Sources
+                    .Select(s => new HistogramBars.BarSegment(
+                        Label: s.SourceName,
+                        Value: s.Drops,
+                        FillClass: fillByName.TryGetValue(c.CharacterName, out var cf) ? cf : OtherFill,
+                        ItemName: s.SourceName,
+                        ValueText: $"{s.Drops:N0} drops"))
+                    .ToList();
+
                 if (fillByName.TryGetValue(c.CharacterName, out var fill))
                 {
                     named.Add(new HistogramBars.BarSegment(
                         Label: c.CharacterName,
-                        Value: c.Kills,
+                        Value: c.Drops,
                         FillClass: fill,
                         ItemName: c.CharacterName,
-                        ValueText: $"{c.Kills:N0} drops"));
-                    namedTotal += c.Kills;
+                        ValueText: $"{c.Drops:N0} drops",
+                        OverflowItems: sources.Count > 0 ? sources : null));
+                    namedTotal += c.Drops;
                 }
                 else
                 {
                     outsiders.Add(new HistogramBars.BarSegment(
                         Label: c.CharacterName,
-                        Value: c.Kills,
+                        Value: c.Drops,
                         FillClass: OtherFill,
                         ItemName: c.CharacterName,
-                        ValueText: $"{c.Kills:N0} drops"));
+                        ValueText: $"{c.Drops:N0} drops"));
                 }
             }
 
-            var other = Math.Max(0, m.Kills - namedTotal);
+            var other = Math.Max(0, m.Drops - namedTotal);
             if (other > 0)
             {
                 named.Add(new HistogramBars.BarSegment(
@@ -139,8 +151,8 @@
 
             _bars.Add(new HistogramBars.Bar(
                 Label: label,
-                Value: m.Kills,
-                Tooltip: $"{monthShort} {m.Year} — {m.Kills:N0} drops · {GoldFormat.Format(m.Value)} gp",
+                Value: m.Drops,
+                Tooltip: $"{monthShort} {m.Year} — {m.Drops:N0} drops · {GoldFormat.Format(m.Value)} gp",
                 Segments: named.Count > 0 ? named : null));
         }
     }

@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Caching.Memory;
 using KlavLor.Application.Common;
-using KlavLor.Application.Features.Source;
 using KlavLor.Application.Interfaces.Repositories;
 
 namespace KlavLor.Application.Features.Drop;
@@ -40,7 +39,7 @@ public sealed class GlobalDropHandler(IGlobalDropRepository repository, IMemoryC
             : repository.GetCharacters(itemName, sort, dir, Normalize(term));
     }
 
-    public Task<List<SourceTrendPoint>> GetMonthlyTrend(string itemName)
+    public Task<List<DropTrendPoint>> GetMonthlyTrend(string itemName)
         => Cached("trend", itemName, () => repository.GetMonthlyTrend(itemName));
 
     public Task<List<DropSessionRow>> GetRecentSessions(string itemName)

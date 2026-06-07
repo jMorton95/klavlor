@@ -5,7 +5,6 @@ using KlavLor.Application.Common;
 using KlavLor.Application.Common.Exceptions;
 using KlavLor.Application.Features.Drop;
 using KlavLor.Application.Features.Loot.Feed;
-using KlavLor.Application.Features.Source;
 using KlavLor.Application.Interfaces.Repositories;
 using KlavLor.Domain.Entities;
 
@@ -255,16 +254,14 @@ internal sealed class GlobalDropRepository(DataContext dataContext, ILogger<Glob
         }
     }
 
-    public async Task<List<SourceTrendPoint>> GetMonthlyTrend(string itemName)
+    public async Task<List<DropTrendPoint>> GetMonthlyTrend(string itemName)
     {
         try
         {
             var connection = await OpenConnection();
 
             // Monthly drop count + gp value of the item across all visible players, bucketed by
-            // Europe/London date to match the per-character / source trends. "Kills" on the
-            // returned SourceTrendPoint carries the drop count so the histogram component can be
-            // reused; Clogs are left empty (not meaningful for a single-item trend).
+            // Europe/London date to match the per-character / source trends.
             var totalsSql = $"""
                 SELECT EXTRACT(year FROM ((lr."OccurredAt" AT TIME ZONE 'Europe/London')::date))::int AS y,
                        EXTRACT(month FROM ((lr."OccurredAt" AT TIME ZONE 'Europe/London')::date))::int AS m,
@@ -289,44 +286,64 @@ internal sealed class GlobalDropRepository(DataContext dataContext, ILogger<Glob
                         reader.IsDBNull(3) ? 0 : reader.GetInt64(3)));
             }
 
-            var charSql = $"""
+            // Per (month, character, source) drop counts — drives the hover breakdown: each
+            // character segment expands to the sources that contributed its drops that month.
+            // Ordered by drops DESC so each character's sources come out highest-first (a
+            // character's rows are a sorted subsequence of the month's rows).
+            var breakdownSql = $"""
                 SELECT EXTRACT(year FROM ((lr."OccurredAt" AT TIME ZONE 'Europe/London')::date))::int AS y,
                        EXTRACT(month FROM ((lr."OccurredAt" AT TIME ZONE 'Europe/London')::date))::int AS m,
                        COALESCE(gc."DisplayName", u."FirstName" || ' ' || u."LastName") AS character_name,
+                       lr."SourceName" AS source_name,
                        COUNT(DISTINCT lr."Id")::bigint AS drops
                 FROM "LootDrops" ld
                 JOIN "LootRecords" lr ON lr."Id" = ld."LootRecordId"
                 JOIN "GameCharacters" gc ON gc."Id" = lr."GameCharacterId"
                 JOIN "Users" u ON u."Id" = gc."UserId"
                 WHERE ld."Name" = @item AND {VisibilityFilter}
-                GROUP BY 1, 2, 3
+                GROUP BY 1, 2, 3, 4
                 ORDER BY y, m, drops DESC
                 """;
 
-            var byMonth = new Dictionary<(int, int), List<SourceTrendCharacter>>();
+            // (year, month) -> character (insertion order = drops desc) -> its source rows.
+            var byMonth = new Dictionary<(int, int), Dictionary<string, List<DropTrendSource>>>();
             await using (var cmd = connection.CreateCommand())
             {
-                cmd.CommandText = charSql;
+                cmd.CommandText = breakdownSql;
                 cmd.Parameters.Add(new NpgsqlParameter("@item", itemName));
                 await using var reader = await cmd.ExecuteReaderAsync();
                 while (await reader.ReadAsync())
                 {
-                    var y = reader.GetInt32(0);
-                    var m = reader.GetInt32(1);
-                    var name = reader.GetString(2);
-                    if (!byMonth.TryGetValue((y, m), out var list))
+                    var key = (reader.GetInt32(0), reader.GetInt32(1));
+                    var character = reader.GetString(2);
+                    var source = reader.GetString(3);
+                    var drops = reader.GetInt64(4);
+
+                    if (!byMonth.TryGetValue(key, out var byChar))
                     {
-                        list = [];
-                        byMonth[(y, m)] = list;
+                        byChar = [];
+                        byMonth[key] = byChar;
                     }
-                    list.Add(new SourceTrendCharacter(name, reader.GetInt64(3), []));
+                    if (!byChar.TryGetValue(character, out var sources))
+                    {
+                        sources = [];
+                        byChar[character] = sources;
+                    }
+                    sources.Add(new DropTrendSource(source, drops));
                 }
             }
 
             return totals
-                .Select(t => new SourceTrendPoint(
-                    t.Y, t.M, t.Drops, t.Value,
-                    byMonth.TryGetValue((t.Y, t.M), out var chars) ? chars : []))
+                .Select(t =>
+                {
+                    var chars = byMonth.TryGetValue((t.Y, t.M), out var byChar)
+                        ? byChar
+                            .Select(kv => new DropTrendCharacter(kv.Key, kv.Value.Sum(s => s.Drops), kv.Value))
+                            .OrderByDescending(c => c.Drops)
+                            .ToList()
+                        : [];
+                    return new DropTrendPoint(t.Y, t.M, t.Drops, t.Value, chars);
+                })
                 .ToList();
         }
         catch (Exception ex)

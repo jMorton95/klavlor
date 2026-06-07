@@ -1,6 +1,5 @@
 using KlavLor.Application.Common;
 using KlavLor.Application.Features.Drop;
-using KlavLor.Application.Features.Source;
 
 namespace KlavLor.Application.Interfaces.Repositories;
 
@@ -12,6 +11,6 @@ public interface IGlobalDropRepository
     Task<GlobalDropOverview?> GetOverview(string itemName);
     Task<DropSourceTable> GetSources(string itemName, string sortBy, SortDirection direction, string? term);
     Task<DropCharacterTable> GetCharacters(string itemName, string sortBy, SortDirection direction, string? term);
-    Task<List<SourceTrendPoint>> GetMonthlyTrend(string itemName);
+    Task<List<DropTrendPoint>> GetMonthlyTrend(string itemName);
     Task<List<DropSessionRow>> GetRecentSessions(string itemName, int limit);
 }

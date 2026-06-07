@@ -68,6 +68,23 @@ public sealed record DropCharacterTable(
     string SortBy,
     SortDirection SortDirection);
 
+// One month of this item's activity across all visible players: total drops + gp value, plus
+// a per-character breakdown where each character further breaks down into the sources that
+// produced its drops that month (drives the trend chart's hover detail).
+public sealed record DropTrendPoint(
+    int Year,
+    int Month,
+    long Drops,
+    long Value,
+    IReadOnlyList<DropTrendCharacter> Characters);
+
+public sealed record DropTrendCharacter(
+    string CharacterName,
+    long Drops,
+    IReadOnlyList<DropTrendSource> Sources);
+
+public sealed record DropTrendSource(string SourceName, long Drops);
+
 // A play session (across all visible characters) that yielded this item at least once,
 // newest first. Same per-(character, source) grouping as the character profile's session
 // history, so the existing session-kills modal works unchanged via (GameCharacterId,
