@@ -118,10 +118,13 @@ public sealed class AdminSettingsEndpoint : IEndpoint
 
     private static async Task<RazorComponentResult> SearchDropRates(
         [FromQuery] string? searchTerm,
-        [FromQuery] bool showNoData,
+        // Nullable so an absent param binds to null instead of 400. The "Show sources with no
+        // wiki data" checkbox is unchecked by default, and an unchecked checkbox submits no
+        // value at all — so the search box's hx-include omits showNoData on the initial load.
+        [FromQuery] bool? showNoData,
         DropRateAdminHandler handler)
     {
-        var items = await handler.Search(searchTerm, showNoData);
+        var items = await handler.Search(searchTerm, showNoData ?? false);
         return IResultExtensions.Component<DropRateResults>(new { Items = items, SearchTerm = searchTerm });
     }
 
