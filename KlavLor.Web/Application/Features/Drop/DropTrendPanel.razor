@@ -32,7 +32,7 @@
             </div>
         }
 
-        <p class="text-xs text-slate-400 dark:text-slate-500 mt-3">@_totalDrops.ToString("N0") drops over @_recentCount months · hover a segment for the character breakdown.</p>
+        <p class="text-xs text-slate-400 dark:text-slate-500 mt-3">@_totalDrops.ToString("N0") drop@(_totalDrops == 1 ? "" : "s") over @_recentCount month@(_recentCount == 1 ? "" : "s") · hover a segment for the character breakdown.</p>
     }
 </div>
 
