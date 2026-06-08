@@ -55,8 +55,9 @@ public sealed class GlobalDropHandler(IGlobalDropRepository repository, IMemoryC
 
     private async Task<T> Cached<T>(string method, string itemName, Func<Task<T>> factory)
     {
+        var generation = AggregateCacheGeneration.Get(cache);
         var version = GlobalDropCache.GetVersion(cache, itemName);
-        var key = GlobalDropCache.EntryKey(version, method, itemName);
+        var key = GlobalDropCache.EntryKey(generation, version, method, itemName);
 
         if (cache.TryGetValue(key, out T? hit) && hit is not null)
             return hit;

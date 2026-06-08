@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Caching.Memory;
+using KlavLor.Application.Common;
 using KlavLor.Application.Interfaces.Repositories;
 using KlavLor.Application.Interfaces.Services;
 using KlavLor.Domain.Interfaces.Repositories;
@@ -10,7 +12,8 @@ namespace KlavLor.Application.Features.CollectionLog;
 public sealed class CollectionLogAdminHandler(
     ICollectionLogExclusionRepository exclusions,
     ICollectionLogItemRepository items,
-    ICollectionLogCache cache)
+    ICollectionLogCache cache,
+    IMemoryCache aggregateCache)
 {
     public const int SearchLimit = 40;
 
@@ -31,6 +34,13 @@ public sealed class CollectionLogAdminHandler(
     }
 
     // GetAllItemIds returns the effective set (synced items minus exclusions), so the
-    // cache mirrors the blacklist after every edit.
-    private async Task RefreshCache() => cache.Replace(await items.GetAllItemIds());
+    // ingest cache mirrors the blacklist after every edit. Bumping the aggregate-cache
+    // generation also drops the already-cached source/drop pages, whose collection-log
+    // hovers and counts are derived from this set — without it an excluded item lingers
+    // on those pages until their 5-minute entry TTL expires.
+    private async Task RefreshCache()
+    {
+        cache.Replace(await items.GetAllItemIds());
+        AggregateCacheGeneration.Bump(aggregateCache);
+    }
 }

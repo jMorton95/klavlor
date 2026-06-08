@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Caching.Memory;
+using KlavLor.Application.Common;
 using KlavLor.Application.Interfaces.Repositories;
 
 namespace KlavLor.Application.Features.Source;
@@ -35,8 +36,9 @@ public sealed class GlobalSourceHandler(IGlobalSourceRepository repository, IMem
 
     private async Task<T> Cached<T>(string method, string sourceName, Func<Task<T>> factory)
     {
+        var generation = AggregateCacheGeneration.Get(cache);
         var version = GlobalSourceCache.GetVersion(cache, sourceName);
-        var key = GlobalSourceCache.EntryKey(version, method, sourceName);
+        var key = GlobalSourceCache.EntryKey(generation, version, method, sourceName);
 
         if (cache.TryGetValue(key, out T? hit) && hit is not null)
             return hit;

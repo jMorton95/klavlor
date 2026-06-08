@@ -28,6 +28,6 @@ internal static class GlobalSourceCache
         cache.Set(key, current + 1L, VersionTtl);
     }
 
-    public static string EntryKey(long version, string method, string sourceName)
-        => $"source-stats:{method}:v{version}:{sourceName}";
+    public static string EntryKey(long generation, long version, string method, string sourceName)
+        => $"source-stats:{method}:g{generation}:v{version}:{sourceName}";
 }
