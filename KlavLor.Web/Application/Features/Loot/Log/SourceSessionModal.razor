@@ -1,14 +1,16 @@
 @using KlavLor.Application.Common
 @using KlavLor.Application.Features.Loot.Log
 
-@* A session's individual kills, shown in a popover modal. Rendered into #hx-modal-container;
-   closes on backdrop click or the X (same pattern as ConfirmationModal). *@
+@* A session's loot, shown in a popover modal. Rendered into #hx-modal-container; closes on
+   backdrop click or the X (same pattern as ConfirmationModal). Opens on the grouped-loot
+   view (every distinct item summed) so the whole haul is visible at a glance; the toggle
+   swaps to the per-kill play-by-play. *@
 <div id="modal-element" class="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
     <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
          onclick="document.getElementById('modal-element').remove()"></div>
 
     <div class="relative bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-lg border border-white/30 dark:border-slate-700 shadow-[0_8px_30px_rgb(0,0,0,0.18)] max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-scale-in">
-        <div class="px-5 py-3.5 border-b border-white/20 dark:border-slate-700 flex items-center justify-between shrink-0">
+        <div class="px-5 py-3.5 border-b border-white/20 dark:border-slate-700 flex items-center justify-between gap-3 shrink-0">
             <div class="flex items-center gap-2 min-w-0">
                 <img src="/api/images/source-icon?name=@Uri.EscapeDataString(SourceName)" alt="@SourceName"
                      class="w-5 h-5 rounded shrink-0" loading="lazy" onerror="this.style.display='none'" />
@@ -17,16 +19,65 @@
                     <p class="text-xs text-slate-500 dark:text-slate-400">@Summary</p>
                 </div>
             </div>
-            <button type="button" onclick="this.closest('.fixed').remove()"
-                    class="p-2 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/40 dark:hover:bg-slate-700/40 rounded-lg transition-colors shrink-0">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                </svg>
-            </button>
+            <div class="flex items-center gap-1.5 shrink-0">
+                @if (_grouped.Count > 0)
+                {
+                    <button type="button" onclick="toggleSessionView(this)"
+                            class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-slate-200/50 dark:hover:bg-slate-700/50 rounded-lg transition-colors whitespace-nowrap">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+                        </svg>
+                        <span data-session-toggle-label>View individual rolls</span>
+                    </button>
+                }
+                <button type="button" onclick="this.closest('.fixed').remove()"
+                        class="p-2 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/40 dark:hover:bg-slate-700/40 rounded-lg transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
         </div>
 
         <div class="px-5 py-3 overflow-y-auto themed-scrollbar">
-            <LootLogSessionKills Kills="Kills" />
+            @* Default view: the full distinct-item haul for the session, summed across every kill. *@
+            <div id="session-grouped">
+                @if (_grouped.Count == 0)
+                {
+                    <p class="text-xs text-slate-400 dark:text-slate-500 py-2">No loot recorded for this session.</p>
+                }
+                else
+                {
+                    <ul class="divide-y divide-slate-100 dark:divide-slate-800/70 border-t border-slate-100 dark:border-slate-800/70">
+                        @foreach (var drop in _grouped)
+                        {
+                            <li class="flex items-center gap-2 py-1.5 pl-2 border-l-2 @TierAccent(drop.TotalValue)">
+                                <img src="/api/images/item-icon?name=@Uri.EscapeDataString(drop.Name)" alt="@drop.Name"
+                                     class="w-4 h-4 shrink-0" loading="lazy" onerror="this.style.display='none'" />
+                                @if (drop.IsNew)
+                                {
+                                    <span class="px-1 py-0 text-[9px] font-semibold rounded-sm bg-cyan-700 text-white shrink-0"
+                                          title="First-time collection log unlock">NEW</span>
+                                }
+                                <span class="flex-1 min-w-0 truncate text-sm text-slate-700 dark:text-slate-200">@drop.Name</span>
+                                @if (drop.TotalQuantity > 1)
+                                {
+                                    <span class="shrink-0 text-xs font-medium text-amber-600 dark:text-amber-400 tabular-nums">@drop.TotalQuantity.ToString("N0")x</span>
+                                }
+                                @if (drop.TotalValue > 0)
+                                {
+                                    <span class="shrink-0 w-24 text-right text-xs font-medium text-amber-600 dark:text-amber-400 tabular-nums">@GoldFormat.Format(drop.TotalValue)</span>
+                                }
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+
+            @* Hidden until the user toggles: the original per-kill play-by-play. *@
+            <div id="session-rolls" class="hidden">
+                <LootLogSessionKills Kills="Kills" />
+            </div>
         </div>
     </div>
 </div>
@@ -34,6 +85,27 @@
 @code {
     [Parameter] public string SourceName { get; set; } = "";
     [Parameter] public List<LootKillEntry> Kills { get; set; } = [];
+
+    private List<GroupedDrop> _grouped = [];
+
+    protected override void OnParametersSet()
+    {
+        // Sum every distinct item across all kills in the session, biggest haul first.
+        _grouped = Kills
+            .SelectMany(k => k.Drops)
+            .GroupBy(d => d.Name)
+            .Select(g => new GroupedDrop(
+                g.Key,
+                g.Sum(d => (long)d.Quantity),
+                g.Sum(d => (long)d.Quantity * d.Price),
+                g.Any(d => d.IsFirstTime && d.IsCollectionLogItem)))
+            .OrderByDescending(d => d.TotalValue)
+            .ThenByDescending(d => d.TotalQuantity)
+            .ThenBy(d => d.Name)
+            .ToList();
+    }
+
+    private sealed record GroupedDrop(string Name, long TotalQuantity, long TotalValue, bool IsNew);
 
     private string Summary
     {
@@ -47,7 +119,19 @@
             var range = oldest.Date == newest.Date
                 ? (oldest == newest ? oldest.ToString("d MMM yyyy, HH:mm") : $"{oldest:d MMM yyyy} · {oldest:HH:mm}–{newest:HH:mm}")
                 : $"{oldest:d MMM yyyy} – {newest:d MMM yyyy}";
-            return $"{Kills.Count:N0} {noun} · {range}";
+            var total = Kills.Sum(k => k.TotalValue);
+            return total > 0
+                ? $"{Kills.Count:N0} {noun} · {range} · {GoldFormat.Format(total)} gp"
+                : $"{Kills.Count:N0} {noun} · {range}";
         }
     }
+
+    private static string TierAccent(long value) => value switch
+    {
+        >= 100_000_000 => "border-amber-400",
+        >= 10_000_000 => "border-purple-400",
+        >= 1_000_000 => "border-blue-400",
+        >= 100_000 => "border-green-400",
+        _ => "border-transparent"
+    };
 }

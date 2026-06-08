@@ -137,6 +137,20 @@ window.clearOsrsSelection = function(el) {
     }
 };
 
+// --- Session loot modal: toggle between grouped loot and individual rolls ---
+window.toggleSessionView = function(btn) {
+    var modal = btn.closest('#modal-element');
+    if (!modal) return;
+    var grouped = modal.querySelector('#session-grouped');
+    var rolls = modal.querySelector('#session-rolls');
+    if (!grouped || !rolls) return;
+    var label = btn.querySelector('[data-session-toggle-label]');
+    var showRolls = rolls.classList.contains('hidden');
+    rolls.classList.toggle('hidden', !showRolls);
+    grouped.classList.toggle('hidden', showRolls);
+    if (label) label.textContent = showRolls ? 'View grouped loot' : 'View individual rolls';
+};
+
 // Get the center of the builder canvas viewport for placing new nodes
 window.getCanvasViewportCenter = function() {
     var canvas = document.getElementById('builder-canvas');
