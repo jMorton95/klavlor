@@ -1,10 +1,12 @@
 @using KlavLor.Application.Interfaces.Authentication
 @using KlavLor.Application.Interfaces.Services
+@using KlavLor.Domain.Interfaces.Repositories
 @using KlavLor.Domain.Shared
 @using KlavLor.Web.Application
 
 @inject ISessionStateManager SessionStateManager
 @inject ISystemSettingsCache SystemSettingsCache
+@inject IUserRepository UserRepository
 
 <span id="sidebar">
     <aside id="mobile-sidebar"
@@ -25,6 +27,15 @@
                     </svg>
                 </button>
             </div>
+
+            @if (IsAuthenticated && _accountName is not null)
+            {
+                <div class="px-6 py-3 border-b border-slate-700">
+                    <p class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Signed in as</p>
+                    <p class="text-sm font-medium text-white truncate" title="@_accountEmail">@_accountName</p>
+                    <p class="text-xs text-slate-400 truncate">@_accountEmail</p>
+                </div>
+            }
 
             <nav class="flex-1 px-4 py-6 space-y-1">
                 @if (IsAuthenticated)
@@ -81,12 +92,25 @@
     private bool IsAuthenticated { get; set; }
     private bool IsUserAdministrator { get; set; }
     private bool IsAuditor { get; set; }
+    private string? _accountName;
+    private string? _accountEmail;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         IsAuthenticated = SessionStateManager.IsAuthenticated();
         IsUserAdministrator = SessionStateManager.IsUserSessionAdministrator();
         IsAuditor = SessionStateManager.IsInRole(RoleName.Auditor);
+
+        var userId = SessionStateManager.GetUserSessionId();
+        if (userId is not null)
+        {
+            var user = await UserRepository.GetById(userId.Value);
+            if (user is not null)
+            {
+                _accountName = $"{user.FirstName} {user.LastName}";
+                _accountEmail = user.Email;
+            }
+        }
     }
 
     private record NavItem(string Route, string HxRoute, string Label, RenderFragment Icon, string ActiveArea);
