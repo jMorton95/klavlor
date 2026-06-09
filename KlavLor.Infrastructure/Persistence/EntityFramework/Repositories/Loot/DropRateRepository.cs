@@ -95,6 +95,18 @@ internal sealed class DropRateRepository(DataContext dataContext, ILogger<DropRa
             .CountAsync(c => !dataContext.DropRates.Any(d => d.ItemId == c.ItemId));
     }
 
+    public async Task<DropRate?> GetRate(string sourceName, string itemName)
+    {
+        var lowerItem = itemName.ToLower();
+        var matches = await dataContext.DropRates
+            .Where(d => d.SourceName == sourceName && d.ItemName.ToLower() == lowerItem)
+            .ToListAsync();
+
+        // Prefer a row whose rarity reduced to a usable N/D form so luck can be computed.
+        return matches.FirstOrDefault(d => d.RarityNumerator != null && d.RarityDenominator != null)
+               ?? matches.FirstOrDefault();
+    }
+
     public async Task<(int SourceCount, int RateCount, DateTimeOffset? LastSynced)> GetStatus()
     {
         var rateCount = await dataContext.DropRates.CountAsync();

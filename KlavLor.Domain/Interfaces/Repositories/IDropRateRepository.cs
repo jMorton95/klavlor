@@ -33,4 +33,11 @@ public interface IDropRateRepository
 
     /// <summary>All source names currently marked as having no wiki drop-rate data.</summary>
     Task<IReadOnlyList<string>> GetNoWikiDataSources();
+
+    /// <summary>
+    /// The drop rate for a (source, item) pair (item matched case-insensitively). When a source
+    /// lists the item under several variants, prefers a row with a parsed numeric rarity. Null
+    /// when no rate is stored. Used by loot auto-completion to judge how lucky/dry a drop was.
+    /// </summary>
+    Task<DropRate?> GetRate(string sourceName, string itemName);
 }

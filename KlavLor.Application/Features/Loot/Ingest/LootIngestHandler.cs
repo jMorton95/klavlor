@@ -5,6 +5,7 @@ using KlavLor.Application.Common;
 using KlavLor.Application.Features.Drop;
 using KlavLor.Application.Features.Loot.Feed;
 using KlavLor.Application.Features.Loot.Log;
+using KlavLor.Application.Features.Progression;
 using KlavLor.Application.Features.Source;
 using KlavLor.Application.Interfaces.Authentication;
 using KlavLor.Application.Interfaces.Repositories;
@@ -22,7 +23,8 @@ public sealed class LootIngestHandler(
     ILootFeedService lootFeedService,
     IUserRepository userRepository,
     ICollectionLogCache collectionLogCache,
-    IMemoryCache memoryCache)
+    IMemoryCache memoryCache,
+    ProgressionAutoCompletionHandler progressionAutoCompleter)
 {
     private static readonly string[] DateFormats =
     [
@@ -79,6 +81,17 @@ public sealed class LootIngestHandler(
             // Drop pages aggregate per item — bump each dropped item's version.
             foreach (var drop in drops)
                 GlobalDropCache.Invalidate(memoryCache, drop.Name);
+        }
+
+        // First-time receipts auto-complete the user's matching gear-progression nodes.
+        if (character is not null && record.Id > 0)
+        {
+            var unlocks = drops
+                .Where(d => d.IsFirstTime)
+                .Select(d => new ProgressionAutoCompletionHandler.FirstUnlock(
+                    d.Name, record.SourceName, record.OccurredAt, record.KillCount, character.Id, record.Id))
+                .ToList();
+            await progressionAutoCompleter.Run(userId.Value, unlocks);
         }
 
         if (ShouldPublishToFeed(record, character))
@@ -199,6 +212,18 @@ public sealed class LootIngestHandler(
             .Distinct(StringComparer.Ordinal);
         foreach (var item in itemsTouched)
             GlobalDropCache.Invalidate(memoryCache, item);
+
+        // First-time receipts across the batch auto-complete matching gear-progression nodes.
+        // Run dedupes per item to the earliest receipt, so cross-character firsts collapse correctly.
+        var batchUnlocks = parsedItems
+            .Where(p => p.Character is not null && p.Parsed.Record.Id > 0)
+            .SelectMany(p => p.Parsed.Drops
+                .Where(d => d.IsFirstTime)
+                .Select(d => new ProgressionAutoCompletionHandler.FirstUnlock(
+                    d.Name, p.Parsed.Record.SourceName, p.Parsed.Record.OccurredAt,
+                    p.Parsed.Record.KillCount, p.Character!.Id, p.Parsed.Record.Id)))
+            .ToList();
+        await progressionAutoCompleter.Run(userId.Value, batchUnlocks);
 
         var liveRecords = parsedItems
             .Where(p => ShouldPublishToFeed(p.Parsed.Record, p.Character))
