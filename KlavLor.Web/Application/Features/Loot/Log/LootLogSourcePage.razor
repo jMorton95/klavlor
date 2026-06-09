@@ -44,10 +44,18 @@
         var detailResult = await LogHandler.HandleSource(Id, NameParam);
         if (detailResult.IsSuccess) _detail = detailResult.Value;
 
-        var sessionsResult = await LogHandler.HandleSourceSessions(Id, NameParam);
-        if (sessionsResult.IsSuccess) _sessions = sessionsResult.Value;
-
-        var collectionResult = await ProfileHandler.HandleSourceCollection(Id, NameParam);
-        if (collectionResult.IsSuccess) _collection = collectionResult.Value;
+        // Only build the data the active tab actually renders (see LootLogSourceDetail): the
+        // Kill Sessions view needs sessions, every other view needs the collection. Loading both
+        // made the page pay for the (heavy) collection aggregate even when showing kills.
+        if (string.Equals(ViewParam, "kills", StringComparison.OrdinalIgnoreCase))
+        {
+            var sessionsResult = await LogHandler.HandleSourceSessions(Id, NameParam);
+            if (sessionsResult.IsSuccess) _sessions = sessionsResult.Value;
+        }
+        else
+        {
+            var collectionResult = await ProfileHandler.HandleSourceCollection(Id, NameParam);
+            if (collectionResult.IsSuccess) _collection = collectionResult.Value;
+        }
     }
 }

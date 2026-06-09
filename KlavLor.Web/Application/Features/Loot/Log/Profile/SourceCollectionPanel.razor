@@ -261,9 +261,9 @@
             <div class="bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-xl p-3 space-y-1.5 text-left">
                 <div class="flex items-center justify-between text-[11px]">
                     <span class="font-semibold text-slate-700 dark:text-slate-200 truncate">@e.ItemName</span>
-                    <span class="text-slate-500 dark:text-slate-400">@e.DropEvents.Count @(e.DropEvents.Count == 1 ? "drop" : "drops")</span>
+                    <span class="text-slate-500 dark:text-slate-400">@e.TotalDrops.ToString("N0") @(e.TotalDrops == 1 ? "drop" : "drops")</span>
                 </div>
-                <ul class="max-h-72 overflow-y-auto divide-y divide-slate-200 dark:divide-slate-700/50 text-[11px]">
+                <ul class="max-h-72 overflow-y-auto themed-scrollbar divide-y divide-slate-200 dark:divide-slate-700/50 text-[11px]">
                     @foreach (var ev in e.DropEvents)
                     {
                         <li class="flex items-center justify-between gap-2 py-1">
@@ -285,6 +285,12 @@
                         </li>
                     }
                 </ul>
+                @if (e.TotalDrops > e.DropEvents.Count)
+                {
+                    <div class="text-[10px] text-slate-400 dark:text-slate-500 text-center pt-1.5 border-t border-slate-200 dark:border-slate-700/50">
+                        Showing latest @e.DropEvents.Count of @e.TotalDrops.ToString("N0")
+                    </div>
+                }
             </div>
         </div>;
     };

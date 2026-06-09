@@ -1960,6 +1960,10 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             reader.GetFieldValue<DateTimeOffset>(4));
     }
 
+    // Cap on how many recent drop events each collection item carries for its hover popover.
+    // Without it, an item received thousands of times fetched and rendered one row per receipt.
+    private const int RecentDropEventsPerItem = 50;
+
     public async Task<SourceCollection> GetSourceCollection(int characterId, string sourceName)
     {
         try
@@ -2130,26 +2134,37 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             if (entries.Count > 0)
             {
                 await using var eventsCmd = connection.CreateCommand();
+                // The hover popover only lists the most recent receipts per item — cap at
+                // @limit so an item dropped thousands of times doesn't fetch (and render) one
+                // row per receipt. Rank within each item first, then compute the chronological
+                // ordinal only for the rows we keep. Newest-first so the popover shows the
+                // latest drops at the top; the true total stays on CollectionEntry.TotalDrops.
                 eventsCmd.CommandText = """
-                    SELECT ld."Name" AS item_name,
-                           lr."OccurredAt",
-                           lr."KillCount",
+                    WITH ranked AS (
+                        SELECT ld."Name" AS item_name, lr."OccurredAt", lr."KillCount", lr."Id",
+                               ROW_NUMBER() OVER (PARTITION BY ld."Name"
+                                                  ORDER BY lr."OccurredAt" DESC, lr."Id" DESC) AS rn
+                        FROM "LootRecords" lr
+                        JOIN "LootDrops" ld ON ld."LootRecordId" = lr."Id"
+                        WHERE lr."GameCharacterId" = @cid AND lr."SourceName" = @source
+                          AND EXISTS (
+                              SELECT 1 FROM "EffectiveCollectionLogItems" cli
+                              WHERE cli."ItemId" = ld."ItemId"
+                          )
+                    )
+                    SELECT r.item_name, r."OccurredAt", r."KillCount",
                            (SELECT COUNT(*)::int FROM "LootRecords" o
                             WHERE o."GameCharacterId" = @cid
                               AND o."SourceName" = @source
-                              AND (o."OccurredAt" < lr."OccurredAt"
-                                   OR (o."OccurredAt" = lr."OccurredAt" AND o."Id" <= lr."Id"))) AS kill_ordinal
-                    FROM "LootRecords" lr
-                    JOIN "LootDrops" ld ON ld."LootRecordId" = lr."Id"
-                    WHERE lr."GameCharacterId" = @cid AND lr."SourceName" = @source
-                      AND EXISTS (
-                          SELECT 1 FROM "EffectiveCollectionLogItems" cli
-                          WHERE cli."ItemId" = ld."ItemId"
-                      )
-                    ORDER BY ld."Name", lr."OccurredAt" ASC, lr."Id" ASC
+                              AND (o."OccurredAt" < r."OccurredAt"
+                                   OR (o."OccurredAt" = r."OccurredAt" AND o."Id" <= r."Id"))) AS kill_ordinal
+                    FROM ranked r
+                    WHERE r.rn <= @limit
+                    ORDER BY r.item_name, r."OccurredAt" DESC, r."Id" DESC
                     """;
                 eventsCmd.Parameters.Add(new NpgsqlParameter("@cid", characterId));
                 eventsCmd.Parameters.Add(new NpgsqlParameter("@source", sourceName));
+                eventsCmd.Parameters.Add(new NpgsqlParameter("@limit", RecentDropEventsPerItem));
                 await using var eventsReader = await eventsCmd.ExecuteReaderAsync();
                 while (await eventsReader.ReadAsync())
                 {

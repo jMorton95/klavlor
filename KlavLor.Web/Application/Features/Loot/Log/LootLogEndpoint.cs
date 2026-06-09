@@ -95,14 +95,19 @@ public sealed class LootLogEndpoint : IEndpoint
 
         // Sequential awaits — scoped DbContext is not safe under concurrent use.
         var detail = await handler.HandleSource(id, name);
-        var sessions = await handler.HandleSourceSessions(id, name);
-        var collection = await profileHandler.HandleSourceCollection(id, name);
+
+        // Only build the active tab's data (see LootLogSourceDetail): the Kill Sessions view needs
+        // sessions, every other view needs the collection. Building both made each tab pay for the
+        // heavy collection aggregate (~5s on large sources) even when it isn't rendered.
+        var isKills = string.Equals(view, "kills", StringComparison.OrdinalIgnoreCase);
+        var sessions = isKills ? await handler.HandleSourceSessions(id, name) : null;
+        var collection = !isKills ? await profileHandler.HandleSourceCollection(id, name) : null;
 
         return IResultExtensions.Component<LootLogSourceDetail>(new
         {
             Detail = detail.Value,
-            Sessions = sessions.Value,
-            Collection = collection.Value,
+            Sessions = sessions?.Value,
+            Collection = collection?.Value,
             View = view,
             CharacterId = id
         });
