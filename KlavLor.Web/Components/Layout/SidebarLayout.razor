@@ -16,3 +16,22 @@
      data-toggle="sidebar"
      class="fixed inset-0 bg-gray-900/50 dark:bg-gray-950/70 backdrop-blur-sm z-40 hidden">
 </div>
+
+@* Page-transition loader. Shown by site.js during URL-pushing HTMX navigations that swap
+   #hx-page-container, hidden when the response returns. Lives in the layout (never swapped). *@
+<div id="page-loader"
+     class="hidden fixed inset-0 z-40 flex items-center justify-center bg-slate-100/60 dark:bg-slate-950/60 backdrop-blur-[2px] pointer-events-auto"
+     role="status" aria-live="polite">
+    <div class="flex flex-col items-center gap-3">
+        <span class="relative inline-flex h-12 w-12">
+            <span class="absolute inset-0 rounded-full border-4 border-amber-500/20"></span>
+            <span class="absolute inset-0 rounded-full border-4 border-transparent border-t-amber-500 dark:border-t-amber-400 animate-spin"></span>
+            @* Bolt mark in the centre, echoing the KlavLor brand. *@
+            <svg class="absolute inset-0 m-auto w-5 h-5 text-amber-500 dark:text-amber-400" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M13 2L4.5 13.5H11l-1.5 8.5L19 10.5h-6.5L13 2z"/>
+            </svg>
+        </span>
+        <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Loading…</span>
+        <span class="sr-only">Loading page</span>
+    </div>
+</div>

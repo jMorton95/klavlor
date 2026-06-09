@@ -322,6 +322,120 @@ window.initHistoryPanel = function() {
     });
 })();
 
+// --- Page-transition loader ---
+// Shows #page-loader during full-page HTMX navigations (requests that swap #hx-page-container
+// AND push a URL — i.e. real navigations, not search-as-you-type or sub-panel loads). A short
+// delay keeps instant loads from flashing the spinner; a failsafe prevents a stuck overlay.
+(() => {
+    let showTimer = null, failsafe = null;
+    const SHOW_DELAY = 120;     // ms before the spinner appears
+    const MAX_VISIBLE = 20000;  // ms hard cap so a dropped request can't leave it spinning
+
+    const loader = () => document.getElementById('page-loader');
+    const isPageContainer = (e) => e.detail && e.detail.target && e.detail.target.id === 'hx-page-container';
+    const isNavigation = (e) => isPageContainer(e) && !!(e.detail.elt && e.detail.elt.closest && e.detail.elt.closest('[hx-push-url]'));
+
+    function show() {
+        loader()?.classList.remove('hidden');
+        clearTimeout(failsafe);
+        failsafe = setTimeout(hide, MAX_VISIBLE);
+    }
+    function hide() {
+        clearTimeout(showTimer);
+        clearTimeout(failsafe);
+        loader()?.classList.add('hidden');
+    }
+
+    document.body.addEventListener('htmx:beforeRequest', (e) => {
+        if (!isNavigation(e)) return;
+        clearTimeout(showTimer);
+        showTimer = setTimeout(show, SHOW_DELAY);
+    });
+
+    // afterRequest fires on both success and HTTP errors; the network-failure events cover the rest.
+    ['htmx:afterRequest', 'htmx:responseError', 'htmx:sendError', 'htmx:timeout'].forEach((ev) =>
+        document.body.addEventListener(ev, (e) => { if (isPageContainer(e)) hide(); })
+    );
+})();
+
+// --- Component-swap loader ---
+// Shows a small spinner over the swap target (or the clicked element) whenever a GET HTMX
+// component fetch — tab switch, sub-panel, "show more", modal open — runs longer than ~100ms.
+// Full-page navigations (target #hx-page-container) are handled by the page loader above.
+(() => {
+    const DELAY = 100;          // ms before the spinner appears
+    const MAX_VISIBLE = 30000;  // ms hard cap so nothing can linger
+    const pending = new Map();  // triggering element -> { timer, failsafe, overlay }
+
+    // The portion of an element's box that's actually on screen, so the spinner centres in the
+    // visible area even when the target is taller than the viewport.
+    function visibleRect(el) {
+        if (!el || !el.getBoundingClientRect) return null;
+        const r = el.getBoundingClientRect();
+        const top = Math.max(r.top, 0);
+        const bottom = Math.min(r.bottom, window.innerHeight);
+        const left = Math.max(r.left, 0);
+        const right = Math.min(r.right, window.innerWidth);
+        if (right - left < 4 || bottom - top < 4) return null;
+        return { left, top, width: right - left, height: bottom - top };
+    }
+
+    function remove(key) {
+        const p = pending.get(key);
+        if (!p) return;
+        clearTimeout(p.timer);
+        clearTimeout(p.failsafe);
+        if (p.overlay) p.overlay.remove();
+        pending.delete(key);
+    }
+
+    document.body.addEventListener('htmx:beforeRequest', (e) => {
+        const elt = e.detail.elt;
+        const target = e.detail.target;
+        if (!elt || pending.has(elt)) return;
+
+        // GET-only — component fetches. Mutations/position-drag POSTs don't get a section loader.
+        const verb = ((e.detail.requestConfig && e.detail.requestConfig.verb) || '').toLowerCase();
+        const isGet = verb ? verb === 'get' : !!(elt.closest && elt.closest('[hx-get]'));
+        if (!isGet) return;
+
+        // Full-page navigations have their own overlay (#page-loader).
+        if (target && target.id === 'hx-page-container') return;
+
+        const entry = { timer: null, failsafe: null, overlay: null };
+        entry.timer = setTimeout(() => {
+            // Prefer the swap target; fall back to the clicked element (e.g. a modal open whose
+            // target is the empty, zero-size #hx-modal-container).
+            let rect = (target && target.id !== 'hx-modal-container') ? visibleRect(target) : null;
+            if (!rect) rect = visibleRect(elt);
+            if (!rect) { pending.delete(elt); return; }
+            const o = document.createElement('div');
+            o.className = 'hx-section-loader';
+            o.style.left = rect.left + 'px';
+            o.style.top = rect.top + 'px';
+            o.style.width = rect.width + 'px';
+            o.style.height = rect.height + 'px';
+            document.body.appendChild(o);
+            entry.overlay = o;
+            entry.failsafe = setTimeout(() => remove(elt), MAX_VISIBLE);
+        }, DELAY);
+        pending.set(elt, entry);
+    });
+
+    // Clear on any terminal event. A swap with hx-swap="outerHTML" can detach the triggering
+    // element (e.g. tab buttons that live inside their own swap target), so its afterRequest
+    // won't bubble here — afterSwap/afterSettle still fire on the attached new content, and we
+    // also sweep any entry whose trigger is no longer in the document.
+    function sweep(e) {
+        const elt = e.detail && e.detail.elt;
+        for (const key of [...pending.keys()]) {
+            if (key === elt || !key.isConnected) remove(key);
+        }
+    }
+    ['htmx:afterRequest', 'htmx:afterSwap', 'htmx:afterSettle', 'htmx:responseError', 'htmx:sendError', 'htmx:timeout']
+        .forEach((ev) => document.body.addEventListener(ev, sweep));
+})();
+
 // Include antiforgery token in all HTMX requests
 document.body.addEventListener('htmx:configRequest', function(e) {
     const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;

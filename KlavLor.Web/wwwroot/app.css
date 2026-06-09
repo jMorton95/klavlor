@@ -336,3 +336,38 @@ body:not(.history-panel-open) #completion-history-panel {
 :where(.dark, .dark *) .heatmap-tooltip .hm-tt-clog { color: #67e8f9; } /* cyan-300 */
 
 
+/* --- HTMX component-swap loader --- */
+/* Injected by site.js over a swap target (or the clicked element) when a GET component fetch
+   — tab switch, sub-panel, "show more", modal open — runs longer than ~100ms. Removed when
+   the response settles. Full-page navigations use #page-loader instead. */
+.hx-section-loader {
+    position: fixed;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(241, 245, 249, 0.45); /* slate-100 */
+    backdrop-filter: blur(1px);
+    border-radius: 0.5rem;
+    pointer-events: none;
+}
+
+:where(.dark, .dark *) .hx-section-loader {
+    background: rgba(2, 6, 23, 0.45); /* slate-950 */
+}
+
+.hx-section-loader::after {
+    content: "";
+    width: 1.75rem;
+    height: 1.75rem;
+    border: 3px solid rgba(245, 158, 11, 0.25); /* amber-500 @ 25% */
+    border-top-color: #f59e0b;                   /* amber-500 */
+    border-radius: 9999px;
+    animation: hx-section-spin 0.7s linear infinite;
+}
+
+@keyframes hx-section-spin {
+    to { transform: rotate(360deg); }
+}
+
+
