@@ -1,0 +1,10 @@
+<div class="px-6 py-3 border-b border-slate-700">
+    <p class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Signed in as</p>
+    <p class="text-sm font-medium text-white truncate" title="@Email">@Name</p>
+    <p class="text-xs text-slate-400 truncate">@Email</p>
+</div>
+
+@code {
+    [Parameter] public required string Name { get; set; }
+    [Parameter] public required string Email { get; set; }
+}

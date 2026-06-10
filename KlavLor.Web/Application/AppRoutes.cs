@@ -20,6 +20,8 @@ public static class AppRoutes
     public const string LoginModal = "/login/modal";
     public const string Logout = "/logout";
 
+    public const string SidebarAccount = "/account/sidebar";
+
     public const string UsersSearch = "/admin/users";
     public const string UsersCreate = "/admin/users/create";
     public const string UsersEdit = "/admin/users/edit/{id:int}";

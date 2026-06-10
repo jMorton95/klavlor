@@ -7,6 +7,7 @@ using KlavLor.Web.Application.Features.Logout;
 using KlavLor.Web.Application.Features.Templates.Builder;
 using KlavLor.Web.Application.Features.Templates.Commands;
 using KlavLor.Web.Application.Features.Templates.Queries;
+using KlavLor.Web.Application.Features.Users.Account;
 using KlavLor.Web.Application.Features.Users.Commands;
 using KlavLor.Web.Application.Features.Users.Queries;
 using KlavLor.Web.Application.Features.Loot;
@@ -37,7 +38,8 @@ public static class ConfigureEndpoints
             .MapEndpoints<UserCreateEndpoint>()
             .MapEndpoints<UserEditEndpoint>()
             .MapEndpoints<UserDeleteEndpoint>()
-            .MapEndpoints<UserRolesEndpoint>();
+            .MapEndpoints<UserRolesEndpoint>()
+            .MapEndpoints<SidebarAccountEndpoint>();
 
         web.MapEndpoints<TemplateSearchEndpoint>()
             .MapEndpoints<TemplateCreateEndpoint>()
