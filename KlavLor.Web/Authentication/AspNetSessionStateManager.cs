@@ -23,7 +23,7 @@ public class AspNetSessionStateManager(IHttpContextAccessor httpContextAccessor,
         return null;
     }
 
-    public async Task LoginAsync(int userId, string[] roleNames, string securityStamp, bool persistSession = false)
+    public async Task LoginAsync(int userId, string[] roleNames, string securityStamp)
     {
         List<Claim> claims =
         [
@@ -35,16 +35,20 @@ public class AspNetSessionStateManager(IHttpContextAccessor httpContextAccessor,
 
         var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
 
+        // Sessions are always persistent: a concrete ExpiresUtc makes the auth cookie survive a
+        // browser close (a non-persistent cookie has no Expires/Max-Age and dies on close). The
+        // cookie middleware's SlidingExpiration then keeps extending the 180-day window on activity,
+        // and server-side security-stamp revocation remains the way to invalidate a session early.
         var authProperties = new AuthenticationProperties
         {
-            IsPersistent = persistSession,
-            ExpiresUtc = persistSession ? timeProvider.GetUtcNow().Add(AuthConstants.SessionLifetime) : null,
+            IsPersistent = true,
+            ExpiresUtc = timeProvider.GetUtcNow().Add(AuthConstants.SessionLifetime),
             IssuedUtc = timeProvider.GetUtcNow(),
         };
 
         await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(claimsIdentity), authProperties);
 
-        logger.LogInformation("User {UserId} logged in. Persistent Session: {PersistentSession}", userId, persistSession.ToString());
+        logger.LogInformation("User {UserId} logged in.", userId);
     }
 
     public async Task LogoutAsync()

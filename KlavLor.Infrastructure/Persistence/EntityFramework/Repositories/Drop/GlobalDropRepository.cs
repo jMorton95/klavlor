@@ -374,7 +374,12 @@ internal sealed class GlobalDropRepository(DataContext dataContext, ILogger<Glob
                     WHERE {VisibilityFilter}
                 ),
                 marked AS (
-                    SELECT *, CASE WHEN prev_at IS NULL OR ("OccurredAt" - prev_at) > @gap THEN 1 ELSE 0 END AS new_sess
+                    SELECT *, CASE WHEN prev_at IS NULL
+                                     OR ("OccurredAt" - prev_at) > @gap
+                                     OR (("OccurredAt" - prev_at) >= @breakGap
+                                         AND date(("OccurredAt" AT TIME ZONE 'Europe/London') - INTERVAL '6 hours')
+                                          <> date((prev_at AT TIME ZONE 'Europe/London') - INTERVAL '6 hours'))
+                                    THEN 1 ELSE 0 END AS new_sess
                     FROM ordered
                 ),
                 sessioned AS (
@@ -425,6 +430,7 @@ internal sealed class GlobalDropRepository(DataContext dataContext, ILogger<Glob
             cmd.CommandText = sql;
             cmd.Parameters.Add(new NpgsqlParameter("@item", itemName));
             cmd.Parameters.Add(new NpgsqlParameter("@gap", LootFeedGrouping.MaxGap));
+            cmd.Parameters.Add(new NpgsqlParameter("@breakGap", LootFeedGrouping.SessionBreakGap));
             cmd.Parameters.Add(new NpgsqlParameter("@limit", limit));
             await using var reader = await cmd.ExecuteReaderAsync();
             while (await reader.ReadAsync())

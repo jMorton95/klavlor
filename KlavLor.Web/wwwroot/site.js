@@ -356,6 +356,14 @@ window.initHistoryPanel = function() {
     ['htmx:afterRequest', 'htmx:responseError', 'htmx:sendError', 'htmx:timeout'].forEach((ev) =>
         document.body.addEventListener(ev, (e) => { if (isPageContainer(e)) hide(); })
     );
+
+    // History navigation (browser Back/Forward). beforeHistorySave fires before HTMX snapshots the
+    // DOM — hiding first keeps the cached snapshot from capturing a visible spinner; historyRestore
+    // fires when that snapshot is put back. Neither event carries the page-container detail, so hide
+    // unconditionally rather than gating on isPageContainer.
+    ['htmx:beforeHistorySave', 'htmx:historyRestore'].forEach((ev) =>
+        document.body.addEventListener(ev, hide)
+    );
 })();
 
 // --- Component-swap loader ---
@@ -434,6 +442,13 @@ window.initHistoryPanel = function() {
     }
     ['htmx:afterRequest', 'htmx:afterSwap', 'htmx:afterSettle', 'htmx:responseError', 'htmx:sendError', 'htmx:timeout']
         .forEach((ev) => document.body.addEventListener(ev, sweep));
+
+    // History navigation can't be matched by trigger element — the saved snapshot would otherwise
+    // keep a body-appended overlay around forever. Clear every pending overlay on save/restore.
+    function clearAll() { for (const key of [...pending.keys()]) remove(key); }
+    ['htmx:beforeHistorySave', 'htmx:historyRestore'].forEach((ev) =>
+        document.body.addEventListener(ev, clearAll)
+    );
 })();
 
 // Include antiforgery token in all HTMX requests

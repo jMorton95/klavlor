@@ -30,7 +30,7 @@ public sealed class LoginModalEndpoint : IEndpoint
         if (result is { IsSuccess: true })
         {
             var userRoles = result.Value.UserRoles.Select(r => r.Role?.Name.ToString()).OfType<string>().ToArray();
-            await sessionManager.LoginAsync(result.Value.Id, userRoles, result.Value.SecurityStamp, loginCommand.RememberMe);
+            await sessionManager.LoginAsync(result.Value.Id, userRoles, result.Value.SecurityStamp);
             return IResultExtensions.HtmxRefresh();
         }
 

@@ -20,8 +20,8 @@ public sealed class CharacterSessionsTests(PostgresFixture fx)
             [new("Visage", 2, 1, 5_000_000, IsFirstTime: true)]);
         // Source B (Zulrah): one kill interleaved in time -> session B1.
         Seed.AddKill(ctx, userId, charId, "CS_Zulrah", t.AddMinutes(10), 1, [new("Scale", 3, 100, 10)]);
-        // Source A again after a >1h gap -> session A2 (most recent overall).
-        Seed.AddKill(ctx, userId, charId, "CS_Vorkath", t.AddHours(2), 3, [new("Bones", 1, 1, 100)]);
+        // Source A again after a >16h gap -> session A2 (most recent overall).
+        Seed.AddKill(ctx, userId, charId, "CS_Vorkath", t.AddHours(17), 3, [new("Bones", 1, 1, 100)]);
         await ctx.SaveChangesAsync();
 
         // FakeClogCache(2): only ItemId 2 (Visage) counts as a collection-log item.
@@ -31,7 +31,7 @@ public sealed class CharacterSessionsTests(PostgresFixture fx)
         Assert.Equal(3, history.TotalSessions);
         Assert.Equal(3, history.Sessions.Count);
 
-        // Interleaved newest-first by session end: A2 (t+2h), then B1 (t+10m), then A1.
+        // Interleaved newest-first by session end: A2 (t+17h), then B1 (t+10m), then A1.
         Assert.Equal("CS_Vorkath", history.Sessions[0].SourceName);
         Assert.Equal(1, history.Sessions[0].Session.KillCount);
         Assert.Equal("CS_Zulrah", history.Sessions[1].SourceName);

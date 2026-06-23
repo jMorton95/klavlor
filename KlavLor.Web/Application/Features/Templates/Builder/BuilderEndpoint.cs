@@ -1,5 +1,4 @@
-using KlavLor.Application.Interfaces.Authentication;
-using KlavLor.Domain.Interfaces.Repositories;
+using KlavLor.Application.Features.Builder.LoadBuilder;
 using KlavLor.Domain.Shared;
 using KlavLor.Web.Application.Results;
 
@@ -13,20 +12,12 @@ public sealed class BuilderEndpoint : IEndpoint
             .RequireAuthorization(nameof(RoleName.User));
     }
 
-    private static async Task<IResult> Endpoint(
-        int id,
-        ITemplateRepository templateRepository,
-        ISessionStateManager sessionManager)
+    private static async Task<IResult> Endpoint(int id, LoadBuilderHandler handler)
     {
-        var userId = sessionManager.GetUserSessionId();
-        if (userId is null) return IResultExtensions.HtmxRedirect(AppRoutes.Login);
-
-        var template = await templateRepository.GetById(id);
-        if (template is null) return IResultExtensions.HtmxRedirect(AppRoutes.TemplatesSearch);
-
-        if (template.CreatedById != userId.Value && !sessionManager.IsUserSessionAdministrator())
+        var result = await handler.Handle(id);
+        if (!result.IsSuccess)
             return IResultExtensions.HtmxRedirect(AppRoutes.TemplatesSearch);
 
-        return IResultExtensions.Component<BuilderPage>(new { Template = template });
+        return IResultExtensions.Component<BuilderPage>(new { Template = result.Value });
     }
 }

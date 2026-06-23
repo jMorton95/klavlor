@@ -1,10 +1,9 @@
 @page "/loot/feed"
 @using KlavLor.Application.Features.Loot.Feed
-@using KlavLor.Application.Interfaces.Repositories
 @using KlavLor.Application.Interfaces.Services
 @using KlavLor.Web.Components.Layout
 
-@inject ILootLogRepository LootLogRepository
+@inject LootFeedTiersHandler FeedHandler
 
 <PageLayout PageTitle="KlavLor - Loot Feed" Title="Loot Feed" Description="Real-time loot drops from all users">
     <LootFeedContent StandardEntries="@_standard"
@@ -24,7 +23,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var tiers = await LootLogRepository.GetAllFeedTiers(50);
+        var tiers = await FeedHandler.Handle();
         _standard = tiers[LootFeedTier.Standard];
         _uncommon = tiers[LootFeedTier.Uncommon];
         _rare = tiers[LootFeedTier.Rare];

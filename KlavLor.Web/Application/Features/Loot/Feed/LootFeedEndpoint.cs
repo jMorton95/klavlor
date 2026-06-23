@@ -1,5 +1,4 @@
 using KlavLor.Application.Features.Loot.Feed;
-using KlavLor.Application.Interfaces.Repositories;
 using KlavLor.Application.Interfaces.Services;
 using KlavLor.Web.Application.Results;
 using Microsoft.AspNetCore.Components;
@@ -12,10 +11,10 @@ public sealed class LootFeedEndpoint : IEndpoint
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
         // Main feed routes
-        app.MapGet(AppRoutes.LootFeed.FromApi(), (ILootLogRepository repo) => GetPage(repo, LootFeedScope.Main))
+        app.MapGet(AppRoutes.LootFeed.FromApi(), (LootFeedTiersHandler handler) => GetPage(handler, LootFeedScope.Main))
             .AllowAnonymous();
 
-        app.MapGet(AppRoutes.LootFeedGrid.FromApi(), (ILootLogRepository repo, string? tiers) => GetGrid(repo, LootFeedScope.Main, tiers))
+        app.MapGet(AppRoutes.LootFeedGrid.FromApi(), (LootFeedTiersHandler handler, string? tiers) => GetGrid(handler, LootFeedScope.Main, tiers))
             .AllowAnonymous();
 
         MapStream(app, AppRoutes.LootFeedStreamStandard, LootFeedScope.Main, LootFeedTier.Standard);
@@ -26,17 +25,17 @@ public sealed class LootFeedEndpoint : IEndpoint
 
         // Leagues feed routes — parallel set, filters to IsLeagues=true characters.
         // All Leagues endpoints short-circuit to 404 when the admin has disabled the feature.
-        app.MapGet(AppRoutes.LootFeedLeagues.FromApi(), async (ILootLogRepository repo, ISystemSettingsCache settings) =>
+        app.MapGet(AppRoutes.LootFeedLeagues.FromApi(), async (LootFeedTiersHandler handler, ISystemSettingsCache settings) =>
             {
                 if (!settings.IsLeaguesEnabled) return TypedResults.NotFound();
-                return await GetPage(repo, LootFeedScope.Leagues);
+                return await GetPage(handler, LootFeedScope.Leagues);
             })
             .AllowAnonymous();
 
-        app.MapGet(AppRoutes.LootFeedLeaguesGrid.FromApi(), async (ILootLogRepository repo, ISystemSettingsCache settings, string? tiers) =>
+        app.MapGet(AppRoutes.LootFeedLeaguesGrid.FromApi(), async (LootFeedTiersHandler handler, ISystemSettingsCache settings, string? tiers) =>
             {
                 if (!settings.IsLeaguesEnabled) return TypedResults.NotFound();
-                return await GetGrid(repo, LootFeedScope.Leagues, tiers);
+                return await GetGrid(handler, LootFeedScope.Leagues, tiers);
             })
             .AllowAnonymous();
 
@@ -64,9 +63,9 @@ public sealed class LootFeedEndpoint : IEndpoint
             })
             .AllowAnonymous();
 
-    private static async Task<IResult> GetPage(ILootLogRepository lootLogRepository, LootFeedScope scope)
+    private static async Task<IResult> GetPage(LootFeedTiersHandler handler, LootFeedScope scope)
     {
-        var tierData = await lootLogRepository.GetAllFeedTiers(50, scope);
+        var tierData = await handler.Handle(scope);
 
         return IResultExtensions.Component<LootFeedContent>(new
         {
@@ -79,10 +78,10 @@ public sealed class LootFeedEndpoint : IEndpoint
         });
     }
 
-    private static async Task<IResult> GetGrid(ILootLogRepository lootLogRepository, LootFeedScope scope, string? tiers)
+    private static async Task<IResult> GetGrid(LootFeedTiersHandler handler, LootFeedScope scope, string? tiers)
     {
         var requestedTiers = ParseTiers(tiers);
-        var tierData = await lootLogRepository.GetAllFeedTiers(50, scope, requestedTiers);
+        var tierData = await handler.Handle(scope, requestedTiers);
 
         return IResultExtensions.Component<LootFeedGrid>(new
         {

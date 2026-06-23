@@ -13,8 +13,9 @@ public interface ILootLogRepository
     Task<LootSourceDetail> GetSourceDetail(int characterId, string sourceName, int pageNumber, int pageSize);
     Task<LootSourceDetail> GetSourceDetailKillsPage(int characterId, string sourceName, int pageNumber, int pageSize);
 
-    // Kill Sessions: consecutive kills grouped into play sessions (a gap > LootFeedGrouping.MaxGap
-    // starts a new one), paged newest-first. GetSessionKills returns one session's individual kills.
+    // Kill Sessions: consecutive kills grouped into play sessions (a gap > LootFeedGrouping.MaxGap,
+    // or an overnight break that crosses a play-day boundary, starts a new one), paged newest-first.
+    // GetSessionKills returns one session's individual kills.
     Task<LootSourceSessions> GetSourceSessions(int characterId, string sourceName, int pageNumber, int pageSize);
     Task<List<LootKillEntry>> GetSessionKills(int characterId, string sourceName, int sessionNo);
 

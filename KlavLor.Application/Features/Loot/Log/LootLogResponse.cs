@@ -73,8 +73,8 @@ public sealed record LootKillDrop(
     bool IsFirstTime = false,
     bool IsCollectionLogItem = false);
 
-// A continuous play session at a source: consecutive kills with no gap longer than
-// LootFeedGrouping.MaxGap (1h). MinKillCount/MaxKillCount are the real RuneLite KC range
+// A play session at a source: consecutive kills broken only by a gap over LootFeedGrouping.MaxGap
+// (16h) or an overnight break (>= 6h crossing a 06:00 play-day boundary). MinKillCount/MaxKillCount are the real RuneLite KC range
 // when reported; MinKillOrdinal/MaxKillOrdinal are the derived position range (1 = oldest
 // kill at this source), used as the honest "Kill #a–b" fallback.
 public sealed record LootSession(

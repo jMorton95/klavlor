@@ -46,7 +46,7 @@ Clean Architecture with four layers. Dependencies flow inward: Web → Applicati
 
 ### Key Patterns
 
-**Endpoint registration:** Each endpoint class implements `IEndpoint` with a static `MapEndpoint` method. All endpoints are registered via `MapApplicationRequestHandlers()` in Program.cs.
+**Endpoint registration:** Each endpoint class implements `IEndpoint` with a static `MapEndpoint` method. Registration is **not** automatic — every new endpoint class must be added to the explicit `MapEndpoints<T>()` list in `KlavLor.Web/Configuration/ConfigureEndpoints.cs` (called from `MapApplicationRequestHandlers()` in Program.cs), or its routes silently 404.
 
 **Handler flow:** Endpoint receives request → validates via FluentValidation → handler loads aggregate root from repository → calls domain method on entity → saves via repository → returns `Result<T>`.
 
@@ -61,6 +61,17 @@ Clean Architecture with four layers. Dependencies flow inward: Web → Applicati
 - **Never use `Task.Run`, fire-and-forget (`_ = Task...`), or discard async operations.** All async work must be awaited inline within the request pipeline. The scoped DbContext/Npgsql connection is not thread-safe — concurrent access causes `Connection is busy` errors.
 - **Never manually create DI scopes** (`IServiceScopeFactory`, `CreateScope()`, `GetRequiredService()`) in request-scoped code. Always use constructor injection. The only acceptable places for manual scopes are `Program.cs` startup and `BackgroundService` implementations.
 - **Never instantiate services directly** (`new HttpClient()`, `new SomeRepository()`). Use the registered DI abstractions.
+
+### Razor Component Data-Access Rules
+
+A production incident (June 2026, fixed in `effdbd6`) was caused by the layout sidebar querying the DB during SSR. Blazor static SSR runs **sibling components' `OnInitializedAsync` concurrently on the same request scope**, so two components loading data in one render pass race on the shared scoped DbContext. EF's "second operation on this context" guard does **not** catch this here, because many repositories execute raw ADO commands directly on `Database.GetDbConnection()` — the race instead corrupts the Npgsql wire protocol (`Received backend message BindComplete while expecting ReadyForQueryMessage`), poisons the connection, and surfaces as intermittent 500s in unrelated requests.
+
+The rules:
+
+- **At most one component per SSR render pass may touch the database.** In practice that is the routed page component only.
+- **Layout components and shared/partial components must never query.** They must be parameter-driven, read claims via `ISessionStateManager`, read singleton caches, or fetch their data through their own HTMX request (`hx-trigger="load"` → endpoint → handler), which runs in its own request scope. Reference example: `SidebarAccountEndpoint` + the placeholder in `SidebarComponent.razor`.
+- **Components must never inject repositories** (`I*Repository`). When a page component loads its own data, it goes through a `*Handler`. There are no exceptions.
+- **Multiple loads inside one component must be awaited sequentially** — never `Task.WhenAll` over handler or repository calls.
 
 ### Rate Limiting Policies
 

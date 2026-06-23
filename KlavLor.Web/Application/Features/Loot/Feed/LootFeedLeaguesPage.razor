@@ -1,11 +1,10 @@
 @page "/loot/feed/leagues"
 @using KlavLor.Application.Features.Loot.Feed
-@using KlavLor.Application.Interfaces.Repositories
 @using KlavLor.Application.Interfaces.Services
 @using KlavLor.Web.Application
 @using KlavLor.Web.Components.Layout
 
-@inject ILootLogRepository LootLogRepository
+@inject LootFeedTiersHandler FeedHandler
 @inject ISystemSettingsCache SystemSettingsCache
 @inject NavigationManager NavigationManager
 
@@ -37,7 +36,7 @@
             return;
         }
 
-        var tiers = await LootLogRepository.GetAllFeedTiers(50, LootFeedScope.Leagues);
+        var tiers = await FeedHandler.Handle(LootFeedScope.Leagues);
         _standard = tiers[LootFeedTier.Standard];
         _uncommon = tiers[LootFeedTier.Uncommon];
         _rare = tiers[LootFeedTier.Rare];

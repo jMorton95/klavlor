@@ -495,10 +495,12 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
         }
     }
 
-    // Groups a character's kills at one source into play "sessions": consecutive kills with
-    // no gap longer than LootFeedGrouping.MaxGap (mirrors the live feed). Gap-and-islands in
-    // SQL (no JSONB) so it rides IX_LootRecords_GameCharacterId_SourceName; drops are then
-    // aggregated only for the requested page of sessions.
+    // Groups a character's kills at one source into play "sessions" (same rule as the live feed,
+    // LootFeedGrouping): a new session starts on a gap longer than MaxGap (16h) OR on an overnight
+    // break — a gap of at least SessionBreakGap (6h) that crosses into a different Europe/London
+    // play-day (day boundary shifted to 06:00 via `- INTERVAL '6 hours'`). Gap-and-islands in SQL
+    // (no JSONB) so it rides IX_LootRecords_GameCharacterId_SourceName; drops are then aggregated
+    // only for the requested page of sessions.
     public async Task<LootSourceSessions> GetSourceSessions(int characterId, string sourceName, int pageNumber, int pageSize)
     {
         try
@@ -533,7 +535,12 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                     WHERE "GameCharacterId" = @cid AND "SourceName" = @src
                 ),
                 marked AS (
-                    SELECT *, CASE WHEN prev_at IS NULL OR ("OccurredAt" - prev_at) > @gap THEN 1 ELSE 0 END AS new_sess
+                    SELECT *, CASE WHEN prev_at IS NULL
+                                     OR ("OccurredAt" - prev_at) > @gap
+                                     OR (("OccurredAt" - prev_at) >= @breakGap
+                                         AND date(("OccurredAt" AT TIME ZONE 'Europe/London') - INTERVAL '6 hours')
+                                          <> date((prev_at AT TIME ZONE 'Europe/London') - INTERVAL '6 hours'))
+                                    THEN 1 ELSE 0 END AS new_sess
                     FROM ordered
                 ),
                 sessioned AS (
@@ -568,6 +575,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 cmd.Parameters.Add(new NpgsqlParameter("@cid", characterId));
                 cmd.Parameters.Add(new NpgsqlParameter("@src", sourceName));
                 cmd.Parameters.Add(new NpgsqlParameter("@gap", LootFeedGrouping.MaxGap));
+                cmd.Parameters.Add(new NpgsqlParameter("@breakGap", LootFeedGrouping.SessionBreakGap));
                 cmd.Parameters.Add(new NpgsqlParameter("@skip", skip));
                 cmd.Parameters.Add(new NpgsqlParameter("@take", pageSize));
                 await using var reader = await cmd.ExecuteReaderAsync();
@@ -601,7 +609,12 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                         WHERE "GameCharacterId" = @cid AND "SourceName" = @src
                     ),
                     marked AS (
-                        SELECT *, CASE WHEN prev_at IS NULL OR ("OccurredAt" - prev_at) > @gap THEN 1 ELSE 0 END AS new_sess
+                        SELECT *, CASE WHEN prev_at IS NULL
+                                     OR ("OccurredAt" - prev_at) > @gap
+                                     OR (("OccurredAt" - prev_at) >= @breakGap
+                                         AND date(("OccurredAt" AT TIME ZONE 'Europe/London') - INTERVAL '6 hours')
+                                          <> date((prev_at AT TIME ZONE 'Europe/London') - INTERVAL '6 hours'))
+                                    THEN 1 ELSE 0 END AS new_sess
                         FROM ordered
                     ),
                     sessioned AS (
@@ -627,6 +640,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 cmd.Parameters.Add(new NpgsqlParameter("@cid", characterId));
                 cmd.Parameters.Add(new NpgsqlParameter("@src", sourceName));
                 cmd.Parameters.Add(new NpgsqlParameter("@gap", LootFeedGrouping.MaxGap));
+                cmd.Parameters.Add(new NpgsqlParameter("@breakGap", LootFeedGrouping.SessionBreakGap));
                 cmd.Parameters.Add(new NpgsqlParameter("@sessionNos", sessionNos));
                 await using var reader = await cmd.ExecuteReaderAsync();
                 while (await reader.ReadAsync())
@@ -701,7 +715,12 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                     WHERE "GameCharacterId" = @cid AND "SourceName" = @src
                 ),
                 marked AS (
-                    SELECT *, CASE WHEN prev_at IS NULL OR ("OccurredAt" - prev_at) > @gap THEN 1 ELSE 0 END AS new_sess
+                    SELECT *, CASE WHEN prev_at IS NULL
+                                     OR ("OccurredAt" - prev_at) > @gap
+                                     OR (("OccurredAt" - prev_at) >= @breakGap
+                                         AND date(("OccurredAt" AT TIME ZONE 'Europe/London') - INTERVAL '6 hours')
+                                          <> date((prev_at AT TIME ZONE 'Europe/London') - INTERVAL '6 hours'))
+                                    THEN 1 ELSE 0 END AS new_sess
                     FROM ordered
                 ),
                 sessioned AS (
@@ -719,6 +738,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             cmd.Parameters.Add(new NpgsqlParameter("@cid", characterId));
             cmd.Parameters.Add(new NpgsqlParameter("@src", sourceName));
             cmd.Parameters.Add(new NpgsqlParameter("@gap", LootFeedGrouping.MaxGap));
+            cmd.Parameters.Add(new NpgsqlParameter("@breakGap", LootFeedGrouping.SessionBreakGap));
             cmd.Parameters.Add(new NpgsqlParameter("@sessionNo", (long)sessionNo));
 
             var entries = new List<LootKillEntry>();
@@ -782,7 +802,12 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                     WHERE "GameCharacterId" = @cid
                 ),
                 marked AS (
-                    SELECT *, CASE WHEN prev_at IS NULL OR ("OccurredAt" - prev_at) > @gap THEN 1 ELSE 0 END AS new_sess
+                    SELECT *, CASE WHEN prev_at IS NULL
+                                     OR ("OccurredAt" - prev_at) > @gap
+                                     OR (("OccurredAt" - prev_at) >= @breakGap
+                                         AND date(("OccurredAt" AT TIME ZONE 'Europe/London') - INTERVAL '6 hours')
+                                          <> date((prev_at AT TIME ZONE 'Europe/London') - INTERVAL '6 hours'))
+                                    THEN 1 ELSE 0 END AS new_sess
                     FROM ordered
                 ),
                 sessioned AS (
@@ -817,6 +842,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 cmd.CommandText = sessionsSql;
                 cmd.Parameters.Add(new NpgsqlParameter("@cid", characterId));
                 cmd.Parameters.Add(new NpgsqlParameter("@gap", LootFeedGrouping.MaxGap));
+                cmd.Parameters.Add(new NpgsqlParameter("@breakGap", LootFeedGrouping.SessionBreakGap));
                 cmd.Parameters.Add(new NpgsqlParameter("@skip", skip));
                 cmd.Parameters.Add(new NpgsqlParameter("@take", pageSize));
                 await using var reader = await cmd.ExecuteReaderAsync();
@@ -852,7 +878,12 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                         WHERE "GameCharacterId" = @cid
                     ),
                     marked AS (
-                        SELECT *, CASE WHEN prev_at IS NULL OR ("OccurredAt" - prev_at) > @gap THEN 1 ELSE 0 END AS new_sess
+                        SELECT *, CASE WHEN prev_at IS NULL
+                                     OR ("OccurredAt" - prev_at) > @gap
+                                     OR (("OccurredAt" - prev_at) >= @breakGap
+                                         AND date(("OccurredAt" AT TIME ZONE 'Europe/London') - INTERVAL '6 hours')
+                                          <> date((prev_at AT TIME ZONE 'Europe/London') - INTERVAL '6 hours'))
+                                    THEN 1 ELSE 0 END AS new_sess
                         FROM ordered
                     ),
                     sessioned AS (
@@ -877,6 +908,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 cmd.CommandText = dropsSql;
                 cmd.Parameters.Add(new NpgsqlParameter("@cid", characterId));
                 cmd.Parameters.Add(new NpgsqlParameter("@gap", LootFeedGrouping.MaxGap));
+                cmd.Parameters.Add(new NpgsqlParameter("@breakGap", LootFeedGrouping.SessionBreakGap));
                 cmd.Parameters.Add(new NpgsqlParameter("@sep", SessionKeySep.ToString()));
                 cmd.Parameters.Add(new NpgsqlParameter("@keys", keys));
                 await using var reader = await cmd.ExecuteReaderAsync();
@@ -1000,6 +1032,9 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                         SELECT "SourceName",
                                CASE WHEN LAG("OccurredAt") OVER w IS NULL
                                      OR ("OccurredAt" - LAG("OccurredAt") OVER w) > @gap
+                                     OR (("OccurredAt" - LAG("OccurredAt") OVER w) >= @breakGap
+                                         AND date(("OccurredAt" AT TIME ZONE 'Europe/London') - INTERVAL '6 hours')
+                                          <> date(((LAG("OccurredAt") OVER w) AT TIME ZONE 'Europe/London') - INTERVAL '6 hours'))
                                     THEN 1 ELSE 0 END AS new_sess
                         FROM base
                         WINDOW w AS (PARTITION BY "SourceName" ORDER BY "OccurredAt", "Id")
@@ -1057,6 +1092,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 cmd.Parameters.Add(new NpgsqlParameter("@cid", characterId));
                 cmd.Parameters.Add(new NpgsqlParameter("@term", NpgsqlTypes.NpgsqlDbType.Text) { Value = (object?)term ?? DBNull.Value });
                 cmd.Parameters.Add(new NpgsqlParameter("@gap", LootFeedGrouping.MaxGap));
+                cmd.Parameters.Add(new NpgsqlParameter("@breakGap", LootFeedGrouping.SessionBreakGap));
                 cmd.Parameters.Add(new NpgsqlParameter("@skip", skip));
                 cmd.Parameters.Add(new NpgsqlParameter("@take", query.PageSize));
                 await using var reader = await cmd.ExecuteReaderAsync();
@@ -1211,8 +1247,8 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
     {
         var groups = new List<LootFeedEntry>();
         // GroupKey -> indices into `groups`. Lets us match records to any same-key group within
-        // 1h, not just the previous one — needed for interleaved sources (e.g. Shades of Mort'ton
-        // gold keys of different colours).
+        // the feed window (LootFeedGrouping.MaxGap), not just the previous one — needed for
+        // interleaved sources (e.g. Shades of Mort'ton gold keys of different colours).
         var indexByKey = new Dictionary<string, List<int>>();
 
         foreach (var r in candidates)

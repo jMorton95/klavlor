@@ -91,40 +91,20 @@
     [Parameter] public required CharacterDayFeed Feed { get; set; }
     [Parameter] public int CharacterId { get; set; }
 
-    // Dynamic columns: a tier gets its own column only with >=3 cards; sparser tiers fold into
-    // the closest rendered column. If no tier reaches 3, render a single most-populated column.
+    // One column per tier that has at least one card, in tier order (matching the live feed).
+    // No folding or relabeling: a card always sits in — and is styled as — its own tier, so a lone
+    // high-tier drop (e.g. a single Legendary) gets its own correctly-coloured column instead of
+    // being merged into a busier lower tier and recoloured.
     private static (List<LootFeedTier> Active, Dictionary<LootFeedTier, List<LootFeedEntry>> Columns)
         BuildColumns(IReadOnlyList<LootFeedEntry> entries)
     {
-        var byTier = ILootFeedService.AllTiers.ToDictionary(t => t, _ => 0);
-        foreach (var e in entries) byTier[e.Tier]++;
+        var columns = entries
+            .GroupBy(e => e.Tier)
+            .ToDictionary(g => g.Key, g => g.ToList());
 
-        var active = ILootFeedService.AllTiers.Where(t => byTier[t] >= 3).ToList();
-
-        if (active.Count == 0 && entries.Count > 0)
-        {
-            var best = ILootFeedService.AllTiers
-                .Where(t => byTier[t] > 0)
-                .OrderBy(t => byTier[t])     // ascending count
-                .ThenBy(t => (int)t)         // ascending tier → Last() = max count, higher tier on ties
-                .Last();
-            active = [best];
-        }
-
-        var columns = active.ToDictionary(t => t, _ => new List<LootFeedEntry>());
-        foreach (var e in entries)
-        {
-            var target = active.Contains(e.Tier) ? e.Tier : ClosestActive(e.Tier, active);
-            columns[target].Add(e with { Tier = target });
-        }
+        var active = ILootFeedService.AllTiers.Where(columns.ContainsKey).ToList();
         return (active, columns);
     }
-
-    private static LootFeedTier ClosestActive(LootFeedTier tier, List<LootFeedTier> active) =>
-        active
-            .OrderBy(t => Math.Abs((int)t - (int)tier))
-            .ThenByDescending(t => (int)t)   // tie-break toward the higher tier
-            .First();
 
     private static string TierName(LootFeedTier tier) => tier.ToString();
 
