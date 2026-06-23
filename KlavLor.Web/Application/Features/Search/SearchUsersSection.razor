@@ -11,12 +11,12 @@
                class="flex items-center justify-between gap-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-2.5 hover:border-amber-200 dark:hover:border-amber-700 transition-colors cursor-pointer">
                 <div class="min-w-0">
                     <p class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">@u.FullName</p>
-                    <p class="text-xs text-slate-400 dark:text-slate-500 truncate">@u.Email</p>
+                    <p class="text-xs text-slate-400 dark:text-white truncate">@u.Email</p>
                 </div>
                 <div class="flex items-center gap-1.5 shrink-0">
                     @foreach (var role in u.RoleNames)
                     {
-                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">@role</span>
+                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-white">@role</span>
                     }
                 </div>
             </a>

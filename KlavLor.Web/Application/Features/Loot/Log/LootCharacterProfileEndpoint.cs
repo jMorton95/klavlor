@@ -53,9 +53,10 @@ public sealed class LootCharacterProfileEndpoint : IEndpoint
         var result = await handler.HandleCharacterSessions(id, page);
         if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.NotFound();
 
-        // Page 2+ appends more cards; page 1 renders the whole section shell.
+        // Page 1 renders the whole panel (heading + section); "load more" re-renders just the
+        // day-grouped section (cumulative), swapping #char-session-section.
         if (page > 1)
-            return IResultExtensions.Component<CharacterSessionMore>(new
+            return IResultExtensions.Component<CharacterSessionList>(new
             {
                 History = result.Value,
                 CharacterId = id,

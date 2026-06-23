@@ -18,10 +18,11 @@ public sealed class CharacterSessionsTests(PostgresFixture fx)
         Seed.AddKill(ctx, userId, charId, "CS_Vorkath", t, 1, [new("Bones", 1, 1, 100)]);
         Seed.AddKill(ctx, userId, charId, "CS_Vorkath", t.AddMinutes(5), 2,
             [new("Visage", 2, 1, 5_000_000, IsFirstTime: true)]);
-        // Source B (Zulrah): one kill interleaved in time -> session B1.
-        Seed.AddKill(ctx, userId, charId, "CS_Zulrah", t.AddMinutes(10), 1, [new("Scale", 3, 100, 10)]);
-        // Source A again after a >16h gap -> session A2 (most recent overall).
-        Seed.AddKill(ctx, userId, charId, "CS_Vorkath", t.AddHours(17), 3, [new("Bones", 1, 1, 100)]);
+        // Source B (Zulrah): one kill interleaved in time -> session B1. Value >=10k so the
+        // single-kill one-off filter (GetCharacterSessions) keeps it; this test is about grouping.
+        Seed.AddKill(ctx, userId, charId, "CS_Zulrah", t.AddMinutes(10), 1, [new("Scale", 3, 100, 200)]);
+        // Source A again after a >16h gap -> session A2 (most recent overall). Also >=10k value.
+        Seed.AddKill(ctx, userId, charId, "CS_Vorkath", t.AddHours(17), 3, [new("Bones", 1, 1, 15_000)]);
         await ctx.SaveChangesAsync();
 
         // FakeClogCache(2): only ItemId 2 (Visage) counts as a collection-log item.

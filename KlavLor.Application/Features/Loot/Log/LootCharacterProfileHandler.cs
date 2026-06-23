@@ -27,7 +27,11 @@ public sealed class LootCharacterProfileHandler(
         if (!await accessChecker.CanAccess(characterId))
             return Result<CharacterSessionHistory>.Failure("Character not found.");
 
-        var result = await lootLogRepository.GetCharacterSessions(characterId, pageNumber, SessionsPageSize);
+        // Fetch cumulatively (first pageNumber*SessionsPageSize sessions) so "load more" re-renders
+        // the whole day-grouped list — day headers then stay correct across the page boundary. The
+        // gap-islands CTE scans all the character's rows regardless, so the only added cost is
+        // rendering the already-loaded cards again.
+        var result = await lootLogRepository.GetCharacterSessions(characterId, 1, pageNumber * SessionsPageSize);
         return Result<CharacterSessionHistory>.Success(result);
     }
 

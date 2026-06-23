@@ -17,11 +17,11 @@
 
     <div class="grid grid-cols-2 gap-2 text-[11px]">
         <div class="flex flex-col">
-            <span class="text-slate-500 dark:text-slate-400 uppercase tracking-wide text-[9px]">Kills</span>
+            <span class="text-slate-500 dark:text-white uppercase tracking-wide text-[9px]">Kills</span>
             <span class="font-semibold text-slate-900 dark:text-slate-100">@Data.KillCount.ToString("N0")</span>
         </div>
         <div class="flex flex-col">
-            <span class="text-slate-500 dark:text-slate-400 uppercase tracking-wide text-[9px]">Total GP</span>
+            <span class="text-slate-500 dark:text-white uppercase tracking-wide text-[9px]">Total GP</span>
             <span class="font-semibold text-amber-600 dark:text-amber-400">@GoldFormat.Format(Data.TotalGp)</span>
         </div>
     </div>
@@ -33,7 +33,7 @@
             : 0;
         <div class="space-y-1">
             <div class="flex items-center justify-between text-[10px]">
-                <span class="text-slate-500 dark:text-slate-400 uppercase tracking-wide text-[9px]">Collection log</span>
+                <span class="text-slate-500 dark:text-white uppercase tracking-wide text-[9px]">Collection log</span>
                 <span class="font-medium text-slate-700 dark:text-slate-200">
                     @if (Data.ClogTotal > 0)
                     {
@@ -57,7 +57,7 @@
     @if (Data.TopDrops.Count > 0)
     {
         <div class="space-y-1">
-            <div class="text-[9px] uppercase tracking-wide text-slate-500 dark:text-slate-400">Top drops</div>
+            <div class="text-[9px] uppercase tracking-wide text-slate-500 dark:text-white">Top drops</div>
             <ul class="space-y-0.5 text-[11px]">
                 @foreach (var drop in Data.TopDrops)
                 {
@@ -69,7 +69,7 @@
                         <span class="truncate flex-1">@drop.Name</span>
                         @if (!string.IsNullOrEmpty(drop.Rarity))
                         {
-                            <span class="font-mono text-[10px] text-slate-500 dark:text-slate-400 shrink-0" title="Drop rate">@drop.Rarity</span>
+                            <span class="font-mono text-[10px] text-slate-500 dark:text-white shrink-0" title="Drop rate">@drop.Rarity</span>
                         }
                         <span class="font-medium text-amber-600 dark:text-amber-400 shrink-0">@GoldFormat.Format(drop.TotalValue)</span>
                     </li>
@@ -80,7 +80,7 @@
 
     @if (Data.KillCount == 0)
     {
-        <div class="text-[10px] text-slate-500 dark:text-slate-400 italic">No prior kills at this source.</div>
+        <div class="text-[10px] text-slate-500 dark:text-white italic">No prior kills at this source.</div>
     }
 </div>
 

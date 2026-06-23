@@ -19,7 +19,7 @@
            hx-target="#hx-page-container"
            hx-push-url="@AppRoutes.LootLogCharacter.WithId(CharacterId)"
            hx-swap="innerHTML transition:true"
-           class="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-amber-600 dark:text-slate-400 dark:hover:text-amber-400 cursor-pointer transition-colors mb-3">
+           class="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-amber-600 dark:text-white dark:hover:text-amber-400 cursor-pointer transition-colors mb-3">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
             </svg>
@@ -36,7 +36,7 @@
                     <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100 truncate">
                         @Feed.Day.ToDateTime(TimeOnly.MinValue).ToString("dddd, d MMMM yyyy")
                     </h2>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">
+                    <p class="text-xs text-slate-500 dark:text-white">
                         @Feed.Entries.Count valued @(Feed.Entries.Count == 1 ? "drop" : "drops") shown
                     </p>
                 </div>
@@ -44,15 +44,15 @@
 
             <div class="flex items-stretch rounded-lg border border-slate-200 dark:border-slate-700 divide-x divide-slate-200 dark:divide-slate-700 overflow-hidden">
                 <div class="px-4 py-2 text-center">
-                    <div class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Kills</div>
+                    <div class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-white">Kills</div>
                     <div class="text-base font-bold text-slate-800 dark:text-slate-100 tabular-nums">@Feed.TotalKills.ToString("N0")</div>
                 </div>
                 <div class="px-4 py-2 text-center">
-                    <div class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">GP</div>
+                    <div class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-white">GP</div>
                     <div class="text-base font-bold text-amber-600 dark:text-amber-400 tabular-nums">@GoldFormat.Format(Feed.TotalGp)</div>
                 </div>
                 <div class="px-4 py-2 text-center">
-                    <div class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Sources</div>
+                    <div class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-white">Sources</div>
                     <div class="text-base font-bold text-slate-800 dark:text-slate-100 tabular-nums">@Feed.Sources.ToString("N0")</div>
                 </div>
             </div>
@@ -62,7 +62,7 @@
     @if (Feed.Entries.Count == 0)
     {
         <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-8 text-center">
-            <p class="text-xs text-slate-500 dark:text-slate-400">No drops worth 10K+ on this day.</p>
+            <p class="text-xs text-slate-500 dark:text-white">No drops worth 10K+ on this day.</p>
         </div>
     }
     else
@@ -73,7 +73,7 @@
                 <div class="@colClass">
                     <h2 class="text-xs font-semibold @TierHeaderClass(tier) mb-2 px-0.5">
                         @TierName(tier)
-                        <span class="text-[10px] font-normal text-slate-400 dark:text-slate-500">@TierRange(tier)</span>
+                        <span class="text-[10px] font-normal text-slate-400 dark:text-white">@TierRange(tier)</span>
                     </h2>
                     <div class="space-y-2">
                         @foreach (var entry in columns[tier])

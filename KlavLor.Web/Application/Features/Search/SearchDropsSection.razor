@@ -18,12 +18,12 @@
                             @d.ItemName
                             @if (d.TotalQuantity > 1)
                             {
-                                <span class="text-slate-400 dark:text-slate-500 font-normal">×@d.TotalQuantity.ToString("N0")</span>
+                                <span class="text-slate-400 dark:text-white font-normal">×@d.TotalQuantity.ToString("N0")</span>
                             }
                         </span>
                         <span class="text-amber-600 dark:text-amber-400 font-medium text-xs whitespace-nowrap shrink-0">@GoldFormat.Format(d.TotalValue)</span>
                     </div>
-                    <span class="block text-xs text-slate-400 dark:text-slate-500 truncate">
+                    <span class="block text-xs text-slate-400 dark:text-white truncate">
                         @if (d.SourceCount > 1)
                         {
                             <text>@d.SourceCount sources · mostly @d.TopSourceName</text>

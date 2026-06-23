@@ -5,7 +5,7 @@
 <div class="flex items-center justify-between bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-3">
     <div class="flex items-center gap-3">
         <a hx-get="@AppRoutes.TemplatesSearch.FromApi()" hx-target="#hx-page-container" hx-push-url="@AppRoutes.TemplatesSearch" hx-swap="innerHTML transition:true"
-           class="text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 flex items-center gap-1 cursor-pointer">
+           class="text-sm text-slate-500 dark:text-white hover:text-slate-700 dark:hover:text-slate-300 flex items-center gap-1 cursor-pointer">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
             Back to Templates
         </a>
@@ -17,14 +17,14 @@
         }
         else
         {
-            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">Private</span>
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-white">Private</span>
         }
-        <span class="text-sm text-slate-500 dark:text-slate-400">by @(Template.CreatedBy?.FirstName ?? "Unknown") @(Template.CreatedBy?.LastName ?? "")</span>
+        <span class="text-sm text-slate-500 dark:text-white">by @(Template.CreatedBy?.FirstName ?? "Unknown") @(Template.CreatedBy?.LastName ?? "")</span>
         @if (CompletionDates.Count > 0 || CanTrackCompletion)
         {
             <span class="text-slate-300 dark:text-slate-600">|</span>
             <div class="flex items-center gap-2 text-sm">
-                <span class="text-slate-500 dark:text-slate-400">Progress:</span>
+                <span class="text-slate-500 dark:text-white">Progress:</span>
                 <span class="font-semibold text-amber-600 dark:text-amber-400">@CompletionDates.Count / @Template.Nodes.Count</span>
                 @if (Template.Nodes.Count > 0)
                 {

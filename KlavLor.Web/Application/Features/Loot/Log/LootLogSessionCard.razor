@@ -23,11 +23,11 @@
                     <span class="truncate">@SourceName</span>
                     <span class="text-slate-300 dark:text-slate-600 font-normal" aria-hidden="true">·</span>
                 }
-                <span class="whitespace-nowrap @(ShowSource ? "font-normal text-slate-500 dark:text-slate-400" : "")">@start.ToString("d MMM yyyy")</span>
-                <span class="text-slate-400 dark:text-slate-500 font-normal whitespace-nowrap">@start.ToString("HH:mm")@(SameMinute ? "" : $"–{end:HH:mm}")</span>
-                <span class="text-[10px] font-normal text-slate-400 dark:text-slate-500 whitespace-nowrap">· @DurationText</span>
+                <span class="whitespace-nowrap @(ShowSource ? "font-normal text-slate-500 dark:text-white" : "")">@start.ToString("d MMM yyyy")</span>
+                <span class="text-slate-400 dark:text-white font-normal whitespace-nowrap">@start.ToString("HH:mm")@(SameMinute ? "" : $"–{end:HH:mm}")</span>
+                <span class="text-[10px] font-normal text-slate-400 dark:text-white whitespace-nowrap">· @DurationText</span>
             </div>
-            <div class="flex items-center gap-1.5 mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+            <div class="flex items-center gap-1.5 mt-0.5 text-[11px] text-slate-500 dark:text-white">
                 <span class="whitespace-nowrap">@Session.KillCount.ToString("N0") @killNoun</span>
                 <span aria-hidden="true">·</span>
                 @if (hasRealKc)
@@ -45,7 +45,7 @@
             {
                 <div class="text-right">
                     <div class="text-sm font-semibold text-amber-600 dark:text-amber-400 whitespace-nowrap">@GoldFormat.Format(Session.TotalValue)</div>
-                    <div class="text-[10px] text-slate-400 dark:text-slate-500">gp</div>
+                    <div class="text-[10px] text-slate-400 dark:text-white">gp</div>
                 </div>
             }
             <svg class="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-amber-500 dark:group-hover:text-amber-400 transition-colors shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -81,7 +81,7 @@
             }
             @if (Session.DistinctDropCount > Session.TopDrops.Count)
             {
-                <span class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                <span class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-white">
                     +@(Session.DistinctDropCount - Session.TopDrops.Count) more
                 </span>
             }

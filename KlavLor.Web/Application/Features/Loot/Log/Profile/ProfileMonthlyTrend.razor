@@ -9,7 +9,7 @@
             <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-200">@Title</h3>
             <p class="text-lg font-bold mt-0.5 leading-tight">
                 <span class="text-amber-600 dark:text-amber-400 tabular-nums">@GoldFormat.Format(TotalGp)</span>
-                <span class="text-xs font-normal text-slate-500 dark:text-slate-400">across @Trend.Months.Count(m => m.Kills > 0) active @(Trend.Months.Count(m => m.Kills > 0) == 1 ? "month" : "months")</span>
+                <span class="text-xs font-normal text-slate-500 dark:text-white">across @Trend.Months.Count(m => m.Kills > 0) active @(Trend.Months.Count(m => m.Kills > 0) == 1 ? "month" : "months")</span>
             </p>
         </div>
         <div class="inline-flex rounded-md border border-slate-200 dark:border-slate-700 overflow-hidden text-[11px]">
@@ -32,7 +32,7 @@
 
     @if (Trend.Months.Count == 0 || TotalGp == 0)
     {
-        <p class="text-xs text-slate-500 dark:text-slate-400">No activity in this window yet.</p>
+        <p class="text-xs text-slate-500 dark:text-white">No activity in this window yet.</p>
     }
     else
     {
@@ -40,13 +40,13 @@
 
         @if (_legend.Count > 0)
         {
-            <div class="flex flex-wrap gap-x-3 gap-y-1 mt-4 text-[10px] text-slate-500 dark:text-slate-400">
+            <div class="flex flex-wrap gap-x-3 gap-y-1 mt-4 text-[10px] text-slate-500 dark:text-white">
                 @foreach (var entry in _legend)
                 {
                     <span class="inline-flex items-center gap-1.5">
                         <span class="inline-block w-2.5 h-2.5 rounded-sm @entry.FillClass"></span>
                         <span class="text-slate-600 dark:text-slate-300">@entry.ItemName</span>
-                        <span class="text-slate-400 dark:text-slate-500">· @entry.SourceName</span>
+                        <span class="text-slate-400 dark:text-white">· @entry.SourceName</span>
                     </span>
                 }
             </div>

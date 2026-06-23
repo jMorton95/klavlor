@@ -16,9 +16,9 @@
     </td>
     <td class="px-3 py-1.5 text-right tabular-nums">@Row.Kills.ToString("N0")</td>
     <td class="px-3 py-1.5 text-right tabular-nums font-medium text-amber-600 dark:text-amber-400">@GoldFormat.Format(Row.TotalValue)</td>
-    <td class="px-3 py-1.5 text-right tabular-nums text-slate-500 dark:text-slate-400">@Row.Sessions.ToString("N0")</td>
-    <td class="px-3 py-1.5 text-right tabular-nums text-slate-500 dark:text-slate-400">@Row.DistinctItems.ToString("N0")</td>
-    <td class="px-3 py-1.5 text-right tabular-nums text-slate-500 dark:text-slate-400">@Row.TotalDrops.ToString("N0")</td>
+    <td class="px-3 py-1.5 text-right tabular-nums text-slate-500 dark:text-white">@Row.Sessions.ToString("N0")</td>
+    <td class="px-3 py-1.5 text-right tabular-nums text-slate-500 dark:text-white">@Row.DistinctItems.ToString("N0")</td>
+    <td class="px-3 py-1.5 text-right tabular-nums text-slate-500 dark:text-white">@Row.TotalDrops.ToString("N0")</td>
     <td class="px-3 py-1.5">
         @if (!string.IsNullOrEmpty(Row.BiggestDropName) && Row.BiggestDropValue > 0)
         {
@@ -34,8 +34,8 @@
             <span class="text-slate-300 dark:text-slate-600">—</span>
         }
     </td>
-    <td class="px-3 py-1.5 text-right text-xs text-slate-400 dark:text-slate-500 tabular-nums whitespace-nowrap" title="@LocalDate(Row.FirstSeen)">@Ago(Row.FirstSeen)</td>
-    <td class="px-3 py-1.5 text-right text-xs text-slate-400 dark:text-slate-500 tabular-nums whitespace-nowrap" title="@LocalDate(Row.LastSeen)">@Ago(Row.LastSeen)</td>
+    <td class="px-3 py-1.5 text-right text-xs text-slate-400 dark:text-white tabular-nums whitespace-nowrap" title="@LocalDate(Row.FirstSeen)">@Ago(Row.FirstSeen)</td>
+    <td class="px-3 py-1.5 text-right text-xs text-slate-400 dark:text-white tabular-nums whitespace-nowrap" title="@LocalDate(Row.LastSeen)">@Ago(Row.LastSeen)</td>
     <td class="px-3 py-1.5 text-right tabular-nums text-cyan-700 dark:text-cyan-300">@ClogText</td>
 </tr>
 
@@ -59,7 +59,7 @@
         LootSourceType.Event => "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300",
         LootSourceType.Pickpocket => "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300",
         LootSourceType.Player => "bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300",
-        _ => "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+        _ => "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-white"
     };
 
     private static string LocalDate(DateTimeOffset t) => IngestTimezone.ToZoneTime(t).ToString("d MMM yyyy, HH:mm");

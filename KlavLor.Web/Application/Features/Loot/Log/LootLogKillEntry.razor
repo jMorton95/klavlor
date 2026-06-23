@@ -3,16 +3,16 @@
 
 <div class="bg-slate-50 dark:bg-slate-900 rounded-lg border @(Compact ? "p-1.5" : "p-3") @(Highlighted ? "border-amber-300 dark:border-amber-600 ring-1 ring-amber-300/30 dark:ring-amber-600/30" : "border-slate-200 dark:border-slate-700")">
     <div class="flex items-center justify-between gap-2 @(Compact ? "mb-1" : "mb-2")">
-        <time datetime="@Kill.OccurredAt.UtcDateTime.ToString("o")" class="@LabelText text-slate-400 dark:text-slate-400 loot-timestamp">@FormatTime(Kill.OccurredAt)</time>
+        <time datetime="@Kill.OccurredAt.UtcDateTime.ToString("o")" class="@LabelText text-slate-400 dark:text-white loot-timestamp">@FormatTime(Kill.OccurredAt)</time>
         @if (Kill.KillCount is not null)
         {
-            <span class="@LabelText font-medium text-slate-500 dark:text-slate-400">
+            <span class="@LabelText font-medium text-slate-500 dark:text-white">
                 KC #@Kill.KillCount.Value.ToString("N0")
             </span>
         }
         else if (Kill.KillOrdinal is not null)
         {
-            <span class="@LabelText font-medium text-slate-500 dark:text-slate-400" title="Position in your kill log (RuneLite didn't report an in-game kill count)">
+            <span class="@LabelText font-medium text-slate-500 dark:text-white" title="Position in your kill log (RuneLite didn't report an in-game kill count)">
                 Kill #@Kill.KillOrdinal.Value.ToString("N0")
             </span>
         }
@@ -42,7 +42,7 @@
                 @drop.Name
                 @if (drop.Price > 0)
                 {
-                    <span class="text-slate-400 dark:text-slate-400">(@GoldFormat.Format((long)drop.Quantity * drop.Price))</span>
+                    <span class="text-slate-400 dark:text-white">(@GoldFormat.Format((long)drop.Quantity * drop.Price))</span>
                 }
             </span>
         }

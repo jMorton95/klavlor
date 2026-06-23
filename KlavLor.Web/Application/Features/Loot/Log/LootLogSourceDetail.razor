@@ -14,7 +14,7 @@
        rather than always forcing them onto the character page. Every navigation into this page
        uses hx-push-url, so a browser-history back restores the originating view. *@
     <button type="button" onclick="history.back()"
-            class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-amber-600 dark:text-slate-400 dark:hover:text-amber-400 cursor-pointer transition-colors">
+            class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-amber-600 dark:text-white dark:hover:text-amber-400 cursor-pointer transition-colors">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
         </svg>
@@ -33,7 +33,7 @@
                              onerror="this.style.display='none'" />
                         @Detail.SourceName
                     </h2>
-                    <div class="flex items-center gap-4 mt-1 text-sm text-slate-500 dark:text-slate-400">
+                    <div class="flex items-center gap-4 mt-1 text-sm text-slate-500 dark:text-white">
                         <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium @GetSourceTypeBadgeClasses()">@Detail.SourceType</span>
                         <span>@Detail.TotalKills.ToString("N0") @(Detail.SourceType == LootSourceType.Event ? "rolls" : "kills")</span>
                         <span class="font-medium text-amber-600 dark:text-amber-400">@GoldFormat.Format(Detail.TotalValue) gp total</span>
@@ -56,7 +56,7 @@
                                 @drop.Name
                                 @if (drop.TotalQuantity > 1)
                                 {
-                                    <span class="ml-1 text-slate-400 dark:text-slate-400">x@(drop.TotalQuantity.ToString("N0"))</span>
+                                    <span class="ml-1 text-slate-400 dark:text-white">x@(drop.TotalQuantity.ToString("N0"))</span>
                                 }
                             </span>
                             <span class="text-amber-600 dark:text-amber-400 font-medium whitespace-nowrap">@GoldFormat.Format(drop.TotalValue)</span>
@@ -100,7 +100,7 @@
                             hx-target="#source-tab-content"
                             hx-swap="outerHTML"
                             onclick="history.replaceState(history.state, '', '@GetCollectionPageUrl()')"
-                            class="px-3 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 cursor-pointer">
+                            class="px-3 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:text-white dark:hover:text-slate-200 cursor-pointer">
                         Collection Log
                     </button>
                     <button type="button"
@@ -183,6 +183,6 @@
         LootSourceType.Event => "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300",
         LootSourceType.Pickpocket => "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300",
         LootSourceType.Player => "bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300",
-        _ => "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+        _ => "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-white"
     };
 }

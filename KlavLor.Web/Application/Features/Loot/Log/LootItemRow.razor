@@ -11,8 +11,8 @@
              loading="lazy"
              onerror="this.style.display='none'" />
         <span class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate flex-1">@Item.ItemName</span>
-        <span class="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">@Item.SourceCount @(Item.SourceCount == 1 ? "source" : "sources")</span>
-        <span class="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap tabular-nums">@Item.TotalQuantity.ToString("N0") qty</span>
+        <span class="text-xs text-slate-500 dark:text-white whitespace-nowrap">@Item.SourceCount @(Item.SourceCount == 1 ? "source" : "sources")</span>
+        <span class="text-xs text-slate-500 dark:text-white whitespace-nowrap tabular-nums">@Item.TotalQuantity.ToString("N0") qty</span>
         <span class="text-sm font-semibold text-amber-600 dark:text-amber-400 whitespace-nowrap tabular-nums w-20 text-right">@GoldFormat.Format(Item.TotalValue)</span>
     </summary>
     <div class="border-t border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 divide-y divide-slate-200 dark:divide-slate-700/50">
@@ -30,8 +30,8 @@
                      onerror="this.style.display='none'" />
                 <span class="text-slate-700 dark:text-slate-200 truncate flex-1 hover:text-amber-600 dark:hover:text-amber-400">@source.SourceName</span>
                 <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium @GetSourceTypeBadgeClasses(source.SourceType)">@source.SourceType</span>
-                <span class="text-slate-500 dark:text-slate-400 whitespace-nowrap tabular-nums">@source.TotalKills.ToString("N0") @(source.SourceType == "Event" ? "rolls" : "kills")</span>
-                <span class="text-slate-500 dark:text-slate-400 whitespace-nowrap tabular-nums">@source.Quantity.ToString("N0") qty</span>
+                <span class="text-slate-500 dark:text-white whitespace-nowrap tabular-nums">@source.TotalKills.ToString("N0") @(source.SourceType == "Event" ? "rolls" : "kills")</span>
+                <span class="text-slate-500 dark:text-white whitespace-nowrap tabular-nums">@source.Quantity.ToString("N0") qty</span>
                 <span class="text-amber-600 dark:text-amber-400 font-medium whitespace-nowrap tabular-nums w-20 text-right">@GoldFormat.Format(source.Value)</span>
             </a>
         }
@@ -48,6 +48,6 @@
         "Event" => "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300",
         "Pickpocket" => "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300",
         "Player" => "bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300",
-        _ => "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+        _ => "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-white"
     };
 }

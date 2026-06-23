@@ -19,7 +19,7 @@
                     </h3>
                     <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium shrink-0 @GetSourceTypeBadgeClasses(s.SourceType)">@s.SourceType</span>
                 </div>
-                <div class="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+                <div class="flex items-center gap-3 text-xs text-slate-500 dark:text-white">
                     <span>@s.TotalKills.ToString("N0") kills</span>
                     <span class="font-medium text-amber-600 dark:text-amber-400">@GoldFormat.Format(s.TotalValue) gp</span>
                 </div>
@@ -39,6 +39,6 @@
         LootSourceType.Event => "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300",
         LootSourceType.Pickpocket => "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300",
         LootSourceType.Player => "bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300",
-        _ => "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+        _ => "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-white"
     };
 }

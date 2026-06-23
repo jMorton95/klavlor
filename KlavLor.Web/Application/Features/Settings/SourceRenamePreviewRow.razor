@@ -5,7 +5,7 @@
     @if (Preview.IsNoop)
     {
         <div class="flex items-center justify-between gap-2">
-            <span class="text-slate-500 dark:text-slate-400">@Preview.NoopReason</span>
+            <span class="text-slate-500 dark:text-white">@Preview.NoopReason</span>
             <button hx-get="@CancelUrl" hx-target="#src-row-@RowIndex" hx-swap="outerHTML"
                     class="px-2.5 py-1 rounded text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer shrink-0">
                 Back
@@ -27,14 +27,14 @@
             <text>@Records(Preview.RecordsToMove) from &ldquo;</text>@Preview.From<text>&rdquo;</text>
             @if (Preview.IsMerge)
             {
-                <text>into existing &ldquo;@Preview.To&rdquo; <span class="text-slate-500 dark:text-slate-400">(already @Preview.TargetExistingRecords.ToString("N0"))</span>.</text>
+                <text>into existing &ldquo;@Preview.To&rdquo; <span class="text-slate-500 dark:text-white">(already @Preview.TargetExistingRecords.ToString("N0"))</span>.</text>
             }
             else
             {
                 <text>to new name &ldquo;@Preview.To&rdquo;.</text>
             }
         </p>
-        <p class="text-[11px] text-slate-500 dark:text-slate-400 mb-2.5">
+        <p class="text-[11px] text-slate-500 dark:text-white mb-2.5">
             Re-derives @Preview.DropRatesAffected.ToString("N0") drop-rate @(Preview.DropRatesAffected == 1 ? "row" : "rows")@(Preview.HasIcon ? " and the source icon" : ""). This cannot be undone.
         </p>
 

@@ -526,7 +526,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             var skip = (pageNumber - 1) * pageSize;
 
             // session_no starts at 1 for the oldest kill; rank orders newest-session-first for paging.
-            const string sessionsSql = """
+            var sessionsSql = $"""
                 WITH ordered AS (
                     SELECT "Id", "OccurredAt", "KillCount", "TotalValue",
                            LAG("OccurredAt") OVER (ORDER BY "OccurredAt", "Id") AS prev_at,
@@ -534,19 +534,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                     FROM "LootRecords"
                     WHERE "GameCharacterId" = @cid AND "SourceName" = @src
                 ),
-                marked AS (
-                    SELECT *, CASE WHEN prev_at IS NULL
-                                     OR ("OccurredAt" - prev_at) > @gap
-                                     OR (("OccurredAt" - prev_at) >= @breakGap
-                                         AND date(("OccurredAt" AT TIME ZONE 'Europe/London') - INTERVAL '6 hours')
-                                          <> date((prev_at AT TIME ZONE 'Europe/London') - INTERVAL '6 hours'))
-                                    THEN 1 ELSE 0 END AS new_sess
-                    FROM ordered
-                ),
-                sessioned AS (
-                    SELECT *, SUM(new_sess) OVER (ORDER BY "OccurredAt", "Id") AS session_no
-                    FROM marked
-                ),
+                {SessionSql.GapIslandsWithCap("")},
                 summ AS (
                     SELECT session_no,
                            MIN("OccurredAt") AS started, MAX("OccurredAt") AS ended,
@@ -601,26 +589,14 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             if (rows.Count > 0)
             {
                 var sessionNos = rows.Select(r => r.SessionNo).ToArray();
-                const string dropsSql = """
+                var dropsSql = $"""
                     WITH ordered AS (
                         SELECT "Id", "OccurredAt", "DropsJson",
                                LAG("OccurredAt") OVER (ORDER BY "OccurredAt", "Id") AS prev_at
                         FROM "LootRecords"
                         WHERE "GameCharacterId" = @cid AND "SourceName" = @src
                     ),
-                    marked AS (
-                        SELECT *, CASE WHEN prev_at IS NULL
-                                     OR ("OccurredAt" - prev_at) > @gap
-                                     OR (("OccurredAt" - prev_at) >= @breakGap
-                                         AND date(("OccurredAt" AT TIME ZONE 'Europe/London') - INTERVAL '6 hours')
-                                          <> date((prev_at AT TIME ZONE 'Europe/London') - INTERVAL '6 hours'))
-                                    THEN 1 ELSE 0 END AS new_sess
-                        FROM ordered
-                    ),
-                    sessioned AS (
-                        SELECT *, SUM(new_sess) OVER (ORDER BY "OccurredAt", "Id") AS session_no
-                        FROM marked
-                    )
+                    {SessionSql.GapIslandsWithCap("")}
                     SELECT s.session_no,
                            ld."Name" AS name,
                            SUM(ld."Quantity"::bigint) AS qty,
@@ -706,7 +682,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             if (connection.State != System.Data.ConnectionState.Open)
                 await connection.OpenAsync();
 
-            const string sql = """
+            var sql = $"""
                 WITH ordered AS (
                     SELECT "Id", "OccurredAt", "KillCount", "TotalValue", "DropsJson",
                            LAG("OccurredAt") OVER (ORDER BY "OccurredAt", "Id") AS prev_at,
@@ -714,19 +690,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                     FROM "LootRecords"
                     WHERE "GameCharacterId" = @cid AND "SourceName" = @src
                 ),
-                marked AS (
-                    SELECT *, CASE WHEN prev_at IS NULL
-                                     OR ("OccurredAt" - prev_at) > @gap
-                                     OR (("OccurredAt" - prev_at) >= @breakGap
-                                         AND date(("OccurredAt" AT TIME ZONE 'Europe/London') - INTERVAL '6 hours')
-                                          <> date((prev_at AT TIME ZONE 'Europe/London') - INTERVAL '6 hours'))
-                                    THEN 1 ELSE 0 END AS new_sess
-                    FROM ordered
-                ),
-                sessioned AS (
-                    SELECT *, SUM(new_sess) OVER (ORDER BY "OccurredAt", "Id") AS session_no
-                    FROM marked
-                )
+                {SessionSql.GapIslandsWithCap("")}
                 SELECT "OccurredAt", "KillCount", "TotalValue", "DropsJson", kill_ord
                 FROM sessioned
                 WHERE session_no = @sessionNo
@@ -793,7 +757,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
 
             var skip = (pageNumber - 1) * pageSize;
 
-            const string sessionsSql = """
+            var sessionsSql = $"""
                 WITH ordered AS (
                     SELECT "Id", "SourceName", "SourceType", "OccurredAt", "KillCount", "TotalValue",
                            LAG("OccurredAt") OVER (PARTITION BY "SourceName" ORDER BY "OccurredAt", "Id") AS prev_at,
@@ -801,19 +765,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                     FROM "LootRecords"
                     WHERE "GameCharacterId" = @cid
                 ),
-                marked AS (
-                    SELECT *, CASE WHEN prev_at IS NULL
-                                     OR ("OccurredAt" - prev_at) > @gap
-                                     OR (("OccurredAt" - prev_at) >= @breakGap
-                                         AND date(("OccurredAt" AT TIME ZONE 'Europe/London') - INTERVAL '6 hours')
-                                          <> date((prev_at AT TIME ZONE 'Europe/London') - INTERVAL '6 hours'))
-                                    THEN 1 ELSE 0 END AS new_sess
-                    FROM ordered
-                ),
-                sessioned AS (
-                    SELECT *, SUM(new_sess) OVER (PARTITION BY "SourceName" ORDER BY "OccurredAt", "Id") AS session_no
-                    FROM marked
-                ),
+                {SessionSql.GapIslandsWithCap("\"SourceName\"")},
                 summ AS (
                     SELECT "SourceName", MIN("SourceType") AS source_type, session_no,
                            MIN("OccurredAt") AS started, MAX("OccurredAt") AS ended,
@@ -823,10 +775,16 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                            SUM("TotalValue")::bigint AS total_gp
                     FROM sessioned GROUP BY "SourceName", session_no
                 ),
+                kept AS (
+                    -- Hide trivial one-offs: a single kill worth under the floor. Multi-kill
+                    -- sessions are real grinds and are always kept regardless of value. Filtering
+                    -- here (before ranked) keeps paging, total_sessions and HasMore consistent.
+                    SELECT * FROM summ WHERE kills > 1 OR total_gp >= @minValue
+                ),
                 ranked AS (
                     SELECT *, ROW_NUMBER() OVER (ORDER BY ended DESC) AS rnk,
                            (COUNT(*) OVER ())::int AS total_sessions
-                    FROM summ
+                    FROM kept
                 )
                 SELECT "SourceName", source_type, session_no, started, ended, kills,
                        min_kc, max_kc, min_ord, max_ord, total_gp, total_sessions
@@ -843,6 +801,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 cmd.Parameters.Add(new NpgsqlParameter("@cid", characterId));
                 cmd.Parameters.Add(new NpgsqlParameter("@gap", LootFeedGrouping.MaxGap));
                 cmd.Parameters.Add(new NpgsqlParameter("@breakGap", LootFeedGrouping.SessionBreakGap));
+                cmd.Parameters.Add(new NpgsqlParameter("@minValue", LootFeedGrouping.MinOneOffSessionValue));
                 cmd.Parameters.Add(new NpgsqlParameter("@skip", skip));
                 cmd.Parameters.Add(new NpgsqlParameter("@take", pageSize));
                 await using var reader = await cmd.ExecuteReaderAsync();
@@ -870,26 +829,14 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             if (rows.Count > 0)
             {
                 var keys = rows.Select(r => r.SourceName + SessionKeySep + r.SessionNo).ToArray();
-                const string dropsSql = """
+                var dropsSql = $"""
                     WITH ordered AS (
                         SELECT "Id", "SourceName", "OccurredAt",
                                LAG("OccurredAt") OVER (PARTITION BY "SourceName" ORDER BY "OccurredAt", "Id") AS prev_at
                         FROM "LootRecords"
                         WHERE "GameCharacterId" = @cid
                     ),
-                    marked AS (
-                        SELECT *, CASE WHEN prev_at IS NULL
-                                     OR ("OccurredAt" - prev_at) > @gap
-                                     OR (("OccurredAt" - prev_at) >= @breakGap
-                                         AND date(("OccurredAt" AT TIME ZONE 'Europe/London') - INTERVAL '6 hours')
-                                          <> date((prev_at AT TIME ZONE 'Europe/London') - INTERVAL '6 hours'))
-                                    THEN 1 ELSE 0 END AS new_sess
-                        FROM ordered
-                    ),
-                    sessioned AS (
-                        SELECT *, SUM(new_sess) OVER (PARTITION BY "SourceName" ORDER BY "OccurredAt", "Id") AS session_no
-                        FROM marked
-                    )
+                    {SessionSql.GapIslandsWithCap("\"SourceName\"")}
                     SELECT s."SourceName" || @sep || s.session_no::text AS skey,
                            ld."Name" AS name,
                            SUM(ld."Quantity"::bigint) AS qty,
@@ -1026,19 +973,15 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                            MIN("OccurredAt") AS first_seen, MAX("OccurredAt") AS last_seen
                     FROM base GROUP BY "SourceName"
                 ),
+                ordered AS (
+                    SELECT "Id", "SourceName", "OccurredAt",
+                           LAG("OccurredAt") OVER (PARTITION BY "SourceName" ORDER BY "OccurredAt", "Id") AS prev_at
+                    FROM base
+                ),
+                {SessionSql.GapIslandsWithCap("\"SourceName\"")},
                 sess AS (
-                    SELECT "SourceName", SUM(new_sess)::int AS sessions
-                    FROM (
-                        SELECT "SourceName",
-                               CASE WHEN LAG("OccurredAt") OVER w IS NULL
-                                     OR ("OccurredAt" - LAG("OccurredAt") OVER w) > @gap
-                                     OR (("OccurredAt" - LAG("OccurredAt") OVER w) >= @breakGap
-                                         AND date(("OccurredAt" AT TIME ZONE 'Europe/London') - INTERVAL '6 hours')
-                                          <> date(((LAG("OccurredAt") OVER w) AT TIME ZONE 'Europe/London') - INTERVAL '6 hours'))
-                                    THEN 1 ELSE 0 END AS new_sess
-                        FROM base
-                        WINDOW w AS (PARTITION BY "SourceName" ORDER BY "OccurredAt", "Id")
-                    ) z GROUP BY "SourceName"
+                    SELECT "SourceName", COUNT(DISTINCT session_no)::int AS sessions
+                    FROM sessioned GROUP BY "SourceName"
                 ),
                 dr AS (
                     SELECT b."SourceName",
@@ -1164,8 +1107,10 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
         // (e.g. 10 clues in a row = 1 entry), and we want countPerTier of those, not raw records.
         // Tier classification is per-drop (each LootRecord can split across tiers via its drops),
         // so we over-fetch candidates, filter+collapse in C#, and refetch with a larger window
-        // only when one user's run dominated the initial fetch.
-        const int initialTake = 150;
+        // only when one user's run dominated the initial fetch. initialTake is sized for the 16h
+        // grouping window, which collapses many raw kills into one card, so the common case fits
+        // a single fetch and avoids the doubling re-queries.
+        const int initialTake = 300;
         const int hardCap = 1500;
 
         try
@@ -1203,15 +1148,12 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                             OccurredAt = x.Record.OccurredAt,
                             CharacterName = x.Character.DisplayName ?? x.User.FirstName + " " + x.User.LastName,
                             GameCharacterId = x.Character.Id,
-                            KillCount = x.Record.KillCount,
-                            // Per-character per-source chronological ordinal. Only used as a fallback
-                            // label when RuneLite didn't supply a KillCount; see LootFeedItem.razor.
-                            // The Id tiebreak avoids two equal-timestamp records sharing an ordinal.
-                            KillOrdinal = dataContext.LootRecords.Count(o =>
-                                o.GameCharacterId == x.Character.Id
-                                && o.SourceName == x.Record.SourceName
-                                && (o.OccurredAt < x.Record.OccurredAt
-                                    || (o.OccurredAt == x.Record.OccurredAt && o.Id <= x.Record.Id)))
+                            KillCount = x.Record.KillCount
+                            // KillOrdinal is intentionally NOT computed per-row here: it's only a
+                            // fallback label shown when RuneLite omitted KillCount, so a per-row
+                            // correlated count over (up to) hardCap candidates × 5 tiers on every
+                            // feed load was wasted work. It's filled lazily below for the handful
+                            // of surviving cards that actually need it (FillSurvivorOrdinals).
                         })
                         .ToListAsync();
 
@@ -1227,12 +1169,84 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 }
             }
 
+            await FillSurvivorOrdinals(result);
             return result;
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to get all feed tiers");
             throw new RepositoryException("Failed to get all feed tiers", ex);
+        }
+    }
+
+    // KillOrdinal is the absolute chronological position of a kill within its (character, source)
+    // history (1 = oldest). It's only rendered as a fallback when RuneLite didn't report an in-game
+    // KillCount, so we compute it here — in one batched query, only for the surviving cards that
+    // lack a KillCount — rather than per-candidate inside GetAllFeedTiers' over-fetch loop.
+    private async Task FillSurvivorOrdinals(Dictionary<LootFeedTier, List<LootFeedEntry>> result)
+    {
+        // (tier, index) of each entry needing an ordinal, parallel to the unnest input arrays.
+        var slots = new List<(LootFeedTier Tier, int Index)>();
+        var cids = new List<int>();
+        var srcs = new List<string>();
+        var firsts = new List<DateTimeOffset>();
+        var lasts = new List<DateTimeOffset>();
+
+        foreach (var (tier, entries) in result)
+        {
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var e = entries[i];
+                // Only entries without a RuneLite KillCount fall back to the ordinal label.
+                if (e.MinKillCount is not null || e.MaxKillCount is not null || e.GameCharacterId is null)
+                    continue;
+                slots.Add((tier, i));
+                cids.Add(e.GameCharacterId.Value);
+                srcs.Add(e.SourceName);
+                firsts.Add(e.GroupAnchorAt);
+                lasts.Add(e.OccurredAt);
+            }
+        }
+
+        if (slots.Count == 0) return;
+
+        // before_first = kills strictly before the group's earliest (+1 = that kill's ordinal);
+        // at_last = kills at-or-before the group's latest (= the latest kill's ordinal). Counts are
+        // by OccurredAt only (no Id tiebreak the old per-row subquery had) — at worst off-by-one on
+        // same-timestamp kills, on a fallback-only label. Rides IX_LootRecords_GameCharacterId_SourceName.
+        const string sql = """
+            SELECT t.idx,
+                   (SELECT count(*) FROM "LootRecords" r
+                     WHERE r."GameCharacterId" = t.cid AND r."SourceName" = t.src AND r."OccurredAt" <  t.first)::int AS before_first,
+                   (SELECT count(*) FROM "LootRecords" r
+                     WHERE r."GameCharacterId" = t.cid AND r."SourceName" = t.src AND r."OccurredAt" <= t.last)::int  AS at_last
+            FROM unnest(@cids, @srcs, @firsts, @lasts) WITH ORDINALITY AS t(cid, src, first, last, idx)
+            """;
+
+        var connection = dataContext.Database.GetDbConnection();
+        if (connection.State != System.Data.ConnectionState.Open)
+            await connection.OpenAsync();
+
+        await using var cmd = connection.CreateCommand();
+        cmd.CommandText = sql;
+        cmd.Parameters.Add(new NpgsqlParameter("@cids", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Integer) { Value = cids.ToArray() });
+        cmd.Parameters.Add(new NpgsqlParameter("@srcs", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Text) { Value = srcs.ToArray() });
+        cmd.Parameters.Add(new NpgsqlParameter("@firsts", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.TimestampTz) { Value = firsts.ToArray() });
+        cmd.Parameters.Add(new NpgsqlParameter("@lasts", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.TimestampTz) { Value = lasts.ToArray() });
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            // idx is the 1-based unnest ordinality, lining up with the order slots were collected.
+            var idx = (int)reader.GetInt64(0) - 1;
+            var minOrd = reader.GetInt32(1) + 1;
+            var maxOrd = reader.GetInt32(2);
+            var (tier, entryIndex) = slots[idx];
+            result[tier][entryIndex] = result[tier][entryIndex] with
+            {
+                MinKillOrdinal = minOrd,
+                MaxKillOrdinal = maxOrd
+            };
         }
     }
 

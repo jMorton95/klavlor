@@ -25,11 +25,11 @@ else
                 </div>
                 <div class="min-w-0 leading-tight">
                     <h2 class="text-base font-bold text-slate-900 dark:text-slate-100 truncate">@Header.CharacterName</h2>
-                    <p class="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                    <p class="text-[11px] text-slate-500 dark:text-white truncate">
                         @Header.UserName
                         @if (Header.FirstSeenAt is not null && Header.LastSeenAt is not null)
                         {
-                            <span class="text-slate-400 dark:text-slate-600"> · @FormatLocal(Header.FirstSeenAt.Value) – @FormatLocal(Header.LastSeenAt.Value)</span>
+                            <span class="text-slate-400 dark:text-white"> · @FormatLocal(Header.FirstSeenAt.Value) – @FormatLocal(Header.LastSeenAt.Value)</span>
                         }
                     </p>
                 </div>
@@ -51,7 +51,7 @@ else
             _ => "text-slate-900 dark:text-slate-100"
         };
         <span class="inline-flex items-baseline gap-1.5">
-            <span class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">@label</span>
+            <span class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-white">@label</span>
             <span class="text-sm font-semibold @valueClass">@value</span>
         </span>
     };

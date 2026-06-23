@@ -16,7 +16,7 @@
                      class="w-5 h-5 rounded shrink-0" loading="lazy" onerror="this.style.display='none'" />
                 <div class="min-w-0">
                     <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate">@SourceName</h3>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">@Summary</p>
+                    <p class="text-xs text-slate-500 dark:text-white">@Summary</p>
                 </div>
             </div>
             <div class="flex items-center gap-1.5 shrink-0">
@@ -31,7 +31,7 @@
                     </button>
                 }
                 <button type="button" onclick="this.closest('.fixed').remove()"
-                        class="p-2 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/40 dark:hover:bg-slate-700/40 rounded-lg transition-colors">
+                        class="p-2 text-slate-400 dark:text-white hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/40 dark:hover:bg-slate-700/40 rounded-lg transition-colors">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                     </svg>
@@ -44,7 +44,7 @@
             <div id="session-grouped">
                 @if (_grouped.Count == 0)
                 {
-                    <p class="text-xs text-slate-400 dark:text-slate-500 py-2">No loot recorded for this session.</p>
+                    <p class="text-xs text-slate-400 dark:text-white py-2">No loot recorded for this session.</p>
                 }
                 else
                 {

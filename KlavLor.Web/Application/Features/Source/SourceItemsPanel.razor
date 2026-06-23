@@ -21,7 +21,7 @@
     <div id="source-items-results">
         @if (Items.Count == 0)
         {
-            <p class="text-sm text-slate-400 dark:text-slate-500 py-2">
+            <p class="text-sm text-slate-400 dark:text-white py-2">
                 @(string.IsNullOrWhiteSpace(SearchTerm) ? "No drops recorded for this source." : "No items match your search.")
             </p>
         }
@@ -34,21 +34,21 @@
                         <img src="/api/images/item-icon?name=@Uri.EscapeDataString(item.ItemName)" alt="@item.ItemName"
                              class="w-4 h-4 shrink-0" loading="lazy" onerror="this.style.display='none'" />
                         <span class="text-slate-700 dark:text-slate-100 truncate flex-1">@item.ItemName</span>
-                        <span class="text-slate-500 dark:text-slate-400 tabular-nums shrink-0">@item.TotalDrops.ToString("N0")</span>
+                        <span class="text-slate-500 dark:text-white tabular-nums shrink-0">@item.TotalDrops.ToString("N0")</span>
 
                         @* Per-character breakdown, revealed on hover. *@
                         <div class="hidden group-hover:block absolute z-30 right-0 top-full mt-1 w-56 max-h-64 overflow-y-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg shadow-lg p-2 space-y-0.5">
-                            <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 px-1 pb-1">By character</p>
+                            <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-white px-1 pb-1">By character</p>
                             @foreach (var c in item.Characters.Take(15))
                             {
                                 <div class="flex items-center justify-between gap-2 text-xs px-1">
                                     <span class="text-slate-700 dark:text-slate-200 truncate">@c.CharacterName</span>
-                                    <span class="text-slate-500 dark:text-slate-400 tabular-nums shrink-0">@c.Drops.ToString("N0")</span>
+                                    <span class="text-slate-500 dark:text-white tabular-nums shrink-0">@c.Drops.ToString("N0")</span>
                                 </div>
                             }
                             @if (item.Characters.Count > 15)
                             {
-                                <p class="text-[10px] text-slate-400 dark:text-slate-500 px-1 pt-0.5">+ @(item.Characters.Count - 15) more</p>
+                                <p class="text-[10px] text-slate-400 dark:text-white px-1 pt-0.5">+ @(item.Characters.Count - 15) more</p>
                             }
                         </div>
                     </div>
@@ -56,7 +56,7 @@
             </div>
             @if (Items.Count >= GlobalSourceHandler.ItemFrequencyLimit)
             {
-                <p class="text-xs text-slate-400 dark:text-slate-500 pt-2">Showing the top @GlobalSourceHandler.ItemFrequencyLimit — refine your search to narrow down.</p>
+                <p class="text-xs text-slate-400 dark:text-white pt-2">Showing the top @GlobalSourceHandler.ItemFrequencyLimit — refine your search to narrow down.</p>
             }
         }
     </div>

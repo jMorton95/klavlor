@@ -3,7 +3,7 @@
 
 @if (Kills.Count == 0)
 {
-    <p class="text-xs text-slate-400 dark:text-slate-500 py-2">No individual kills found for this session.</p>
+    <p class="text-xs text-slate-400 dark:text-white py-2">No individual kills found for this session.</p>
 }
 else
 {
@@ -16,7 +16,7 @@ else
             <li class="flex items-start gap-2 py-1">
                 <div class="shrink-0 w-[4.5rem] leading-tight pt-0.5">
                     <div class="text-[10px] font-medium text-slate-500 dark:text-slate-300 tabular-nums whitespace-nowrap">@KcLabel(kill)</div>
-                    <div class="text-[9px] text-slate-400 dark:text-slate-500 tabular-nums">@LocalTime(kill.OccurredAt)</div>
+                    <div class="text-[9px] text-slate-400 dark:text-white tabular-nums">@LocalTime(kill.OccurredAt)</div>
                 </div>
                 <div class="flex flex-wrap gap-1 flex-1 min-w-0">
                     @foreach (var drop in kill.Drops)

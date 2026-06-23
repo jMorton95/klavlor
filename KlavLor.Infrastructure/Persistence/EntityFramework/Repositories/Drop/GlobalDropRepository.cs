@@ -373,19 +373,7 @@ internal sealed class GlobalDropRepository(DataContext dataContext, ILogger<Glob
                     JOIN "GameCharacters" gc ON gc."Id" = lr."GameCharacterId"
                     WHERE {VisibilityFilter}
                 ),
-                marked AS (
-                    SELECT *, CASE WHEN prev_at IS NULL
-                                     OR ("OccurredAt" - prev_at) > @gap
-                                     OR (("OccurredAt" - prev_at) >= @breakGap
-                                         AND date(("OccurredAt" AT TIME ZONE 'Europe/London') - INTERVAL '6 hours')
-                                          <> date((prev_at AT TIME ZONE 'Europe/London') - INTERVAL '6 hours'))
-                                    THEN 1 ELSE 0 END AS new_sess
-                    FROM ordered
-                ),
-                sessioned AS (
-                    SELECT *, SUM(new_sess) OVER (PARTITION BY "GameCharacterId", "SourceName" ORDER BY "OccurredAt", "Id") AS session_no
-                    FROM marked
-                ),
+                {SessionSql.GapIslandsWithCap("\"GameCharacterId\", \"SourceName\"")},
                 item_agg AS (
                     SELECT s."GameCharacterId", s."SourceName", s.session_no,
                            COUNT(DISTINCT s."Id")::int AS item_drops,

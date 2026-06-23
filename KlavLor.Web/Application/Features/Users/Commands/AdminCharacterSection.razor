@@ -27,15 +27,15 @@
             <table class="w-full">
                 <thead>
                     <tr class="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
-                        <th class="px-4 py-2 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">RuneLite ID</th>
-                        <th class="px-4 py-2 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Display Name</th>
-                        <th class="px-4 py-2 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Visible</th>
+                        <th class="px-4 py-2 text-left text-xs font-semibold text-slate-500 dark:text-white uppercase">RuneLite ID</th>
+                        <th class="px-4 py-2 text-left text-xs font-semibold text-slate-500 dark:text-white uppercase">Display Name</th>
+                        <th class="px-4 py-2 text-center text-xs font-semibold text-slate-500 dark:text-white uppercase">Visible</th>
                         @if (SystemSettingsCache.IsLeaguesEnabled)
                         {
-                            <th class="px-4 py-2 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Leagues</th>
+                            <th class="px-4 py-2 text-center text-xs font-semibold text-slate-500 dark:text-white uppercase">Leagues</th>
                         }
-                        <th class="px-4 py-2 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Admin Hidden</th>
-                        <th class="px-4 py-2 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Actions</th>
+                        <th class="px-4 py-2 text-center text-xs font-semibold text-slate-500 dark:text-white uppercase">Admin Hidden</th>
+                        <th class="px-4 py-2 text-right text-xs font-semibold text-slate-500 dark:text-white uppercase">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
@@ -68,7 +68,7 @@
                                     }
                                     else
                                     {
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">No</span>
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-white">No</span>
                                     }
                                 </button>
                             </td>
@@ -86,7 +86,7 @@
                                         }
                                         else
                                         {
-                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">Main</span>
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-white">Main</span>
                                         }
                                     </button>
                                 </td>
@@ -102,7 +102,7 @@
                                     }
                                     else
                                     {
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">Visible</span>
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-white">Visible</span>
                                     }
                                 </button>
                             </td>
@@ -122,7 +122,7 @@
     }
     else
     {
-        <p class="text-sm text-slate-500 dark:text-slate-400">No characters found for this user.</p>
+        <p class="text-sm text-slate-500 dark:text-white">No characters found for this user.</p>
     }
 </div>
 

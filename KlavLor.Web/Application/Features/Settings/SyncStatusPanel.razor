@@ -12,19 +12,19 @@
             </button>
         </div>
         <p class="text-lg font-bold text-slate-900 dark:text-slate-100 tabular-nums">@Status.ClogItemCount.ToString("N0")<span class="text-xs font-normal text-slate-400"> items</span></p>
-        <p class="text-[11px] text-slate-400 dark:text-slate-500">synced @Ago(Status.ClogLastSynced)</p>
+        <p class="text-[11px] text-slate-400 dark:text-white">synced @Ago(Status.ClogLastSynced)</p>
     </div>
 
     <div class="bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
         <span class="text-xs font-semibold text-slate-700 dark:text-slate-200">Drop rates</span>
         <p class="text-lg font-bold text-slate-900 dark:text-slate-100 tabular-nums">@Status.DropRateSourceCount.ToString("N0")<span class="text-xs font-normal text-slate-400"> sources · @Status.DropRateCount.ToString("N0") rates</span></p>
-        <p class="text-[11px] text-slate-400 dark:text-slate-500">synced @Ago(Status.DropRateLastSynced)</p>
+        <p class="text-[11px] text-slate-400 dark:text-white">synced @Ago(Status.DropRateLastSynced)</p>
     </div>
 
     <div class="bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
         <span class="text-xs font-semibold text-slate-700 dark:text-slate-200">Cached images</span>
         <p class="text-lg font-bold text-slate-900 dark:text-slate-100 tabular-nums">@Status.CachedImageCount.ToString("N0")</p>
-        <p class="text-[11px] text-slate-400 dark:text-slate-500">stored blobs</p>
+        <p class="text-[11px] text-slate-400 dark:text-white">stored blobs</p>
     </div>
 
     <IconStatCard Title="Item icons" Stats="Status.ItemIcons" />

@@ -8,12 +8,12 @@
 <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
     <div class="flex items-baseline justify-between gap-2 mb-4">
         <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Drops over time</h2>
-        <span class="text-xs text-slate-400 dark:text-slate-500">drops per month, by character</span>
+        <span class="text-xs text-slate-400 dark:text-white">drops per month, by character</span>
     </div>
 
     @if (_bars.Count == 0 || _totalDrops == 0)
     {
-        <p class="text-sm text-slate-400 dark:text-slate-500">No drops recorded.</p>
+        <p class="text-sm text-slate-400 dark:text-white">No drops recorded.</p>
     }
     else
     {
@@ -21,7 +21,7 @@
 
         @if (_legend.Count > 0)
         {
-            <div class="flex flex-wrap gap-x-3 gap-y-1 mt-4 text-[10px] text-slate-500 dark:text-slate-400">
+            <div class="flex flex-wrap gap-x-3 gap-y-1 mt-4 text-[10px] text-slate-500 dark:text-white">
                 @foreach (var entry in _legend)
                 {
                     <span class="inline-flex items-center gap-1.5">
@@ -32,7 +32,7 @@
             </div>
         }
 
-        <p class="text-xs text-slate-400 dark:text-slate-500 mt-3">@_totalDrops.ToString("N0") drop@(_totalDrops == 1 ? "" : "s") over @_recentCount month@(_recentCount == 1 ? "" : "s") · hover a segment for the character breakdown.</p>
+        <p class="text-xs text-slate-400 dark:text-white mt-3">@_totalDrops.ToString("N0") drop@(_totalDrops == 1 ? "" : "s") over @_recentCount month@(_recentCount == 1 ? "" : "s") · hover a segment for the character breakdown.</p>
     }
 </div>
 

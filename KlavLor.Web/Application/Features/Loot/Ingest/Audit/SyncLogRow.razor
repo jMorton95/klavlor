@@ -4,7 +4,7 @@
 
 <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 align-top">
     <td class="px-3 py-2 whitespace-nowrap text-xs text-slate-600 dark:text-slate-300 tabular-nums">@FormatLocal(Entry.SavedAt)</td>
-    <td class="px-3 py-2 whitespace-nowrap text-xs text-slate-500 dark:text-slate-400 tabular-nums">@FormatLocal(Entry.OccurredAt)</td>
+    <td class="px-3 py-2 whitespace-nowrap text-xs text-slate-500 dark:text-white tabular-nums">@FormatLocal(Entry.OccurredAt)</td>
     <td class="px-3 py-2 whitespace-nowrap text-xs text-slate-700 dark:text-slate-200">@Entry.UserName</td>
     <td class="px-3 py-2 whitespace-nowrap text-xs text-slate-700 dark:text-slate-200">@(Entry.CharacterName ?? "—")</td>
     <td class="px-3 py-2 whitespace-nowrap text-xs">
@@ -15,7 +15,7 @@
     <td class="px-3 py-2 text-xs text-slate-600 dark:text-slate-300 min-w-[16rem]">
         @if (Entry.ItemNames.Count == 0)
         {
-            <span class="text-slate-400 dark:text-slate-500">—</span>
+            <span class="text-slate-400 dark:text-white">—</span>
         }
         else
         {
@@ -56,6 +56,6 @@
         LootSourceType.Event => "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300",
         LootSourceType.Pickpocket => "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300",
         LootSourceType.Player => "bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300",
-        _ => "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+        _ => "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-white"
     };
 }

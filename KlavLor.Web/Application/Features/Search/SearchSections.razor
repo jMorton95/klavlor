@@ -6,7 +6,7 @@
 <div id="search-sections" class="space-y-8">
     @if (!SearchHandler.IsSearchable(SearchTerm))
     {
-        <div class="text-sm text-slate-500 dark:text-slate-400 py-8 text-center">
+        <div class="text-sm text-slate-500 dark:text-white py-8 text-center">
             Type at least @SearchHandler.MinTermLength characters to search.
         </div>
     }

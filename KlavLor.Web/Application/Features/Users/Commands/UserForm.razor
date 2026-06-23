@@ -31,23 +31,23 @@
 
             <div class="flex gap-3">
                 <button type="submit" class="px-6 py-2.5 bg-amber-600 text-white text-sm font-semibold rounded-lg hover:bg-amber-700 transition-colors">Save Changes</button>
-                <a href="@AppRoutes.UsersSearch" hx-get="@AppRoutes.UsersSearch.FromApi()" hx-target="#hx-page-container" hx-push-url="@AppRoutes.UsersSearch" class="px-6 py-2.5 text-slate-600 dark:text-slate-400 text-sm font-medium border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">Cancel</a>
+                <a href="@AppRoutes.UsersSearch" hx-get="@AppRoutes.UsersSearch.FromApi()" hx-target="#hx-page-container" hx-push-url="@AppRoutes.UsersSearch" class="px-6 py-2.5 text-slate-600 dark:text-white text-sm font-medium border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">Cancel</a>
             </div>
         </EditForm>
 
         <div hx-get="@(AppRoutes.UserRolesSection.WithId(editCommand!.Id).FromApi())"
              hx-trigger="load" hx-swap="outerHTML">
-            <p class="max-w-2xl mt-8 text-sm text-slate-500 dark:text-slate-400">Loading roles...</p>
+            <p class="max-w-2xl mt-8 text-sm text-slate-500 dark:text-white">Loading roles...</p>
         </div>
 
         <div hx-get="@(AppRoutes.UserApiKeySection.WithId(editCommand!.Id).FromApi())"
              hx-trigger="load" hx-swap="outerHTML">
-            <p class="max-w-2xl mt-8 text-sm text-slate-500 dark:text-slate-400">Loading API key...</p>
+            <p class="max-w-2xl mt-8 text-sm text-slate-500 dark:text-white">Loading API key...</p>
         </div>
 
         <div hx-get="@(AppRoutes.AdminCharacterSection.WithId(editCommand!.Id).FromApi())"
              hx-trigger="load" hx-swap="outerHTML">
-            <p class="max-w-2xl mt-8 text-sm text-slate-500 dark:text-slate-400">Loading characters...</p>
+            <p class="max-w-2xl mt-8 text-sm text-slate-500 dark:text-white">Loading characters...</p>
         </div>
     }
     else
@@ -62,7 +62,7 @@
                 <InputText @bind-Value="createCommand!.PasswordOne" Name="PasswordOne" id="passwordOne" type="password"
                            class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-600 dark:text-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all outline-none" />
                 <FormMemberValidationError TModel="UserCreateCommand" For="@(x => x.PasswordOne)" />
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Min 12 characters, uppercase, lowercase, and number required.</p>
+                <p class="mt-1 text-xs text-slate-500 dark:text-white">Min 12 characters, uppercase, lowercase, and number required.</p>
             </div>
 
             <div class="group">
@@ -79,7 +79,7 @@
 
             <div class="flex gap-3">
                 <button type="submit" class="px-6 py-2.5 bg-amber-600 text-white text-sm font-semibold rounded-lg hover:bg-amber-700 transition-colors">Create User</button>
-                <a href="@AppRoutes.UsersSearch" hx-get="@AppRoutes.UsersSearch.FromApi()" hx-target="#hx-page-container" hx-push-url="@AppRoutes.UsersSearch" class="px-6 py-2.5 text-slate-600 dark:text-slate-400 text-sm font-medium border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">Cancel</a>
+                <a href="@AppRoutes.UsersSearch" hx-get="@AppRoutes.UsersSearch.FromApi()" hx-target="#hx-page-container" hx-push-url="@AppRoutes.UsersSearch" class="px-6 py-2.5 text-slate-600 dark:text-white text-sm font-medium border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">Cancel</a>
             </div>
         </EditForm>
     }

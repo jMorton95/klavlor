@@ -36,7 +36,7 @@
 
     <section>
         <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Collection log blacklist</h2>
-        <p class="text-sm text-slate-500 dark:text-slate-400 mb-3">
+        <p class="text-sm text-slate-500 dark:text-white mb-3">
             Excluded items stop counting as collection-log drops everywhere — recent clogs, first-time feeds, activity counts and the live feed. Search to add; the list below shows what's currently excluded.
         </p>
         <div class="relative max-w-md mb-3">
@@ -58,7 +58,7 @@
 
     <section>
         <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Drop rates</h2>
-        <p class="text-sm text-slate-500 dark:text-slate-400 mb-3">
+        <p class="text-sm text-slate-500 dark:text-white mb-3">
             Manually fetch per-source drop rates from the wiki when some are missing. The list below shows sources with loot but no stored rates; search to re-fetch any source.
         </p>
         <div class="flex items-center gap-3 mb-3 flex-wrap">
@@ -75,7 +75,7 @@
                        hx-include="#drate-nodata"
                        class="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
             </div>
-            <label class="inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 cursor-pointer whitespace-nowrap">
+            <label class="inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-white cursor-pointer whitespace-nowrap">
                 <input id="drate-nodata" type="checkbox" name="showNoData" value="true"
                        hx-get="@AppRoutes.AdminDropRatesSearch.FromApi()"
                        hx-trigger="change"
@@ -100,7 +100,7 @@
 
     <section>
         <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Broken icons</h2>
-        <p class="text-sm text-slate-500 dark:text-slate-400 mb-3">
+        <p class="text-sm text-slate-500 dark:text-white mb-3">
             Item and source icons that gave up after repeated failed wiki lookups (so they show no image anywhere). Retry clears the failure and the backfill re-attempts within a couple of minutes.
         </p>
         <div id="icon-results" hx-get="@AppRoutes.AdminIcons.FromApi()" hx-trigger="load" hx-swap="innerHTML">
@@ -110,7 +110,7 @@
 
     <section>
         <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Source names</h2>
-        <p class="text-sm text-slate-500 dark:text-slate-400 mb-3">
+        <p class="text-sm text-slate-500 dark:text-white mb-3">
             Rename or merge inconsistent loot-source names (e.g. variants/typos). Editing a name to one that already exists merges them. This repoints all loot and re-derives drop rates and icons — it can't be undone.
         </p>
         <div class="relative max-w-md mb-3">

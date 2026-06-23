@@ -15,6 +15,11 @@ public static class LootFeedGrouping
     public static readonly TimeSpan SessionBreakGap = TimeSpan.FromHours(6);
     public static readonly TimeSpan PlayDayStart = TimeSpan.FromHours(6);
 
+    // A single-kill session worth less than this is a "true one-off" (e.g. one Hill Giant) and is
+    // hidden from the character session-history list as noise; multi-kill sessions are always kept.
+    // Mirrors the feed's 10k interesting-drop floor (ILootFeedService.GetDropTier).
+    public const long MinOneOffSessionValue = 10_000;
+
     public static bool CanMerge(LootFeedEntry head, LootFeedEntry next) =>
         TryGetMergeDelta(head, next) is not null;
 

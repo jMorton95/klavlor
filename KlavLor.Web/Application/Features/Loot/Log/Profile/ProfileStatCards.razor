@@ -6,7 +6,7 @@
     @if (Embedded)
     {
         <div class="text-center py-4">
-            <p class="text-xs text-slate-500 dark:text-slate-400">
+            <p class="text-xs text-slate-500 dark:text-white">
                 No kills logged yet. Install <span class="font-medium text-slate-600 dark:text-slate-300">klavlor-sync</span> to start tracking drops.
             </p>
         </div>
@@ -18,7 +18,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
             <h3 class="mt-3 text-sm font-semibold text-slate-700 dark:text-slate-200">No kills logged yet</h3>
-            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            <p class="mt-1 text-xs text-slate-500 dark:text-white">
                 Install and run <span class="font-medium text-slate-600 dark:text-slate-300">klavlor-sync</span> to start tracking this character's drops.
             </p>
         </div>
@@ -44,8 +44,8 @@ else
             : "bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4";
         <div class="@wrapClass">
             <div class="flex items-baseline justify-between mb-1">
-                <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">@label</span>
-                <span class="text-[10px] text-slate-400 dark:text-slate-500">~@w.ActiveHours.ToString("N0")h</span>
+                <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white">@label</span>
+                <span class="text-[10px] text-slate-400 dark:text-white">~@w.ActiveHours.ToString("N0")h</span>
             </div>
             <div class="grid grid-cols-4 gap-2 text-center tabular-nums">
                 @Cell("Kills", w.Kills.ToString("N0"), null)
@@ -66,7 +66,7 @@ else
         };
         <div class="leading-tight">
             <div class="text-sm font-semibold @cls">@value</div>
-            <div class="text-[9px] uppercase tracking-wider text-slate-500 dark:text-slate-400">@label</div>
+            <div class="text-[9px] uppercase tracking-wider text-slate-500 dark:text-white">@label</div>
         </div>
     };
 }
