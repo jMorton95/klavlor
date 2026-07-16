@@ -193,6 +193,69 @@ internal sealed class LootRecordRepository(DataContext dataContext, ILogger<Loot
                 || (o.OccurredAt == occurredAt && o.Id <= recordId)));
     }
 
+    public async Task<SessionKcBounds?> GetSessionBounds(
+        int gameCharacterId, string sourceName, DateTimeOffset occurredAt, TimeSpan gap, TimeSpan breakGap)
+    {
+        try
+        {
+            // Slice this source's kills around the given instant (a session can't start more than
+            // one window earlier thanks to the hard cap — 2× for slack), split into sessions with
+            // the shared rules, and describe the session containing the newest kill in the slice.
+            var sql = $"""
+                WITH ordered AS (
+                    SELECT r."OccurredAt", r."Id", r."KillCount",
+                           lag(r."OccurredAt") OVER (ORDER BY r."OccurredAt", r."Id") AS prev_at
+                    FROM "LootRecords" r
+                    WHERE r."GameCharacterId" = @cid AND r."SourceName" = @src
+                      AND r."OccurredAt" >= @at - @gap * 2 AND r."OccurredAt" <= @at
+                ),
+                {SessionSql.GapIslandsWithCap("")},
+                cur AS (
+                    SELECT session_no FROM sessioned
+                    ORDER BY "OccurredAt" DESC, "Id" DESC LIMIT 1
+                ),
+                bounds AS (
+                    SELECT min(s."KillCount") AS min_kc, max(s."KillCount") AS max_kc,
+                           min(s."OccurredAt") AS start_at
+                    FROM sessioned s
+                    WHERE s.session_no = (SELECT c.session_no FROM cur c)
+                )
+                SELECT b.min_kc, b.max_kc, b.start_at,
+                       (SELECT count(*)::int FROM "LootRecords" o
+                        WHERE o."GameCharacterId" = @cid AND o."SourceName" = @src
+                          AND o."OccurredAt" < b.start_at) + 1 AS first_ordinal
+                FROM bounds b
+                WHERE b.start_at IS NOT NULL
+                """;
+
+            var connection = dataContext.Database.GetDbConnection();
+            if (connection.State != System.Data.ConnectionState.Open)
+                await connection.OpenAsync();
+
+            await using var cmd = connection.CreateCommand();
+            cmd.CommandText = sql;
+            cmd.Parameters.Add(new NpgsqlParameter("@cid", gameCharacterId));
+            cmd.Parameters.Add(new NpgsqlParameter("@src", sourceName));
+            cmd.Parameters.Add(new NpgsqlParameter("@at", NpgsqlTypes.NpgsqlDbType.TimestampTz) { Value = occurredAt });
+            cmd.Parameters.Add(new NpgsqlParameter("@gap", NpgsqlTypes.NpgsqlDbType.Interval) { Value = gap });
+            cmd.Parameters.Add(new NpgsqlParameter("@breakGap", NpgsqlTypes.NpgsqlDbType.Interval) { Value = breakGap });
+
+            await using var reader = await cmd.ExecuteReaderAsync();
+            if (!await reader.ReadAsync()) return null;
+
+            return new SessionKcBounds(
+                MinKillCount: reader.IsDBNull(0) ? null : reader.GetInt32(0),
+                MaxKillCount: reader.IsDBNull(1) ? null : reader.GetInt32(1),
+                StartedAt: reader.GetFieldValue<DateTimeOffset>(2),
+                FirstOrdinal: reader.GetInt32(3));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get session bounds for character {CharacterId} at {Source}", gameCharacterId, sourceName);
+            throw new RepositoryException("Failed to get session bounds", ex);
+        }
+    }
+
     private static bool IsUniqueConstraintViolation(DbUpdateException ex)
     {
         return ex.InnerException?.Message.Contains("duplicate key value violates unique constraint") == true

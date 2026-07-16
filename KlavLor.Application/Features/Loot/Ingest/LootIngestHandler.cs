@@ -298,6 +298,7 @@ public sealed class LootIngestHandler(
         var drops = JsonSerializer.Deserialize<List<LootDrop>>(record.DropsJson) ?? [];
         var feedDrops = drops.Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId))).ToList();
         var dropsByTier = ILootFeedService.ClassifyDropsByTier(feedDrops);
+        if (dropsByTier.Count == 0) return;
 
         // Chronological ordinal — only needed as a fallback label when RuneLite
         // didn't supply a KillCount. Compute once per record regardless of tier
@@ -306,6 +307,22 @@ public sealed class LootIngestHandler(
         if (character is not null && record.Id > 0)
             ordinal = await lootRecordRepository.GetKillOrdinal(
                 character.Id, record.SourceName, record.OccurredAt, record.Id);
+
+        // Bounds of the play session this kill belongs to, so a card's KC range spans the whole
+        // session rather than starting at its first tier-qualifying drop. Computed once per
+        // distinct merge window (16h vs the widened Rare/Epic window) across the record's tiers.
+        var boundsByWindow = new Dictionary<TimeSpan, SessionKcBounds?>();
+        if (character is not null && record.Id > 0)
+        {
+            foreach (var tier in dropsByTier.Keys)
+            {
+                var window = LootFeedGrouping.MergeWindowFor(tier);
+                if (boundsByWindow.ContainsKey(window)) continue;
+                boundsByWindow[window] = await lootRecordRepository.GetSessionBounds(
+                    character.Id, record.SourceName, record.OccurredAt,
+                    window, LootFeedGrouping.SessionBreakFor(tier));
+            }
+        }
 
         // Route to the matching feed scope. Characters without IsLeagues set default to Main.
         var scope = character?.IsLeagues == true ? LootFeedScope.Leagues : LootFeedScope.Main;
@@ -316,6 +333,7 @@ public sealed class LootIngestHandler(
             if (record.IsImported && tier is LootFeedTier.Standard or LootFeedTier.Uncommon)
                 continue;
 
+            var bounds = boundsByWindow.GetValueOrDefault(LootFeedGrouping.MergeWindowFor(tier));
             var tierTotal = tierDrops.Sum(d => (long)d.Quantity * d.Price);
             lootFeedService.Publish(new LootFeedEntry(
                 userName,
@@ -328,9 +346,10 @@ public sealed class LootIngestHandler(
                 tier,
                 character?.GetEffectiveName(userName),
                 character?.Id,
-                MinKillCount: record.KillCount,
-                MaxKillCount: record.KillCount,
-                MinKillOrdinal: ordinal,
+                GroupStartedAt: bounds?.StartedAt,
+                MinKillCount: bounds?.MinKillCount ?? record.KillCount,
+                MaxKillCount: bounds?.MaxKillCount ?? record.KillCount,
+                MinKillOrdinal: bounds?.FirstOrdinal ?? ordinal,
                 MaxKillOrdinal: ordinal,
                 Scope: scope));
         }

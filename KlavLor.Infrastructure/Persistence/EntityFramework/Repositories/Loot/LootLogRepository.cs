@@ -1169,7 +1169,8 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 }
             }
 
-            await FillSurvivorOrdinals(result);
+            var expandedEnds = await ExpandToSessionBounds(result);
+            await FillSurvivorOrdinals(result, expandedEnds);
             return result;
         }
         catch (Exception ex)
@@ -1179,11 +1180,120 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
         }
     }
 
+    // A card's kills are only the ones whose drops qualified for its tier, so a range built from
+    // them starts at the first qualifying drop rather than the start of the play session. This
+    // pass widens each surviving card to the whole session containing it (same gap rules as the
+    // card's tier): Min/MaxKillCount become the session's min/max reported KC, and GroupStartedAt
+    // moves back to the session's first kill. Returns each card's expanded session end so the
+    // ordinal fill below can count through kills after the card's last qualifying drop.
+    private async Task<Dictionary<(LootFeedTier Tier, int Index), DateTimeOffset>> ExpandToSessionBounds(
+        Dictionary<LootFeedTier, List<LootFeedEntry>> result)
+    {
+        var slots = new List<(LootFeedTier Tier, int Index)>();
+        var cids = new List<int>();
+        var srcs = new List<string>();
+        var firsts = new List<DateTimeOffset>();
+        var lasts = new List<DateTimeOffset>();
+        var gaps = new List<TimeSpan>();
+        var brks = new List<TimeSpan>();
+
+        foreach (var (tier, entries) in result)
+        {
+            var gap = LootFeedGrouping.MergeWindowFor(tier);
+            var brk = LootFeedGrouping.SessionBreakFor(tier);
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var e = entries[i];
+                if (e.GameCharacterId is null) continue;
+                slots.Add((tier, i));
+                cids.Add(e.GameCharacterId.Value);
+                srcs.Add(e.SourceName);
+                firsts.Add(e.GroupAnchorAt);
+                lasts.Add(e.OccurredAt);
+                gaps.Add(gap);
+                brks.Add(brk);
+            }
+        }
+
+        var expandedEnds = new Dictionary<(LootFeedTier, int), DateTimeOffset>();
+        if (slots.Count == 0) return expandedEnds;
+
+        // SessionSql is written against @gap/@breakGap parameters; here each card carries its own
+        // tier-dependent pair, so rewrite the placeholders to the unnest row's columns.
+        var sessionCtes = SessionSql.GapIslandsWithCap("")
+            .Replace("@breakGap", "t.brk")
+            .Replace("@gap", "t.gap");
+
+        // Per card: slice that source's kills around the card (a session can't extend more than
+        // one window past either bound thanks to the hard cap), split the slice into sessions,
+        // and aggregate over every session overlapping the card's own span.
+        var sql = $"""
+            SELECT t.idx, s.min_kc, s.max_kc, s.start_at, s.end_at
+            FROM unnest(@cids, @srcs, @firsts, @lasts, @gaps, @brks) WITH ORDINALITY
+                 AS t(cid, src, first, last, gap, brk, idx)
+            LEFT JOIN LATERAL (
+                WITH ordered AS (
+                    SELECT r."OccurredAt", r."Id", r."KillCount",
+                           lag(r."OccurredAt") OVER (ORDER BY r."OccurredAt", r."Id") AS prev_at
+                    FROM "LootRecords" r
+                    WHERE r."GameCharacterId" = t.cid AND r."SourceName" = t.src
+                      AND r."OccurredAt" >= t.first - t.gap * 2
+                      AND r."OccurredAt" <= t.last + t.gap * 2
+                ),
+                {sessionCtes}
+                SELECT min(x."KillCount") AS min_kc, max(x."KillCount") AS max_kc,
+                       min(x."OccurredAt") AS start_at, max(x."OccurredAt") AS end_at
+                FROM sessioned x
+                WHERE x.session_no IN (SELECT DISTINCT y.session_no FROM sessioned y
+                                       WHERE y."OccurredAt" >= t.first AND y."OccurredAt" <= t.last)
+            ) s ON true
+            """;
+
+        var connection = dataContext.Database.GetDbConnection();
+        if (connection.State != System.Data.ConnectionState.Open)
+            await connection.OpenAsync();
+
+        await using var cmd = connection.CreateCommand();
+        cmd.CommandText = sql;
+        cmd.Parameters.Add(new NpgsqlParameter("@cids", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Integer) { Value = cids.ToArray() });
+        cmd.Parameters.Add(new NpgsqlParameter("@srcs", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Text) { Value = srcs.ToArray() });
+        cmd.Parameters.Add(new NpgsqlParameter("@firsts", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.TimestampTz) { Value = firsts.ToArray() });
+        cmd.Parameters.Add(new NpgsqlParameter("@lasts", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.TimestampTz) { Value = lasts.ToArray() });
+        cmd.Parameters.Add(new NpgsqlParameter("@gaps", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Interval) { Value = gaps.ToArray() });
+        cmd.Parameters.Add(new NpgsqlParameter("@brks", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Interval) { Value = brks.ToArray() });
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            var idx = (int)reader.GetInt64(0) - 1;
+            if (reader.IsDBNull(3)) continue; // no kills found — leave the card untouched
+
+            int? minKc = reader.IsDBNull(1) ? null : reader.GetInt32(1);
+            int? maxKc = reader.IsDBNull(2) ? null : reader.GetInt32(2);
+            var startAt = reader.GetFieldValue<DateTimeOffset>(3);
+            var endAt = reader.GetFieldValue<DateTimeOffset>(4);
+
+            var (tier, index) = slots[idx];
+            var e = result[tier][index];
+            result[tier][index] = e with
+            {
+                MinKillCount = minKc ?? e.MinKillCount,
+                MaxKillCount = maxKc ?? e.MaxKillCount,
+                GroupStartedAt = startAt < e.GroupAnchorAt ? startAt : e.GroupAnchorAt
+            };
+            expandedEnds[(tier, index)] = endAt > e.OccurredAt ? endAt : e.OccurredAt;
+        }
+
+        return expandedEnds;
+    }
+
     // KillOrdinal is the absolute chronological position of a kill within its (character, source)
     // history (1 = oldest). It's only rendered as a fallback when RuneLite didn't report an in-game
     // KillCount, so we compute it here — in one batched query, only for the surviving cards that
     // lack a KillCount — rather than per-candidate inside GetAllFeedTiers' over-fetch loop.
-    private async Task FillSurvivorOrdinals(Dictionary<LootFeedTier, List<LootFeedEntry>> result)
+    private async Task FillSurvivorOrdinals(
+        Dictionary<LootFeedTier, List<LootFeedEntry>> result,
+        Dictionary<(LootFeedTier Tier, int Index), DateTimeOffset>? expandedEnds = null)
     {
         // (tier, index) of each entry needing an ordinal, parallel to the unnest input arrays.
         var slots = new List<(LootFeedTier Tier, int Index)>();
@@ -1204,7 +1314,11 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 cids.Add(e.GameCharacterId.Value);
                 srcs.Add(e.SourceName);
                 firsts.Add(e.GroupAnchorAt);
-                lasts.Add(e.OccurredAt);
+                // Count through the whole session (per ExpandToSessionBounds), not just to the
+                // card's last qualifying drop.
+                lasts.Add(expandedEnds is not null && expandedEnds.TryGetValue((tier, i), out var end)
+                    ? end
+                    : e.OccurredAt);
             }
         }
 
