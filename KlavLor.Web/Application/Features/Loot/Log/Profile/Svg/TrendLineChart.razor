@@ -1,0 +1,115 @@
+@* Single-series line/area chart with per-point hover tooltips. X positions are percent-of-width
+   inside a preserveAspectRatio="none" SVG (strokes stay 2px via non-scaling-stroke); Y positions
+   are CSS pixels so the HTML hover dots line up with the SVG line exactly. *@
+@{
+    var count = Points.Count;
+    const int valueLabelSpacePx = 14;
+    var plotHeightPx = ChartHeightPx - valueLabelSpacePx;
+    const int tickCount = 5;
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+
+    long peak = 0;
+    foreach (var p in Points) if (p.Value > peak) peak = p.Value;
+    if (peak <= 0) peak = 1;
+
+    var yTicks = new long[tickCount];
+    for (var i = 0; i < tickCount; i++)
+    {
+        yTicks[i] = peak - peak * i / (tickCount - 1);
+    }
+
+    string Format(long v) => (FormatValue ?? (n => n.ToString("N0")))(v);
+
+    double YPx(long v) => valueLabelSpacePx + (1.0 - (double)v / peak) * plotHeightPx;
+    double XPct(int i) => count <= 1 ? 50.0 : (i + 0.5) / count * 100.0;
+
+    var line = new System.Text.StringBuilder();
+    for (var i = 0; i < count; i++)
+    {
+        if (i > 0) line.Append(' ');
+        line.Append(XPct(i).ToString("0.###", inv)).Append(',').Append(YPx(Points[i].Value).ToString("0.##", inv));
+    }
+    var baseline = (valueLabelSpacePx + plotHeightPx).ToString(inv);
+    var area = $"{XPct(0).ToString("0.###", inv)},{baseline} {line} {XPct(count - 1).ToString("0.###", inv)},{baseline}";
+
+    // Same viewport-aware anchoring as HistogramBars: edge columns open inward.
+    static string TooltipAnchor(int index, int total)
+    {
+        if (total <= 1) return "left-1/2 -translate-x-1/2";
+        var frac = (double)index / (total - 1);
+        if (frac >= 0.7) return "right-0";
+        if (frac <= 0.3) return "left-0";
+        return "left-1/2 -translate-x-1/2";
+    }
+}
+
+<div class="flex w-full gap-2">
+    <div class="shrink-0 relative text-[10px] text-slate-600 dark:text-slate-300 tabular-nums"
+         style="width: 3rem; height: @(ChartHeightPx)px;">
+        @for (var i = 0; i < tickCount; i++)
+        {
+            var pos = valueLabelSpacePx + plotHeightPx * i / (tickCount - 1);
+            <div class="absolute right-0 -translate-y-1/2 whitespace-nowrap" style="top: @(pos)px;">
+                @(yTicks[i] == 0 ? "0" : Format(yTicks[i]))
+            </div>
+        }
+    </div>
+
+    <div class="flex-1 min-w-0">
+        <div class="relative" style="height: @(ChartHeightPx)px;">
+            @for (var i = 0; i < tickCount; i++)
+            {
+                var pos = valueLabelSpacePx + plotHeightPx * i / (tickCount - 1);
+                <div class="absolute left-0 right-0 border-t border-slate-200/40 dark:border-slate-700/40 pointer-events-none"
+                     style="top: @(pos)px;"></div>
+            }
+
+            <svg class="absolute inset-0 w-full h-full text-amber-500 dark:text-amber-400 pointer-events-none"
+                 viewBox="0 0 100 @ChartHeightPx" preserveAspectRatio="none" aria-hidden="true">
+                <polygon points="@area" fill="currentColor" opacity="0.12" />
+                <polyline points="@(line.ToString())" fill="none" stroke="currentColor" stroke-width="2"
+                          vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round" />
+            </svg>
+
+            @* Hover layer: one full-height column per point with a guide line, a dot pinned to
+               the line's Y, and the tooltip. *@
+            <div class="absolute inset-0 flex">
+                @for (var i = 0; i < count; i++)
+                {
+                    var p = Points[i];
+                    var y = YPx(p.Value);
+                    var anchor = TooltipAnchor(i, count);
+                    <div class="relative flex-1 group">
+                        <div class="hidden group-hover:block absolute inset-y-0 left-1/2 w-px bg-slate-400/40 dark:bg-slate-500/40 pointer-events-none"></div>
+                        <div class="hidden group-hover:block absolute left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-amber-500 dark:bg-amber-400 ring-2 ring-slate-50 dark:ring-slate-900 pointer-events-none"
+                             style="top: @(y.ToString("0.##", inv))px;"></div>
+                        <div class="hidden group-hover:block absolute z-20 @anchor pointer-events-none min-w-[11rem] max-w-[16rem] rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 shadow-lg p-2.5 text-left"
+                             style="top: @((y - 10).ToString("0.##", inv))px; transform: translateY(-100%);">
+                            <div class="text-xs font-semibold text-slate-900 dark:text-slate-100">@p.Title</div>
+                            <div class="mt-1 text-sm font-semibold text-amber-600 dark:text-amber-400 tabular-nums">@p.ValueText</div>
+                            @if (!string.IsNullOrEmpty(p.Detail))
+                            {
+                                <div class="mt-0.5 text-[11px] text-slate-500 dark:text-white">@p.Detail</div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="flex mt-1">
+            @foreach (var p in Points)
+            {
+                <div class="flex-1 text-center text-[10px] text-slate-600 dark:text-slate-300 leading-tight whitespace-nowrap">@p.Label</div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    public sealed record Point(string Label, long Value, string Title, string ValueText, string? Detail = null);
+
+    [Parameter] public required IReadOnlyList<Point> Points { get; set; }
+    [Parameter] public Func<long, string>? FormatValue { get; set; }
+    [Parameter] public int ChartHeightPx { get; set; } = 180;
+}
