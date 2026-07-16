@@ -12,20 +12,40 @@
                 <span class="text-xs font-normal text-slate-500 dark:text-white">across @Trend.Months.Count(m => m.Kills > 0) active @(Trend.Months.Count(m => m.Kills > 0) == 1 ? "month" : "months")</span>
             </p>
         </div>
-        <div class="inline-flex rounded-md border border-slate-200 dark:border-slate-700 overflow-hidden text-[11px]">
+        <div class="flex items-center gap-2">
+            <div class="inline-flex rounded-md border border-slate-200 dark:border-slate-700 overflow-hidden text-[11px]">
+                <button type="button"
+                        hx-get="@GetTrendUrl("12m", Expanded)"
+                        hx-target="closest div.bg-slate-50"
+                        hx-swap="outerHTML"
+                        class="px-2 py-1 @(Trend.Range == "12m" ? "bg-amber-500 text-white" : "bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300")">
+                    12 months
+                </button>
+                <button type="button"
+                        hx-get="@GetTrendUrl("all", Expanded)"
+                        hx-target="closest div.bg-slate-50"
+                        hx-swap="outerHTML"
+                        class="px-2 py-1 @(Trend.Range == "all" ? "bg-amber-500 text-white" : "bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300")">
+                    All time
+                </button>
+            </div>
             <button type="button"
-                    hx-get="@GetRangeUrl("12m")"
+                    hx-get="@GetTrendUrl(Trend.Range, !Expanded)"
                     hx-target="closest div.bg-slate-50"
                     hx-swap="outerHTML"
-                    class="px-2 py-1 @(Trend.Range == "12m" ? "bg-amber-500 text-white" : "bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300")">
-                12 months
-            </button>
-            <button type="button"
-                    hx-get="@GetRangeUrl("all")"
-                    hx-target="closest div.bg-slate-50"
-                    hx-swap="outerHTML"
-                    class="px-2 py-1 @(Trend.Range == "all" ? "bg-amber-500 text-white" : "bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300")">
-                All time
+                    title="@(Expanded ? "Collapse to the compact chart" : $"Expand: a taller chart naming the top {ExpandedTopN} items")"
+                    class="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700 text-[11px] @(Expanded ? "bg-amber-500 text-white" : "bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300")">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                    @if (Expanded)
+                    {
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 9L4 4m0 0v4m0-4h4m7 5l5-5m0 0v4m0-4h-4M9 15l-5 5m0 0v-4m0 4h4m7-5l5 5m0 0v-4m0 4h-4" />
+                    }
+                    else
+                    {
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 1v4m0 0h-4m4 0l-5-5" />
+                    }
+                </svg>
+                @(Expanded ? "Compact" : "Expand")
             </button>
         </div>
     </div>
@@ -36,7 +56,7 @@
     }
     else
     {
-        <HistogramBars Bars="@_bars" FormatValue="@(v => GoldFormat.Format(v))" ChartHeightPx="270" />
+        <HistogramBars Bars="@_bars" FormatValue="@(v => GoldFormat.Format(v))" ChartHeightPx="@(Expanded ? 810 : 270)" ShowInlineLabels="true" />
 
         @if (_legend.Count > 0)
         {
@@ -57,14 +77,22 @@
 @code {
     [Parameter] public required MonthlyTrend Trend { get; set; }
     [Parameter] public int CharacterId { get; set; }
+    [Parameter] public bool Expanded { get; set; }
+
+    private const int CompactTopN = 10;
+    private const int ExpandedTopN = 34;
+    private int TopN => Expanded ? ExpandedTopN : CompactTopN;
 
     private long TotalGp => Trend.Months.Sum(m => m.Gp);
 
     private string Title => Trend.Range == "all" ? "Monthly trend — all time" : "Monthly trend — last 12 months";
 
-    // 10 distinguishable Tailwind palette entries. Listed literally so Tailwind's
+    // Distinguishable Tailwind palette entries. Listed literally so Tailwind's
     // content scanner emits the classes (computed names wouldn't be picked up).
     // Order matters — earliest = top of legend = biggest globally-contributing item.
+    // Compact mode uses the first 10 (all distinct hues); expanded mode continues
+    // through the remaining hues, then darker shades of the same wheel. No pale
+    // (-200/-300) shades: they wash out against the panel background.
     private static readonly string[] SegmentPalette =
     {
         "bg-amber-500 dark:bg-amber-400",
@@ -77,8 +105,34 @@
         "bg-pink-500 dark:bg-pink-400",
         "bg-teal-500 dark:bg-teal-400",
         "bg-lime-500 dark:bg-lime-400",
+        "bg-red-500 dark:bg-red-400",
+        "bg-yellow-500 dark:bg-yellow-400",
+        "bg-green-500 dark:bg-green-400",
+        "bg-sky-500 dark:bg-sky-400",
+        "bg-indigo-500 dark:bg-indigo-400",
+        "bg-purple-500 dark:bg-purple-400",
+        "bg-fuchsia-500 dark:bg-fuchsia-400",
+        "bg-amber-700 dark:bg-amber-600",
+        "bg-emerald-700 dark:bg-emerald-600",
+        "bg-cyan-700 dark:bg-cyan-600",
+        "bg-violet-700 dark:bg-violet-600",
+        "bg-rose-700 dark:bg-rose-600",
+        "bg-blue-700 dark:bg-blue-600",
+        "bg-orange-700 dark:bg-orange-600",
+        "bg-pink-700 dark:bg-pink-600",
+        "bg-teal-700 dark:bg-teal-600",
+        "bg-lime-700 dark:bg-lime-600",
+        "bg-red-700 dark:bg-red-600",
+        "bg-yellow-700 dark:bg-yellow-600",
+        "bg-green-700 dark:bg-green-600",
+        "bg-sky-700 dark:bg-sky-600",
+        "bg-indigo-700 dark:bg-indigo-600",
+        "bg-purple-700 dark:bg-purple-600",
+        "bg-fuchsia-700 dark:bg-fuchsia-600",
     };
-    private const string OtherFill = "bg-slate-400 dark:bg-slate-600";
+    // Mid-grey both ways: slate-600 on the slate-900 panel read as "background",
+    // making the (often large) Other block look like empty chart space.
+    private const string OtherFill = "bg-slate-400 dark:bg-slate-500";
 
     private List<HistogramBars.Bar> _bars = [];
     private List<LegendEntry> _legend = [];
@@ -103,7 +157,7 @@
 
         var top = totals
             .OrderByDescending(kv => kv.Value)
-            .Take(SegmentPalette.Length)
+            .Take(Math.Min(TopN, SegmentPalette.Length))
             .Select((kv, i) => (kv.Key, FillClass: SegmentPalette[i]))
             .ToList();
 
@@ -139,7 +193,8 @@
                         FillClass: fill,
                         ItemName: seg.ItemName,
                         SourceName: seg.SourceName,
-                        ValueText: GoldFormat.Format(seg.Value)));
+                        ValueText: GoldFormat.Format(seg.Value),
+                        IconUrl: "/api/images/item-icon?name=" + Uri.EscapeDataString(seg.ItemName)));
                     namedTotal += seg.Value;
                 }
                 else
@@ -161,7 +216,7 @@
                     Value: other,
                     FillClass: OtherFill,
                     ItemName: "Other",
-                    SourceName: $"items outside the top {SegmentPalette.Length}",
+                    SourceName: $"items outside the top {TopN}",
                     ValueText: GoldFormat.Format(other),
                     OverflowItems: outsiders.Count > 0 ? outsiders : null));
             }
@@ -177,6 +232,7 @@
         }
     }
 
-    private string GetRangeUrl(string range) =>
-        AppRoutes.LootLogCharacterMonthly.WithId(CharacterId).FromApi() + "?range=" + range;
+    private string GetTrendUrl(string range, bool expanded) =>
+        AppRoutes.LootLogCharacterMonthly.WithId(CharacterId).FromApi()
+        + "?range=" + range + (expanded ? "&size=expanded" : "");
 }

@@ -115,6 +115,7 @@
                                            scrollable tooltip. Tooltip is pointer-events:auto so it can scroll. *@
                                         <div class="hist-segment-group relative w-full @seg.FillClass @rounded hover:brightness-110 transition-[filter] cursor-default"
                                              style="height: @(segPx.ToString("F2", System.Globalization.CultureInfo.InvariantCulture))px;">
+                                            @InlineLabel(seg, segPx)
                                             <div class="hist-tooltip-large absolute z-30 @tooltipAnchor bottom-full min-w-[22rem] max-w-[24rem] rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 shadow-lg p-2.5 text-left">
                                                 <div class="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-slate-200 dark:border-slate-700">
                                                     <div class="flex items-center gap-2 min-w-0">
@@ -158,6 +159,7 @@
                                     {
                                         <div class="hist-segment relative w-full @seg.FillClass @rounded hover:brightness-110 transition-[filter] cursor-default"
                                              style="height: @(segPx.ToString("F2", System.Globalization.CultureInfo.InvariantCulture))px;">
+                                            @InlineLabel(seg, segPx)
                                             @* Tooltip — escapes the bar bounds. min-w keeps it readable for long names. *@
                                             <div class="hist-tooltip absolute z-20 @tooltipAnchor bottom-full mb-2 min-w-[14rem] max-w-[20rem] pointer-events-none rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 shadow-lg p-2.5 text-left">
                                                 <div class="flex items-center gap-2 mb-1">
@@ -211,10 +213,31 @@
         string? ItemName = null,
         string? SourceName = null,
         string? ValueText = null,
-        IReadOnlyList<BarSegment>? OverflowItems = null);
+        IReadOnlyList<BarSegment>? OverflowItems = null,
+        string? IconUrl = null);
 
     [Parameter] public required IReadOnlyList<Bar> Bars { get; set; }
     [Parameter] public long? MaxValue { get; set; }
     [Parameter] public Func<long, string>? FormatValue { get; set; }
     [Parameter] public int ChartHeightPx { get; set; } = 180;
+
+    // Render each segment's icon + name inside the block itself when it's tall enough,
+    // so large blocks are identifiable without hovering.
+    [Parameter] public bool ShowInlineLabels { get; set; }
+
+    // Icon + name centred inside a segment block. pointer-events-none keeps hover on
+    // the segment itself (tooltips keep working); white text with a dark shadow stays
+    // readable on every palette shade.
+    private RenderFragment InlineLabel(BarSegment seg, double segPx) => __builder =>
+    {
+        if (!ShowInlineLabels || segPx < 14 || string.IsNullOrEmpty(seg.ItemName)) return;
+
+        <div class="absolute inset-0 flex items-center justify-center gap-1 px-1 pointer-events-none overflow-hidden">
+            @if (!string.IsNullOrEmpty(seg.IconUrl))
+            {
+                <img src="@seg.IconUrl" alt="" class="w-3 h-3 shrink-0" loading="lazy" onerror="this.style.display='none'" />
+            }
+            <span class="text-[9px] font-medium leading-none text-white truncate [text-shadow:0_1px_2px_rgba(0,0,0,0.55)]">@seg.ItemName</span>
+        </div>
+    };
 }

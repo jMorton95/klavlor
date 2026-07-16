@@ -120,6 +120,7 @@ public sealed class LootCharacterProfileEndpoint : IEndpoint
     private static async Task<IResult> GetMonthly(
         int id,
         [FromQuery] string? range,
+        [FromQuery] string? size,
         LootCharacterProfileHandler handler)
     {
         var normalised = string.Equals(range, "all", StringComparison.OrdinalIgnoreCase) ? "all" : "12m";
@@ -128,7 +129,8 @@ public sealed class LootCharacterProfileEndpoint : IEndpoint
         return IResultExtensions.Component<ProfileMonthlyTrend>(new
         {
             Trend = result.Value,
-            CharacterId = id
+            CharacterId = id,
+            Expanded = string.Equals(size, "expanded", StringComparison.OrdinalIgnoreCase)
         });
     }
 
