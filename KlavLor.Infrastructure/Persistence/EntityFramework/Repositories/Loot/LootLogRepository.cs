@@ -2087,7 +2087,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 LEFT JOIN "DropRates" dr
                     ON dr."SourceName" = @source
                    AND lower(dr."ItemName") = lower(a.item_name)
-                ORDER BY a.first_received ASC
+                ORDER BY lower(a.item_name) ASC
                 """;
 
             await using var cmd = connection.CreateCommand();
@@ -2122,7 +2122,6 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             // Missing items: every clog entry whose Tabs array contains the source name,
             // minus those the character has already received from this source. Empty when
             // the source has no clog tab mapping (e.g. unrecognised RuneLite source name).
-            // LEFT JOIN DropRates so rarest items naturally float to the top of the panel.
             var missingItems = new List<MissingClogItem>();
             await using (var missingCmd = connection.CreateCommand())
             {
@@ -2140,7 +2139,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                             AND lr."SourceName" = @source
                             AND ld."ItemId" = cli."ItemId"
                       )
-                    ORDER BY dr."RarityDenominator" DESC NULLS LAST, cli."Name"
+                    ORDER BY lower(cli."Name")
                     """;
                 missingCmd.Parameters.Add(new NpgsqlParameter("@cid", characterId));
                 missingCmd.Parameters.Add(new NpgsqlParameter("@source", sourceName));
