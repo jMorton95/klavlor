@@ -49,7 +49,8 @@ public sealed class FeedOrdinalAndOneOffTests(PostgresFixture fx)
     }
 
     // Part A2: a card's KC range covers the whole play session (including kills whose drops were
-    // below the feed floor and never became candidates), not just the kills that hit the tier.
+    // below the feed floor and never became candidates), not just the kills that hit the tier —
+    // and every tier's card shows the SAME session range.
     [Fact]
     public async Task Feed_card_kc_range_spans_the_whole_session()
     {
@@ -57,25 +58,31 @@ public sealed class FeedOrdinalAndOneOffTests(PostgresFixture fx)
         var (userId, charId) = await Seed.UserAndCharacter(ctx, "sessrange");
         var src = "SESS_Range_" + Guid.NewGuid().ToString("N")[..8];
         var t = new DateTimeOffset(2026, 6, 1, 10, 0, 0, TimeSpan.Zero);
-        LootDrop junk = new("Bones", 1, 1, 5_000);   // below the 10k feed floor — never a candidate
-        LootDrop valued = new("Gem", 2, 1, 50_000);  // Standard tier (10k–100k)
+        LootDrop junk = new("Bones", 1, 1, 5_000);      // below the 10k feed floor — never a candidate
+        LootDrop valued = new("Gem", 2, 1, 50_000);     // Standard tier (10k–100k)
+        LootDrop rare = new("Relic", 3, 1, 2_000_000);  // Rare tier (1M–10M)
 
-        // One session (1h gaps): junk, valued, valued, junk.
+        // One session (1h gaps): junk, valued (Standard), rare (Rare), junk.
         Seed.AddKill(ctx, userId, charId, src, t, 100, [junk]);
         Seed.AddKill(ctx, userId, charId, src, t.AddHours(1), 105, [valued]);
-        Seed.AddKill(ctx, userId, charId, src, t.AddHours(2), 110, [valued]);
+        Seed.AddKill(ctx, userId, charId, src, t.AddHours(2), 110, [rare]);
         Seed.AddKill(ctx, userId, charId, src, t.AddHours(3), 120, [junk]);
         await ctx.SaveChangesAsync();
 
         var repo = new LootLogRepository(ctx, NullLogger<LootLogRepository>.Instance, new FakeClogCache());
         var tiers = await repo.GetAllFeedTiers(200, LootFeedScope.Main);
 
-        var card = tiers[LootFeedTier.Standard].Single(e => e.SourceName == src);
-        Assert.Equal(2, card.RunCount);          // only the two valued kills merged into the card
-        Assert.Equal(100, card.MinKillCount);    // ...but the KC range covers the whole session
-        Assert.Equal(120, card.MaxKillCount);
-        Assert.Equal(t, card.GroupAnchorAt);     // the card anchors at the session's first kill
-        Assert.Null(card.MinKillOrdinal);        // KC present -> ordinal fallback not computed
+        var standard = tiers[LootFeedTier.Standard].Single(e => e.SourceName == src);
+        Assert.Equal(1, standard.RunCount);          // only the valued kill merged into the card
+        Assert.Equal(100, standard.MinKillCount);    // ...but the KC range covers the whole session
+        Assert.Equal(120, standard.MaxKillCount);
+        Assert.Equal(t, standard.GroupAnchorAt);     // the card anchors at the session's first kill
+        Assert.Null(standard.MinKillOrdinal);        // KC present -> ordinal fallback not computed
+
+        // The Rare swimlane's card for the same session shows the identical range.
+        var rareCard = tiers[LootFeedTier.Rare].Single(e => e.SourceName == src);
+        Assert.Equal(100, rareCard.MinKillCount);
+        Assert.Equal(120, rareCard.MaxKillCount);
     }
 
     // Part B: the character session-history list hides single-kill sessions worth under the floor,

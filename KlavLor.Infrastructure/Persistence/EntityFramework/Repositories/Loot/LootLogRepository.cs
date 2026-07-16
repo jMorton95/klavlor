@@ -1182,10 +1182,16 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
 
     // A card's kills are only the ones whose drops qualified for its tier, so a range built from
     // them starts at the first qualifying drop rather than the start of the play session. This
-    // pass widens each surviving card to the whole session containing it (same gap rules as the
-    // card's tier): Min/MaxKillCount become the session's min/max reported KC, and GroupStartedAt
-    // moves back to the session's first kill. Returns each card's expanded session end so the
-    // ordinal fill below can count through kills after the card's last qualifying drop.
+    // pass widens each surviving card to the whole session(s) it overlaps: Min/MaxKillCount
+    // become the session's min/max reported KC, and GroupStartedAt moves back to the session's
+    // first kill. Returns each card's expanded session end so the ordinal fill below can count
+    // through kills after the card's last qualifying drop.
+    //
+    // Sessions here are the SITE-WIDE model (MaxGap/SessionBreakGap), not the tier's merge
+    // window, so every swimlane shows the same range for the same play session — and the range
+    // matches the character page's session history. The `anchor` CTE finds the true gap-session
+    // start before the card so the 16h duration chunks line up with the global computation
+    // instead of drifting with the slice edge.
     private async Task<Dictionary<(LootFeedTier Tier, int Index), DateTimeOffset>> ExpandToSessionBounds(
         Dictionary<LootFeedTier, List<LootFeedEntry>> result)
     {
@@ -1194,13 +1200,9 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
         var srcs = new List<string>();
         var firsts = new List<DateTimeOffset>();
         var lasts = new List<DateTimeOffset>();
-        var gaps = new List<TimeSpan>();
-        var brks = new List<TimeSpan>();
 
         foreach (var (tier, entries) in result)
         {
-            var gap = LootFeedGrouping.MergeWindowFor(tier);
-            var brk = LootFeedGrouping.SessionBreakFor(tier);
             for (var i = 0; i < entries.Count; i++)
             {
                 var e = entries[i];
@@ -1210,37 +1212,80 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 srcs.Add(e.SourceName);
                 firsts.Add(e.GroupAnchorAt);
                 lasts.Add(e.OccurredAt);
-                gaps.Add(gap);
-                brks.Add(brk);
             }
         }
 
         var expandedEnds = new Dictionary<(LootFeedTier, int), DateTimeOffset>();
         if (slots.Count == 0) return expandedEnds;
 
-        // SessionSql is written against @gap/@breakGap parameters; here each card carries its own
-        // tier-dependent pair, so rewrite the placeholders to the unnest row's columns.
-        var sessionCtes = SessionSql.GapIslandsWithCap("")
-            .Replace("@breakGap", "t.brk")
-            .Replace("@gap", "t.gap");
-
-        // Per card: slice that source's kills around the card (a session can't extend more than
-        // one window past either bound thanks to the hard cap), split the slice into sessions,
-        // and aggregate over every session overlapping the card's own span.
+        // Per card: `anchor` finds the gap-session start the global model would use — the latest
+        // real break (16h gap / 6h overnight) in the last 14 days, else the source's first kill
+        // ever (continuous grinders never break, so their 16h chunks count from kill #1). The
+        // slice then only needs ±2 windows around the card: chunk numbers are arithmetic from
+        // the anchor (or any in-slice break), no full-history scan.
         var sql = $"""
             SELECT t.idx, s.min_kc, s.max_kc, s.start_at, s.end_at
-            FROM unnest(@cids, @srcs, @firsts, @lasts, @gaps, @brks) WITH ORDINALITY
-                 AS t(cid, src, first, last, gap, brk, idx)
+            FROM unnest(@cids, @srcs, @firsts, @lasts) WITH ORDINALITY
+                 AS t(cid, src, first, last, idx)
             LEFT JOIN LATERAL (
-                WITH ordered AS (
+                WITH anchor AS (
+                    SELECT COALESCE(
+                        (SELECT max(b."OccurredAt") FROM (
+                            SELECT r."OccurredAt",
+                                   lag(r."OccurredAt") OVER (ORDER BY r."OccurredAt", r."Id") AS prev_at
+                            FROM "LootRecords" r
+                            WHERE r."GameCharacterId" = t.cid AND r."SourceName" = t.src
+                              AND r."OccurredAt" >= t.first - interval '14 days'
+                              AND r."OccurredAt" <= t.first
+                        ) b
+                        WHERE b.prev_at IS NOT NULL
+                          AND ((b."OccurredAt" - b.prev_at) > @gap
+                               OR ((b."OccurredAt" - b.prev_at) >= @breakGap
+                                   AND date((b."OccurredAt" AT TIME ZONE 'Europe/London') - INTERVAL '6 hours')
+                                    <> date((b.prev_at AT TIME ZONE 'Europe/London') - INTERVAL '6 hours')))),
+                        (SELECT min(r."OccurredAt") FROM "LootRecords" r
+                          WHERE r."GameCharacterId" = t.cid AND r."SourceName" = t.src)
+                    ) AS s
+                ),
+                slice AS (
                     SELECT r."OccurredAt", r."Id", r."KillCount",
                            lag(r."OccurredAt") OVER (ORDER BY r."OccurredAt", r."Id") AS prev_at
                     FROM "LootRecords" r
                     WHERE r."GameCharacterId" = t.cid AND r."SourceName" = t.src
-                      AND r."OccurredAt" >= t.first - t.gap * 2
-                      AND r."OccurredAt" <= t.last + t.gap * 2
+                      AND r."OccurredAt" >= greatest((SELECT a.s FROM anchor a), t.first - @gap * 2)
+                      AND r."OccurredAt" <= t.last + @gap * 2
                 ),
-                {sessionCtes}
+                marked AS (
+                    -- No breaks exist in (anchor, first] by construction, so a NULL prev at the
+                    -- slice edge is an artifact, not a session start.
+                    SELECT *, CASE WHEN prev_at IS NOT NULL
+                                     AND (("OccurredAt" - prev_at) > @gap
+                                          OR (("OccurredAt" - prev_at) >= @breakGap
+                                              AND date(("OccurredAt" AT TIME ZONE 'Europe/London') - INTERVAL '6 hours')
+                                               <> date((prev_at AT TIME ZONE 'Europe/London') - INTERVAL '6 hours')))
+                                    THEN 1 ELSE 0 END AS brk
+                    FROM slice
+                ),
+                based AS (
+                    SELECT *, COALESCE(max(CASE WHEN brk = 1 THEN "OccurredAt" END)
+                                         OVER (ORDER BY "OccurredAt", "Id" ROWS UNBOUNDED PRECEDING),
+                                       (SELECT a.s FROM anchor a)) AS base
+                    FROM marked
+                ),
+                chunked AS (
+                    SELECT *, floor(extract(epoch FROM ("OccurredAt" - base))
+                                    / extract(epoch FROM @gap))::int AS chunk
+                    FROM based
+                ),
+                capped AS (
+                    SELECT *, CASE WHEN brk = 1 OR chunk <> lag(chunk) OVER (ORDER BY "OccurredAt", "Id")
+                                    THEN 1 ELSE 0 END AS new_sess
+                    FROM chunked
+                ),
+                sessioned AS (
+                    SELECT *, SUM(new_sess) OVER (ORDER BY "OccurredAt", "Id") AS session_no
+                    FROM capped
+                )
                 SELECT min(x."KillCount") AS min_kc, max(x."KillCount") AS max_kc,
                        min(x."OccurredAt") AS start_at, max(x."OccurredAt") AS end_at
                 FROM sessioned x
@@ -1259,8 +1304,8 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
         cmd.Parameters.Add(new NpgsqlParameter("@srcs", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Text) { Value = srcs.ToArray() });
         cmd.Parameters.Add(new NpgsqlParameter("@firsts", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.TimestampTz) { Value = firsts.ToArray() });
         cmd.Parameters.Add(new NpgsqlParameter("@lasts", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.TimestampTz) { Value = lasts.ToArray() });
-        cmd.Parameters.Add(new NpgsqlParameter("@gaps", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Interval) { Value = gaps.ToArray() });
-        cmd.Parameters.Add(new NpgsqlParameter("@brks", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Interval) { Value = brks.ToArray() });
+        cmd.Parameters.Add(new NpgsqlParameter("@gap", NpgsqlTypes.NpgsqlDbType.Interval) { Value = LootFeedGrouping.MaxGap });
+        cmd.Parameters.Add(new NpgsqlParameter("@breakGap", NpgsqlTypes.NpgsqlDbType.Interval) { Value = LootFeedGrouping.SessionBreakGap });
 
         await using var reader = await cmd.ExecuteReaderAsync();
         while (await reader.ReadAsync())

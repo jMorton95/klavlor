@@ -198,18 +198,69 @@ internal sealed class LootRecordRepository(DataContext dataContext, ILogger<Loot
     {
         try
         {
-            // Slice this source's kills around the given instant (a session can't start more than
-            // one window earlier thanks to the hard cap — 2× for slack), split into sessions with
-            // the shared rules, and describe the session containing the newest kill in the slice.
-            var sql = $"""
-                WITH ordered AS (
+            // Sessions of this source's recent kills, split with the shared site rules and
+            // anchored the way the global model would: the latest real break in the last 14
+            // days, else the source's first kill ever (continuous grinders never break, so
+            // their 16h chunks count from kill #1). Chunk numbers are arithmetic from that
+            // anchor so only ±2 windows of kills are scanned. Describes the session containing
+            // the newest kill.
+            var sql = """
+                WITH anchor AS (
+                    SELECT COALESCE(
+                        (SELECT max(b."OccurredAt") FROM (
+                            SELECT r."OccurredAt",
+                                   lag(r."OccurredAt") OVER (ORDER BY r."OccurredAt", r."Id") AS prev_at
+                            FROM "LootRecords" r
+                            WHERE r."GameCharacterId" = @cid AND r."SourceName" = @src
+                              AND r."OccurredAt" >= @at - interval '14 days'
+                              AND r."OccurredAt" <= @at
+                        ) b
+                        WHERE b.prev_at IS NOT NULL
+                          AND ((b."OccurredAt" - b.prev_at) > @gap
+                               OR ((b."OccurredAt" - b.prev_at) >= @breakGap
+                                   AND date((b."OccurredAt" AT TIME ZONE 'Europe/London') - INTERVAL '6 hours')
+                                    <> date((b.prev_at AT TIME ZONE 'Europe/London') - INTERVAL '6 hours')))),
+                        (SELECT min(r."OccurredAt") FROM "LootRecords" r
+                          WHERE r."GameCharacterId" = @cid AND r."SourceName" = @src)
+                    ) AS s
+                ),
+                slice AS (
                     SELECT r."OccurredAt", r."Id", r."KillCount",
                            lag(r."OccurredAt") OVER (ORDER BY r."OccurredAt", r."Id") AS prev_at
                     FROM "LootRecords" r
                     WHERE r."GameCharacterId" = @cid AND r."SourceName" = @src
-                      AND r."OccurredAt" >= @at - @gap * 2 AND r."OccurredAt" <= @at
+                      AND r."OccurredAt" >= greatest((SELECT a.s FROM anchor a), @at - @gap * 2)
+                      AND r."OccurredAt" <= @at
                 ),
-                {SessionSql.GapIslandsWithCap("")},
+                marked AS (
+                    SELECT *, CASE WHEN prev_at IS NOT NULL
+                                     AND (("OccurredAt" - prev_at) > @gap
+                                          OR (("OccurredAt" - prev_at) >= @breakGap
+                                              AND date(("OccurredAt" AT TIME ZONE 'Europe/London') - INTERVAL '6 hours')
+                                               <> date((prev_at AT TIME ZONE 'Europe/London') - INTERVAL '6 hours')))
+                                    THEN 1 ELSE 0 END AS brk
+                    FROM slice
+                ),
+                based AS (
+                    SELECT *, COALESCE(max(CASE WHEN brk = 1 THEN "OccurredAt" END)
+                                         OVER (ORDER BY "OccurredAt", "Id" ROWS UNBOUNDED PRECEDING),
+                                       (SELECT a.s FROM anchor a)) AS base
+                    FROM marked
+                ),
+                chunked AS (
+                    SELECT *, floor(extract(epoch FROM ("OccurredAt" - base))
+                                    / extract(epoch FROM @gap))::int AS chunk
+                    FROM based
+                ),
+                capped AS (
+                    SELECT *, CASE WHEN brk = 1 OR chunk <> lag(chunk) OVER (ORDER BY "OccurredAt", "Id")
+                                    THEN 1 ELSE 0 END AS new_sess
+                    FROM chunked
+                ),
+                sessioned AS (
+                    SELECT *, SUM(new_sess) OVER (ORDER BY "OccurredAt", "Id") AS session_no
+                    FROM capped
+                ),
                 cur AS (
                     SELECT session_no FROM sessioned
                     ORDER BY "OccurredAt" DESC, "Id" DESC LIMIT 1

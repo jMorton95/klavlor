@@ -309,19 +309,15 @@ public sealed class LootIngestHandler(
                 character.Id, record.SourceName, record.OccurredAt, record.Id);
 
         // Bounds of the play session this kill belongs to, so a card's KC range spans the whole
-        // session rather than starting at its first tier-qualifying drop. Computed once per
-        // distinct merge window (16h vs the widened Rare/Epic window) across the record's tiers.
-        var boundsByWindow = new Dictionary<TimeSpan, SessionKcBounds?>();
+        // session rather than starting at its first tier-qualifying drop. Site-wide session
+        // rules for every tier, so all swimlanes agree with each other and with the character
+        // page's session history.
+        SessionKcBounds? bounds = null;
         if (character is not null && record.Id > 0)
         {
-            foreach (var tier in dropsByTier.Keys)
-            {
-                var window = LootFeedGrouping.MergeWindowFor(tier);
-                if (boundsByWindow.ContainsKey(window)) continue;
-                boundsByWindow[window] = await lootRecordRepository.GetSessionBounds(
-                    character.Id, record.SourceName, record.OccurredAt,
-                    window, LootFeedGrouping.SessionBreakFor(tier));
-            }
+            bounds = await lootRecordRepository.GetSessionBounds(
+                character.Id, record.SourceName, record.OccurredAt,
+                LootFeedGrouping.MaxGap, LootFeedGrouping.SessionBreakGap);
         }
 
         // Route to the matching feed scope. Characters without IsLeagues set default to Main.
@@ -333,7 +329,6 @@ public sealed class LootIngestHandler(
             if (record.IsImported && tier is LootFeedTier.Standard or LootFeedTier.Uncommon)
                 continue;
 
-            var bounds = boundsByWindow.GetValueOrDefault(LootFeedGrouping.MergeWindowFor(tier));
             var tierTotal = tierDrops.Sum(d => (long)d.Quantity * d.Price);
             lootFeedService.Publish(new LootFeedEntry(
                 userName,

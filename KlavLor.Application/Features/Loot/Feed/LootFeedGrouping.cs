@@ -28,15 +28,6 @@ public static class LootFeedGrouping
         _ => MaxGap
     };
 
-    // Overnight-break gap to pair with MergeWindowFor when computing session bounds in SQL.
-    // Widened tiers return the window itself, which neutralises the overnight rule (any gap that
-    // large already splits on the window cap) — mirroring TryGetMergeDelta skipping the split.
-    public static TimeSpan SessionBreakFor(LootFeedTier tier)
-    {
-        var window = MergeWindowFor(tier);
-        return window == MaxGap ? SessionBreakGap : window;
-    }
-
     // A single-kill session worth less than this is a "true one-off" (e.g. one Hill Giant) and is
     // hidden from the character session-history list as noise; multi-kill sessions are always kept.
     // Mirrors the feed's 10k interesting-drop floor (ILootFeedService.GetDropTier).
