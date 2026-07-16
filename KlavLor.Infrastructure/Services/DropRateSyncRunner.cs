@@ -18,6 +18,12 @@ internal sealed class DropRateSyncRunner(IDropRateRepository repository, IOsrsWi
         var mapping = SourceNameAliases.Resolve(sourceName);
         var wikiRates = await wikiClient.FetchDropRatesForSource(mapping.PageTitle);
 
+        // null == the fetch failed (network / API error). Keep any existing rows untouched and
+        // leave the miss state alone so a transient blip during a mass backfill doesn't wrongly
+        // flag a good source as having no data — the next cycle retries it.
+        if (wikiRates is null)
+            return new DropRateSyncResult(sourceName, 0, DropRateSyncOutcome.FetchFailed);
+
         if (mapping.SectionFilter is not null)
         {
             // Filter to rows whose section heading contains the filter token so a shared
@@ -32,7 +38,7 @@ internal sealed class DropRateSyncRunner(IDropRateRepository repository, IOsrsWi
             // Record that this source has nothing on the wiki so it drops out of the
             // admin "missing rates" backlog until explicitly re-checked.
             await repository.MarkNoWikiData(sourceName);
-            return new DropRateSyncResult(sourceName, 0, FoundWikiData: false);
+            return new DropRateSyncResult(sourceName, 0, DropRateSyncOutcome.NoData);
         }
 
         var rates = wikiRates
@@ -55,7 +61,7 @@ internal sealed class DropRateSyncRunner(IDropRateRepository repository, IOsrsWi
 
         await repository.ReplaceForSource(sourceName, rates);
         await repository.ClearNoWikiData(sourceName); // it has data now — un-hide if previously marked
-        return new DropRateSyncResult(sourceName, rates.Count, FoundWikiData: true);
+        return new DropRateSyncResult(sourceName, rates.Count, DropRateSyncOutcome.Synced);
     }
 
     // Sort key for dedup: rarer drops (lower probability) win. Unparseable denominators

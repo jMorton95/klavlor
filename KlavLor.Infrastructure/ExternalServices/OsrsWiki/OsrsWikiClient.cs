@@ -1,4 +1,6 @@
+using System.Globalization;
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Web;
@@ -26,178 +28,142 @@ public sealed class OsrsWikiClient(HttpClient httpClient, ILogger<OsrsWikiClient
         }
     }
 
-    public async Task<IReadOnlyList<WikiDropRate>> FetchDropRatesForSource(string wikiPageTitle)
+    public async Task<IReadOnlyList<WikiDropRate>?> FetchDropRatesForSource(string wikiPageTitle)
     {
         if (string.IsNullOrWhiteSpace(wikiPageTitle)) return [];
 
         try
         {
-            var encoded = HttpUtility.UrlEncode(wikiPageTitle);
-            var url = $"{WikiApiBase}?action=parse&page={encoded}&prop=wikitext&format=json&formatversion=2";
+            // Query the wiki's Bucket structured-data store (Weird Gloop's replacement for
+            // SMW/Cargo) rather than scraping raw wikitext. The `dropsline` bucket is generated
+            // from the *rendered* page, so items pulled in from shared drop tables (herb / seed /
+            // gem / rare-drop-table) appear as ordinary rows on the source with their effective
+            // per-source rarity already computed — exactly the multi-source items the old
+            // wikitext scraper missed (it only saw the unexpanded {{HerbDropLines}}-style calls).
+            //
+            // Double-quoted Lua string literal for the page name so sources with apostrophes
+            // (K'ril Tsutsaroth, Kree'arra, …) don't need quote-escaping. limit is a defensive
+            // cap; the biggest single source (a raid boss) has well under 200 rows.
+            var query = $"bucket('dropsline').select('drop_json').where('page_name',\"{EscapeBucketString(wikiPageTitle)}\").limit(1000).run()";
+            var url = $"{WikiApiBase}?action=bucket&format=json&query={HttpUtility.UrlEncode(query)}";
 
-            var response = await httpClient.GetFromJsonAsync<WikiParseResponse>(url);
-            var wikitext = response?.Parse?.Wikitext;
-            if (string.IsNullOrWhiteSpace(wikitext)) return [];
+            var response = await httpClient.GetFromJsonAsync<BucketResponse>(url);
+            // A missing `bucket` array means an error/unexpected envelope, not a genuine
+            // no-drops result (that comes back as an empty array) — signal failure with null.
+            if (response?.Bucket is not { } rows) return null;
 
-            return ParseDropsLines(wikitext);
+            var results = new List<WikiDropRate>(rows.Count);
+            foreach (var row in rows)
+            {
+                if (string.IsNullOrEmpty(row.DropJson)) continue;
+                var rate = ParseDropJson(row.DropJson);
+                if (rate is not null) results.Add(rate);
+            }
+            return results;
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Failed to fetch drop rates for {Page}", wikiPageTitle);
-            return [];
+            return null;
         }
     }
 
-    // Walks the wikitext sequentially, tracking the closest preceding ==Section==
-    // heading and emitting each {{DropsLine|...}} / {{DropsLineClue|...}} body it
-    // finds. Honours nested {{...}} so a rarity={{Brimstone rarity|725}} parameter
-    // doesn't terminate the outer template early.
-    private static List<WikiDropRate> ParseDropsLines(string wikitext)
+    // Each dropsline row carries a `drop_json` string holding the full drop record. We only need
+    // the item, its rarity/quantity/rolls, and the variant anchor for section filtering.
+    private static WikiDropRate? ParseDropJson(string dropJson)
     {
-        var results = new List<WikiDropRate>();
-        string? section = null;
+        JsonDocument doc;
+        try { doc = JsonDocument.Parse(dropJson); }
+        catch (JsonException) { return null; }
 
-        int i = 0;
-        while (i < wikitext.Length)
+        using (doc)
         {
-            // Section heading on a fresh line: ==Heading==, ===Sub===, etc.
-            if (i == 0 || wikitext[i - 1] == '\n')
-            {
-                var headingMatch = HeadingRegex.Match(wikitext, i);
-                if (headingMatch.Success && headingMatch.Index == i)
-                {
-                    section = headingMatch.Groups[2].Value.Trim();
-                    i = headingMatch.Index + headingMatch.Length;
-                    continue;
-                }
-            }
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object) return null;
 
-            // {{DropsLine| or {{DropsLineClue|
-            var prefix = MatchDropsLinePrefix(wikitext, i);
-            if (prefix is { } p)
-            {
-                var (afterPrefix, _) = p;
-                var endIdx = FindMatchingClose(wikitext, afterPrefix);
-                if (endIdx < 0)
-                {
-                    // Unbalanced template — bail; the source page is malformed and
-                    // we'd rather miss it than mis-parse downstream entries.
-                    break;
-                }
+            var name = GetJsonString(root, "Dropped item");
+            if (string.IsNullOrWhiteSpace(name)) return null;
 
-                var body = wikitext.Substring(afterPrefix, endIdx - afterPrefix);
-                var rate = ParseDropsLineBody(body, section);
-                if (rate is not null) results.Add(rate);
-                i = endIdx + 2;
-                continue;
-            }
+            var rarity = GetJsonString(root, "Rarity") ?? "";
+            var quantity = GetJsonString(root, "Drop Quantity");
+            var rolls = GetJsonInt(root, "Rolls") ?? 1;
 
-            i++;
+            // Variant sources share one wiki page and encode the variant as an anchor on
+            // "Dropped from" (e.g. "The Gauntlet#Corrupted"). Surface that as the Section so
+            // DropRateSyncRunner's SectionFilter keeps disambiguating them unchanged.
+            var section = ExtractAnchor(GetJsonString(root, "Dropped from"));
+
+            var (num, den) = ParseNumericRarity(rarity);
+            return new WikiDropRate(name, quantity, rarity, num, den, rolls, section);
         }
-
-        return results;
     }
 
-    private static (int AfterPrefix, bool IsClue)? MatchDropsLinePrefix(string text, int i)
+    private static string? GetJsonString(JsonElement obj, string key)
+        => obj.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.String
+            ? v.GetString()
+            : null;
+
+    private static int? GetJsonInt(JsonElement obj, string key)
     {
-        // Variants share the {{DropsLine prefix; check the longer ones first so
-        // {{DropsLineClue / {{DropsLineReward aren't accidentally treated as {{DropsLine.
-        // DropsLineReward is used on raid / minigame reward chests (e.g. The Gauntlet,
-        // Tombs of Amascut) and carries the same name/quantity/rarity parameters.
-        if (StartsWith(text, i, "{{DropsLineClue|")) return (i + "{{DropsLineClue|".Length, true);
-        if (StartsWith(text, i, "{{DropsLineReward|")) return (i + "{{DropsLineReward|".Length, false);
-        if (StartsWith(text, i, "{{DropsLine|")) return (i + "{{DropsLine|".Length, false);
+        if (!obj.TryGetProperty(key, out var v)) return null;
+        if (v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out var n)) return n;
+        if (v.ValueKind == JsonValueKind.String && int.TryParse(v.GetString(), out var s)) return s;
         return null;
     }
 
-    private static bool StartsWith(string text, int i, string needle)
+    private static string? ExtractAnchor(string? droppedFrom)
     {
-        if (i + needle.Length > text.Length) return false;
-        return text.AsSpan(i, needle.Length).SequenceEqual(needle.AsSpan());
+        if (string.IsNullOrEmpty(droppedFrom)) return null;
+        var hash = droppedFrom.IndexOf('#');
+        return hash >= 0 && hash < droppedFrom.Length - 1 ? droppedFrom[(hash + 1)..].Trim() : null;
     }
 
-    // Returns the index of the }} that closes the template starting at i (where i
-    // is *inside* the template body). Returns -1 if unbalanced.
-    private static int FindMatchingClose(string text, int i)
-    {
-        int depth = 1;
-        while (i < text.Length - 1)
-        {
-            if (text[i] == '{' && text[i + 1] == '{') { depth++; i += 2; }
-            else if (text[i] == '}' && text[i + 1] == '}')
-            {
-                depth--;
-                if (depth == 0) return i;
-                i += 2;
-            }
-            else i++;
-        }
-        return -1;
-    }
+    // Bucket string values are wrapped in a double-quoted Lua literal; escape backslashes and
+    // double quotes so an odd page name can't break out of the literal.
+    private static string EscapeBucketString(string s) => s.Replace("\\", "\\\\").Replace("\"", "\\\"");
 
-    private static WikiDropRate? ParseDropsLineBody(string body, string? section)
-    {
-        string? name = null;
-        string? quantity = null;
-        string? rarity = null;
-        var rolls = 1;
-
-        foreach (var param in SplitTopLevelPipes(body))
-        {
-            var eq = param.IndexOf('=');
-            if (eq <= 0) continue;
-            var key = param[..eq].Trim().ToLowerInvariant();
-            var value = param[(eq + 1)..].Trim();
-            switch (key)
-            {
-                case "name": name = value; break;
-                case "quantity": quantity = value; break;
-                case "rarity": rarity = StripRefs(value); break;
-                case "rolls":
-                    if (int.TryParse(value, out var r)) rolls = r;
-                    break;
-            }
-        }
-
-        if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(rarity))
-            return null;
-
-        var (num, den) = ParseNumericRarity(rarity);
-        return new WikiDropRate(name, quantity, rarity, num, den, rolls, section);
-    }
-
-    private static IEnumerable<string> SplitTopLevelPipes(string body)
-    {
-        int depth = 0;
-        int start = 0;
-        for (int i = 0; i < body.Length; i++)
-        {
-            if (i + 1 < body.Length && body[i] == '{' && body[i + 1] == '{') { depth++; i++; continue; }
-            if (i + 1 < body.Length && body[i] == '}' && body[i + 1] == '}') { depth--; i++; continue; }
-            if (depth == 0 && body[i] == '|')
-            {
-                yield return body[start..i];
-                start = i + 1;
-            }
-        }
-        if (start < body.Length) yield return body[start..];
-    }
-
+    // Reduces a wiki rarity string to an integer N/D pair for the luck math. Handles the formats
+    // the Bucket data uses that the old {{DropsLine}} parser never saw: thousands separators
+    // ("1/47,826") and — critically for shared-table items — decimal denominators ("1/32.4",
+    // "1/268.75"). Decimals are cleared by scaling both parts by a power of ten, which preserves
+    // the exact ratio (every consumer uses N/D only as a double ratio, never the denominator
+    // alone). Non-numeric rarities ("Always", "Varies") return (null, null) and display verbatim.
     private static (int? Numerator, int? Denominator) ParseNumericRarity(string rarity)
     {
-        var match = NumericRarityRegex.Match(rarity);
+        if (string.IsNullOrWhiteSpace(rarity)) return (null, null);
+
+        var cleaned = rarity.Replace(",", "").Replace("~", "").Trim();
+        var match = RarityRegex.Match(cleaned);
         if (!match.Success) return (null, null);
-        if (!int.TryParse(match.Groups[1].Value, out var num)) return (null, null);
-        if (!int.TryParse(match.Groups[2].Value, out var den) || den <= 0) return (null, null);
-        return (num, den);
+        if (!int.TryParse(match.Groups[1].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var num) || num <= 0)
+            return (null, null);
+
+        var denStr = match.Groups[2].Value;
+        if (!denStr.Contains('.'))
+        {
+            return int.TryParse(denStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var den) && den > 0
+                ? (num, den)
+                : (null, null);
+        }
+
+        if (!double.TryParse(denStr, NumberStyles.Float, CultureInfo.InvariantCulture, out var denVal) || denVal <= 0)
+            return (null, null);
+
+        var decimals = denStr.Length - denStr.IndexOf('.') - 1;
+        var factor = (long)Math.Pow(10, decimals);
+        var scaledNum = (long)num * factor;
+        var scaledDen = (long)Math.Round(denVal * factor);
+        if (scaledNum is <= 0 or > int.MaxValue || scaledDen is <= 0 or > int.MaxValue)
+        {
+            // Too large to scale exactly — fall back to a rounded integer denominator.
+            var rounded = (int)Math.Round(denVal);
+            return rounded > 0 ? (num, rounded) : (null, null);
+        }
+
+        return ((int)scaledNum, (int)scaledDen);
     }
 
-    private static string StripRefs(string value) =>
-        RefTagRegex.Replace(value, "").Trim();
-
-    private static readonly Regex HeadingRegex = new(@"^(={2,})\s*(.+?)\s*\1\s*$", RegexOptions.Multiline | RegexOptions.Compiled);
-    private static readonly Regex NumericRarityRegex = new(@"^\s*(\d+)\s*/\s*(\d+)\s*$", RegexOptions.Compiled);
-    private static readonly Regex RefTagRegex = new(@"<ref[^>]*?(?:/>|>.*?</ref>)", RegexOptions.Compiled | RegexOptions.Singleline);
+    private static readonly Regex RarityRegex = new(@"^(\d+)\s*/\s*(\d+(?:\.\d+)?)$", RegexOptions.Compiled);
 
     public async Task<List<OsrsSearchResult>> SearchItems(string searchTerm, int limit = 10)
     {
@@ -288,6 +254,19 @@ public sealed class OsrsWikiClient(HttpClient httpClient, ILogger<OsrsWikiClient
     }
 }
 
+// Response envelope for action=bucket: { "bucketQuery": ..., "bucket": [ { <selected fields> } ] }.
+internal sealed class BucketResponse
+{
+    [JsonPropertyName("bucket")]
+    public List<BucketRow>? Bucket { get; set; }
+}
+
+internal sealed class BucketRow
+{
+    [JsonPropertyName("drop_json")]
+    public string? DropJson { get; set; }
+}
+
 internal sealed class WikiGeneratorSearchResponse
 {
     [JsonPropertyName("query")]
@@ -356,19 +335,4 @@ internal sealed class WikiImageInfo
 {
     [JsonPropertyName("url")]
     public string? Url { get; set; }
-}
-
-internal sealed class WikiParseResponse
-{
-    [JsonPropertyName("parse")]
-    public WikiParseResult? Parse { get; set; }
-}
-
-internal sealed class WikiParseResult
-{
-    [JsonPropertyName("title")]
-    public string? Title { get; set; }
-
-    [JsonPropertyName("wikitext")]
-    public string? Wikitext { get; set; }
 }

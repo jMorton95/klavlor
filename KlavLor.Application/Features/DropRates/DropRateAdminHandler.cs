@@ -46,9 +46,12 @@ public sealed class DropRateAdminHandler(IDropRateRepository repository, IDropRa
     public async Task<DropRateSourceRow> Sync(string sourceName)
     {
         var result = await runner.SyncSource(sourceName);
-        var note = result.FoundWikiData
-            ? $"Stored {result.RatesStored} rate{(result.RatesStored == 1 ? "" : "s")}"
-            : "No drop-rate data found on the wiki";
+        var note = result.Outcome switch
+        {
+            DropRateSyncOutcome.Synced => $"Stored {result.RatesStored} rate{(result.RatesStored == 1 ? "" : "s")}",
+            DropRateSyncOutcome.NoData => "No drop-rate data found on the wiki",
+            _ => "Could not reach the wiki — existing rates kept, will retry"
+        };
         return new DropRateSourceRow(sourceName, result.RatesStored, note);
     }
 

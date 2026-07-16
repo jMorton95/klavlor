@@ -23,11 +23,28 @@ public static class SourceNameAliases
             ["TzKal-Zuk"] = new WikiPageMapping("Inferno"),
             ["TzTok-Jad"] = new WikiPageMapping("TzHaar Fight Cave"),
 
-            // The Gauntlet page hosts both variants' reward tables; section filter
-            // disambiguates because Normal and Corrupted have different rarities for
-            // the same items (e.g. Enhanced crystal weapon seed: 1/2000 vs 1/400).
-            ["Crystalline Hunllef"] = new WikiPageMapping("The Gauntlet", "Normal"),
-            ["Corrupted Hunllef"] = new WikiPageMapping("The Gauntlet", "Corrupted"),
+            // Reward-chest / raid sources: the Bucket `dropsline` data lives on the chest's own
+            // page, not the encounter/NPC page, so these must be mapped explicitly. A key that
+            // doesn't match a real RuneLite source name is simply a no-op (the source falls back
+            // to its own name → no rows → flagged in the missing-rates backlog), so mapping these
+            // can only add coverage. Exact RuneLite source names for raids should be confirmed
+            // against real loot history (see DropRateMiss backlog) — the base names are covered
+            // here; mode variants (Hard/Expert/Challenge) map to the same chest pages.
+
+            // The Gauntlet reward chest hosts both variants; the section filter disambiguates
+            // because Regular and Corrupted have different rarities for the same items
+            // (e.g. Enhanced crystal weapon seed: 1/2000 vs 1/400). The variant is encoded as a
+            // "#Regular"/"#Corrupted" anchor on the drop's "Dropped from", surfaced as Section.
+            ["Crystalline Hunllef"] = new WikiPageMapping("Reward Chest (The Gauntlet)", "Regular"),
+            ["Corrupted Hunllef"] = new WikiPageMapping("Reward Chest (The Gauntlet)", "Corrupted"),
+
+            // Raid reward chests.
+            ["Chambers of Xeric"] = new WikiPageMapping("Ancient chest"),
+            ["Chambers of Xeric Challenge Mode"] = new WikiPageMapping("Ancient chest"),
+            ["Theatre of Blood"] = new WikiPageMapping("Monumental chest"),
+            ["Theatre of Blood Hard Mode"] = new WikiPageMapping("Monumental chest"),
+            ["Tombs of Amascut"] = new WikiPageMapping("Chest (Tombs of Amascut)"),
+            ["Tombs of Amascut Expert Mode"] = new WikiPageMapping("Chest (Tombs of Amascut)"),
         };
 
     public static WikiPageMapping Resolve(string sourceName) =>

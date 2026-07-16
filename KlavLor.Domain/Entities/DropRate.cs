@@ -4,10 +4,12 @@ namespace KlavLor.Domain.Entities;
 
 /// <summary>
 /// A wiki-sourced drop rate for a (<see cref="SourceName"/>, <see cref="ItemName"/>) pair.
-/// Populated by DropRateSyncService from {{DropsLine}} templates on the source's wiki page.
+/// Populated by DropRateSyncService from the wiki's `dropsline` Bucket for the source page
+/// (which includes shared drop-table items with their effective per-source rarity).
 /// SourceName matches LootRecord.SourceName (post-alias). ItemName is verbatim from the wiki
 /// and is joined against CollectionLogItem.Name (case-insensitive). Rate fields are nullable
-/// because complex wiki rarities (e.g. {{Brimstone rarity|725}}) aren't reduced to N/D form.
+/// because non-numeric wiki rarities (e.g. "Always", "Varies") aren't reduced to N/D form;
+/// decimal denominators like "1/32.4" are scaled to an equivalent integer N/D pair.
 /// </summary>
 public sealed class DropRate
 {

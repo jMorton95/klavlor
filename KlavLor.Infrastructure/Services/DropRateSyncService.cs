@@ -67,15 +67,25 @@ public sealed class DropRateSyncService(
                 .OrderBy(s => lastSynced.TryGetValue(s, out var t) ? t : DateTimeOffset.MinValue)
                 .ToList();
 
+            // Snapshot coverage before the cycle so we can report how many sources this pass
+            // newly covered — the signal that the post-deploy backfill is filling the gaps
+            // (e.g. herb/seed multi-source rates that had no data under the old scraper).
+            var countsBefore = await repository.GetRateCountsBySource();
+
             var synced = 0;
             var emptied = 0;
+            var failed = 0;
             foreach (var sourceName in ordered)
             {
                 if (stoppingToken.IsCancellationRequested) break;
 
                 var result = await runner.SyncSource(sourceName, stoppingToken);
-                if (result.FoundWikiData) synced++;
-                else emptied++;
+                switch (result.Outcome)
+                {
+                    case DropRateSyncOutcome.Synced: synced++; break;
+                    case DropRateSyncOutcome.NoData: emptied++; break;
+                    default: failed++; break;
+                }
 
                 try
                 {
@@ -87,7 +97,14 @@ public sealed class DropRateSyncService(
                 }
             }
 
-            logger.LogInformation("Drop rate sync: stored rates for {Synced} sources ({Emptied} sources had no DropsLine data)", synced, emptied);
+            var countsAfter = await repository.GetRateCountsBySource();
+            bool HadRates(IReadOnlyDictionary<string, int> counts, string s) => counts.TryGetValue(s, out var c) && c > 0;
+            var newlyCovered = knownSources.Count(s => !HadRates(countsBefore, s) && HadRates(countsAfter, s));
+            var stillMissing = knownSources.Count(s => !HadRates(countsAfter, s));
+
+            logger.LogInformation(
+                "Drop rate sync: {Synced} sources stored rates, {NewlyCovered} newly covered, {Emptied} had no wiki data, {Failed} fetch failures (kept existing); {StillMissing} of {Total} sources still without rates",
+                synced, newlyCovered, emptied, failed, stillMissing, knownSources.Count);
         }
         catch (OperationCanceledException)
         {

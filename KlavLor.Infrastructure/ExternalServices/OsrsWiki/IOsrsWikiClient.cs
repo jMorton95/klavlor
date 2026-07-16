@@ -10,11 +10,18 @@ public interface IOsrsWikiClient
     Task<IReadOnlyList<CollectionLogItemData>> FetchCollectionLogItems();
 
     /// <summary>
-    /// Fetches the wiki page's wikitext and extracts {{DropsLine}} / {{DropsLineClue}}
-    /// template invocations into structured drop-rate rows. Returns empty on missing
-    /// page, parse failure, or when the page has no DropsLine templates.
+    /// Queries the wiki's Bucket structured-data store (the `dropsline` bucket) for every drop on
+    /// the given source page and returns structured drop-rate rows. Because Bucket is generated
+    /// from the rendered page, shared drop-table items (herbs, seeds, gems, rare drop table) are
+    /// included with their effective per-source rarity — unlike raw-wikitext parsing, which only
+    /// saw the unexpanded table-template calls.
+    /// <para>
+    /// Returns <c>null</c> when the fetch itself failed (network / HTTP / parse error) so the
+    /// caller can retain any existing rows and retry later; returns an empty list when the query
+    /// succeeded but the source genuinely has no drops; returns the rows otherwise.
+    /// </para>
     /// </summary>
-    Task<IReadOnlyList<WikiDropRate>> FetchDropRatesForSource(string wikiPageTitle);
+    Task<IReadOnlyList<WikiDropRate>?> FetchDropRatesForSource(string wikiPageTitle);
 }
 
 public sealed record OsrsSearchResult(
