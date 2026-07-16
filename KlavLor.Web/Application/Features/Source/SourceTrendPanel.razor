@@ -3,59 +3,34 @@
 @using KlavLor.Application.Features.Source
 @using KlavLor.Web.Application.Features.Loot.Log.Profile.Svg
 
-<div class="space-y-6">
-    <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
-        <div class="flex items-baseline justify-between gap-2 mb-4">
-            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Activity</h2>
-            <span class="text-xs text-slate-400 dark:text-white">kills per month, by character</span>
-        </div>
-
-        @if (_bars.Count == 0 || _totalKills == 0)
-        {
-            <p class="text-sm text-slate-400 dark:text-white">No activity recorded.</p>
-        }
-        else
-        {
-            <HistogramBars Bars="@_bars" FormatValue="@FormatCount" ChartHeightPx="240" />
-
-            @if (_legend.Count > 0)
-            {
-                <div class="flex flex-wrap gap-x-3 gap-y-1 mt-4 text-[10px] text-slate-500 dark:text-white">
-                    @foreach (var entry in _legend)
-                    {
-                        <span class="inline-flex items-center gap-1.5">
-                            <span class="inline-block w-2.5 h-2.5 rounded-sm @entry.FillClass"></span>
-                            <span class="text-slate-600 dark:text-slate-300">@entry.Name</span>
-                        </span>
-                    }
-                </div>
-            }
-
-            <p class="text-xs text-slate-400 dark:text-white mt-3">@_totalKills.ToString("N0") kills over @_recentCount months · hover a segment for the character breakdown.</p>
-        }
+<div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+    <div class="flex items-baseline justify-between gap-2 mb-4">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Activity</h2>
+        <span class="text-xs text-slate-400 dark:text-white">kills per month, by character</span>
     </div>
 
-    @if (_allTimeBars.Count > 0 && _allTimeTotal > 0)
+    @if (_bars.Count == 0 || _totalKills == 0)
     {
-        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
-            <div class="flex items-baseline justify-between gap-2 mb-4">
-                <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Kill history</h2>
-                <span class="text-xs text-slate-400 dark:text-white">all time, across all characters</span>
+        <p class="text-sm text-slate-400 dark:text-white">No activity recorded.</p>
+    }
+    else
+    {
+        <HistogramBars Bars="@_bars" FormatValue="@FormatCount" ChartHeightPx="240" />
+
+        @if (_legend.Count > 0)
+        {
+            <div class="flex flex-wrap gap-x-3 gap-y-1 mt-4 text-[10px] text-slate-500 dark:text-white">
+                @foreach (var entry in _legend)
+                {
+                    <span class="inline-flex items-center gap-1.5">
+                        <span class="inline-block w-2.5 h-2.5 rounded-sm @entry.FillClass"></span>
+                        <span class="text-slate-600 dark:text-slate-300">@entry.Name</span>
+                    </span>
+                }
             </div>
+        }
 
-            <div class="mb-1 text-xs font-medium text-slate-600 dark:text-slate-300">Kills per month</div>
-            <HistogramBars Bars="@_allTimeBars" FormatValue="@FormatCount" ChartHeightPx="150" />
-
-            @if (_cumulative.Count >= 2)
-            {
-                <div class="mt-6 mb-1 text-xs font-medium text-slate-600 dark:text-slate-300">Cumulative kills</div>
-                <TrendLineChart Points="@_cumulative" FormatValue="@FormatCount" ChartHeightPx="180" />
-            }
-
-            <p class="text-xs text-slate-400 dark:text-white mt-3">
-                @_allTimeTotal.ToString("N0") kills over @_allTimeBars.Count months — bars show how bursty the grind is; the line shows the community's long-term progression (flat stretches are idle months).
-            </p>
-        </div>
+        <p class="text-xs text-slate-400 dark:text-white mt-3">@_totalKills.ToString("N0") kills over @_recentCount months · hover a segment for the character breakdown.</p>
     }
 </div>
 
@@ -83,15 +58,11 @@
     private List<LegendEntry> _legend = [];
     private long _totalKills;
     private int _recentCount;
-    private List<HistogramBars.Bar> _allTimeBars = [];
-    private List<TrendLineChart.Point> _cumulative = [];
-    private long _allTimeTotal;
 
     private sealed record LegendEntry(string Name, string FillClass);
 
     protected override void OnParametersSet()
     {
-        BuildAllTimeCharts();
         var recent = Points.Count > 12 ? Points.GetRange(Points.Count - 12, 12) : Points;
         _recentCount = recent.Count;
         _totalKills = recent.Sum(p => p.Kills);
@@ -186,54 +157,4 @@
     }
 
     private static string FormatCount(long n) => n >= 1000 ? $"{n / 1000.0:0.#}k" : n.ToString("N0");
-
-    // All-time view: dense month timeline (idle months filled with zeros so gaps are visible),
-    // plain monthly-kill bars for burstiness plus a cumulative line for long-term progression.
-    private void BuildAllTimeCharts()
-    {
-        _allTimeBars = [];
-        _cumulative = [];
-        _allTimeTotal = Points.Sum(p => p.Kills);
-        if (Points.Count == 0 || _allTimeTotal == 0) return;
-
-        var byMonth = Points.ToDictionary(p => (p.Year, p.Month));
-        var first = new DateOnly(Points[0].Year, Points[0].Month, 1);
-        var last = new DateOnly(Points[^1].Year, Points[^1].Month, 1);
-
-        long running = 0;
-        int? lastYearLabelled = null;
-        var index = 0;
-        var totalMonths = (last.Year - first.Year) * 12 + (last.Month - first.Month) + 1;
-        for (var cursor = first; cursor <= last; cursor = cursor.AddMonths(1))
-        {
-            byMonth.TryGetValue((cursor.Year, cursor.Month), out var p);
-            var kills = p?.Kills ?? 0;
-            var value = p?.Value ?? 0;
-            var characters = p?.Characters.Count ?? 0;
-            running += kills;
-
-            var monthShort = CultureInfo.InvariantCulture.DateTimeFormat.GetAbbreviatedMonthName(cursor.Month);
-            // With many months, label only the first point and year boundaries to avoid collisions.
-            var atYearMark = index == 0 || lastYearLabelled != cursor.Year;
-            var label = atYearMark
-                ? $"{monthShort} '{(cursor.Year % 100):D2}"
-                : totalMonths <= 14 ? monthShort : "";
-            lastYearLabelled = cursor.Year;
-
-            _allTimeBars.Add(new HistogramBars.Bar(
-                Label: label,
-                Value: kills,
-                Tooltip: $"{monthShort} {cursor.Year} — {kills:N0} kills · {characters} {(characters == 1 ? "character" : "characters")} · {GoldFormat.Format(value)} gp"));
-
-            _cumulative.Add(new TrendLineChart.Point(
-                Label: label,
-                Value: running,
-                Title: $"{monthShort} {cursor.Year}",
-                ValueText: $"{running:N0} total kills",
-                Detail: kills > 0
-                    ? $"+{kills:N0} that month · {characters} {(characters == 1 ? "character" : "characters")} active"
-                    : "no kills that month"));
-            index++;
-        }
-    }
 }

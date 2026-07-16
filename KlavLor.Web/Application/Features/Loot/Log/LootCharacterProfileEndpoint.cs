@@ -35,6 +35,9 @@ public sealed class LootCharacterProfileEndpoint : IEndpoint
         app.MapGet(AppRoutes.LootLogSourceCollection.FromApi(), GetSourceCollection)
             .AllowAnonymous();
 
+        app.MapGet(AppRoutes.LootLogSourceKillTrend.FromApi(), GetSourceKillTrend)
+            .AllowAnonymous();
+
         app.MapGet(AppRoutes.LootLogCharacterFirsts.FromApi(), GetFirstTimeFeed)
             .AllowAnonymous()
             .AddEndpointFilter<HtmxNavigationFilter>();
@@ -195,6 +198,19 @@ public sealed class LootCharacterProfileEndpoint : IEndpoint
         {
             Collection = result.Value,
             CharacterId = id
+        });
+    }
+
+    private static async Task<IResult> GetSourceKillTrend(
+        int id,
+        [FromQuery] string name,
+        LootCharacterProfileHandler handler)
+    {
+        var result = await handler.HandleSourceKillTrend(id, name);
+        if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.NotFound();
+        return IResultExtensions.Component<SourceKillHistoryPanel>(new
+        {
+            Trend = result.Value
         });
     }
 

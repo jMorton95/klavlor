@@ -93,6 +93,21 @@ public sealed record SourceCollection(
     IReadOnlyList<CollectionEntry> Entries,
     IReadOnlyList<MissingClogItem> MissingItems);
 
+/// <summary>
+/// Monthly kill activity for one character at one source — drives the character source
+/// page's kill-history charts (monthly bars + cumulative line). Months with no kills are
+/// not included; the panel densifies the timeline itself.
+/// </summary>
+public sealed record SourceKillTrend(
+    string SourceName,
+    IReadOnlyList<SourceKillTrendMonth> Months);
+
+public sealed record SourceKillTrendMonth(
+    int Year,
+    int Month,
+    int Kills,
+    long Value);
+
 public sealed record MissingClogItem(
     string ItemName,
     string? Rarity = null,

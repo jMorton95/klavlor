@@ -117,6 +117,21 @@ public sealed class LootCharacterProfileHandler(
         return Result<SourceCollection>.Success(collection);
     }
 
+    public async Task<Result<SourceKillTrend>> HandleSourceKillTrend(int characterId, string sourceName)
+    {
+        if (!await accessChecker.CanAccess(characterId))
+            return Result<SourceKillTrend>.Failure("Character not found.");
+
+        var version = LootStatsCache.GetVersion(cache, characterId);
+        var key = LootStatsCache.EntryKey(characterId, version, nameof(HandleSourceKillTrend), sourceName);
+        var trend = await cache.GetOrCreateAsync(key, async entry =>
+        {
+            entry.SlidingExpiration = LootStatsCache.EntryTtl;
+            return await lootLogRepository.GetSourceKillTrend(characterId, sourceName);
+        });
+        return Result<SourceKillTrend>.Success(trend!);
+    }
+
     public async Task<Result<FirstTimeFeed>> HandleFirstTimeFeed(int characterId, DateTimeOffset? before, int pageSize)
     {
         if (!await accessChecker.CanAccess(characterId))

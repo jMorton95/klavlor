@@ -109,6 +109,7 @@ public static class AppRoutes
     public const string LootLogCharacterDay = "/loot/log/{id:int}/day/{date}";
     public const string LootLogSourceCollection = "/loot/log/{id:int}/source/collection";
     public const string LootLogSourceSession = "/loot/log/{id:int}/source/session";
+    public const string LootLogSourceKillTrend = "/loot/log/{id:int}/source/kill-trend";
     public const string LootLogCharacterSources = "/loot/log/{id:int}/sources";
 
     public const string UserApiKeySection = "/admin/users/{id:int}/api-key";

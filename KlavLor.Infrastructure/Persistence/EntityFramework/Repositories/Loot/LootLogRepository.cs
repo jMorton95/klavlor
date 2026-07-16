@@ -2174,6 +2174,51 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
     // Without it, an item received thousands of times fetched and rendered one row per receipt.
     private const int RecentDropEventsPerItem = 50;
 
+    public async Task<SourceKillTrend> GetSourceKillTrend(int characterId, string sourceName)
+    {
+        try
+        {
+            var connection = dataContext.Database.GetDbConnection();
+            if (connection.State != System.Data.ConnectionState.Open) await connection.OpenAsync();
+
+            // Monthly kills + gp for this character at this source, bucketed by the
+            // Europe/London occurrence date to match every other monthly aggregate.
+            const string sql = """
+                SELECT EXTRACT(year FROM (("OccurredAt" AT TIME ZONE 'Europe/London')::date))::int AS y,
+                       EXTRACT(month FROM (("OccurredAt" AT TIME ZONE 'Europe/London')::date))::int AS m,
+                       COUNT(*)::int AS kills,
+                       SUM("TotalValue")::bigint AS val
+                FROM "LootRecords"
+                WHERE "GameCharacterId" = @cid AND "SourceName" = @source
+                GROUP BY 1, 2
+                ORDER BY y, m
+                """;
+
+            await using var cmd = connection.CreateCommand();
+            cmd.CommandText = sql;
+            cmd.Parameters.Add(new NpgsqlParameter("@cid", characterId));
+            cmd.Parameters.Add(new NpgsqlParameter("@source", sourceName));
+
+            var months = new List<SourceKillTrendMonth>();
+            await using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                months.Add(new SourceKillTrendMonth(
+                    reader.GetInt32(0),
+                    reader.GetInt32(1),
+                    reader.GetInt32(2),
+                    reader.IsDBNull(3) ? 0 : reader.GetInt64(3)));
+            }
+
+            return new SourceKillTrend(sourceName, months);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get source kill trend for character {CharacterId} at {Source}", characterId, sourceName);
+            throw new RepositoryException("Failed to get source kill trend", ex);
+        }
+    }
+
     public async Task<SourceCollection> GetSourceCollection(int characterId, string sourceName)
     {
         try
