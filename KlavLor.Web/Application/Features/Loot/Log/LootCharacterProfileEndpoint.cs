@@ -36,7 +36,8 @@ public sealed class LootCharacterProfileEndpoint : IEndpoint
             .AllowAnonymous();
 
         app.MapGet(AppRoutes.LootLogSourceKillTrend.FromApi(), GetSourceKillTrend)
-            .AllowAnonymous();
+            .AllowAnonymous()
+            .RequireRateLimiting("anonymous");
 
         app.MapGet(AppRoutes.LootLogCharacterFirsts.FromApi(), GetFirstTimeFeed)
             .AllowAnonymous()

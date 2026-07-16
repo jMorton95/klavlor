@@ -85,6 +85,38 @@ public sealed class FeedOrdinalAndOneOffTests(PostgresFixture fx)
         Assert.Equal(120, rareCard.MaxKillCount);
     }
 
+    // Part A3: the live-ingest path's session-bounds lookup (GetSessionBounds) — exercised here
+    // because in production it only runs while publishing freshly ingested kills, so a SQL
+    // regression would otherwise first surface as broken ingestion.
+    [Fact]
+    public async Task GetSessionBounds_describes_the_session_containing_the_kill()
+    {
+        await using var ctx = fx.CreateContext();
+        var (userId, charId) = await Seed.UserAndCharacter(ctx, "sessbounds");
+        var src = "SESS_Bounds_" + Guid.NewGuid().ToString("N")[..8];
+        var t = new DateTimeOffset(2026, 6, 1, 10, 0, 0, TimeSpan.Zero);
+        LootDrop drop = new("Bones", 1, 1, 5_000);
+
+        // Previous session: one kill 20h earlier (gap > 16h -> break before the current session).
+        Seed.AddKill(ctx, userId, charId, src, t.AddHours(-20), 90, [drop]);
+        // Current session: three kills an hour apart.
+        Seed.AddKill(ctx, userId, charId, src, t, 100, [drop]);
+        Seed.AddKill(ctx, userId, charId, src, t.AddHours(1), 105, [drop]);
+        Seed.AddKill(ctx, userId, charId, src, t.AddHours(2), 110, [drop]);
+        await ctx.SaveChangesAsync();
+
+        var repo = new LootRecordRepository(ctx, NullLogger<LootRecordRepository>.Instance);
+        var bounds = await repo.GetSessionBounds(
+            charId, src, t.AddHours(2),
+            LootFeedGrouping.MaxGap, LootFeedGrouping.SessionBreakGap);
+
+        Assert.NotNull(bounds);
+        Assert.Equal(100, bounds!.MinKillCount);   // session starts at the kill after the 20h break
+        Assert.Equal(110, bounds.MaxKillCount);
+        Assert.Equal(t, bounds.StartedAt);
+        Assert.Equal(2, bounds.FirstOrdinal);      // one earlier kill at this source
+    }
+
     // Part B: the character session-history list hides single-kill sessions worth under the floor,
     // but keeps multi-kill sessions and high-value one-offs, and leaves headline totals accurate.
     [Fact]
