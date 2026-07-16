@@ -1,4 +1,5 @@
 using KlavLor.Application.Common;
+using KlavLor.Application.Interfaces.Services;
 
 namespace KlavLor.Application.Features.Loot.Feed;
 
@@ -15,6 +16,18 @@ public static class LootFeedGrouping
     public static readonly TimeSpan SessionBreakGap = TimeSpan.FromHours(6);
     public static readonly TimeSpan PlayDayStart = TimeSpan.FromHours(6);
 
+    // Rare/Epic drops land far less often than Standard/Uncommon, so their feed cards use a
+    // multi-day merge window — a grind toward a 1M+ drop keeps accumulating on one card across
+    // days instead of fragmenting into near-empty cards. Feed-card grouping only; the SQL
+    // session/trend queries stay on MaxGap.
+    public static readonly TimeSpan WideMaxGap = TimeSpan.FromDays(3);
+
+    public static TimeSpan MergeWindowFor(LootFeedTier tier) => tier switch
+    {
+        LootFeedTier.Rare or LootFeedTier.Epic => WideMaxGap,
+        _ => MaxGap
+    };
+
     // A single-kill session worth less than this is a "true one-off" (e.g. one Hill Giant) and is
     // hidden from the character session-history list as noise; multi-kill sessions are always kept.
     // Mirrors the feed's 10k interesting-drop floor (ILootFeedService.GetDropTier).
@@ -28,10 +41,11 @@ public static class LootFeedGrouping
         if (head.GroupKey != next.GroupKey) return null;
 
         // Outer cap: the merged group's full span (earliest occurrence → latest) must fit inside
-        // MaxGap, so a marathon with no long break still can't exceed 16h on one card.
+        // the tier's window — 16h for Standard/Uncommon/Legendary, multi-day for Rare/Epic.
+        var window = MergeWindowFor(head.Tier);
         var start = head.GroupAnchorAt < next.OccurredAt ? head.GroupAnchorAt : next.OccurredAt;
         var end = head.OccurredAt > next.OccurredAt ? head.OccurredAt : next.OccurredAt;
-        if (end - start > MaxGap) return null;
+        if (end - start > window) return null;
 
         // Distance to the group's nearest edge (its latest occurrence for a newer entry, its anchor
         // for an older one) — the gap this kill bridges.
@@ -42,8 +56,10 @@ public static class LootFeedGrouping
             : (deltaFromAnchor, head.GroupAnchorAt);
 
         // Overnight-break split: a gap of at least SessionBreakGap that crosses into a different
-        // play-day starts a new session rather than merging.
-        if (nearest >= SessionBreakGap && PlayDayOf(next.OccurredAt) != PlayDayOf(nearestEdge))
+        // play-day starts a new session rather than merging. Skipped on the widened Rare/Epic
+        // window — it exists precisely so a card can span sleep breaks; splitting overnight
+        // would make the multi-day cap unreachable.
+        if (window == MaxGap && nearest >= SessionBreakGap && PlayDayOf(next.OccurredAt) != PlayDayOf(nearestEdge))
             return null;
 
         return nearest;
