@@ -9,7 +9,16 @@
     var inv = System.Globalization.CultureInfo.InvariantCulture;
 
     long peak = 0;
-    foreach (var p in Points) if (p.Value > peak) peak = p.Value;
+    var hasSecondary = false;
+    foreach (var p in Points)
+    {
+        if (p.Value > peak) peak = p.Value;
+        if (p.SecondaryValue is { } sv)
+        {
+            hasSecondary = true;
+            if (sv > peak) peak = sv;
+        }
+    }
     if (peak <= 0) peak = 1;
 
     var yTicks = new long[tickCount];
@@ -24,10 +33,16 @@
     double XPct(int i) => count <= 1 ? 50.0 : (i + 0.5) / count * 100.0;
 
     var line = new System.Text.StringBuilder();
+    var secondaryLine = new System.Text.StringBuilder();
     for (var i = 0; i < count; i++)
     {
         if (i > 0) line.Append(' ');
         line.Append(XPct(i).ToString("0.###", inv)).Append(',').Append(YPx(Points[i].Value).ToString("0.##", inv));
+        if (hasSecondary)
+        {
+            if (i > 0) secondaryLine.Append(' ');
+            secondaryLine.Append(XPct(i).ToString("0.###", inv)).Append(',').Append(YPx(Points[i].SecondaryValue ?? 0).ToString("0.##", inv));
+        }
     }
     var baseline = (valueLabelSpacePx + plotHeightPx).ToString(inv);
     var area = $"{XPct(0).ToString("0.###", inv)},{baseline} {line} {XPct(count - 1).ToString("0.###", inv)},{baseline}";
@@ -69,10 +84,16 @@
                 <polygon points="@area" fill="currentColor" opacity="0.12" />
                 <polyline points="@(line.ToString())" fill="none" stroke="currentColor" stroke-width="2"
                           vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round" />
+                @if (hasSecondary)
+                {
+                    <polyline class="text-emerald-500 dark:text-emerald-400" points="@(secondaryLine.ToString())"
+                              fill="none" stroke="currentColor" stroke-width="2"
+                              vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round" />
+                }
             </svg>
 
-            @* Hover layer: one full-height column per point with a guide line, a dot pinned to
-               the line's Y, and the tooltip. *@
+            @* Hover layer: one full-height column per point with a guide line, permanent per-month
+               data-point dots (HTML so the stretched SVG doesn't distort them), and the tooltip. *@
             <div class="absolute inset-0 flex">
                 @for (var i = 0; i < count; i++)
                 {
@@ -81,12 +102,23 @@
                     var anchor = TooltipAnchor(i, count);
                     <div class="relative flex-1 group">
                         <div class="hidden group-hover:block absolute inset-y-0 left-1/2 w-px bg-slate-400/40 dark:bg-slate-500/40 pointer-events-none"></div>
+                        <div class="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400 pointer-events-none"
+                             style="top: @(y.ToString("0.##", inv))px;"></div>
+                        @if (p.SecondaryValue is { } sv)
+                        {
+                            <div class="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 pointer-events-none"
+                                 style="top: @(YPx(sv).ToString("0.##", inv))px;"></div>
+                        }
                         <div class="hidden group-hover:block absolute left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-amber-500 dark:bg-amber-400 ring-2 ring-slate-50 dark:ring-slate-900 pointer-events-none"
                              style="top: @(y.ToString("0.##", inv))px;"></div>
                         <div class="hidden group-hover:block absolute z-20 @anchor pointer-events-none min-w-[11rem] max-w-[16rem] rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 shadow-lg p-2.5 text-left"
                              style="top: @((y - 10).ToString("0.##", inv))px; transform: translateY(-100%);">
                             <div class="text-xs font-semibold text-slate-900 dark:text-slate-100">@p.Title</div>
                             <div class="mt-1 text-sm font-semibold text-amber-600 dark:text-amber-400 tabular-nums">@p.ValueText</div>
+                            @if (!string.IsNullOrEmpty(p.SecondaryText))
+                            {
+                                <div class="mt-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 tabular-nums">@p.SecondaryText</div>
+                            }
                             @if (!string.IsNullOrEmpty(p.Detail))
                             {
                                 <div class="mt-0.5 text-[11px] text-slate-500 dark:text-white">@p.Detail</div>
@@ -103,13 +135,44 @@
                 <div class="flex-1 text-center text-[10px] text-slate-600 dark:text-slate-300 leading-tight whitespace-nowrap">@p.Label</div>
             }
         </div>
+
+        @if (hasSecondary && (!string.IsNullOrEmpty(PrimaryName) || !string.IsNullOrEmpty(SecondaryName)))
+        {
+            <div class="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-[10px]">
+                @if (!string.IsNullOrEmpty(PrimaryName))
+                {
+                    <span class="inline-flex items-center gap-1.5">
+                        <span class="inline-block w-2.5 h-2.5 rounded-sm bg-amber-500 dark:bg-amber-400"></span>
+                        <span class="text-slate-600 dark:text-slate-300">@PrimaryName</span>
+                    </span>
+                }
+                @if (!string.IsNullOrEmpty(SecondaryName))
+                {
+                    <span class="inline-flex items-center gap-1.5">
+                        <span class="inline-block w-2.5 h-2.5 rounded-sm bg-emerald-500 dark:bg-emerald-400"></span>
+                        <span class="text-slate-600 dark:text-slate-300">@SecondaryName</span>
+                    </span>
+                }
+            </div>
+        }
     </div>
 </div>
 
 @code {
-    public sealed record Point(string Label, long Value, string Title, string ValueText, string? Detail = null);
+    public sealed record Point(
+        string Label,
+        long Value,
+        string Title,
+        string ValueText,
+        string? Detail = null,
+        long? SecondaryValue = null,
+        string? SecondaryText = null);
 
     [Parameter] public required IReadOnlyList<Point> Points { get; set; }
     [Parameter] public Func<long, string>? FormatValue { get; set; }
     [Parameter] public int ChartHeightPx { get; set; } = 180;
+
+    // Legend names when a secondary series is present (two series always get a legend).
+    [Parameter] public string? PrimaryName { get; set; }
+    [Parameter] public string? SecondaryName { get; set; }
 }

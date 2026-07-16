@@ -20,7 +20,8 @@
         @if (_cumulative.Count >= 2)
         {
             <div class="mt-6 mb-1 text-xs font-medium text-slate-600 dark:text-slate-300">Cumulative kills</div>
-            <TrendLineChart Points="@_cumulative" FormatValue="@FormatCount" ChartHeightPx="180" />
+            <TrendLineChart Points="@_cumulative" FormatValue="@FormatCount" ChartHeightPx="180"
+                            PrimaryName="Cumulative kills" SecondaryName="Kills that month" />
         }
 
         <p class="text-xs text-slate-400 dark:text-white mt-3">
@@ -77,9 +78,9 @@
                 Value: running,
                 Title: $"{monthShort} {cursor.Year}",
                 ValueText: $"{running:N0} total kills",
-                Detail: kills > 0
-                    ? $"+{kills:N0} that month · {GoldFormat.Format(value)} gp"
-                    : "no kills that month"));
+                Detail: kills > 0 ? $"{GoldFormat.Format(value)} gp that month" : null,
+                SecondaryValue: kills,
+                SecondaryText: kills > 0 ? $"+{kills:N0} kills that month" : "no kills that month"));
             index++;
         }
     }
