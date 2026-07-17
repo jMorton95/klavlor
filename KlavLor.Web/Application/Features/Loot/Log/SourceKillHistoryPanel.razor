@@ -3,10 +3,10 @@
 @using KlavLor.Application.Features.Loot.Log
 @using KlavLor.Web.Application.Features.Loot.Log.Profile.Svg
 
-@* Kill history for one character at one source: monthly kill bars (short-term burstiness /
-   grind density) and a cumulative kill line (long-term progression — flat stretches are
-   months the character didn't touch the source). Loaded via its own HTMX request. *@
-@if (_bars.Count > 0 && _total > 0)
+@* Kill history for one character at one source: a cumulative kill line (long-term progression)
+   with a per-month kills series overlaid (short-term burstiness / grind density — flat stretches
+   are months the character didn't touch the source). Loaded via its own HTMX request. *@
+@if (_cumulative.Count >= 2 && _total > 0)
 {
     <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
         <div class="flex items-baseline justify-between gap-2 mb-4">
@@ -14,18 +14,11 @@
             <span class="text-xs text-slate-400 dark:text-white">all time at this source</span>
         </div>
 
-        <div class="mb-1 text-xs font-medium text-slate-600 dark:text-slate-300">Kills per month</div>
-        <HistogramBars Bars="@_bars" FormatValue="@FormatCount" ChartHeightPx="150" />
-
-        @if (_cumulative.Count >= 2)
-        {
-            <div class="mt-6 mb-1 text-xs font-medium text-slate-600 dark:text-slate-300">Cumulative kills</div>
-            <TrendLineChart Points="@_cumulative" FormatValue="@FormatCount" ChartHeightPx="180"
-                            PrimaryName="Cumulative kills" SecondaryName="Kills that month" />
-        }
+        <TrendLineChart Points="@_cumulative" FormatValue="@FormatCount" ChartHeightPx="180"
+                        PrimaryName="Cumulative kills" SecondaryName="Kills that month" />
 
         <p class="text-xs text-slate-400 dark:text-white mt-3">
-            @_total.ToString("N0") logged kills over @_bars.Count months — bars show how bursty the grind is; flat stretches on the line are idle months.
+            @_total.ToString("N0") logged kills over @_cumulative.Count months — the line tracks cumulative progress; the per-month series shows how bursty the grind is (flat stretches are idle months).
         </p>
     </div>
 }
@@ -33,18 +26,16 @@
 @code {
     [Parameter] public required SourceKillTrend Trend { get; set; }
 
-    private List<HistogramBars.Bar> _bars = [];
     private List<TrendLineChart.Point> _cumulative = [];
     private long _total;
 
     protected override void OnParametersSet()
     {
-        _bars = [];
         _cumulative = [];
         _total = Trend.Months.Sum(m => (long)m.Kills);
         if (Trend.Months.Count == 0 || _total == 0) return;
 
-        // Densify: idle months render as zero bars / flat line segments rather than being skipped.
+        // Densify: idle months render as flat line segments rather than being skipped.
         var byMonth = Trend.Months.ToDictionary(m => (m.Year, m.Month));
         var first = new DateOnly(Trend.Months[0].Year, Trend.Months[0].Month, 1);
         var last = new DateOnly(Trend.Months[^1].Year, Trend.Months[^1].Month, 1);
@@ -67,11 +58,6 @@
                 ? $"{monthShort} '{(cursor.Year % 100):D2}"
                 : totalMonths <= 14 ? monthShort : "";
             lastYearLabelled = cursor.Year;
-
-            _bars.Add(new HistogramBars.Bar(
-                Label: label,
-                Value: kills,
-                Tooltip: $"{monthShort} {cursor.Year} — {kills:N0} kills · {GoldFormat.Format(value)} gp"));
 
             _cumulative.Add(new TrendLineChart.Point(
                 Label: label,
