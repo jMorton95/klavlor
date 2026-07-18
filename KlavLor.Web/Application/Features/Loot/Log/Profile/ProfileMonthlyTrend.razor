@@ -56,7 +56,7 @@
     }
     else
     {
-        <HistogramBars Bars="@_bars" FormatValue="@(v => GoldFormat.Format(v))" ChartHeightPx="@(Expanded ? 810 : 270)" ShowInlineLabels="true" />
+        <HistogramBars Bars="@_bars" FormatValue="@(v => GoldFormat.Format(v))" ChartHeightPx="@(Expanded ? 810 : 270)" ShowInlineLabels="true" MinSegmentPx="@(Expanded ? 16 : 4)" MaxSegmentFraction="@(Expanded ? (double?)0.25 : null)" />
 
         @if (_legend.Count > 0)
         {

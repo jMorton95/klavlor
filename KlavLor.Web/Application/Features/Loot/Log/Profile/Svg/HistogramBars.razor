@@ -3,7 +3,6 @@
     const int valueLabelSpacePx = 14;
     var plotHeightPx = chartHeightPx - valueLabelSpacePx;
     const int tickCount = 5;
-    const double minSegmentPx = 4.0;  // smallest hoverable slice
 
     var count = Bars.Count;
 
@@ -33,20 +32,57 @@
         return "left-1/2 -translate-x-1/2";
     }
 
-    // Distribute segment pixel heights with a per-segment minimum. If the minimums
-    // overflow the bar (small bar + many segments), scale all segments down so the
-    // total exactly matches the bar height — keeps each visible but proportional.
-    static double[] LayoutSegments(IReadOnlyList<BarSegment> segs, long barValue, int barPx)
+    // Distribute segment pixel heights across the bar.
+    //
+    // maxFraction (expanded view only) caps how much of the bar a single slice may
+    // occupy: a colossal outlier drop — say a 1.3B twisted bow that is 95% of the
+    // month — is frozen at the cap and its excess height spread across the remaining
+    // slices by value, so ordinary entries stay visible instead of being crushed to
+    // a sliver. The slice's true value and % are unchanged and still shown in its
+    // label and tooltip, so the outlier's real impact is never hidden. Water-fill,
+    // because redistributing can push another slice over the cap. Skipped when the
+    // bar has too few slices to absorb the excess (n * cap < barPx → underfill).
+    //
+    // minSeg then floors tiny slices so their icon shows; if the floors overflow the
+    // bar (small bar + many slices) everything scales down to fit, keeping each
+    // visible but proportional.
+    static double[] LayoutSegments(IReadOnlyList<BarSegment> segs, long barValue, int barPx, double minSeg, double? maxFraction)
     {
         var n = segs.Count;
         var px = new double[n];
         if (n == 0 || barValue <= 0 || barPx <= 0) return px;
 
+        // Proportional heights.
         for (var i = 0; i < n; i++)
+            px[i] = (double)segs[i].Value / barValue * barPx;
+
+        // Cap + redistribute.
+        if (maxFraction is > 0 and < 1 && n * maxFraction.Value >= 1)
         {
-            var raw = (double)segs[i].Value / barValue * barPx;
-            px[i] = Math.Max(minSegmentPx, raw);
+            var cap = maxFraction.Value * barPx;
+            var frozen = new bool[n];
+            while (true)
+            {
+                var j = -1;
+                var maxOver = cap;
+                for (var i = 0; i < n; i++)
+                    if (!frozen[i] && px[i] > maxOver) { maxOver = px[i]; j = i; }
+                if (j < 0) break;
+
+                var excess = px[j] - cap;
+                px[j] = cap;
+                frozen[j] = true;
+
+                var sumFree = 0d;
+                for (var i = 0; i < n; i++) if (!frozen[i]) sumFree += px[i];
+                if (sumFree <= 0) { px[j] += excess; break; }  // nothing left to absorb it
+                for (var i = 0; i < n; i++)
+                    if (!frozen[i]) px[i] += excess * (px[i] / sumFree);
+            }
         }
+
+        // Floor tiny slices, then scale back to fit if the floors overflowed.
+        for (var i = 0; i < n; i++) px[i] = Math.Max(minSeg, px[i]);
         var total = 0d;
         for (var i = 0; i < n; i++) total += px[i];
         if (total > barPx)
@@ -97,7 +133,7 @@
                         }
                         @if (bar.Segments is { Count: > 0 })
                         {
-                            var px = LayoutSegments(bar.Segments, bar.Value, barPx);
+                            var px = LayoutSegments(bar.Segments, bar.Value, barPx, MinSegmentPx, MaxSegmentFraction);
                             @* No overflow-hidden on the stack: custom tooltips escape the bounds.
                                flex-col-reverse stacks bottom-up; rounded-t goes on the topmost. *@
                             <div class="w-full flex flex-col-reverse" style="height: @(barPx)px;">
@@ -225,19 +261,46 @@
     // so large blocks are identifiable without hovering.
     [Parameter] public bool ShowInlineLabels { get; set; }
 
-    // Icon + name centred inside a segment block. pointer-events-none keeps hover on
-    // the segment itself (tooltips keep working); white text with a dark shadow stays
-    // readable on every palette shade.
+    // Smallest slice height. The expanded chart raises this so every segment clears
+    // the icon threshold below; the compact chart keeps a tiny hoverable floor.
+    [Parameter] public double MinSegmentPx { get; set; } = 4.0;
+
+    // When set (0..1), no single slice may exceed this fraction of the bar's height;
+    // the overflow is redistributed to the other slices so an outlier can't hide them.
+    // Null (compact/standard view) leaves slices strictly proportional.
+    [Parameter] public double? MaxSegmentFraction { get; set; }
+
+    // Height tiers for what fits inside a segment block without hovering.
+    private const double InlineIconMinPx = 16;    // icon + item name
+    private const double InlineValueMinPx = 32;   // + this record's value
+    private const double InlineSourceMinPx = 48;  // + the source name
+
+    // Icon + name (+ value + source, as height allows) centred inside a segment block.
+    // pointer-events-none keeps hover on the segment itself (tooltips keep working);
+    // white text with a dark shadow stays readable on every palette shade.
     private RenderFragment InlineLabel(BarSegment seg, double segPx) => __builder =>
     {
-        if (!ShowInlineLabels || segPx < 14 || string.IsNullOrEmpty(seg.ItemName)) return;
+        if (!ShowInlineLabels || segPx < InlineIconMinPx || string.IsNullOrEmpty(seg.ItemName)) return;
 
-        <div class="absolute inset-0 flex items-center justify-center gap-1 px-1 pointer-events-none overflow-hidden">
-            @if (!string.IsNullOrEmpty(seg.IconUrl))
+        var showValue = segPx >= InlineValueMinPx && !string.IsNullOrEmpty(seg.ValueText);
+        var showSource = segPx >= InlineSourceMinPx && !string.IsNullOrEmpty(seg.SourceName);
+
+        <div class="absolute inset-0 flex flex-col items-center justify-center gap-0.5 px-1 pointer-events-none overflow-hidden text-white text-center [text-shadow:0_1px_2px_rgba(0,0,0,0.6)]">
+            <span class="flex items-center gap-1 max-w-full">
+                @if (!string.IsNullOrEmpty(seg.IconUrl))
+                {
+                    <img src="@seg.IconUrl" alt="" class="w-3 h-3 shrink-0" loading="lazy" onerror="this.style.display='none'" />
+                }
+                <span class="text-[9px] font-medium leading-none truncate">@seg.ItemName</span>
+            </span>
+            @if (showSource)
             {
-                <img src="@seg.IconUrl" alt="" class="w-3 h-3 shrink-0" loading="lazy" onerror="this.style.display='none'" />
+                <span class="text-[8px] leading-none truncate max-w-full opacity-80">@seg.SourceName</span>
             }
-            <span class="text-[9px] font-medium leading-none text-white truncate [text-shadow:0_1px_2px_rgba(0,0,0,0.55)]">@seg.ItemName</span>
+            @if (showValue)
+            {
+                <span class="text-[9px] font-semibold leading-none tabular-nums truncate max-w-full">@seg.ValueText</span>
+            }
         </div>
     };
 }
