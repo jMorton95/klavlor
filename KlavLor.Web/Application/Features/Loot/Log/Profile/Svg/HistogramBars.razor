@@ -270,8 +270,12 @@
     // Null (compact/standard view) leaves slices strictly proportional.
     [Parameter] public double? MaxSegmentFraction { get; set; }
 
-    // Height tiers for what fits inside a segment block without hovering.
-    private const double InlineIconMinPx = 16;    // icon + item name
+    // Height tiers for what fits inside a segment block without hovering. The icon
+    // threshold sits below MinSegmentPx (the floored height) on purpose: when a short
+    // bar's floors overflow and every slice is scaled down a touch, a floored slice
+    // dips just under its floor — a threshold equal to the floor would then wrongly
+    // hide its icon. 12px is the icon's own height, so anything floored still shows it.
+    private const double InlineIconMinPx = 12;    // icon + item name
     private const double InlineValueMinPx = 32;   // + this record's value
     private const double InlineSourceMinPx = 48;  // + the source name
 
