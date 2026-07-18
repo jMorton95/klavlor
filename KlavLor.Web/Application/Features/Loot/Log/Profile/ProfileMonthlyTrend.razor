@@ -33,7 +33,7 @@
                     hx-get="@GetTrendUrl(Trend.Range, !Expanded)"
                     hx-target="closest div.bg-slate-50"
                     hx-swap="outerHTML"
-                    title="@(Expanded ? "Collapse to the compact chart" : $"Expand: a taller chart naming the top {ExpandedTopN} items")"
+                    title="@(Expanded ? "Collapse to the compact chart" : $"Expand: every month at equal height for a per-item breakdown, naming the top {ExpandedTopN} items")"
                     class="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700 text-[11px] @(Expanded ? "bg-amber-500 text-white" : "bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300")">
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
                     @if (Expanded)
@@ -56,7 +56,7 @@
     }
     else
     {
-        <HistogramBars Bars="@_bars" FormatValue="@(v => GoldFormat.Format(v))" ChartHeightPx="@(Expanded ? 810 : 270)" ShowInlineLabels="true" MinSegmentPx="@(Expanded ? 16 : 4)" MaxSegmentFraction="@(Expanded ? (double?)0.25 : null)" />
+        <HistogramBars Bars="@_bars" FormatValue="@(v => GoldFormat.Format(v))" ChartHeightPx="@(Expanded ? 810 : 270)" ShowInlineLabels="true" MinSegmentPx="@(Expanded ? 16 : 4)" MaxSegmentFraction="@(Expanded ? (double?)0.25 : null)" Normalize="@Expanded" />
 
         @if (_legend.Count > 0)
         {

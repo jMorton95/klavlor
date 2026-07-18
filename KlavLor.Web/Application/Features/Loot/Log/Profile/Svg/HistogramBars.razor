@@ -101,7 +101,7 @@
         {
             var pos = valueLabelSpacePx + plotHeightPx * i / (tickCount - 1);
             <div class="absolute right-0 -translate-y-1/2 whitespace-nowrap" style="top: @(pos)px;">
-                @(yTicks[i] == 0 ? "0" : Format(yTicks[i]))
+                @(Normalize ? $"{100 - 100 * i / (tickCount - 1)}%" : (yTicks[i] == 0 ? "0" : Format(yTicks[i])))
             </div>
         }
     </div>
@@ -121,7 +121,13 @@
                     var bar = Bars[bi];
                     var tooltipAnchor = TooltipAnchor(bi, count);
                     var ratio = (double)bar.Value / peak;
-                    var barPx = bar.Value > 0 ? Math.Max(2, (int)Math.Round(ratio * plotHeightPx)) : 0;
+                    // Normalized: every active month fills the plot so its internal
+                    // breakdown is legible regardless of how it compares to a colossal
+                    // outlier month. Proportional: bar height tracks the month's total.
+                    // The true total is still printed above each bar either way.
+                    var barPx = bar.Value > 0
+                        ? (Normalize ? plotHeightPx : Math.Max(2, (int)Math.Round(ratio * plotHeightPx)))
+                        : 0;
                     var defaultFill = bar.FillClass ?? "bg-amber-500 dark:bg-amber-400";
 
                     <div class="flex-1 flex flex-col items-center justify-end h-full">
@@ -269,6 +275,12 @@
     // the overflow is redistributed to the other slices so an outlier can't hide them.
     // Null (compact/standard view) leaves slices strictly proportional.
     [Parameter] public double? MaxSegmentFraction { get; set; }
+
+    // Normalize every active bar to the full plot height (a 100%-stacked view) instead
+    // of scaling bar height by the month's total. Used in the expanded view so a single
+    // outlier month can't dwarf the rest into an unreadable breakdown; the Y-axis then
+    // reads as a percentage and each bar still prints its true total above it.
+    [Parameter] public bool Normalize { get; set; }
 
     // Height tiers for what fits inside a segment block without hovering. The icon
     // threshold sits below MinSegmentPx (the floored height) on purpose: when a short
