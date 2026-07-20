@@ -1,0 +1,40 @@
+@using KlavLor.Domain.Entities
+
+@if (Rows.Count == 0)
+{
+    <p class="text-sm text-slate-500 dark:text-white py-4">
+        No entries yet — the leaderboard rebuilds hourly. Check back shortly.
+    </p>
+}
+else
+{
+    <ol class="space-y-1">
+        @{ var rank = 1; }
+        @foreach (var r in Rows)
+        {
+            var isSpoon = Board == LeaderboardBoard.Spoon;
+            <li class="flex items-center gap-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2">
+                <span class="w-6 shrink-0 text-center text-sm font-semibold tabular-nums text-slate-400 dark:text-white">@(rank++)</span>
+                <img src="/api/images/item-icon?name=@Uri.EscapeDataString(r.ItemName)" alt="@r.ItemName"
+                     class="w-6 h-6 shrink-0" loading="lazy" onerror="this.style.display='none'" />
+                <span class="min-w-0 flex-1">
+                    <span class="block text-sm font-medium text-slate-800 dark:text-slate-100 truncate">@r.ItemName</span>
+                    <span class="block text-xs text-slate-500 dark:text-white truncate">@r.CharacterName · @r.SourceName</span>
+                </span>
+                <span class="shrink-0 text-right">
+                    <span class="block text-sm font-semibold tabular-nums @(isSpoon ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400")">
+                        @r.Multiple.ToString("N1")× @(isSpoon ? "faster" : "dry")@(!isSpoon && !r.Obtained ? " (ongoing)" : "")
+                    </span>
+                    <span class="block text-[11px] text-slate-400 dark:text-white tabular-nums">
+                        @r.ObservedKc.ToString("N0") KC vs @Math.Round(r.ExpectedKc).ToString("N0") expected
+                    </span>
+                </span>
+            </li>
+        }
+    </ol>
+}
+
+@code {
+    [Parameter] public required IReadOnlyList<LuckLeaderboardEntry> Rows { get; set; }
+    [Parameter] public LeaderboardBoard Board { get; set; }
+}

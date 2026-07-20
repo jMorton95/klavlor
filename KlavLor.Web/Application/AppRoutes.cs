@@ -96,6 +96,8 @@ public static class AppRoutes
     public const string LootFeedLeaguesStreamLegendary = "/loot/feed/leagues/stream/legendary";
     public const string LootFeedSourcePopover = "/loot/feed/source-popover/{id:int}";
     public const string LootLog = "/loot/log";
+    public const string LootLeaderboard = "/loot/leaderboard";
+    public const string LootLeaderboardResults = "/loot/leaderboard/results";
     public const string LootLogCharacter = "/loot/log/{id:int}";
     public const string LootLogSource = "/loot/log/{id:int}/source";
 

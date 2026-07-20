@@ -31,6 +31,8 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
     public virtual DbSet<DropRate> DropRates => Set<DropRate>();
     public virtual DbSet<DropRateMiss> DropRateMisses => Set<DropRateMiss>();
     public virtual DbSet<SystemSettings> SystemSettings => Set<SystemSettings>();
+    public virtual DbSet<LuckLeaderboardEntry> LuckLeaderboardEntries => Set<LuckLeaderboardEntry>();
+    public virtual DbSet<LuckLeaderboardMeta> LuckLeaderboardMeta => Set<LuckLeaderboardMeta>();
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -413,6 +415,15 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
         modelBuilder.Entity<ApiKey>()
             .Property(k => k.LastUsedAt)
             .HasColumnType("timestamp with time zone");
+
+        // LuckLeaderboard configuration (precomputed hourly; Board stored as text).
+        modelBuilder.Entity<LuckLeaderboardEntry>()
+            .Property(e => e.Board)
+            .HasConversion<string>();
+
+        // Backs the board query: filter by (Generation, Board) then order by Tier desc.
+        modelBuilder.Entity<LuckLeaderboardEntry>()
+            .HasIndex(e => new { e.Generation, e.Board, e.Tier });
 
         // Entity base class configuration (timestamps and row versions)
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
