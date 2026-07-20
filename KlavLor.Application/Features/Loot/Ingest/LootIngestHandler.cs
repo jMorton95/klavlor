@@ -5,6 +5,7 @@ using KlavLor.Application.Common;
 using KlavLor.Application.Features.Drop;
 using KlavLor.Application.Features.Loot.Feed;
 using KlavLor.Application.Features.Loot.Log;
+using KlavLor.Application.Features.Loot.SourceModels;
 using KlavLor.Application.Features.Progression;
 using KlavLor.Application.Features.Source;
 using KlavLor.Application.Interfaces.Authentication;
@@ -24,7 +25,8 @@ public sealed class LootIngestHandler(
     IUserRepository userRepository,
     ICollectionLogCache collectionLogCache,
     IMemoryCache memoryCache,
-    ProgressionAutoCompletionHandler progressionAutoCompleter)
+    ProgressionAutoCompletionHandler progressionAutoCompleter,
+    SourceLootService sourceLoot)
 {
     private static readonly string[] DateFormats =
     [
@@ -50,6 +52,7 @@ public sealed class LootIngestHandler(
         if (parsed is null)
             return Result.Failure("Failed to parse loot data.");
 
+        ApplyEffectiveKills(parsed);
         var (record, drops) = parsed;
 
         if (record.ContentHash is not null)
@@ -124,7 +127,10 @@ public sealed class LootIngestHandler(
 
             var parsed = MapToLootRecord(command, userId.Value, character?.Id);
             if (parsed is not null)
+            {
+                ApplyEffectiveKills(parsed);
                 parsedItems.Add((parsed, character));
+            }
         }
 
         if (parsedItems.Count == 0)
@@ -386,6 +392,20 @@ public sealed class LootIngestHandler(
         };
 
         return new ParsedRecord(record, drops);
+    }
+
+    // Compute the per-source derived metric (e.g. Doom's delve depth) through the strategy
+    // facade and stash it on the record. Ordinary sources have no special strategy, so this
+    // leaves EffectiveKills null (implicitly one roll per kill). Uses the parsed drops, which
+    // already carry the names/quantities the strategy needs (independent of IsFirstTime).
+    private void ApplyEffectiveKills(ParsedRecord parsed)
+    {
+        var source = parsed.Record.SourceName;
+        if (!sourceLoot.HasSpecialModel(source)) return;
+
+        var claim = parsed.Drops.Select(d => new ClaimDrop(d.Name, d.Quantity)).ToList();
+        parsed.Record.EffectiveKills = sourceLoot.EffectiveKills(source, claim);
+        parsed.Record.EffectiveKillsVersion = SourceLootService.DerivationVersion;
     }
 
     private sealed record ParsedRecord(LootRecord Record, List<LootDrop> Drops);

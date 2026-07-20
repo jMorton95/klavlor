@@ -3,6 +3,7 @@ using System;
 using KlavLor.Infrastructure.Persistence.EntityFramework;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace KlavLor.Infrastructure.Persistence.EntityFramework.Migrations
 {
     [DbContext(typeof(DataContext))]
-    partial class DataContextModelSnapshot : ModelSnapshot
+    [Migration("20260720142056_AddLootRecordEffectiveKills")]
+    partial class AddLootRecordEffectiveKills
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -627,9 +630,6 @@ namespace KlavLor.Infrastructure.Persistence.EntityFramework.Migrations
                         .HasColumnType("jsonb");
 
                     b.Property<int?>("EffectiveKills")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("EffectiveKillsVersion")
                         .HasColumnType("integer");
 
                     b.Property<int?>("GameCharacterId")

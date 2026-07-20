@@ -1,4 +1,5 @@
 using KlavLor.Application.Features.Loot.Log;
+using KlavLor.Application.Features.Loot.SourceModels;
 using KlavLor.Application.Interfaces.Repositories;
 using KlavLor.Domain.Entities;
 using KlavLor.Domain.Interfaces.Repositories;
@@ -19,14 +20,6 @@ public sealed class LuckLeaderboardRefreshService(
 {
     // Must be at least this many multiples off the expected kill count to make a board.
     private const double MinMultiple = 2.0;
-
-    // Sources whose real drop odds don't follow our flat one-roll-per-kill model, so their
-    // luck maths would be wildly wrong (Doom of Mokhaiotl rolls per delve level, not per
-    // claim — a deep run reads as an impossible spoon). Excluded until the per-source roll
-    // model lands; see the doom-and-source-roll-model design note. Names are matched against
-    // LootRecord.SourceName; adjust once the real RuneLite name for the boss is confirmed.
-    private static readonly HashSet<string> ExcludedSources =
-        new(StringComparer.OrdinalIgnoreCase) { "Doom of Mokhaiotl" };
 
     private readonly SemaphoreSlim _gate = new(1, 1);
 
@@ -66,6 +59,7 @@ public sealed class LuckLeaderboardRefreshService(
             using var scope = scopeFactory.CreateScope();
             var lootLog = scope.ServiceProvider.GetRequiredService<ILootLogRepository>();
             var board = scope.ServiceProvider.GetRequiredService<ILuckLeaderboardRepository>();
+            var sourceLoot = scope.ServiceProvider.GetRequiredService<SourceLootService>();
 
             var generation = await board.NextGeneration();
             var characters = await board.GetVisibleCharacters();
@@ -79,7 +73,11 @@ public sealed class LuckLeaderboardRefreshService(
                 foreach (var source in sources)
                 {
                     if (ct.IsCancellationRequested) break;
-                    if (ExcludedSources.Contains(source)) continue;
+
+                    // Sources with a dedicated strategy (e.g. Doom of Mokhaiotl) don't follow the
+                    // flat one-roll-per-kill maths this board assumes, so their luck would be wildly
+                    // wrong. Skip them until the board is wired to compute luck through the strategy.
+                    if (sourceLoot.HasSpecialModel(source)) continue;
 
                     var collection = await lootLog.GetSourceCollection(charId, source);
                     var entries = BuildEntries(generation, charId, charName, source, collection);

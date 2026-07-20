@@ -61,6 +61,7 @@ builder.Services.AddHostedService<CachedImageReprocessService>();
 builder.Services.AddHostedService<CollectionLogSyncService>();
 builder.Services.AddHostedService<DropRateSyncService>();
 builder.Services.AddHostedService<LuckLeaderboardRefreshService>();
+builder.Services.AddHostedService<LootDerivationBackfillService>();
 
 builder.Services.AddRateLimiter(options =>
 {
