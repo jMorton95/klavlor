@@ -45,6 +45,14 @@ public sealed class DropRateAdminHandler(IDropRateRepository repository, IDropRa
 
     public async Task<DropRateSourceRow> Sync(string sourceName)
     {
+        var (row, _) = await SyncWithOutcome(sourceName);
+        return row;
+    }
+
+    // Like Sync, but also returns the raw outcome so the bulk resync can tally
+    // stored / no-data / failed counts as it walks the backlog.
+    public async Task<(DropRateSourceRow Row, DropRateSyncOutcome Outcome)> SyncWithOutcome(string sourceName)
+    {
         var result = await runner.SyncSource(sourceName);
         var note = result.Outcome switch
         {
@@ -52,7 +60,23 @@ public sealed class DropRateAdminHandler(IDropRateRepository repository, IDropRa
             DropRateSyncOutcome.NoData => "No drop-rate data found on the wiki",
             _ => "Could not reach the wiki — existing rates kept, will retry"
         };
-        return new DropRateSourceRow(sourceName, result.RatesStored, note);
+        return (new DropRateSourceRow(sourceName, result.RatesStored, note), result.Outcome);
+    }
+
+    // Every source that has loot but no stored drop rates, ordered so the bulk
+    // resync walks them alphabetically. When includeNoData is true the sources we
+    // previously flagged as having no wiki data are re-checked as well (they are the
+    // ones a fresh fetch is most likely to now rescue).
+    public async Task<List<string>> GetResyncBacklog(bool includeNoData)
+    {
+        var known = await repository.GetKnownSourceNames();
+        var counts = await repository.GetRateCountsBySource();
+        var noData = (await repository.GetNoWikiDataSources()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return known
+            .Where(s => (!counts.TryGetValue(s, out var c) || c == 0) && (includeNoData || !noData.Contains(s)))
+            .OrderBy(s => s, StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     public const int MissingLimit = 100;

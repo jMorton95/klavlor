@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using KlavLor.Application.Features.CollectionLog;
 using KlavLor.Application.Features.DropRates;
@@ -39,6 +40,21 @@ public sealed class AdminSettingsEndpoint : IEndpoint
         app.MapPost(AppRoutes.AdminDropRatesSync.FromApi(), SyncDropRates)
             .RequireAuthorization(nameof(RoleName.Admin))
             .RequireRateLimiting("mutation");
+
+        // Bulk resync kick-off — reads a checkbox from the form, so antiforgery is
+        // disabled (admin-gated, SameSite=Strict cookie, same as the rename endpoint).
+        app.MapPost(AppRoutes.AdminDropRatesResyncStart.FromApi(), StartResync)
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("mutation")
+            .DisableAntiforgery();
+
+        // One source per call, chained from the browser. Uses "position" (300/min per
+        // user) rather than "mutation" (60/min): the chain is strictly sequential and
+        // admin-only, but a large backlog would blow past 60/min and stall mid-run.
+        app.MapPost(AppRoutes.AdminDropRatesResyncStep.FromApi(), StepResync)
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("position")
+            .DisableAntiforgery();
 
         app.MapGet(AppRoutes.AdminDropRatesMismatches.FromApi(), GetDropRateMismatches)
             .RequireAuthorization(nameof(RoleName.Admin));
@@ -134,6 +150,65 @@ public sealed class AdminSettingsEndpoint : IEndpoint
     {
         var row = await handler.Sync(source);
         return IResultExtensions.Component<DropRateRow>(new { Item = row });
+    }
+
+    private static async Task<RazorComponentResult> StartResync(
+        // Unchecked checkbox submits nothing, so bind nullable → false rather than 400.
+        [FromForm] bool? includeNoData,
+        DropRateAdminHandler handler)
+    {
+        var sources = await handler.GetResyncBacklog(includeNoData ?? false);
+        return IResultExtensions.Component<DropRateResyncPanel>(new
+        {
+            Sources = sources,
+            IncludeNoData = includeNoData ?? false
+        });
+    }
+
+    private static async Task<RazorComponentResult> StepResync(
+        [FromForm] string queue,
+        [FromForm] int stored,
+        [FromForm] int noData,
+        [FromForm] int failed,
+        [FromForm] int total,
+        DropRateAdminHandler handler)
+    {
+        var pending = JsonSerializer.Deserialize<List<string>>(queue) ?? [];
+        if (pending.Count == 0)
+        {
+            // Defensive — the chain stops itself when the queue empties, so this only
+            // fires on a tampered/replayed request. Emit the summary and stop.
+            return IResultExtensions.Component<DropRateResyncStep>(new
+            {
+                Completed = new DropRateSourceRow(string.Empty, 0, null),
+                Remaining = (IReadOnlyList<string>)Array.Empty<string>(),
+                Stored = stored,
+                NoData = noData,
+                Failed = failed,
+                Total = total
+            });
+        }
+
+        var head = pending[0];
+        var remaining = pending.GetRange(1, pending.Count - 1);
+        var (row, outcome) = await handler.SyncWithOutcome(head);
+
+        switch (outcome)
+        {
+            case DropRateSyncOutcome.Synced: stored++; break;
+            case DropRateSyncOutcome.NoData: noData++; break;
+            default: failed++; break;
+        }
+
+        return IResultExtensions.Component<DropRateResyncStep>(new
+        {
+            Completed = row,
+            Remaining = (IReadOnlyList<string>)remaining,
+            Stored = stored,
+            NoData = noData,
+            Failed = failed,
+            Total = total
+        });
     }
 
     private static async Task<RazorComponentResult> GetDropRateMismatches(DropRateAdminHandler handler)

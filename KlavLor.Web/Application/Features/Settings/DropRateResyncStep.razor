@@ -1,0 +1,33 @@
+@using KlavLor.Application.Features.DropRates
+
+@* One completed source's result row, followed by either the next driver (chain
+   continues) or a final summary (queue exhausted). This whole fragment replaces the
+   previous driver, so the row stays on the page and the new driver keeps the chain
+   going. *@
+@if (!string.IsNullOrEmpty(Completed.SourceName))
+{
+    <DropRateRow Item="@Completed" />
+}
+
+@if (Remaining.Count > 0)
+{
+    <DropRateResyncDriver Queue="@Remaining" Stored="@Stored" NoData="@NoData" Failed="@Failed" Total="@Total" />
+}
+else
+{
+    <div class="drate-resync-summary mt-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-3 py-2 text-sm">
+        <span class="font-medium text-slate-700 dark:text-slate-100">Resync complete.</span>
+        <span class="text-slate-500 dark:text-white">
+            Processed @Total source@(Total == 1 ? "" : "s") — @Stored stored, @NoData with no wiki data, @Failed failed.
+        </span>
+    </div>
+}
+
+@code {
+    [Parameter] public required DropRateSourceRow Completed { get; set; }
+    [Parameter] public required IReadOnlyList<string> Remaining { get; set; }
+    [Parameter] public int Stored { get; set; }
+    [Parameter] public int NoData { get; set; }
+    [Parameter] public int Failed { get; set; }
+    [Parameter] public int Total { get; set; }
+}

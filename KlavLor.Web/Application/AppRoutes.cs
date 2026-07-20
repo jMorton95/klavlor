@@ -160,6 +160,10 @@ public static class AppRoutes
     public const string AdminClogInclude = "/admin/settings/collection-log/include";
     public const string AdminDropRatesSearch = "/admin/settings/drop-rates/search";
     public const string AdminDropRatesSync = "/admin/settings/drop-rates/sync";
+    // Self-chaining bulk resync: start computes the backlog, step syncs one source
+    // and returns the driver for the next.
+    public const string AdminDropRatesResyncStart = "/admin/settings/drop-rates/resync/start";
+    public const string AdminDropRatesResyncStep = "/admin/settings/drop-rates/resync/step";
     public const string AdminDropRatesMismatches = "/admin/settings/drop-rates/mismatches";
     public const string AdminIcons = "/admin/settings/icons";
     public const string AdminIconsRetry = "/admin/settings/icons/retry";

@@ -1,0 +1,24 @@
+@* Kicks off the bulk resync. Renders the queued-count header and the first driver,
+   which then chains through every source on its own. Empty backlog → nothing to do. *@
+<div class="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950/40 p-3">
+    @if (Sources.Count == 0)
+    {
+        <p class="text-sm text-slate-500 dark:text-white">
+            Nothing to resync — every source with loot already has stored drop rates@(IncludeNoData ? "" : " (tick the box below to also re-check sources marked “no wiki data”)").
+        </p>
+    }
+    else
+    {
+        <p class="text-sm font-medium text-slate-700 dark:text-slate-100 mb-2">
+            Resyncing @Sources.Count source@(Sources.Count == 1 ? "" : "s") from the wiki, one at a time…
+        </p>
+        <div class="space-y-1">
+            <DropRateResyncDriver Queue="@Sources" Stored="0" NoData="0" Failed="0" Total="@Sources.Count" />
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public required List<string> Sources { get; set; }
+    [Parameter] public bool IncludeNoData { get; set; }
+}
