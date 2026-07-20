@@ -20,8 +20,10 @@ public sealed class LuckLeaderboardEndpoint : IEndpoint
             .RequireRateLimiting("anonymous");
     }
 
+    // Serves the content for in-app HTMX navigation; the HtmxNavigationFilter wraps it in the
+    // full shell for a non-HTMX request. Direct browser loads hit the routable LuckLeaderboardPage.
     private static RazorComponentResult GetPage()
-        => IResultExtensions.Component<LuckLeaderboardPage>();
+        => IResultExtensions.Component<LuckLeaderboardContent>();
 
     private static async Task<RazorComponentResult> GetResults(
         [FromQuery] LeaderboardBoard? board,
