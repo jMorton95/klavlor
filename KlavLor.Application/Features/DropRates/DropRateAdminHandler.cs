@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using KlavLor.Application.Interfaces.Services;
 using KlavLor.Domain.Interfaces.Repositories;
 
@@ -5,7 +6,10 @@ namespace KlavLor.Application.Features.DropRates;
 
 // Backs the admin "drop rates" panel: lists sources missing rates (or matching a search)
 // and runs an on-demand wiki fetch for a chosen source.
-public sealed class DropRateAdminHandler(IDropRateRepository repository, IDropRateSyncRunner runner)
+public sealed class DropRateAdminHandler(
+    IDropRateRepository repository,
+    IDropRateSyncRunner runner,
+    ILogger<DropRateAdminHandler> logger)
 {
     public const int SearchLimit = 40;
 
@@ -51,16 +55,30 @@ public sealed class DropRateAdminHandler(IDropRateRepository repository, IDropRa
 
     // Like Sync, but also returns the raw outcome so the bulk resync can tally
     // stored / no-data / failed counts as it walks the backlog.
+    //
+    // Any exception from the sync (e.g. a RepositoryException when a source's wiki data
+    // trips a DB constraint) is swallowed and reported as a failed row rather than thrown:
+    // one bad source must never 500 the request and abort the whole bulk resync chain.
+    // The underlying exception is already logged at Error level by the repository; we log
+    // here too so the failing source name is captured.
     public async Task<(DropRateSourceRow Row, DropRateSyncOutcome Outcome)> SyncWithOutcome(string sourceName)
     {
-        var result = await runner.SyncSource(sourceName);
-        var note = result.Outcome switch
+        try
         {
-            DropRateSyncOutcome.Synced => $"Stored {result.RatesStored} rate{(result.RatesStored == 1 ? "" : "s")}",
-            DropRateSyncOutcome.NoData => "No drop-rate data found on the wiki",
-            _ => "Could not reach the wiki — existing rates kept, will retry"
-        };
-        return (new DropRateSourceRow(sourceName, result.RatesStored, note), result.Outcome);
+            var result = await runner.SyncSource(sourceName);
+            var note = result.Outcome switch
+            {
+                DropRateSyncOutcome.Synced => $"Stored {result.RatesStored} rate{(result.RatesStored == 1 ? "" : "s")}",
+                DropRateSyncOutcome.NoData => "No drop-rate data found on the wiki",
+                _ => "Could not reach the wiki — existing rates kept, will retry"
+            };
+            return (new DropRateSourceRow(sourceName, result.RatesStored, note), result.Outcome);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Drop-rate sync threw for source {Source}", sourceName);
+            return (new DropRateSourceRow(sourceName, 0, "Sync failed unexpectedly — skipped"), DropRateSyncOutcome.FetchFailed);
+        }
     }
 
     // Every source that has loot but no stored drop rates, ordered so the bulk
