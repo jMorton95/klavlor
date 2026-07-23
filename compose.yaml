@@ -7,7 +7,10 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
     ports:
-      - "5432:5432"
+      # Host 5430 → container 5432. Non-default host port so it doesn't collide with other
+      # local Postgres containers already bound to 5432. Container port stays 5432; prod
+      # (docker-stack.yml) connects over the internal network and is unaffected.
+      - "5430:5432"
     volumes:
       - database-data:/var/lib/postgresql
     healthcheck:
