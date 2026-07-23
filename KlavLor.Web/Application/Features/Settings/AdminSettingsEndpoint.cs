@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using KlavLor.Application.Features.CollectionLog;
 using KlavLor.Application.Features.DropRates;
+using KlavLor.Application.Features.Loot.Leaderboard;
 using KlavLor.Application.Features.Maintenance;
 using KlavLor.Application.Features.Settings;
 using KlavLor.Application.Interfaces.Services;
@@ -58,6 +59,17 @@ public sealed class AdminSettingsEndpoint : IEndpoint
 
         app.MapGet(AppRoutes.AdminDropRatesMismatches.FromApi(), GetDropRateMismatches)
             .RequireAuthorization(nameof(RoleName.Admin));
+
+        app.MapGet(AppRoutes.AdminLeaderboardExclusionSearch.FromApi(), SearchLeaderboardExclusions)
+            .RequireAuthorization(nameof(RoleName.Admin));
+
+        app.MapPost(AppRoutes.AdminLeaderboardExclusionExclude.FromApi(), ExcludeLeaderboardSource)
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("mutation");
+
+        app.MapPost(AppRoutes.AdminLeaderboardExclusionInclude.FromApi(), IncludeLeaderboardSource)
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("mutation");
 
         app.MapGet(AppRoutes.AdminIcons.FromApi(), GetIcons)
             .RequireAuthorization(nameof(RoleName.Admin));
@@ -215,6 +227,34 @@ public sealed class AdminSettingsEndpoint : IEndpoint
     {
         var (items, total) = await handler.GetMissingRates();
         return IResultExtensions.Component<ClogMissingRatesPanel>(new { Items = items, Total = total });
+    }
+
+    private static async Task<RazorComponentResult> SearchLeaderboardExclusions(
+        [FromQuery] string? searchTerm,
+        LeaderboardExclusionAdminHandler handler)
+    {
+        var items = await handler.Search(searchTerm);
+        return IResultExtensions.Component<LeaderboardExclusionResults>(new { Items = items, SearchTerm = searchTerm });
+    }
+
+    private static async Task<RazorComponentResult> ExcludeLeaderboardSource(
+        [FromQuery] string source,
+        [FromQuery] long count,
+        [FromQuery] int rowIndex,
+        LeaderboardExclusionAdminHandler handler)
+    {
+        var row = await handler.Exclude(source, count);
+        return IResultExtensions.Component<LeaderboardExclusionRow>(new { Item = row, RowIndex = rowIndex });
+    }
+
+    private static async Task<RazorComponentResult> IncludeLeaderboardSource(
+        [FromQuery] string source,
+        [FromQuery] long count,
+        [FromQuery] int rowIndex,
+        LeaderboardExclusionAdminHandler handler)
+    {
+        var row = await handler.Include(source, count);
+        return IResultExtensions.Component<LeaderboardExclusionRow>(new { Item = row, RowIndex = rowIndex });
     }
 
     private static async Task<RazorComponentResult> GetIcons(IconAuditHandler handler)

@@ -33,6 +33,7 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
     public virtual DbSet<SystemSettings> SystemSettings => Set<SystemSettings>();
     public virtual DbSet<LuckLeaderboardEntry> LuckLeaderboardEntries => Set<LuckLeaderboardEntry>();
     public virtual DbSet<LuckLeaderboardMeta> LuckLeaderboardMeta => Set<LuckLeaderboardMeta>();
+    public virtual DbSet<LeaderboardSourceExclusion> LeaderboardSourceExclusions => Set<LeaderboardSourceExclusion>();
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -424,6 +425,11 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
         // Backs the board query: filter by (Generation, Board) then order by Tier desc.
         modelBuilder.Entity<LuckLeaderboardEntry>()
             .HasIndex(e => new { e.Generation, e.Board, e.Tier });
+
+        // Admin blacklist of sources excluded from the luck leaderboards (SourceName is the key).
+        modelBuilder.Entity<LeaderboardSourceExclusion>()
+            .HasIndex(e => e.SourceName)
+            .IsUnique();
 
         // Entity base class configuration (timestamps and row versions)
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())

@@ -120,6 +120,28 @@
     </section>
 
     <section>
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Leaderboard exclusions</h2>
+        <p class="text-sm text-slate-500 dark:text-white mb-3">
+            Hide a source from the luck leaderboards when its stored drop rates are wrong (e.g. shared rare-drop-table items). Excluded sources contribute no items to either the spoons or the dry-streak board. Takes effect on the next hourly rebuild.
+        </p>
+        <div class="relative max-w-md mb-3">
+            <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            <input type="search" name="searchTerm" placeholder="Search sources (blank = currently excluded)…"
+                   autocomplete="off"
+                   hx-get="@AppRoutes.AdminLeaderboardExclusionSearch.FromApi()"
+                   hx-trigger="keyup changed delay:300ms, load"
+                   hx-target="#lbx-results"
+                   hx-swap="innerHTML"
+                   class="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+        </div>
+        <div id="lbx-results">
+            <div class="h-20 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
+        </div>
+    </section>
+
+    <section>
         <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Broken icons</h2>
         <p class="text-sm text-slate-500 dark:text-white mb-3">
             Item and source icons that gave up after repeated failed wiki lookups (so they show no image anywhere). Retry clears the failure and the backfill re-attempts within a couple of minutes.

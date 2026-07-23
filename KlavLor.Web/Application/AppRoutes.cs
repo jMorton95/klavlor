@@ -167,6 +167,9 @@ public static class AppRoutes
     public const string AdminDropRatesResyncStart = "/admin/settings/drop-rates/resync/start";
     public const string AdminDropRatesResyncStep = "/admin/settings/drop-rates/resync/step";
     public const string AdminDropRatesMismatches = "/admin/settings/drop-rates/mismatches";
+    public const string AdminLeaderboardExclusionSearch = "/admin/settings/leaderboard-exclusions/search";
+    public const string AdminLeaderboardExclusionExclude = "/admin/settings/leaderboard-exclusions/exclude";
+    public const string AdminLeaderboardExclusionInclude = "/admin/settings/leaderboard-exclusions/include";
     public const string AdminIcons = "/admin/settings/icons";
     public const string AdminIconsRetry = "/admin/settings/icons/retry";
     public const string AdminSyncStatus = "/admin/settings/sync-status";

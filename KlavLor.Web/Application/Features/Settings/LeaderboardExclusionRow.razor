@@ -1,0 +1,40 @@
+@using KlavLor.Application.Features.Loot.Leaderboard
+
+<div id="lbx-row-@RowIndex" class="flex items-center justify-between gap-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2">
+    <span class="inline-flex items-center gap-2 min-w-0">
+        <img src="/api/images/source-icon?name=@Uri.EscapeDataString(Item.SourceName)" alt="@Item.SourceName"
+             class="w-5 h-5 rounded object-contain shrink-0" loading="lazy" onerror="this.style.display='none'" />
+        <span class="text-sm text-slate-700 dark:text-slate-100 truncate">@Item.SourceName</span>
+        @if (Item.LootCount > 0)
+        {
+            <span class="text-[10px] text-slate-400 dark:text-white shrink-0">@Item.LootCount.ToString("N0") kills</span>
+        }
+    </span>
+
+    @if (Item.IsExcluded)
+    {
+        <button hx-post="@ToggleUrl(AppRoutes.AdminLeaderboardExclusionInclude)"
+                hx-target="#lbx-row-@RowIndex" hx-swap="outerHTML"
+                class="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900 cursor-pointer"
+                title="Show this source's items on the leaderboards again">
+            Excluded — remove
+        </button>
+    }
+    else
+    {
+        <button hx-post="@ToggleUrl(AppRoutes.AdminLeaderboardExclusionExclude)"
+                hx-target="#lbx-row-@RowIndex" hx-swap="outerHTML"
+                class="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-amber-100 dark:hover:bg-amber-900/50 hover:text-amber-700 dark:hover:text-amber-300 cursor-pointer"
+                title="Hide this source's items from the leaderboards">
+            Exclude
+        </button>
+    }
+</div>
+
+@code {
+    [Parameter] public required LeaderboardSourceRow Item { get; set; }
+    [Parameter] public int RowIndex { get; set; }
+
+    private string ToggleUrl(string route) =>
+        $"{route.FromApi()}?source={Uri.EscapeDataString(Item.SourceName)}&count={Item.LootCount}&rowIndex={RowIndex}";
+}
