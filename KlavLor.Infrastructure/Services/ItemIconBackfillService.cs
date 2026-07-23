@@ -1,4 +1,5 @@
 using KlavLor.Application.Interfaces.Repositories;
+using KlavLor.Application.Interfaces.Services;
 using KlavLor.Domain.Entities;
 using KlavLor.Infrastructure.ExternalServices.OsrsWiki;
 using Microsoft.Extensions.DependencyInjection;
@@ -7,7 +8,7 @@ using Microsoft.Extensions.Logging;
 
 namespace KlavLor.Infrastructure.Services;
 
-public sealed class ItemIconBackfillService(IServiceScopeFactory scopeFactory, ILogger<ItemIconBackfillService> logger) : BackgroundService
+public sealed class ItemIconBackfillService(IServiceScopeFactory scopeFactory, IJobRunRecorder jobRuns, ILogger<ItemIconBackfillService> logger) : BackgroundService
 {
     private const int MaxFailAttempts = 3;
 
@@ -23,7 +24,7 @@ public sealed class ItemIconBackfillService(IServiceScopeFactory scopeFactory, I
             // Run immediately on first tick, then every 10 minutes
             do
             {
-                await RunCycle(stoppingToken);
+                await jobRuns.Track("Item icon backfill", () => RunCycle(stoppingToken));
             } while (await timer.WaitForNextTickAsync(stoppingToken));
         }
         catch (OperationCanceledException)
@@ -36,7 +37,7 @@ public sealed class ItemIconBackfillService(IServiceScopeFactory scopeFactory, I
         }
     }
 
-    private async Task RunCycle(CancellationToken stoppingToken)
+    private async Task<JobRunResult> RunCycle(CancellationToken stoppingToken)
     {
         try
         {
@@ -66,12 +67,15 @@ public sealed class ItemIconBackfillService(IServiceScopeFactory scopeFactory, I
             {
                 if (uncatalogued.Count == 0)
                     logger.LogDebug("Item icon backfill: nothing to do");
-                return;
+                return uncatalogued.Count > 0
+                    ? JobRunResult.Ok(uncatalogued.Count, "discovered new items")
+                    : JobRunResult.NoWork;
             }
 
             logger.LogInformation("Item icon backfill: resolving {Count} pending icons", pending.Count);
 
             var consecutiveFetchFailures = 0;
+            var resolved = 0;
 
             foreach (var icon in pending)
             {
@@ -92,6 +96,7 @@ public sealed class ItemIconBackfillService(IServiceScopeFactory scopeFactory, I
                         {
                             icon.CachedImageId = cached.Id;
                             consecutiveFetchFailures = 0;
+                            resolved++;
                             logger.LogInformation("Cached icon for {ItemName} as image {ImageId}", icon.ItemName, cached.Id);
                         }
                         else
@@ -133,6 +138,8 @@ public sealed class ItemIconBackfillService(IServiceScopeFactory scopeFactory, I
 
                 // Rate limiter handles pacing — no artificial delay needed
             }
+
+            return JobRunResult.Ok(resolved, $"{uncatalogued.Count} discovered, {pending.Count} attempted, {resolved} cached");
         }
         catch (OperationCanceledException)
         {
@@ -141,6 +148,7 @@ public sealed class ItemIconBackfillService(IServiceScopeFactory scopeFactory, I
         catch (Exception ex)
         {
             logger.LogError(ex, "Item icon backfill cycle failed");
+            return JobRunResult.Failed(ex.Message);
         }
     }
 }

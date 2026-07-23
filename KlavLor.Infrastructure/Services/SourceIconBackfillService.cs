@@ -1,4 +1,5 @@
 using KlavLor.Application.Interfaces.Repositories;
+using KlavLor.Application.Interfaces.Services;
 using KlavLor.Domain.Entities;
 using KlavLor.Infrastructure.ExternalServices.OsrsWiki;
 using Microsoft.Extensions.DependencyInjection;
@@ -7,7 +8,7 @@ using Microsoft.Extensions.Logging;
 
 namespace KlavLor.Infrastructure.Services;
 
-public sealed class SourceIconBackfillService(IServiceScopeFactory scopeFactory, ILogger<SourceIconBackfillService> logger) : BackgroundService
+public sealed class SourceIconBackfillService(IServiceScopeFactory scopeFactory, IJobRunRecorder jobRuns, ILogger<SourceIconBackfillService> logger) : BackgroundService
 {
     private const int MaxFailAttempts = 3;
 
@@ -22,7 +23,7 @@ public sealed class SourceIconBackfillService(IServiceScopeFactory scopeFactory,
         {
             do
             {
-                await RunCycle(stoppingToken);
+                await jobRuns.Track("Source icon backfill", () => RunCycle(stoppingToken));
             } while (await timer.WaitForNextTickAsync(stoppingToken));
         }
         catch (OperationCanceledException)
@@ -35,7 +36,7 @@ public sealed class SourceIconBackfillService(IServiceScopeFactory scopeFactory,
         }
     }
 
-    private async Task RunCycle(CancellationToken stoppingToken)
+    private async Task<JobRunResult> RunCycle(CancellationToken stoppingToken)
     {
         try
         {
@@ -64,12 +65,15 @@ public sealed class SourceIconBackfillService(IServiceScopeFactory scopeFactory,
             {
                 if (uncatalogued.Count == 0)
                     logger.LogDebug("Source icon backfill: nothing to do");
-                return;
+                return uncatalogued.Count > 0
+                    ? JobRunResult.Ok(uncatalogued.Count, "discovered new sources")
+                    : JobRunResult.NoWork;
             }
 
             logger.LogInformation("Source icon backfill: resolving {Count} pending icons", pending.Count);
 
             var consecutiveFetchFailures = 0;
+            var resolved = 0;
 
             foreach (var icon in pending)
             {
@@ -90,6 +94,7 @@ public sealed class SourceIconBackfillService(IServiceScopeFactory scopeFactory,
                         {
                             icon.CachedImageId = cached.Id;
                             consecutiveFetchFailures = 0;
+                            resolved++;
                             logger.LogInformation("Cached source icon for {SourceName} as image {ImageId}", icon.SourceName, cached.Id);
                         }
                         else
@@ -126,6 +131,8 @@ public sealed class SourceIconBackfillService(IServiceScopeFactory scopeFactory,
                     break;
                 }
             }
+
+            return JobRunResult.Ok(resolved, $"{uncatalogued.Count} discovered, {pending.Count} attempted, {resolved} cached");
         }
         catch (OperationCanceledException)
         {
@@ -134,6 +141,7 @@ public sealed class SourceIconBackfillService(IServiceScopeFactory scopeFactory,
         catch (Exception ex)
         {
             logger.LogError(ex, "Source icon backfill cycle failed");
+            return JobRunResult.Failed(ex.Message);
         }
     }
 }

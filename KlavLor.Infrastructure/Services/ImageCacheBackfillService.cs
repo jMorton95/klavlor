@@ -1,3 +1,4 @@
+using KlavLor.Application.Interfaces.Services;
 using KlavLor.Infrastructure.ExternalServices.OsrsWiki;
 using KlavLor.Infrastructure.Persistence.EntityFramework;
 using Microsoft.EntityFrameworkCore;
@@ -7,7 +8,7 @@ using Microsoft.Extensions.Logging;
 
 namespace KlavLor.Infrastructure.Services;
 
-public sealed class ImageCacheBackfillService(IServiceScopeFactory scopeFactory, ILogger<ImageCacheBackfillService> logger) : BackgroundService
+public sealed class ImageCacheBackfillService(IServiceScopeFactory scopeFactory, IJobRunRecorder jobRuns, ILogger<ImageCacheBackfillService> logger) : BackgroundService
 {
     private const string WikiImagesPrefix = "https://oldschool.runescape.wiki/images/";
     private const string DataUriPrefix = "data:";
@@ -17,6 +18,18 @@ public sealed class ImageCacheBackfillService(IServiceScopeFactory scopeFactory,
         // Small delay to let the app start up
         await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
 
+        try
+        {
+            await jobRuns.Track("Image cache backfill", () => RunOnce(stoppingToken));
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutdown requested
+        }
+    }
+
+    private async Task<JobRunResult> RunOnce(CancellationToken stoppingToken)
+    {
         try
         {
             using var scope = scopeFactory.CreateScope();
@@ -32,7 +45,7 @@ public sealed class ImageCacheBackfillService(IServiceScopeFactory scopeFactory,
             if (nodesToConvert.Count == 0)
             {
                 logger.LogInformation("Image cache backfill: no nodes to convert");
-                return;
+                return JobRunResult.NoWork;
             }
 
             logger.LogInformation("Image cache backfill: found {Count} nodes to convert", nodesToConvert.Count);
@@ -77,14 +90,16 @@ public sealed class ImageCacheBackfillService(IServiceScopeFactory scopeFactory,
 
             await db.SaveChangesAsync(stoppingToken);
             logger.LogInformation("Image cache backfill: converted {Count} nodes", nodesToConvert.Count);
+            return JobRunResult.Ok(nodesToConvert.Count, "template node icons cached");
         }
         catch (OperationCanceledException)
         {
-            // Shutdown requested
+            throw;
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Image cache backfill failed");
+            return JobRunResult.Failed(ex.Message);
         }
     }
 }

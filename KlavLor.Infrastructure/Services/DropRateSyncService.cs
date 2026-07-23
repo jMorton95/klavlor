@@ -1,4 +1,5 @@
 using KlavLor.Application.Interfaces.Services;
+using KlavLor.Domain.Entities;
 using KlavLor.Domain.Interfaces.Repositories;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -15,6 +16,7 @@ namespace KlavLor.Infrastructure.Services;
 /// </summary>
 public sealed class DropRateSyncService(
     IServiceScopeFactory scopeFactory,
+    IJobRunRecorder jobRuns,
     ILogger<DropRateSyncService> logger) : BackgroundService
 {
     private static readonly TimeSpan CycleInterval = TimeSpan.FromHours(6);
@@ -31,7 +33,7 @@ public sealed class DropRateSyncService(
         {
             do
             {
-                await RunCycle(stoppingToken);
+                await jobRuns.Track("Drop rate sync", () => RunCycle(stoppingToken));
             } while (await timer.WaitForNextTickAsync(stoppingToken));
         }
         catch (OperationCanceledException)
@@ -44,7 +46,7 @@ public sealed class DropRateSyncService(
         }
     }
 
-    private async Task RunCycle(CancellationToken stoppingToken)
+    private async Task<JobRunResult> RunCycle(CancellationToken stoppingToken)
     {
         try
         {
@@ -56,7 +58,7 @@ public sealed class DropRateSyncService(
             if (knownSources.Count == 0)
             {
                 logger.LogInformation("Drop rate sync: no source names in loot history yet, nothing to sync");
-                return;
+                return new JobRunResult(JobRunOutcome.NoWork, 0, "no source names in loot history yet");
             }
 
             var lastSynced = await repository.GetLastSyncedAtBySource(knownSources);
@@ -105,6 +107,8 @@ public sealed class DropRateSyncService(
             logger.LogInformation(
                 "Drop rate sync: {Synced} sources stored rates, {NewlyCovered} newly covered, {Emptied} had no wiki data, {Failed} fetch failures (kept existing); {StillMissing} of {Total} sources still without rates",
                 synced, newlyCovered, emptied, failed, stillMissing, knownSources.Count);
+            return JobRunResult.Ok(synced,
+                $"{newlyCovered} newly covered, {emptied} no wiki data, {failed} failures, {stillMissing}/{knownSources.Count} still missing");
         }
         catch (OperationCanceledException)
         {
@@ -113,6 +117,7 @@ public sealed class DropRateSyncService(
         catch (Exception ex)
         {
             logger.LogError(ex, "Drop rate sync cycle failed");
+            return JobRunResult.Failed(ex.Message);
         }
     }
 }

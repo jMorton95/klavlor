@@ -9,14 +9,22 @@ namespace KlavLor.Infrastructure.Services;
 public sealed class LootFeedSeederService(
     IServiceScopeFactory scopeFactory,
     ILootFeedService feedService,
+    IJobRunRecorder jobRuns,
     ILogger<LootFeedSeederService> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        await jobRuns.Track("Loot feed seeder", RunOnce);
+    }
+
+    private async Task<JobRunResult> RunOnce()
     {
         try
         {
             using var scope = scopeFactory.CreateScope();
             var repository = scope.ServiceProvider.GetRequiredService<ILootLogRepository>();
+
+            var totalSeeded = 0;
 
             // Seed each scope independently so the main and leagues feeds both have
             // history available immediately after restart.
@@ -34,13 +42,19 @@ public sealed class LootFeedSeederService(
                     }
                 }
 
+                totalSeeded += seededForScope;
                 if (seededForScope > 0)
                     logger.LogInformation("Seeded {Scope} loot feed with {Count} entries", feedScope, seededForScope);
             }
+
+            return totalSeeded > 0
+                ? JobRunResult.Ok(totalSeeded, "feed buffers seeded from loot history")
+                : JobRunResult.NoWork;
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to seed loot feed buffer");
+            return JobRunResult.Failed(ex.Message);
         }
     }
 }

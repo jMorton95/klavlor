@@ -81,6 +81,12 @@ public sealed class AdminSettingsEndpoint : IEndpoint
         app.MapGet(AppRoutes.AdminSyncStatus.FromApi(), GetSyncStatus)
             .RequireAuthorization(nameof(RoleName.Admin));
 
+        app.MapGet(AppRoutes.AdminJobHealth.FromApi(), GetJobHealth)
+            .RequireAuthorization(nameof(RoleName.Admin));
+
+        app.MapGet(AppRoutes.AdminJobHistory.FromApi(), GetJobHistory)
+            .RequireAuthorization(nameof(RoleName.Admin));
+
         app.MapPost(AppRoutes.AdminClogSyncNow.FromApi(), ClogSyncNow)
             .RequireAuthorization(nameof(RoleName.Admin))
             .RequireRateLimiting("mutation");
@@ -287,6 +293,20 @@ public sealed class AdminSettingsEndpoint : IEndpoint
     {
         var status = await handler.RunClogSyncNow();
         return IResultExtensions.Component<SyncStatusPanel>(new { Status = status });
+    }
+
+    private static async Task<RazorComponentResult> GetJobHealth(JobHealthHandler handler)
+    {
+        var rows = await handler.GetHealth();
+        return IResultExtensions.Component<JobHealthPanel>(new { Rows = rows });
+    }
+
+    private static async Task<RazorComponentResult> GetJobHistory(
+        [FromQuery] string jobName,
+        JobHealthHandler handler)
+    {
+        var runs = await handler.GetHistory(jobName);
+        return IResultExtensions.Component<JobRunHistory>(new { JobName = jobName, Runs = runs });
     }
 
     private static async Task<RazorComponentResult> SearchSources(

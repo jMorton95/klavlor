@@ -1,3 +1,4 @@
+using KlavLor.Application.Interfaces.Services;
 using KlavLor.Infrastructure.ExternalServices.OsrsWiki;
 using KlavLor.Infrastructure.Persistence.EntityFramework;
 using Microsoft.EntityFrameworkCore;
@@ -10,7 +11,7 @@ namespace KlavLor.Infrastructure.Services;
 /// One-shot migration that walks every cached image row, resizes + re-encodes to WebP,
 /// and writes the smaller blob back in place. Profile is inferred from whether the image
 /// is referenced by an ItemIcon or SourceIcon row; otherwise it's treated as a template asset.
-public sealed class CachedImageReprocessService(IServiceScopeFactory scopeFactory, ILogger<CachedImageReprocessService> logger) : BackgroundService
+public sealed class CachedImageReprocessService(IServiceScopeFactory scopeFactory, IJobRunRecorder jobRuns, ILogger<CachedImageReprocessService> logger) : BackgroundService
 {
     private const int PageSize = 25;
 
@@ -19,6 +20,18 @@ public sealed class CachedImageReprocessService(IServiceScopeFactory scopeFactor
         // Let the app boot before doing CPU-heavy work
         await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
 
+        try
+        {
+            await jobRuns.Track("Cached image reprocess", () => RunOnce(stoppingToken));
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutdown requested
+        }
+    }
+
+    private async Task<JobRunResult> RunOnce(CancellationToken stoppingToken)
+    {
         var cursor = 0;
         var processed = 0;
         var failed = 0;
@@ -39,7 +52,9 @@ public sealed class CachedImageReprocessService(IServiceScopeFactory scopeFactor
                 if (page.Count == 0)
                 {
                     logger.LogInformation("CachedImageReprocessService: done. Re-encoded {Processed} images ({Failed} skipped)", processed, failed);
-                    return;
+                    return processed > 0 || failed > 0
+                        ? JobRunResult.Ok(processed, $"{failed} skipped")
+                        : JobRunResult.NoWork;
                 }
 
                 cursor = page.Max(p => p.Id);
@@ -92,14 +107,18 @@ public sealed class CachedImageReprocessService(IServiceScopeFactory scopeFactor
                 if (anyChanged)
                     await db.SaveChangesAsync(stoppingToken);
             }
+
+            // Loop exited on cancellation between pages.
+            return JobRunResult.Ok(processed, $"{failed} skipped; interrupted before completion");
         }
         catch (OperationCanceledException)
         {
-            // Shutdown requested
+            throw;
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "CachedImageReprocessService failed");
+            return JobRunResult.Failed(ex.Message);
         }
     }
 }

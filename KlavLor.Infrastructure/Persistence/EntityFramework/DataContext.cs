@@ -34,6 +34,7 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
     public virtual DbSet<LuckLeaderboardEntry> LuckLeaderboardEntries => Set<LuckLeaderboardEntry>();
     public virtual DbSet<LuckLeaderboardMeta> LuckLeaderboardMeta => Set<LuckLeaderboardMeta>();
     public virtual DbSet<LeaderboardSourceExclusion> LeaderboardSourceExclusions => Set<LeaderboardSourceExclusion>();
+    public virtual DbSet<JobRun> JobRuns => Set<JobRun>();
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -430,6 +431,31 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
         modelBuilder.Entity<LeaderboardSourceExclusion>()
             .HasIndex(e => e.SourceName)
             .IsUnique();
+
+        // Background-job run log (append-only operational history; not an Entity, no audit stamp).
+        modelBuilder.Entity<JobRun>()
+            .Property(e => e.Outcome)
+            .HasConversion<string>();
+
+        modelBuilder.Entity<JobRun>()
+            .Property(e => e.StartedAt)
+            .HasColumnType("timestamp with time zone");
+
+        modelBuilder.Entity<JobRun>()
+            .Property(e => e.FinishedAt)
+            .HasColumnType("timestamp with time zone");
+
+        modelBuilder.Entity<JobRun>()
+            .Property(e => e.Detail)
+            .HasMaxLength(1000);
+
+        // Latest-per-job (max Id per JobName) and the per-job history both key off (JobName, Id).
+        modelBuilder.Entity<JobRun>()
+            .HasIndex(e => new { e.JobName, e.Id });
+
+        // Retention prune scans by StartedAt.
+        modelBuilder.Entity<JobRun>()
+            .HasIndex(e => e.StartedAt);
 
         // Entity base class configuration (timestamps and row versions)
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())

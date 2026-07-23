@@ -1,4 +1,5 @@
 using KlavLor.Application.Interfaces.Services;
+using KlavLor.Domain.Entities;
 using KlavLor.Domain.Interfaces.Repositories;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -14,6 +15,7 @@ namespace KlavLor.Infrastructure.Services;
 public sealed class CollectionLogSyncService(
     IServiceScopeFactory scopeFactory,
     ICollectionLogCache cache,
+    IJobRunRecorder jobRuns,
     ILogger<CollectionLogSyncService> logger) : BackgroundService
 {
     private bool _primed;
@@ -30,7 +32,7 @@ public sealed class CollectionLogSyncService(
             // Run immediately on first tick, then hourly
             do
             {
-                await RunCycle(stoppingToken);
+                await jobRuns.Track("Collection log sync", () => RunCycle(stoppingToken));
             } while (await timer.WaitForNextTickAsync(stoppingToken));
         }
         catch (OperationCanceledException)
@@ -43,7 +45,7 @@ public sealed class CollectionLogSyncService(
         }
     }
 
-    private async Task RunCycle(CancellationToken stoppingToken)
+    private async Task<JobRunResult> RunCycle(CancellationToken stoppingToken)
     {
         try
         {
@@ -66,9 +68,13 @@ public sealed class CollectionLogSyncService(
 
             var stored = await runner.RunOnce(stoppingToken);
             if (stored == 0)
+            {
                 logger.LogWarning("Collection log sync: wiki returned no items, keeping existing data");
-            else
-                logger.LogInformation("Collection log sync: stored {Count} collection-log items", stored);
+                return new JobRunResult(JobRunOutcome.NoWork, 0, "wiki returned no items; kept existing data");
+            }
+
+            logger.LogInformation("Collection log sync: stored {Count} collection-log items", stored);
+            return JobRunResult.Ok(stored, "collection-log items synced from wiki");
         }
         catch (OperationCanceledException)
         {
@@ -77,6 +83,7 @@ public sealed class CollectionLogSyncService(
         catch (Exception ex)
         {
             logger.LogError(ex, "Collection log sync cycle failed");
+            return JobRunResult.Failed(ex.Message);
         }
     }
 }

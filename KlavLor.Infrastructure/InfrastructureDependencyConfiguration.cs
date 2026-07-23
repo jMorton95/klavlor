@@ -74,6 +74,9 @@ public static class InfrastructureDependencyConfiguration
             services.AddSingleton<ILootFeedService, LootFeedService>();
             services.AddHostedService<LootFeedSeederService>();
 
+            // Records every background-service cycle into the JobRuns log for the admin health panel.
+            services.AddSingleton<KlavLor.Application.Interfaces.Services.IJobRunRecorder, JobRunRecorder>();
+
             services.AddSingleton<ICollectionLogCache, CollectionLogCache>();
             services.AddSingleton<ISystemSettingsCache, SystemSettingsCache>();
 

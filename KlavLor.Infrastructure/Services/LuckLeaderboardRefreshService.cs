@@ -1,6 +1,7 @@
 using KlavLor.Application.Features.Loot.Log;
 using KlavLor.Application.Features.Loot.SourceModels;
 using KlavLor.Application.Interfaces.Repositories;
+using KlavLor.Application.Interfaces.Services;
 using KlavLor.Domain.Entities;
 using KlavLor.Domain.Interfaces.Repositories;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,6 +17,7 @@ namespace KlavLor.Infrastructure.Services;
 // single refresh at a time even if a slow run overruns the next tick.
 public sealed class LuckLeaderboardRefreshService(
     IServiceScopeFactory scopeFactory,
+    IJobRunRecorder jobRuns,
     ILogger<LuckLeaderboardRefreshService> logger) : BackgroundService
 {
     // Must be at least this many multiples off the expected kill count to make a board.
@@ -32,7 +34,7 @@ public sealed class LuckLeaderboardRefreshService(
         {
             do
             {
-                await RunCycle(stoppingToken);
+                await jobRuns.Track("Luck leaderboard refresh", () => RunCycle(stoppingToken));
             } while (await timer.WaitForNextTickAsync(stoppingToken));
         }
         catch (OperationCanceledException)
@@ -45,13 +47,13 @@ public sealed class LuckLeaderboardRefreshService(
         }
     }
 
-    private async Task RunCycle(CancellationToken ct)
+    private async Task<JobRunResult> RunCycle(CancellationToken ct)
     {
         // Only one refresh at a time — skip the tick rather than queue a second run.
         if (!await _gate.WaitAsync(0, ct))
         {
             logger.LogWarning("Luck leaderboard refresh still running; skipping this tick");
-            return;
+            return new JobRunResult(JobRunOutcome.NoWork, 0, "skipped; previous run still in progress");
         }
 
         try
@@ -101,6 +103,7 @@ public sealed class LuckLeaderboardRefreshService(
             logger.LogInformation(
                 "Luck leaderboard refreshed: generation {Gen}, {Rows} rows across {Chars} characters",
                 generation, totalRows, characters.Count);
+            return JobRunResult.Ok(totalRows, $"generation {generation}, {characters.Count} characters");
         }
         catch (OperationCanceledException)
         {
@@ -109,6 +112,7 @@ public sealed class LuckLeaderboardRefreshService(
         catch (Exception ex)
         {
             logger.LogError(ex, "Luck leaderboard refresh cycle failed");
+            return JobRunResult.Failed(ex.Message);
         }
         finally
         {

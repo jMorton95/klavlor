@@ -1,0 +1,68 @@
+@using KlavLor.Application.Features.Maintenance
+@using KlavLor.Domain.Entities
+
+@if (Runs.Count == 0)
+{
+    <p class="text-[11px] text-slate-400 dark:text-white">No runs recorded for this job yet.</p>
+}
+else
+{
+    <ul class="space-y-1 border-t border-slate-200 dark:border-slate-700 pt-2">
+        @foreach (var r in Runs)
+        {
+            <li class="flex items-center gap-2 text-[11px] whitespace-nowrap">
+                <span class="px-1.5 py-0.5 rounded-full @Badge(r.Outcome)">@Label(r.Outcome)</span>
+                <span class="text-slate-500 dark:text-white tabular-nums">@Ago(r.StartedAt)</span>
+                @if (r.DurationSeconds is { } d)
+                {
+                    <span class="text-slate-400 dark:text-slate-300">@Duration(d)</span>
+                }
+                <span class="text-slate-400 dark:text-slate-300 tabular-nums">@r.ItemsProcessed.ToString("N0")</span>
+                @if (!string.IsNullOrWhiteSpace(r.Detail))
+                {
+                    <span class="text-slate-400 dark:text-slate-300 truncate">· @r.Detail</span>
+                }
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    [Parameter] public required string JobName { get; set; }
+    [Parameter] public required IReadOnlyList<JobRunEntry> Runs { get; set; }
+
+    private static string Label(JobRunOutcome outcome) => outcome switch
+    {
+        JobRunOutcome.Succeeded => "OK",
+        JobRunOutcome.NoWork => "Idle",
+        JobRunOutcome.Failed => "Failed",
+        JobRunOutcome.Running => "Running",
+        JobRunOutcome.Cancelled => "Cancelled",
+        _ => outcome.ToString()
+    };
+
+    private static string Badge(JobRunOutcome outcome) => outcome switch
+    {
+        JobRunOutcome.Succeeded => "bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300",
+        JobRunOutcome.Failed => "bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300",
+        JobRunOutcome.Running => "bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300",
+        _ => "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-200"
+    };
+
+    private static string Ago(DateTimeOffset at)
+    {
+        var span = DateTimeOffset.UtcNow - at;
+        if (span < TimeSpan.FromMinutes(1)) return "just now";
+        if (span < TimeSpan.FromHours(1)) return $"{(int)span.TotalMinutes}m ago";
+        if (span < TimeSpan.FromDays(1)) return $"{(int)span.TotalHours}h ago";
+        return $"{(int)span.TotalDays}d ago";
+    }
+
+    private static string Duration(double seconds)
+    {
+        if (seconds < 1) return "<1s";
+        if (seconds < 60) return $"{seconds:0}s";
+        if (seconds < 3600) return $"{seconds / 60:0}m{seconds % 60:0}s";
+        return $"{seconds / 3600:0.0}h";
+    }
+}

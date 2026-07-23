@@ -14,6 +14,16 @@
     </section>
 
     <section>
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Background jobs</h2>
+        <p class="text-sm text-slate-500 dark:text-white mb-3">
+            The most recent run of each background service — its outcome, how long it took and how many rows it processed. A red card is a failed or stuck job (still marked running long after it started). Expand any card for its recent run history.
+        </p>
+        <div hx-get="@AppRoutes.AdminJobHealth.FromApi()" hx-trigger="load" hx-swap="innerHTML">
+            <div class="h-24 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
+        </div>
+    </section>
+
+    <section>
         <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">Leagues</h2>
         <AdminSettingsToggleLeagues IsLeaguesEnabled="@SystemSettingsCache.IsLeaguesEnabled" />
     </section>
