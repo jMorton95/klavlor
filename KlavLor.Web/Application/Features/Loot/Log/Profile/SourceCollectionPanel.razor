@@ -73,7 +73,7 @@
                         // now" — coherent for both single-drop spoons (1 in 17 KC at
                         // 1/1024 still flags strongly) and multi-drop items (8 in 515 KC
                         // at 1/50 lands as Dry, not bogus Spooned-30×).
-                        var luck = ComputeReceivedLuck(Collection.CharacterKc, e.TotalDrops, e.Rolls, e.RarityDenominator, e.RarityNumerator);
+                        var luck = ComputeReceivedLuck(Collection.CharacterKc, e.TotalDrops, e.Rolls, e.RarityDenominator, e.RarityNumerator, e.EffectiveKcPerDrop);
                         <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40">
                             <td class="px-4 py-2 text-slate-800 dark:text-slate-100">
                                 <span class="inline-flex items-center gap-1.5">
@@ -100,7 +100,7 @@
                                 {
                                     <span class="relative group inline-block">
                                         <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium cursor-help @luck.PillClasses">@luck.Text</span>
-                                        @RenderDistributionPopover(e.ItemName, Collection.CharacterKc, e.TotalDrops, e.Rolls, e.RarityNumerator, e.RarityDenominator, isReceived: true, firstDropKc: e.KillCount ?? e.KillOrdinal)
+                                        @RenderDistributionPopover(e.ItemName, Collection.CharacterKc, e.TotalDrops, e.Rolls, e.RarityNumerator, e.RarityDenominator, isReceived: true, firstDropKc: e.KillCount ?? e.KillOrdinal, effectiveKc: e.EffectiveKcPerDrop)
                                     </span>
                                 }
                             </td>
@@ -119,7 +119,7 @@
                     }
                     @foreach (var item in Collection.MissingItems)
                     {
-                        var luck = ComputeMissingLuck(Collection.CharacterKc, item.Rolls, item.RarityDenominator, item.RarityNumerator);
+                        var luck = ComputeMissingLuck(Collection.CharacterKc, item.Rolls, item.RarityDenominator, item.RarityNumerator, item.EffectiveKcPerDrop);
                         <tr class="opacity-60 hover:opacity-100 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-opacity">
                             <td class="px-4 py-2 text-slate-500 dark:text-white">
                                 <span class="inline-flex items-center gap-1.5">
@@ -142,7 +142,7 @@
                                 {
                                     <span class="relative group inline-block">
                                         <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium cursor-help @luck.PillClasses">@luck.Text</span>
-                                        @RenderDistributionPopover(item.ItemName, Collection.CharacterKc, 0, item.Rolls, item.RarityNumerator, item.RarityDenominator, isReceived: false, firstDropKc: null)
+                                        @RenderDistributionPopover(item.ItemName, Collection.CharacterKc, 0, item.Rolls, item.RarityNumerator, item.RarityDenominator, isReceived: false, firstDropKc: null, effectiveKc: item.EffectiveKcPerDrop)
                                     </span>
                                 }
                             </td>
@@ -211,13 +211,26 @@
     //     where I am, am I above or below the typical drop count?"
     // SVG bodies are emitted via MarkupString because Razor otherwise commandeers the
     // inner SVG <text> elements as its own markup escape.
-    private RenderFragment RenderDistributionPopover(string itemName, int kc, int totalDrops, int rolls, int? numerator, int? denominator, bool isReceived, int? firstDropKc) => __builder =>
+    private RenderFragment RenderDistributionPopover(string itemName, int kc, int totalDrops, int rolls, int? numerator, int? denominator, bool isReceived, int? firstDropKc, double? effectiveKc) => __builder =>
     {
-        if (denominator is null or 0 || kc <= 0) return;
-        var num = numerator ?? 1;
-        var pEffective = (double)rolls * num / denominator.Value;
-        if (pEffective <= 0) return;
-        var expectedKc = 1.0 / pEffective;
+        if (kc <= 0) return;
+        // Prefer the source-model-normalised expected KC (raids, multi-roll tables); fall back
+        // to the raw per-roll rate only when the facade couldn't produce one.
+        double pEffective;
+        double expectedKc;
+        if (effectiveKc is > 0)
+        {
+            expectedKc = effectiveKc.Value;
+            pEffective = 1.0 / expectedKc;
+        }
+        else
+        {
+            if (denominator is null or 0) return;
+            var num = numerator ?? 1;
+            pEffective = (double)rolls * num / denominator.Value;
+            if (pEffective <= 0) return;
+            expectedKc = 1.0 / pEffective;
+        }
 
         var firstChartMarker = isReceived && firstDropKc.HasValue ? firstDropKc.Value : kc;
         var firstChartCaption = isReceived ? "Got at KC " : "You · KC ";
@@ -519,11 +532,21 @@
     // For items the character has received: compare actual count vs expected at current KC.
     // Always show when we have any drops + rate data — being spooned at low expected is the
     // most interesting case (e.g. a 1/3000 drop at 17 KC is a story worth telling).
-    private static LuckLabel? ComputeReceivedLuck(int kc, int totalDrops, int rolls, int? denominator, int? numerator)
+    private static LuckLabel? ComputeReceivedLuck(int kc, int totalDrops, int rolls, int? denominator, int? numerator, double? effectiveKc)
     {
-        if (denominator is null or 0 || kc <= 0 || totalDrops <= 0) return null;
-        var num = numerator ?? 1;
-        var expected = (double)kc * rolls * num / denominator.Value;
+        if (kc <= 0 || totalDrops <= 0) return null;
+        double expected;
+        if (effectiveKc is > 0)
+        {
+            // Source-model expected drop count = current KC / expected kills-per-drop.
+            expected = kc / effectiveKc.Value;
+        }
+        else
+        {
+            if (denominator is null or 0) return null;
+            var num = numerator ?? 1;
+            expected = (double)kc * rolls * num / denominator.Value;
+        }
         if (expected <= 0) return null;
         var ratio = totalDrops / expected;
         if (ratio >= 1.5) return new LuckLabel($"Spooned {ratio:0.0}×", "bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300");
@@ -534,11 +557,20 @@
 
     // For missing items: only flag when meaningfully dry. Anything below 0.5 expected is
     // within normal variance and a pill would just add noise — leave the cell empty.
-    private static LuckLabel? ComputeMissingLuck(int kc, int rolls, int? denominator, int? numerator)
+    private static LuckLabel? ComputeMissingLuck(int kc, int rolls, int? denominator, int? numerator, double? effectiveKc)
     {
-        if (denominator is null or 0 || kc <= 0) return null;
-        var num = numerator ?? 1;
-        var expected = (double)kc * rolls * num / denominator.Value;
+        if (kc <= 0) return null;
+        double expected;
+        if (effectiveKc is > 0)
+        {
+            expected = kc / effectiveKc.Value;
+        }
+        else
+        {
+            if (denominator is null or 0) return null;
+            var num = numerator ?? 1;
+            expected = (double)kc * rolls * num / denominator.Value;
+        }
         if (expected < 1.0) return null;
         if (expected < 2) return new LuckLabel($"Dry · {expected:0.0} expected", "bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300");
         return new LuckLabel($"Very dry · {expected:0.0} expected", "bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300");

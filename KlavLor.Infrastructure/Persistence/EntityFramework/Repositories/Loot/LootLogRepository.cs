@@ -1844,6 +1844,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                       AND EXISTS (
                           SELECT 1 FROM "EffectiveCollectionLogItems" cli
                           WHERE cli."ItemId" = ld."ItemId"
+                             OR lower(cli."Name") = lower(ld."Name")
                       )
                     GROUP BY 1
                 ) c USING (day)
@@ -1912,6 +1913,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                       AND EXISTS (
                           SELECT 1 FROM "EffectiveCollectionLogItems" cli
                           WHERE cli."ItemId" = ld."ItemId"
+                             OR lower(cli."Name") = lower(ld."Name")
                       )
                     GROUP BY 1, 2
                 ) c USING (y, m)
@@ -2246,6 +2248,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                       AND EXISTS (
                           SELECT 1 FROM "EffectiveCollectionLogItems" cli
                           WHERE cli."ItemId" = ld."ItemId"
+                             OR lower(cli."Name") = lower(ld."Name")
                       )
                 ),
                 agg AS (
@@ -2342,7 +2345,8 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                           JOIN "LootDrops" ld ON ld."LootRecordId" = lr."Id"
                           WHERE lr."GameCharacterId" = @cid
                             AND lr."SourceName" = @source
-                            AND ld."ItemId" = cli."ItemId"
+                            AND (ld."ItemId" = cli."ItemId"
+                                 OR lower(ld."Name") = lower(cli."Name"))
                       )
                     ORDER BY lower(cli."Name")
                     """;

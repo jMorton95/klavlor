@@ -68,9 +68,15 @@ public sealed class LuckLeaderboardRefreshService(
             var excluded = (await exclusions.GetExcludedSourceNames())
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
+            // Surfaced in the job-run history so a "why isn't my exclusion working" question is
+            // answerable without DB access: shows whether the list is read and what's on it.
+            logger.LogInformation("Luck leaderboard refresh: {Count} excluded source(s): {Sources}",
+                excluded.Count, excluded.Count == 0 ? "(none)" : string.Join(", ", excluded));
+
             var generation = await board.NextGeneration();
             var characters = await board.GetVisibleCharacters();
             var totalRows = 0;
+            var excludedSkipped = 0;
 
             foreach (var (charId, charName) in characters)
             {
@@ -87,7 +93,7 @@ public sealed class LuckLeaderboardRefreshService(
                     if (!sourceLoot.IncludeInLeaderboard(source)) continue;
 
                     // Admin-excluded sources (wrong stored drop rates) never appear on the boards.
-                    if (excluded.Contains(source)) continue;
+                    if (excluded.Contains(source)) { excludedSkipped++; continue; }
 
                     var collection = await lootLog.GetSourceCollection(charId, source);
                     var entries = BuildEntries(generation, charId, charName, source, collection, sourceLoot);
@@ -103,7 +109,8 @@ public sealed class LuckLeaderboardRefreshService(
             logger.LogInformation(
                 "Luck leaderboard refreshed: generation {Gen}, {Rows} rows across {Chars} characters",
                 generation, totalRows, characters.Count);
-            return JobRunResult.Ok(totalRows, $"generation {generation}, {characters.Count} characters");
+            return JobRunResult.Ok(totalRows,
+                $"generation {generation}, {characters.Count} characters, {excluded.Count} excluded source(s) ({excludedSkipped} skipped)");
         }
         catch (OperationCanceledException)
         {

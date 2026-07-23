@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Caching.Memory;
 using KlavLor.Application.Common;
+using KlavLor.Application.Features.Loot.SourceModels;
 using KlavLor.Application.Interfaces.Repositories;
 
 namespace KlavLor.Application.Features.Loot.Log;
@@ -7,6 +8,7 @@ namespace KlavLor.Application.Features.Loot.Log;
 public sealed class LootCharacterProfileHandler(
     ILootLogRepository lootLogRepository,
     CharacterAccessChecker accessChecker,
+    SourceLootService sourceLoot,
     IMemoryCache cache)
 {
     public async Task<Result<ProfileHeader>> HandleHeader(int characterId)
@@ -114,7 +116,28 @@ public sealed class LootCharacterProfileHandler(
             return Result<SourceCollection>.Failure("Character not found.");
 
         var collection = await lootLogRepository.GetSourceCollection(characterId, sourceName);
-        return Result<SourceCollection>.Success(collection);
+
+        // Normalise each item's expected kills-to-drop through the per-source loot model so the
+        // character page's luck pills and distribution charts match the leaderboard's maths
+        // (raid unique-table shares, multi-roll tables). The raw stored rate is a per-roll wiki
+        // share; the facade turns it into a real per-player expected KC.
+        var enriched = collection with
+        {
+            Entries = collection.Entries
+                .Select(e => e with { EffectiveKcPerDrop = ExpectedKc(sourceName, e.RarityNumerator, e.RarityDenominator, e.Rolls) })
+                .ToList(),
+            MissingItems = collection.MissingItems
+                .Select(m => m with { EffectiveKcPerDrop = ExpectedKc(sourceName, m.RarityNumerator, m.RarityDenominator, m.Rolls) })
+                .ToList()
+        };
+        return Result<SourceCollection>.Success(enriched);
+    }
+
+    private double? ExpectedKc(string sourceName, int? numerator, int? denominator, int rolls)
+    {
+        if (denominator is not > 0) return null;
+        var expected = sourceLoot.ExpectedCompletions(sourceName, numerator ?? 1, denominator.Value, rolls);
+        return expected > 0 ? expected : null;
     }
 
     public async Task<Result<SourceKillTrend>> HandleSourceKillTrend(int characterId, string sourceName)

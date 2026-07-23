@@ -113,7 +113,11 @@ public sealed record MissingClogItem(
     string? Rarity = null,
     int? RarityNumerator = null,
     int? RarityDenominator = null,
-    int Rolls = 1);
+    int Rolls = 1,
+    // Expected kills-to-first-drop for this item at this source, normalised through the
+    // per-source loot model (raid unique-table shares, multi-roll tables, etc.). Null when
+    // there's no usable rate. The character page prefers this over the raw rolls×num/den.
+    double? EffectiveKcPerDrop = null);
 
 /// <summary>
 /// Compact source overview rendered into the hover popover on a feed card.
@@ -144,7 +148,11 @@ public sealed record CollectionEntry(
     int? RarityNumerator = null,
     int? RarityDenominator = null,
     int Rolls = 1,
-    IReadOnlyList<DropEvent>? DropEvents = null);
+    IReadOnlyList<DropEvent>? DropEvents = null,
+    // Expected kills-to-first-drop for this item at this source, normalised through the
+    // per-source loot model (raid unique-table shares, multi-roll tables, etc.). Null when
+    // there's no usable rate. The character page prefers this over the raw rolls×num/den.
+    double? EffectiveKcPerDrop = null);
 
 public sealed record DropEvent(DateTimeOffset OccurredAt, int? KillCount, int? KillOrdinal);
 
