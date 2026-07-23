@@ -1,31 +1,61 @@
+@using KlavLor.Web.Components.Layout
 @{
     var spoonUrl = AppRoutes.LootLeaderboardResults.FromApi() + "?board=Spoon";
     var dryUrl = AppRoutes.LootLeaderboardResults.FromApi() + "?board=DryStreak";
 }
 
-<div class="max-w-3xl mx-auto p-4 sm:p-6">
+@* Emitted only when served as a standalone content fragment (in-app HTMX nav), so it OOB-swaps
+   the top-bar title/heading. The routable page passes UpdateHeader=false because PageLayout
+   already set them on the first full render. *@
+@if (UpdateHeader)
+{
+    <TopBarMetaData PageTitle="KlavLor - Luck Leaderboard"
+                    Title="Luck Leaderboard"
+                    Description="The luckiest spoons and driest streaks across all tracked accounts" />
+}
+
+<div class="max-w-7xl mx-auto">
     <p class="text-sm text-slate-500 dark:text-white mb-4">
-        The luckiest spoons and the driest streaks across every tracked account. Collection-log items only, ranked by how many multiples off the expected kill count each drop was, with rarer grinds winning ties. Dry streaks include items players are still chasing. Rebuilt hourly.
+        Collection-log items only, ranked by how many multiples off the expected kill count each drop was, with rarer grinds winning ties. Dry streaks include items players are still chasing. Rebuilt hourly.
     </p>
 
-    <div class="inline-flex rounded-md border border-slate-200 dark:border-slate-700 overflow-hidden text-sm mb-4">
-        <button type="button"
-                hx-get="@spoonUrl"
-                hx-target="#lb-results"
-                hx-swap="innerHTML"
-                class="lb-tab px-3 py-1.5 bg-amber-500 text-white">
-            Spoons
-        </button>
-        <button type="button"
-                hx-get="@dryUrl"
-                hx-target="#lb-results"
-                hx-swap="innerHTML"
-                class="lb-tab px-3 py-1.5 bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300">
-            Dry streaks
-        </button>
-    </div>
+    @* CSS-only responsive tabs — no JS, so nothing to trip the CSP. Two hidden radios drive the
+       toggle. Below xl the toggle shows and exactly one board is visible (each section hides when
+       the OTHER radio is checked). At xl and up the toggle is hidden and both boards render side
+       by side, because the hide rules are scoped to max-xl and never apply at xl. Both boards load
+       their data regardless of visibility (hx-trigger=load fires even on a display:none element). *@
+    <div class="group">
+        <input type="radio" name="lb-board" id="lb-r-spoons" class="hidden" checked />
+        <input type="radio" name="lb-board" id="lb-r-dry" class="hidden" />
 
-    <div id="lb-results" hx-get="@spoonUrl" hx-trigger="load" hx-swap="innerHTML">
-        <div class="h-24 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
+        <div class="xl:hidden inline-flex rounded-md border border-slate-200 dark:border-slate-700 overflow-hidden text-sm mb-4">
+            <label for="lb-r-spoons"
+                   class="px-3 py-1.5 cursor-pointer bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300 group-has-[#lb-r-spoons:checked]:bg-amber-500 group-has-[#lb-r-spoons:checked]:text-white">
+                Spoons
+            </label>
+            <label for="lb-r-dry"
+                   class="px-3 py-1.5 cursor-pointer bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300 group-has-[#lb-r-dry:checked]:bg-amber-500 group-has-[#lb-r-dry:checked]:text-white">
+                Dry streaks
+            </label>
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <section class="max-xl:group-has-[#lb-r-dry:checked]:hidden">
+                <h2 class="text-sm font-semibold text-emerald-600 dark:text-emerald-400 mb-2">Luckiest spoons</h2>
+                <div id="lb-spoons" hx-get="@spoonUrl" hx-trigger="load" hx-swap="innerHTML">
+                    <div class="h-24 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
+                </div>
+            </section>
+            <section class="max-xl:group-has-[#lb-r-spoons:checked]:hidden">
+                <h2 class="text-sm font-semibold text-rose-600 dark:text-rose-400 mb-2">Driest streaks</h2>
+                <div id="lb-dry" hx-get="@dryUrl" hx-trigger="load" hx-swap="innerHTML">
+                    <div class="h-24 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
+                </div>
+            </section>
+        </div>
     </div>
 </div>
+
+@code {
+    [Parameter] public bool UpdateHeader { get; set; } = true;
+}
