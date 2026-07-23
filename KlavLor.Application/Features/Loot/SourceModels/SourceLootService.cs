@@ -36,6 +36,14 @@ public sealed class SourceLootService
     public int EffectiveKills(string sourceName, IReadOnlyList<ClaimDrop> drops) =>
         Resolve(sourceName).EffectiveKills(drops);
 
+    // Whether the source should appear on the luck leaderboard at all.
+    public bool IncludeInLeaderboard(string sourceName) => Resolve(sourceName).IncludeInLeaderboard;
+
+    // Expected completions to a first drop for one player, normalised per the source's model
+    // (flat rate for ordinary sources; unique-table-share scaling for raids).
+    public double ExpectedCompletions(string sourceName, int numerator, int denominator, int rolls) =>
+        Resolve(sourceName).ExpectedCompletions(numerator, denominator, rolls);
+
     private ISourceLootStrategy Resolve(string sourceName) =>
         _special.TryGetValue(sourceName, out var strategy) ? strategy : _default;
 }

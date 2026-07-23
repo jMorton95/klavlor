@@ -18,6 +18,16 @@ public interface ISourceLootStrategy
     // Effective loot-table roll-throughs / kill-count units one claim represents.
     // Default sources: 1. Doom of Mokhaiotl: the run's estimated delve depth.
     int EffectiveKills(IReadOnlyList<ClaimDrop> drops);
+
+    // Whether this source appears on the luck leaderboard. False for sources whose luck the
+    // board can't meaningfully compute from a flat rate (e.g. Doom's delve model).
+    bool IncludeInLeaderboard { get; }
+
+    // Expected source completions to a first drop of an item, for one player, given the item's
+    // stored wiki rate. Default treats numerator/denominator as a flat per-kill probability.
+    // Raid strategies reinterpret unique-table shares and scale by the per-completion unique
+    // frequency, since the wiki stores a share ("given a unique, which item") not a per-raid rate.
+    double ExpectedCompletions(int numerator, int denominator, int rolls);
 }
 
 public abstract class SourceLootStrategy(string sourceName) : ISourceLootStrategy
@@ -25,4 +35,13 @@ public abstract class SourceLootStrategy(string sourceName) : ISourceLootStrateg
     public string SourceName { get; } = sourceName;
 
     public abstract int EffectiveKills(IReadOnlyList<ClaimDrop> drops);
+
+    public virtual bool IncludeInLeaderboard => true;
+
+    public virtual double ExpectedCompletions(int numerator, int denominator, int rolls)
+    {
+        if (denominator <= 0) return double.MaxValue;
+        var p = Math.Max(1, rolls) * (double)Math.Max(1, numerator) / denominator;
+        return p <= 0 ? double.MaxValue : 1.0 / p;
+    }
 }

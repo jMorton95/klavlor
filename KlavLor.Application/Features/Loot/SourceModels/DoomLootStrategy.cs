@@ -20,6 +20,10 @@ public sealed class DoomLootStrategy() : SourceLootStrategy("Doom of Mokhaiotl")
     private static readonly int[] Treads = { 0, 0, 0,    0,    1350, 810, 765, 720, 630, 540 };
     private static readonly int[] Pet    = { 0, 0, 0,    0,    0,    0,   1000, 750, 500, 250 };
 
+    // Off the leaderboard until its delve-aware luck is wired through the strategy; a flat
+    // rate would be meaningless for a boss that rolls loot per delve level.
+    public override bool IncludeInLeaderboard => false;
+
     public override int EffectiveKills(IReadOnlyList<ClaimDrop> drops) => EstimateDepth(drops);
 
     // Deepest delve the claim proves the run reached: the max of the unique-item gates present

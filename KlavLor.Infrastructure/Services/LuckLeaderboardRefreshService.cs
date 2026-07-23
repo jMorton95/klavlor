@@ -60,6 +60,11 @@ public sealed class LuckLeaderboardRefreshService(
             var lootLog = scope.ServiceProvider.GetRequiredService<ILootLogRepository>();
             var board = scope.ServiceProvider.GetRequiredService<ILuckLeaderboardRepository>();
             var sourceLoot = scope.ServiceProvider.GetRequiredService<SourceLootService>();
+            var exclusions = scope.ServiceProvider.GetRequiredService<ILeaderboardSourceExclusionRepository>();
+
+            // Admin-blacklisted sources (wrong stored rates) are dropped from both boards.
+            var excluded = (await exclusions.GetExcludedSourceNames())
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
             var generation = await board.NextGeneration();
             var characters = await board.GetVisibleCharacters();
@@ -74,13 +79,16 @@ public sealed class LuckLeaderboardRefreshService(
                 {
                     if (ct.IsCancellationRequested) break;
 
-                    // Sources with a dedicated strategy (e.g. Doom of Mokhaiotl) don't follow the
-                    // flat one-roll-per-kill maths this board assumes, so their luck would be wildly
-                    // wrong. Skip them until the board is wired to compute luck through the strategy.
-                    if (sourceLoot.HasSpecialModel(source)) continue;
+                    // Sources whose luck the board can't compute from a flat rate (e.g. Doom's
+                    // delve model) opt out via the strategy; raids stay in but get their rates
+                    // normalised inside BuildEntries via ExpectedCompletions.
+                    if (!sourceLoot.IncludeInLeaderboard(source)) continue;
+
+                    // Admin-excluded sources (wrong stored drop rates) never appear on the boards.
+                    if (excluded.Contains(source)) continue;
 
                     var collection = await lootLog.GetSourceCollection(charId, source);
-                    var entries = BuildEntries(generation, charId, charName, source, collection);
+                    var entries = BuildEntries(generation, charId, charName, source, collection, sourceLoot);
                     if (entries.Count > 0)
                     {
                         await board.InsertEntries(entries);
@@ -109,7 +117,8 @@ public sealed class LuckLeaderboardRefreshService(
     }
 
     private static List<LuckLeaderboardEntry> BuildEntries(
-        long gen, int charId, string charName, string source, SourceCollection collection)
+        long gen, int charId, string charName, string source, SourceCollection collection,
+        SourceLootService sourceLoot)
     {
         var entries = new List<LuckLeaderboardEntry>();
 
@@ -117,7 +126,7 @@ public sealed class LuckLeaderboardRefreshService(
         foreach (var e in collection.Entries)
         {
             if (e.RarityDenominator is not { } den || den <= 0) continue;
-            var expected = ExpectedKc(e.RarityNumerator, den, e.Rolls);
+            var expected = sourceLoot.ExpectedCompletions(source, e.RarityNumerator ?? 1, den, e.Rolls);
             if (expected < 1) continue;                       // effectively guaranteed drop — not interesting
             var observed = e.KillCount ?? e.KillOrdinal ?? 0; // prefer the real RuneLite KC, fall back to logged ordinal
             if (observed <= 0) continue;
@@ -142,7 +151,7 @@ public sealed class LuckLeaderboardRefreshService(
         foreach (var m in collection.MissingItems)
         {
             if (m.RarityDenominator is not { } den || den <= 0) continue;
-            var expected = ExpectedKc(m.RarityNumerator, den, m.Rolls);
+            var expected = sourceLoot.ExpectedCompletions(source, m.RarityNumerator ?? 1, den, m.Rolls);
             if (expected < 1) continue;
             var observed = collection.CharacterKc;
             if (observed <= 0) continue;
@@ -154,13 +163,6 @@ public sealed class LuckLeaderboardRefreshService(
         }
 
         return entries;
-    }
-
-    // Expected kills to a first drop = 1 / effective per-kill probability.
-    private static double ExpectedKc(int? numerator, int denominator, int rolls)
-    {
-        var p = Math.Max(1, rolls) * (double)(numerator ?? 1) / denominator;
-        return p <= 0 ? double.MaxValue : 1.0 / p;
     }
 
     private static LuckLeaderboardEntry Row(

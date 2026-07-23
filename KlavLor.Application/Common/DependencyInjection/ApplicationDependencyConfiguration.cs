@@ -29,6 +29,9 @@ public static class ApplicationDependencyConfiguration
         // edge-case source by registering one more strategy — consumers are untouched.
         services.AddSingleton<ISourceLootStrategy, DefaultSourceLootStrategy>();
         services.AddSingleton<ISourceLootStrategy, DoomLootStrategy>();
+        services.AddSingleton<ISourceLootStrategy, ChambersOfXericStrategy>();
+        services.AddSingleton<ISourceLootStrategy, TombsOfAmascutStrategy>();
+        services.AddSingleton<ISourceLootStrategy, TheatreOfBloodStrategy>();
         services.AddSingleton<SourceLootService>();
     }
 }
