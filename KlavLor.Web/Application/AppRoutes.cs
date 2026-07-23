@@ -170,6 +170,12 @@ public static class AppRoutes
     public const string AdminLeaderboardExclusionSearch = "/admin/settings/leaderboard-exclusions/search";
     public const string AdminLeaderboardExclusionExclude = "/admin/settings/leaderboard-exclusions/exclude";
     public const string AdminLeaderboardExclusionInclude = "/admin/settings/leaderboard-exclusions/include";
+    public const string AdminLeaderboardItemExclusionSearch = "/admin/settings/leaderboard-item-exclusions/search";
+    public const string AdminLeaderboardItemExclusionExclude = "/admin/settings/leaderboard-item-exclusions/exclude";
+    public const string AdminLeaderboardItemExclusionInclude = "/admin/settings/leaderboard-item-exclusions/include";
+    public const string AdminSourceModifierSearch = "/admin/settings/source-modifiers/search";
+    public const string AdminSourceModifierApply = "/admin/settings/source-modifiers/apply";
+    public const string AdminSourceModifierRemove = "/admin/settings/source-modifiers/remove";
     public const string AdminIcons = "/admin/settings/icons";
     public const string AdminIconsRetry = "/admin/settings/icons/retry";
     public const string AdminSyncStatus = "/admin/settings/sync-status";

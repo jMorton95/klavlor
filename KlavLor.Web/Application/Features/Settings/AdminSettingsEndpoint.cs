@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using KlavLor.Application.Features.CollectionLog;
 using KlavLor.Application.Features.DropRates;
 using KlavLor.Application.Features.Loot.Leaderboard;
+using KlavLor.Application.Features.Loot.SourceModels;
 using KlavLor.Application.Features.Maintenance;
 using KlavLor.Application.Features.Settings;
 using KlavLor.Application.Interfaces.Services;
@@ -68,6 +69,31 @@ public sealed class AdminSettingsEndpoint : IEndpoint
             .RequireRateLimiting("mutation");
 
         app.MapPost(AppRoutes.AdminLeaderboardExclusionInclude.FromApi(), IncludeLeaderboardSource)
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("mutation");
+
+        app.MapGet(AppRoutes.AdminLeaderboardItemExclusionSearch.FromApi(), SearchLeaderboardItemExclusions)
+            .RequireAuthorization(nameof(RoleName.Admin));
+
+        app.MapPost(AppRoutes.AdminLeaderboardItemExclusionExclude.FromApi(), ExcludeLeaderboardItem)
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("mutation");
+
+        app.MapPost(AppRoutes.AdminLeaderboardItemExclusionInclude.FromApi(), IncludeLeaderboardItem)
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("mutation");
+
+        app.MapGet(AppRoutes.AdminSourceModifierSearch.FromApi(), SearchSourceModifiers)
+            .RequireAuthorization(nameof(RoleName.Admin));
+
+        // Apply reads source/item/multiplier from form fields (dynamic), so antiforgery is
+        // disabled — admin-gated, rate-limited, SameSite=Strict cookie (same as the rename path).
+        app.MapPost(AppRoutes.AdminSourceModifierApply.FromApi(), ApplySourceModifier)
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("mutation")
+            .DisableAntiforgery();
+
+        app.MapPost(AppRoutes.AdminSourceModifierRemove.FromApi(), RemoveSourceModifier)
             .RequireAuthorization(nameof(RoleName.Admin))
             .RequireRateLimiting("mutation");
 
@@ -261,6 +287,65 @@ public sealed class AdminSettingsEndpoint : IEndpoint
     {
         var row = await handler.Include(source, count);
         return IResultExtensions.Component<LeaderboardExclusionRow>(new { Item = row, RowIndex = rowIndex });
+    }
+
+    private static async Task<RazorComponentResult> SearchLeaderboardItemExclusions(
+        [FromQuery] string? searchTerm,
+        LeaderboardItemExclusionAdminHandler handler)
+    {
+        var items = await handler.Search(searchTerm);
+        return IResultExtensions.Component<LeaderboardItemExclusionResults>(new { Items = items, SearchTerm = searchTerm });
+    }
+
+    private static async Task<RazorComponentResult> ExcludeLeaderboardItem(
+        [FromQuery] string item,
+        [FromQuery] long count,
+        [FromQuery] int rowIndex,
+        LeaderboardItemExclusionAdminHandler handler)
+    {
+        var row = await handler.Exclude(item, count);
+        return IResultExtensions.Component<LeaderboardItemExclusionRow>(new { Item = row, RowIndex = rowIndex });
+    }
+
+    private static async Task<RazorComponentResult> IncludeLeaderboardItem(
+        [FromQuery] string item,
+        [FromQuery] long count,
+        [FromQuery] int rowIndex,
+        LeaderboardItemExclusionAdminHandler handler)
+    {
+        var row = await handler.Include(item, count);
+        return IResultExtensions.Component<LeaderboardItemExclusionRow>(new { Item = row, RowIndex = rowIndex });
+    }
+
+    private static async Task<RazorComponentResult> SearchSourceModifiers(
+        [FromQuery] string? searchTerm,
+        SourceRateModifierAdminHandler handler)
+    {
+        var items = await handler.Search(searchTerm);
+        return IResultExtensions.Component<SourceRateModifierResults>(new
+        {
+            Items = items,
+            IsSearch = !string.IsNullOrWhiteSpace(searchTerm)
+        });
+    }
+
+    private static async Task<RazorComponentResult> ApplySourceModifier(
+        [FromForm] string sourceName,
+        [FromForm] string? itemName,
+        [FromForm] double multiplier,
+        SourceRateModifierAdminHandler handler)
+    {
+        var items = await handler.Apply(sourceName, itemName, multiplier);
+        return IResultExtensions.Component<SourceRateModifierResults>(new { Items = items, IsSearch = false });
+    }
+
+    private static async Task<RazorComponentResult> RemoveSourceModifier(
+        [FromQuery] string source,
+        [FromQuery] string item,
+        SourceRateModifierAdminHandler handler)
+    {
+        var items = await handler.Remove(source, item);
+        return IResultExtensions.Component<SourceRateModifierResults>(new { Items = items, IsSearch = false });
     }
 
     private static async Task<RazorComponentResult> GetIcons(IconAuditHandler handler)

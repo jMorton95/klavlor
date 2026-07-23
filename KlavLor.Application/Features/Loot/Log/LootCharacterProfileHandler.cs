@@ -124,19 +124,19 @@ public sealed class LootCharacterProfileHandler(
         var enriched = collection with
         {
             Entries = collection.Entries
-                .Select(e => e with { EffectiveKcPerDrop = ExpectedKc(sourceName, e.RarityNumerator, e.RarityDenominator, e.Rolls) })
+                .Select(e => e with { EffectiveKcPerDrop = ExpectedKc(sourceName, e.ItemName, e.RarityNumerator, e.RarityDenominator, e.Rolls) })
                 .ToList(),
             MissingItems = collection.MissingItems
-                .Select(m => m with { EffectiveKcPerDrop = ExpectedKc(sourceName, m.RarityNumerator, m.RarityDenominator, m.Rolls) })
+                .Select(m => m with { EffectiveKcPerDrop = ExpectedKc(sourceName, m.ItemName, m.RarityNumerator, m.RarityDenominator, m.Rolls) })
                 .ToList()
         };
         return Result<SourceCollection>.Success(enriched);
     }
 
-    private double? ExpectedKc(string sourceName, int? numerator, int? denominator, int rolls)
+    private double? ExpectedKc(string sourceName, string itemName, int? numerator, int? denominator, int rolls)
     {
         if (denominator is not > 0) return null;
-        var expected = sourceLoot.ExpectedCompletions(sourceName, numerator ?? 1, denominator.Value, rolls);
+        var expected = sourceLoot.ExpectedCompletions(sourceName, itemName, numerator ?? 1, denominator.Value, rolls);
         return expected > 0 ? expected : null;
     }
 

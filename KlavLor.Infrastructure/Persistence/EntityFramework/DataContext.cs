@@ -34,6 +34,8 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
     public virtual DbSet<LuckLeaderboardEntry> LuckLeaderboardEntries => Set<LuckLeaderboardEntry>();
     public virtual DbSet<LuckLeaderboardMeta> LuckLeaderboardMeta => Set<LuckLeaderboardMeta>();
     public virtual DbSet<LeaderboardSourceExclusion> LeaderboardSourceExclusions => Set<LeaderboardSourceExclusion>();
+    public virtual DbSet<LeaderboardItemExclusion> LeaderboardItemExclusions => Set<LeaderboardItemExclusion>();
+    public virtual DbSet<SourceRateModifier> SourceRateModifiers => Set<SourceRateModifier>();
     public virtual DbSet<JobRun> JobRuns => Set<JobRun>();
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
@@ -430,6 +432,16 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
         // Admin blacklist of sources excluded from the luck leaderboards (SourceName is the key).
         modelBuilder.Entity<LeaderboardSourceExclusion>()
             .HasIndex(e => e.SourceName)
+            .IsUnique();
+
+        // Admin blacklist of items excluded from the luck leaderboards (ItemName is the key).
+        modelBuilder.Entity<LeaderboardItemExclusion>()
+            .HasIndex(e => e.ItemName)
+            .IsUnique();
+
+        // Admin rate multipliers, keyed by (source, item); empty item = source-wide.
+        modelBuilder.Entity<SourceRateModifier>()
+            .HasIndex(e => new { e.SourceName, e.ItemName })
             .IsUnique();
 
         // Background-job run log (append-only operational history; not an Entity, no audit stamp).

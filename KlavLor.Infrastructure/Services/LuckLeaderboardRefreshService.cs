@@ -63,9 +63,14 @@ public sealed class LuckLeaderboardRefreshService(
             var board = scope.ServiceProvider.GetRequiredService<ILuckLeaderboardRepository>();
             var sourceLoot = scope.ServiceProvider.GetRequiredService<SourceLootService>();
             var exclusions = scope.ServiceProvider.GetRequiredService<ILeaderboardSourceExclusionRepository>();
+            var itemExclusions = scope.ServiceProvider.GetRequiredService<ILeaderboardItemExclusionRepository>();
 
             // Admin-blacklisted sources (wrong stored rates) are dropped from both boards.
             var excluded = (await exclusions.GetExcludedSourceNames())
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            // Admin-blacklisted items — hidden across every source (e.g. shared rare-drop-table drops).
+            var excludedItems = (await itemExclusions.GetExcludedItemNames())
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
             // Surfaced in the job-run history so a "why isn't my exclusion working" question is
@@ -96,7 +101,7 @@ public sealed class LuckLeaderboardRefreshService(
                     if (excluded.Contains(source)) { excludedSkipped++; continue; }
 
                     var collection = await lootLog.GetSourceCollection(charId, source);
-                    var entries = BuildEntries(generation, charId, charName, source, collection, sourceLoot);
+                    var entries = BuildEntries(generation, charId, charName, source, collection, sourceLoot, excludedItems);
                     if (entries.Count > 0)
                     {
                         await board.InsertEntries(entries);
@@ -129,15 +134,16 @@ public sealed class LuckLeaderboardRefreshService(
 
     private static List<LuckLeaderboardEntry> BuildEntries(
         long gen, int charId, string charName, string source, SourceCollection collection,
-        SourceLootService sourceLoot)
+        SourceLootService sourceLoot, IReadOnlySet<string> excludedItems)
     {
         var entries = new List<LuckLeaderboardEntry>();
 
         // Obtained clog items → a spoon if received faster than expected, a dry streak if slower.
         foreach (var e in collection.Entries)
         {
+            if (excludedItems.Contains(e.ItemName)) continue;
             if (e.RarityDenominator is not { } den || den <= 0) continue;
-            var expected = sourceLoot.ExpectedCompletions(source, e.RarityNumerator ?? 1, den, e.Rolls);
+            var expected = sourceLoot.ExpectedCompletions(source, e.ItemName, e.RarityNumerator ?? 1, den, e.Rolls);
             if (expected < 1) continue;                       // effectively guaranteed drop — not interesting
             var observed = e.KillCount ?? e.KillOrdinal ?? 0; // prefer the real RuneLite KC, fall back to logged ordinal
             if (observed <= 0) continue;
@@ -161,8 +167,9 @@ public sealed class LuckLeaderboardRefreshService(
         // Not-yet-received clog items → an ongoing dry streak measured at the current kill count.
         foreach (var m in collection.MissingItems)
         {
+            if (excludedItems.Contains(m.ItemName)) continue;
             if (m.RarityDenominator is not { } den || den <= 0) continue;
-            var expected = sourceLoot.ExpectedCompletions(source, m.RarityNumerator ?? 1, den, m.Rolls);
+            var expected = sourceLoot.ExpectedCompletions(source, m.ItemName, m.RarityNumerator ?? 1, den, m.Rolls);
             if (expected < 1) continue;
             var observed = collection.CharacterKc;
             if (observed <= 0) continue;

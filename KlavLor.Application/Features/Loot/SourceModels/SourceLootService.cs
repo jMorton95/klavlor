@@ -1,3 +1,5 @@
+using KlavLor.Application.Interfaces.Services;
+
 namespace KlavLor.Application.Features.Loot.SourceModels;
 
 // Consumer-facing facade over the source loot strategies. Callers pass a source name plus raw
@@ -13,9 +15,11 @@ public sealed class SourceLootService
 
     private readonly IReadOnlyDictionary<string, ISourceLootStrategy> _special;
     private readonly ISourceLootStrategy _default;
+    private readonly ISourceRateModifierCache _modifiers;
 
-    public SourceLootService(IEnumerable<ISourceLootStrategy> strategies)
+    public SourceLootService(IEnumerable<ISourceLootStrategy> strategies, ISourceRateModifierCache modifiers)
     {
+        _modifiers = modifiers;
         var all = strategies.ToList();
         _default = all.First(s => string.IsNullOrEmpty(s.SourceName));
         _special = all
@@ -40,9 +44,14 @@ public sealed class SourceLootService
     public bool IncludeInLeaderboard(string sourceName) => Resolve(sourceName).IncludeInLeaderboard;
 
     // Expected completions to a first drop for one player, normalised per the source's model
-    // (flat rate for ordinary sources; unique-table-share scaling for raids).
-    public double ExpectedCompletions(string sourceName, int numerator, int denominator, int rolls) =>
-        Resolve(sourceName).ExpectedCompletions(numerator, denominator, rolls);
+    // (flat rate for ordinary sources; unique-table-share scaling for raids), then scaled by any
+    // admin-configured rate modifier for this source/item. itemName may be null/empty to get the
+    // source-wide value.
+    public double ExpectedCompletions(string sourceName, string? itemName, int numerator, int denominator, int rolls)
+    {
+        var baseline = Resolve(sourceName).ExpectedCompletions(numerator, denominator, rolls);
+        return baseline * _modifiers.GetMultiplier(sourceName, itemName);
+    }
 
     private ISourceLootStrategy Resolve(string sourceName) =>
         _special.TryGetValue(sourceName, out var strategy) ? strategy : _default;

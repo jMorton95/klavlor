@@ -128,6 +128,12 @@ var systemSettingsRepository = scope.ServiceProvider.GetRequiredService<KlavLor.
 var primedSettings = await systemSettingsRepository.GetOrCreate();
 systemSettingsCache.SetLeaguesEnabled(primedSettings.IsLeaguesEnabled);
 
+// Prime the source rate-modifier cache so luck maths reflect admin overrides from the first
+// request (the leaderboard refresh and character pages read it on the hot path).
+var sourceRateModifierCache = scope.ServiceProvider.GetRequiredService<KlavLor.Application.Interfaces.Services.ISourceRateModifierCache>();
+var sourceRateModifierRepository = scope.ServiceProvider.GetRequiredService<KlavLor.Application.Interfaces.Repositories.ISourceRateModifierRepository>();
+sourceRateModifierCache.Replace(await sourceRateModifierRepository.GetAll());
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
