@@ -17,9 +17,17 @@ internal sealed class DropRateRepository(DataContext dataContext, ILogger<DropRa
         // by case-insensitive name. Joined in a single pass to keep the write a small
         // bounded number of round-trips even for sources with hundreds of drops.
         var names = rates.Select(r => r.ItemName.ToLower()).ToList();
-        var clogByLowerName = await dataContext.CollectionLogItems
+        // A few collection-log names are shared by more than one item id (e.g. "Rum" appears
+        // twice in the clog), so keying a dictionary straight off the name throws "same key".
+        // This resolution is best-effort, so fetch the rows and pick a deterministic winner
+        // (lowest item id) per name rather than letting a duplicate crash the whole sync.
+        var clogRows = await dataContext.CollectionLogItems
             .Where(c => names.Contains(c.Name.ToLower()))
-            .ToDictionaryAsync(c => c.Name.ToLowerInvariant(), c => c.ItemId);
+            .Select(c => new { c.Name, c.ItemId })
+            .ToListAsync();
+        var clogByLowerName = clogRows
+            .GroupBy(c => c.Name.ToLowerInvariant())
+            .ToDictionary(g => g.Key, g => g.OrderBy(x => x.ItemId).First().ItemId);
 
         foreach (var rate in rates)
         {

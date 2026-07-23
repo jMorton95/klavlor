@@ -81,7 +81,24 @@ public sealed class DropRateSyncService(
             {
                 if (stoppingToken.IsCancellationRequested) break;
 
-                var result = await runner.SyncSource(sourceName, stoppingToken);
+                // One malformed source (bad wiki data, a duplicate clog name, etc.) must not
+                // abort the whole backlog — log it, count it as a failure, and move on.
+                DropRateSyncResult result;
+                try
+                {
+                    result = await runner.SyncSource(sourceName, stoppingToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Drop rate sync failed for source {Source}; skipping", sourceName);
+                    failed++;
+                    continue;
+                }
+
                 switch (result.Outcome)
                 {
                     case DropRateSyncOutcome.Synced: synced++; break;
