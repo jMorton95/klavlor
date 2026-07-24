@@ -37,6 +37,7 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
     public virtual DbSet<LeaderboardItemExclusion> LeaderboardItemExclusions => Set<LeaderboardItemExclusion>();
     public virtual DbSet<SourceRateModifier> SourceRateModifiers => Set<SourceRateModifier>();
     public virtual DbSet<JobRun> JobRuns => Set<JobRun>();
+    public virtual DbSet<JobSchedule> JobSchedules => Set<JobSchedule>();
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -468,6 +469,18 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
         // Retention prune scans by StartedAt.
         modelBuilder.Entity<JobRun>()
             .HasIndex(e => e.StartedAt);
+
+        // Per-job scheduling state (JobName is the key; polled by recurring services).
+        modelBuilder.Entity<JobSchedule>()
+            .HasKey(e => e.JobName);
+
+        modelBuilder.Entity<JobSchedule>()
+            .Property(e => e.LastRunAt)
+            .HasColumnType("timestamp with time zone");
+
+        modelBuilder.Entity<JobSchedule>()
+            .Property(e => e.ManualRequestedAt)
+            .HasColumnType("timestamp with time zone");
 
         // Entity base class configuration (timestamps and row versions)
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())

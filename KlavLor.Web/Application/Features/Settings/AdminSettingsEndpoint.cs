@@ -125,6 +125,10 @@ public sealed class AdminSettingsEndpoint : IEndpoint
         app.MapGet(AppRoutes.AdminJobHealth.FromApi(), GetJobHealth)
             .RequireAuthorization(nameof(RoleName.Admin));
 
+        app.MapPost(AppRoutes.AdminJobRunNow.FromApi(), RunJobNow)
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("mutation");
+
         app.MapPost(AppRoutes.AdminClogSyncNow.FromApi(), ClogSyncNow)
             .RequireAuthorization(nameof(RoleName.Admin))
             .RequireRateLimiting("mutation");
@@ -454,6 +458,23 @@ public sealed class AdminSettingsEndpoint : IEndpoint
         }
 
         return IResultExtensions.Component<JobHealthPanel>(new { Rows = rows });
+    }
+
+    private static async Task<RazorComponentResult> RunJobNow(
+        [FromQuery] string jobName,
+        JobHealthHandler handler)
+    {
+        await handler.RequestManualRun(jobName);
+
+        // Re-render the expanded view so the button flips to the "requested" state; fall back to
+        // the grid if the job somehow has no recorded run yet.
+        var rows = await handler.GetHealth();
+        var row = rows.FirstOrDefault(r => r.JobName == jobName);
+        if (row is null)
+            return IResultExtensions.Component<JobHealthPanel>(new { Rows = rows });
+
+        var runs = await handler.GetHistory(jobName);
+        return IResultExtensions.Component<JobHealthExpanded>(new { Row = row, Runs = runs });
     }
 
     private static async Task<RazorComponentResult> SearchSources(

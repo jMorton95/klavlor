@@ -1,3 +1,4 @@
+using KlavLor.Application.Common;
 using KlavLor.Application.Interfaces.Services;
 using KlavLor.Domain.Entities;
 using KlavLor.Domain.Interfaces.Repositories;
@@ -17,9 +18,11 @@ namespace KlavLor.Infrastructure.Services;
 public sealed class DropRateSyncService(
     IServiceScopeFactory scopeFactory,
     IJobRunRecorder jobRuns,
+    IJobScheduler scheduler,
     ILogger<DropRateSyncService> logger) : BackgroundService
 {
     private static readonly TimeSpan CycleInterval = TimeSpan.FromHours(6);
+    private static readonly TimeSpan PollInterval = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan PerSourcePause = TimeSpan.FromMilliseconds(500);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -27,13 +30,14 @@ public sealed class DropRateSyncService(
         // Defer past startup so we don't compete with migrations / cache priming.
         await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
 
-        using var timer = new PeriodicTimer(CycleInterval);
+        using var timer = new PeriodicTimer(PollInterval);
 
         try
         {
             do
             {
-                await jobRuns.Track("Drop rate sync", () => RunCycle(stoppingToken));
+                if (await scheduler.TryClaimRun(BackgroundJobNames.DropRateSync, CycleInterval))
+                    await jobRuns.Track(BackgroundJobNames.DropRateSync, () => RunCycle(stoppingToken));
             } while (await timer.WaitForNextTickAsync(stoppingToken));
         }
         catch (OperationCanceledException)

@@ -1,3 +1,4 @@
+using KlavLor.Application.Common;
 using KlavLor.Application.Features.Loot.Log;
 using KlavLor.Application.Features.Loot.SourceModels;
 using KlavLor.Application.Interfaces.Repositories;
@@ -18,8 +19,13 @@ namespace KlavLor.Infrastructure.Services;
 public sealed class LuckLeaderboardRefreshService(
     IServiceScopeFactory scopeFactory,
     IJobRunRecorder jobRuns,
+    IJobScheduler scheduler,
     ILogger<LuckLeaderboardRefreshService> logger) : BackgroundService
 {
+    // Poll once a minute; actually run at most hourly (or immediately on an admin manual trigger).
+    private static readonly TimeSpan RunInterval = TimeSpan.FromHours(1);
+    private static readonly TimeSpan PollInterval = TimeSpan.FromMinutes(1);
+
     // Must be at least this many multiples off the expected kill count to make a board.
     private const double MinMultiple = 2.0;
 
@@ -39,12 +45,13 @@ public sealed class LuckLeaderboardRefreshService(
     {
         await Task.Delay(TimeSpan.FromSeconds(45), stoppingToken);
 
-        using var timer = new PeriodicTimer(TimeSpan.FromHours(1));
+        using var timer = new PeriodicTimer(PollInterval);
         try
         {
             do
             {
-                await jobRuns.Track("Luck leaderboard refresh", () => RunCycle(stoppingToken));
+                if (await scheduler.TryClaimRun(BackgroundJobNames.LuckLeaderboardRefresh, RunInterval))
+                    await jobRuns.Track(BackgroundJobNames.LuckLeaderboardRefresh, () => RunCycle(stoppingToken));
             } while (await timer.WaitForNextTickAsync(stoppingToken));
         }
         catch (OperationCanceledException)

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using KlavLor.Application.Common;
 using KlavLor.Application.Features.Loot.SourceModels;
 using KlavLor.Application.Interfaces.Services;
 using KlavLor.Domain.Entities;
@@ -23,10 +24,13 @@ namespace KlavLor.Infrastructure.Services;
 public sealed class LootDerivationBackfillService(
     IServiceScopeFactory scopeFactory,
     IJobRunRecorder jobRuns,
+    IJobScheduler scheduler,
     ILogger<LootDerivationBackfillService> logger) : BackgroundService
 {
     private const int BatchSize = 500;
     private const int MaxBatchesPerCycle = 100; // up to 50k rows per cycle, then resume next tick
+    private static readonly TimeSpan RunInterval = TimeSpan.FromMinutes(30);
+    private static readonly TimeSpan PollInterval = TimeSpan.FromMinutes(1);
 
     private readonly SemaphoreSlim _gate = new(1, 1);
 
@@ -34,12 +38,13 @@ public sealed class LootDerivationBackfillService(
     {
         await Task.Delay(TimeSpan.FromSeconds(60), stoppingToken);
 
-        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(30));
+        using var timer = new PeriodicTimer(PollInterval);
         try
         {
             do
             {
-                await jobRuns.Track("Loot derivation backfill", () => RunCycle(stoppingToken));
+                if (await scheduler.TryClaimRun(BackgroundJobNames.LootDerivationBackfill, RunInterval))
+                    await jobRuns.Track(BackgroundJobNames.LootDerivationBackfill, () => RunCycle(stoppingToken));
             } while (await timer.WaitForNextTickAsync(stoppingToken));
         }
         catch (OperationCanceledException)

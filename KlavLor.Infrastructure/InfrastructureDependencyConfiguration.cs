@@ -77,6 +77,9 @@ public static class InfrastructureDependencyConfiguration
             // Records every background-service cycle into the JobRuns log for the admin health panel.
             services.AddSingleton<KlavLor.Application.Interfaces.Services.IJobRunRecorder, JobRunRecorder>();
 
+            // Poll-based scheduler: lets recurring services check for a manual trigger / elapsed interval.
+            services.AddSingleton<KlavLor.Application.Interfaces.Services.IJobScheduler, JobScheduler>();
+
             services.AddSingleton<ICollectionLogCache, CollectionLogCache>();
             services.AddSingleton<ISystemSettingsCache, SystemSettingsCache>();
             services.AddSingleton<ISourceRateModifierCache, SourceRateModifierCache>();

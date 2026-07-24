@@ -1,3 +1,4 @@
+using KlavLor.Application.Common;
 using KlavLor.Application.Interfaces.Services;
 using KlavLor.Domain.Entities;
 using KlavLor.Domain.Interfaces.Repositories;
@@ -16,8 +17,11 @@ public sealed class CollectionLogSyncService(
     IServiceScopeFactory scopeFactory,
     ICollectionLogCache cache,
     IJobRunRecorder jobRuns,
+    IJobScheduler scheduler,
     ILogger<CollectionLogSyncService> logger) : BackgroundService
 {
+    private static readonly TimeSpan RunInterval = TimeSpan.FromHours(1);
+    private static readonly TimeSpan PollInterval = TimeSpan.FromMinutes(1);
     private bool _primed;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -25,14 +29,15 @@ public sealed class CollectionLogSyncService(
         // Wait for app startup
         await Task.Delay(TimeSpan.FromSeconds(15), stoppingToken);
 
-        using var timer = new PeriodicTimer(TimeSpan.FromHours(1));
+        using var timer = new PeriodicTimer(PollInterval);
 
         try
         {
-            // Run immediately on first tick, then hourly
+            // Poll each minute; run on the first poll, then hourly, or on an admin manual trigger.
             do
             {
-                await jobRuns.Track("Collection log sync", () => RunCycle(stoppingToken));
+                if (await scheduler.TryClaimRun(BackgroundJobNames.CollectionLogSync, RunInterval))
+                    await jobRuns.Track(BackgroundJobNames.CollectionLogSync, () => RunCycle(stoppingToken));
             } while (await timer.WaitForNextTickAsync(stoppingToken));
         }
         catch (OperationCanceledException)
