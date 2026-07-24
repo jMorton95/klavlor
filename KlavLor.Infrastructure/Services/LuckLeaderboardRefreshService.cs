@@ -29,15 +29,28 @@ public sealed class LuckLeaderboardRefreshService(
     // Must be at least this many multiples off the expected kill count to make a board.
     private const double MinMultiple = 2.0;
 
-    // Special case for very rare items (1/2000 or rarer): they earn a place on the dry-streak
-    // board the moment a player pushes past the expected kill count, even below MinMultiple —
-    // to celebrate the sheer effort of these long grinds rather than only unlucky streaks.
+    // Rare "special curse" items (1/2000 or rarer): once a player has done at least the item's
+    // own drop rate in kills, it's ranked by that rarity — denominator/1000 — so a 1/5000 grind
+    // reads as 5x and a 1/3000 as 3x, never below the genuine dryness.
     private const int RareGrindDenominator = 2000;
 
-    // Dry-board inclusion: the usual multiple threshold, or — for rare-grind items — any amount
-    // over the expected kill count (multiple > 1).
-    private static bool QualifiesForDryBoard(double multiple, int rarityDenominator) =>
-        multiple >= MinMultiple || (rarityDenominator >= RareGrindDenominator && multiple > 1.0);
+    // Bottom end: items more common than 1/100 that are also low value aren't interesting.
+    private const int CommonDenominator = 100;
+    private const long MinInterestingValue = 100_000;
+
+    private static bool IsUninteresting(int rarityDenominator, long perDropValue) =>
+        rarityDenominator < CommonDenominator && perDropValue < MinInterestingValue;
+
+    // Dry-board multiple for an item, or null if it doesn't qualify. A rare-grind item past its
+    // own drop rate in kills is ranked by denominator/1000; everything else needs MinMultiple.
+    private static double? DryMultiple(double observed, double expected, int rarityDenominator)
+    {
+        if (observed <= expected) return null;
+        var actual = observed / expected;
+        if (rarityDenominator >= RareGrindDenominator && observed >= rarityDenominator)
+            return Math.Max(rarityDenominator / 1000.0, actual);
+        return actual >= MinMultiple ? actual : null;
+    }
 
     private readonly SemaphoreSlim _gate = new(1, 1);
 
@@ -160,6 +173,8 @@ public sealed class LuckLeaderboardRefreshService(
         {
             if (excludedItems.Contains(e.ItemName)) continue;
             if (e.RarityDenominator is not { } den || den <= 0) continue;
+            var perDropValue = e.TotalDrops > 0 ? e.TotalValue / e.TotalDrops : 0;
+            if (IsUninteresting(den, perDropValue)) continue;
             var expected = sourceLoot.ExpectedCompletions(source, e.ItemName, e.RarityNumerator ?? 1, den, e.Rolls);
             if (expected < 1) continue;                       // effectively guaranteed drop — not interesting
             var observed = e.KillCount ?? e.KillOrdinal ?? 0; // prefer the real RuneLite KC, fall back to logged ordinal
@@ -172,12 +187,10 @@ public sealed class LuckLeaderboardRefreshService(
                     entries.Add(Row(gen, charId, charName, source, e.ItemName,
                         LeaderboardBoard.Spoon, multiple, obtained: true, observed, expected, den));
             }
-            else
+            else if (DryMultiple(observed, expected, den) is { } dryMultiple)
             {
-                var multiple = observed / expected;
-                if (QualifiesForDryBoard(multiple, den))
-                    entries.Add(Row(gen, charId, charName, source, e.ItemName,
-                        LeaderboardBoard.DryStreak, multiple, obtained: true, observed, expected, den));
+                entries.Add(Row(gen, charId, charName, source, e.ItemName,
+                    LeaderboardBoard.DryStreak, dryMultiple, obtained: true, observed, expected, den));
             }
         }
 
@@ -186,15 +199,16 @@ public sealed class LuckLeaderboardRefreshService(
         {
             if (excludedItems.Contains(m.ItemName)) continue;
             if (m.RarityDenominator is not { } den || den <= 0) continue;
+            // Missing items carry no received value; the bottom-end filter still drops commons.
+            if (IsUninteresting(den, 0)) continue;
             var expected = sourceLoot.ExpectedCompletions(source, m.ItemName, m.RarityNumerator ?? 1, den, m.Rolls);
             if (expected < 1) continue;
             var observed = collection.CharacterKc;
             if (observed <= 0) continue;
 
-            var multiple = observed / expected;
-            if (QualifiesForDryBoard(multiple, den))
+            if (DryMultiple(observed, expected, den) is { } dryMultiple)
                 entries.Add(Row(gen, charId, charName, source, m.ItemName,
-                    LeaderboardBoard.DryStreak, multiple, obtained: false, observed, expected, den));
+                    LeaderboardBoard.DryStreak, dryMultiple, obtained: false, observed, expected, den));
         }
 
         return entries;
