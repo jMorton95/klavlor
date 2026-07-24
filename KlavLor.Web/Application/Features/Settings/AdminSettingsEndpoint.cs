@@ -125,9 +125,6 @@ public sealed class AdminSettingsEndpoint : IEndpoint
         app.MapGet(AppRoutes.AdminJobHealth.FromApi(), GetJobHealth)
             .RequireAuthorization(nameof(RoleName.Admin));
 
-        app.MapGet(AppRoutes.AdminJobHistory.FromApi(), GetJobHistory)
-            .RequireAuthorization(nameof(RoleName.Admin));
-
         app.MapPost(AppRoutes.AdminClogSyncNow.FromApi(), ClogSyncNow)
             .RequireAuthorization(nameof(RoleName.Admin))
             .RequireRateLimiting("mutation");
@@ -439,18 +436,24 @@ public sealed class AdminSettingsEndpoint : IEndpoint
         return IResultExtensions.Component<SyncStatusPanel>(new { Status = status });
     }
 
-    private static async Task<RazorComponentResult> GetJobHealth(JobHealthHandler handler)
-    {
-        var rows = await handler.GetHealth();
-        return IResultExtensions.Component<JobHealthPanel>(new { Rows = rows });
-    }
-
-    private static async Task<RazorComponentResult> GetJobHistory(
-        [FromQuery] string jobName,
+    private static async Task<RazorComponentResult> GetJobHealth(
+        [FromQuery] string? expand,
         JobHealthHandler handler)
     {
-        var runs = await handler.GetHistory(jobName);
-        return IResultExtensions.Component<JobRunHistory>(new { JobName = jobName, Runs = runs });
+        var rows = await handler.GetHealth();
+
+        // expand=<jobName> renders the full-width single-job accordion view; otherwise the grid.
+        if (!string.IsNullOrEmpty(expand))
+        {
+            var row = rows.FirstOrDefault(r => r.JobName == expand);
+            if (row is not null)
+            {
+                var runs = await handler.GetHistory(expand);
+                return IResultExtensions.Component<JobHealthExpanded>(new { Row = row, Runs = runs });
+            }
+        }
+
+        return IResultExtensions.Component<JobHealthPanel>(new { Rows = rows });
     }
 
     private static async Task<RazorComponentResult> SearchSources(
