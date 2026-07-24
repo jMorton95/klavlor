@@ -1847,11 +1847,12 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                       AND lr."OccurredAt" >= @from
                       AND lr."OccurredAt" < @to
                       AND ld."IsFirstTime" = true
-                      AND EXISTS (
-                          SELECT 1 FROM "EffectiveCollectionLogItems" cli
-                          WHERE cli."ItemId" = ld."ItemId"
-                             OR lower(cli."Name") = lower(ld."Name")
-                      )
+                      -- Split into two EXISTS rather than one with an OR inside: the OR blocks the
+                      -- ItemId PK index and forces a full clog-view scan per drop. Separate EXISTS
+                      -- each use an index (ItemId PK; lower(Name) expression index) and the fast
+                      -- id path short-circuits for the common case.
+                      AND (EXISTS (SELECT 1 FROM "EffectiveCollectionLogItems" cli WHERE cli."ItemId" = ld."ItemId")
+                           OR EXISTS (SELECT 1 FROM "EffectiveCollectionLogItems" cli WHERE lower(cli."Name") = lower(ld."Name")))
                     GROUP BY 1
                 ) c USING (day)
                 ORDER BY k.day
@@ -1916,11 +1917,12 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                       AND (@from IS NULL OR lr."OccurredAt" >= @from)
                       AND lr."OccurredAt" < @to
                       AND ld."IsFirstTime" = true
-                      AND EXISTS (
-                          SELECT 1 FROM "EffectiveCollectionLogItems" cli
-                          WHERE cli."ItemId" = ld."ItemId"
-                             OR lower(cli."Name") = lower(ld."Name")
-                      )
+                      -- Split into two EXISTS rather than one with an OR inside: the OR blocks the
+                      -- ItemId PK index and forces a full clog-view scan per drop. Separate EXISTS
+                      -- each use an index (ItemId PK; lower(Name) expression index) and the fast
+                      -- id path short-circuits for the common case.
+                      AND (EXISTS (SELECT 1 FROM "EffectiveCollectionLogItems" cli WHERE cli."ItemId" = ld."ItemId")
+                           OR EXISTS (SELECT 1 FROM "EffectiveCollectionLogItems" cli WHERE lower(cli."Name") = lower(ld."Name")))
                     GROUP BY 1, 2
                 ) c USING (y, m)
                 ORDER BY k.y, k.m
@@ -2251,11 +2253,12 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                     FROM "LootRecords" lr
                     JOIN "LootDrops" ld ON ld."LootRecordId" = lr."Id"
                     WHERE lr."GameCharacterId" = @cid AND lr."SourceName" = @source
-                      AND EXISTS (
-                          SELECT 1 FROM "EffectiveCollectionLogItems" cli
-                          WHERE cli."ItemId" = ld."ItemId"
-                             OR lower(cli."Name") = lower(ld."Name")
-                      )
+                      -- Split into two EXISTS rather than one with an OR inside: the OR blocks the
+                      -- ItemId PK index and forces a full clog-view scan per drop. Separate EXISTS
+                      -- each use an index (ItemId PK; lower(Name) expression index) and the fast
+                      -- id path short-circuits for the common case.
+                      AND (EXISTS (SELECT 1 FROM "EffectiveCollectionLogItems" cli WHERE cli."ItemId" = ld."ItemId")
+                           OR EXISTS (SELECT 1 FROM "EffectiveCollectionLogItems" cli WHERE lower(cli."Name") = lower(ld."Name")))
                 ),
                 agg AS (
                     SELECT item_name,
