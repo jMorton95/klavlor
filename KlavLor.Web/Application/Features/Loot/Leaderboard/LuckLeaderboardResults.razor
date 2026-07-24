@@ -19,7 +19,19 @@ else
                      class="w-6 h-6 object-contain shrink-0" loading="lazy" onerror="this.style.display='none'" />
                 <span class="min-w-0 flex-1">
                     <span class="block text-sm font-medium text-slate-800 dark:text-slate-100 truncate">@r.ItemName</span>
-                    <span class="block text-xs text-slate-500 dark:text-white truncate">@r.CharacterName · @r.SourceName</span>
+                    <span class="block text-xs truncate">
+                        <a hx-get="@AppRoutes.LootLogCharacter.WithId(r.GameCharacterId).FromApi()"
+                           hx-target="#hx-page-container"
+                           hx-push-url="@AppRoutes.LootLogCharacter.WithId(r.GameCharacterId)"
+                           hx-swap="innerHTML transition:true"
+                           class="text-slate-600 dark:text-slate-300 hover:text-amber-600 dark:hover:text-amber-400 hover:underline cursor-pointer">@r.CharacterName</a>
+                        <span class="text-slate-400 dark:text-white"> · </span>
+                        <a hx-get="@($"{AppRoutes.LootLogSource.WithId(r.GameCharacterId).FromApi()}?name={Uri.EscapeDataString(r.SourceName)}")"
+                           hx-target="#hx-page-container"
+                           hx-push-url="@($"{AppRoutes.LootLogSource.WithId(r.GameCharacterId)}?name={Uri.EscapeDataString(r.SourceName)}")"
+                           hx-swap="innerHTML transition:true"
+                           class="text-slate-600 dark:text-slate-300 hover:text-amber-600 dark:hover:text-amber-400 hover:underline cursor-pointer">@r.SourceName</a>
+                    </span>
                 </span>
                 <span class="shrink-0 text-right">
                     <span class="block text-sm font-semibold tabular-nums @(isSpoon ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400")">
