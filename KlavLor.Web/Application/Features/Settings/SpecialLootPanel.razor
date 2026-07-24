@@ -1,0 +1,70 @@
+@using KlavLor.Application.Features.Loot.Special
+
+@* Admin injection form for untradeable special loot. Character is a native select (no JS,
+   captures the id cleanly); the item is typed and resolved server-side against the collection
+   log, with a search box below for confirming the exact name. *@
+<div class="flex flex-wrap items-end gap-3 mb-3">
+    <div>
+        <label class="block text-[10px] uppercase tracking-wider text-slate-500 dark:text-white mb-1">Character</label>
+        <select id="srp-char" name="characterId"
+                class="w-56 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none">
+            @foreach (var c in Characters)
+            {
+                <option value="@c.Id">@c.Name</option>
+            }
+        </select>
+    </div>
+    <div>
+        <label class="block text-[10px] uppercase tracking-wider text-slate-500 dark:text-white mb-1">Item</label>
+        <input id="srp-item" name="itemName" type="text" placeholder="e.g. Infernal cape" autocomplete="off"
+               class="w-56 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+    </div>
+    <div>
+        <label class="block text-[10px] uppercase tracking-wider text-slate-500 dark:text-white mb-1">Source</label>
+        <input id="srp-source" name="sourceName" type="text" placeholder="e.g. TzKal-Zuk" autocomplete="off"
+               class="w-52 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+    </div>
+    <div>
+        <label class="block text-[10px] uppercase tracking-wider text-slate-500 dark:text-white mb-1">When</label>
+        <input id="srp-date" name="occurredAt" type="datetime-local"
+               class="px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+    </div>
+    <label class="inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-white cursor-pointer pb-2">
+        <input id="srp-announce" type="checkbox" name="announce" value="true"
+               class="rounded border-slate-300 dark:border-slate-600 text-amber-500 focus:ring-amber-500" />
+        Announce to the live feed now
+    </label>
+    <button type="button"
+            hx-post="@AppRoutes.AdminSpecialLootInject.FromApi()"
+            hx-include="#srp-char, #srp-item, #srp-source, #srp-date, #srp-announce"
+            hx-target="#srp-status"
+            hx-swap="innerHTML"
+            hx-disabled-elt="this"
+            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-amber-500 text-white hover:bg-amber-600 cursor-pointer disabled:opacity-50">
+        Add special drop
+    </button>
+</div>
+
+<div id="srp-status" class="mb-3"></div>
+
+<p class="text-xs text-slate-400 dark:text-white mb-3">
+    The item is added to the character's log at the chosen time with no monetary value, populates their collection log automatically (matched by item id), and always renders as a giga drop with the distinct spinning feed effect. Leave "announce" off to backfill quietly; tick it to headline the live feed regardless of the logged time. Re-adding the same item, character and time is a no-op.
+</p>
+
+<div class="relative max-w-md mb-3">
+    <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+    </svg>
+    <input type="search" name="searchTerm" placeholder="Search collection-log items to confirm the exact name…"
+           autocomplete="off"
+           hx-get="@AppRoutes.AdminSpecialLootItemSearch.FromApi()"
+           hx-trigger="keyup changed delay:300ms"
+           hx-target="#srp-items"
+           hx-swap="innerHTML"
+           class="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+</div>
+<div id="srp-items"></div>
+
+@code {
+    [Parameter] public List<SpecialLootCharacterOption> Characters { get; set; } = [];
+}

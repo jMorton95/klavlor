@@ -2,7 +2,9 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using KlavLor.Application.Features.CollectionLog;
 using KlavLor.Application.Features.DropRates;
+using KlavLor.Application.Common;
 using KlavLor.Application.Features.Loot.Leaderboard;
+using KlavLor.Application.Features.Loot.Special;
 using KlavLor.Application.Features.Loot.SourceModels;
 using KlavLor.Application.Features.Maintenance;
 using KlavLor.Application.Features.Settings;
@@ -96,6 +98,19 @@ public sealed class AdminSettingsEndpoint : IEndpoint
         app.MapPost(AppRoutes.AdminSourceModifierRemove.FromApi(), RemoveSourceModifier)
             .RequireAuthorization(nameof(RoleName.Admin))
             .RequireRateLimiting("mutation");
+
+        app.MapGet(AppRoutes.AdminSpecialLoot.FromApi(), GetSpecialLoot)
+            .RequireAuthorization(nameof(RoleName.Admin));
+
+        app.MapGet(AppRoutes.AdminSpecialLootItemSearch.FromApi(), SearchSpecialLootItems)
+            .RequireAuthorization(nameof(RoleName.Admin));
+
+        // Inject reads all fields from the form (dynamic), so antiforgery is disabled — admin-gated,
+        // rate-limited, SameSite=Strict cookie (same as the other form-field admin posts).
+        app.MapPost(AppRoutes.AdminSpecialLootInject.FromApi(), InjectSpecialLoot)
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("mutation")
+            .DisableAntiforgery();
 
         app.MapGet(AppRoutes.AdminIcons.FromApi(), GetIcons)
             .RequireAuthorization(nameof(RoleName.Admin));
@@ -346,6 +361,50 @@ public sealed class AdminSettingsEndpoint : IEndpoint
     {
         var items = await handler.Remove(source, item);
         return IResultExtensions.Component<SourceRateModifierResults>(new { Items = items, IsSearch = false });
+    }
+
+    private static async Task<RazorComponentResult> GetSpecialLoot(SpecialLootHandler handler)
+    {
+        var characters = await handler.GetCharacters();
+        return IResultExtensions.Component<SpecialLootPanel>(new { Characters = characters });
+    }
+
+    private static async Task<RazorComponentResult> SearchSpecialLootItems(
+        [FromQuery] string? searchTerm,
+        SpecialLootHandler handler)
+    {
+        var items = await handler.SearchItems(searchTerm);
+        return IResultExtensions.Component<SpecialLootItemResults>(new { Items = items });
+    }
+
+    private static async Task<RazorComponentResult> InjectSpecialLoot(
+        [FromForm] int characterId,
+        [FromForm] string itemName,
+        [FromForm] string sourceName,
+        [FromForm] string? occurredAt,
+        [FromForm] bool? announce,
+        SpecialLootHandler handler)
+    {
+        if (!DateTime.TryParse(occurredAt, System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out var localDt))
+        {
+            return IResultExtensions.Component<SpecialLootStatus>(new
+            {
+                Success = false,
+                Message = "Enter a valid date and time."
+            });
+        }
+
+        var when = IngestTimezone.FromLocalNaive(localDt);
+        var result = await handler.Inject(characterId, itemName, sourceName, when, announce ?? false);
+
+        return IResultExtensions.Component<SpecialLootStatus>(new
+        {
+            Success = result.IsSuccess,
+            Message = result.IsSuccess
+                ? $"Added {itemName} to the character's log."
+                : (string.IsNullOrEmpty(result.ErrorMessage) ? "Failed to add special drop." : result.ErrorMessage)
+        });
     }
 
     private static async Task<RazorComponentResult> GetIcons(IconAuditHandler handler)

@@ -14,6 +14,11 @@
     var entryHasLegendaryDrop = Entry.Drops.Any(d => (long)d.Quantity * d.Price >= 250_000_000);
     var legendaryCardClass = entryHasLegendaryDrop ? "legendary-card" : "";
 
+    // Admin-injected untradeable "giga" drops (Infernal Cape, Quiver) light the card with a
+    // distinct, differently-coloured spinning electric effect regardless of value.
+    var entryHasSpecial = Entry.Drops.Any(d => d.IsSpecial);
+    var gigaCardClass = entryHasSpecial ? "giga-card" : "";
+
     var isHighlight = HighlightTracker.IsHighlight(Entry);
     var highlightLabel = isHighlight ? HighlightTracker.LabelFor(Entry.Tier, Entry.OccurredAt) : null;
     var highlightCardClass = isHighlight ? GetHighlightRingClasses(Entry.Tier) : "";
@@ -41,7 +46,7 @@
 }
 <div id="@Entry.DomId"
      @attributes="rootAttrs"
-     class="group relative hover:z-40 @(Animate ? "loot-feed-new " : "")bg-slate-50 dark:bg-slate-900 rounded-lg shadow border @GetValueTierClasses() p-2.5 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-amber-200 dark:hover:border-amber-700 transition-all duration-200 @legendaryCardClass @highlightCardClass">
+     class="group relative hover:z-40 @(Animate ? "loot-feed-new " : "")bg-slate-50 dark:bg-slate-900 rounded-lg shadow border @GetValueTierClasses() p-2.5 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-amber-200 dark:hover:border-amber-700 transition-all duration-200 @legendaryCardClass @gigaCardClass @highlightCardClass">
     @if (isHighlight)
     {
         <span class="absolute -top-2 -right-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-linear-to-r from-amber-500 to-yellow-400 text-amber-950 shadow ring-1 ring-amber-300/80 select-none"
@@ -111,8 +116,33 @@
                 var isNewUnique = drop.IsFirstTime && drop.IsCollectionLogItem;
                 var dropTotal = (long)drop.Quantity * drop.Price;
                 var isLegendary = dropTotal >= 250_000_000;
-                <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] border @GetDropTierClasses(drop.Price) text-slate-700 dark:text-slate-200 @((isNewUnique && !isLegendary) ? GetFirstTimeRingClasses(Entry.Tier) : "") @(isLegendary ? "legendary-item" : "")"
+                var isSpecial = drop.IsSpecial;
+                <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] border @GetDropTierClasses(drop.Price) text-slate-700 dark:text-slate-200 @((isNewUnique && !isLegendary && !isSpecial) ? GetFirstTimeRingClasses(Entry.Tier) : "") @(isLegendary ? "legendary-item" : "") @(isSpecial ? "giga-item" : "")"
                       title="@(isNewUnique ? "First-time collection log unlock" : null)">
+                    @if (isSpecial)
+                    {
+                        @* Distinct-hued spinning bolt for admin-injected untradeable giga drops.
+                           Uses the #giga-electric filter + #giga-electric-grad gradient in App.razor;
+                           .giga-border in app.css adds the rotation. *@
+                        <svg class="giga-border" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <rect x="0" y="0" width="100%" height="100%" rx="6" ry="6"
+                                  fill="none"
+                                  stroke="url(#giga-electric-grad)"
+                                  stroke-width="2"
+                                  opacity="0.8"
+                                  filter="url(#giga-electric)" />
+                            <rect x="0" y="0" width="100%" height="100%" rx="6" ry="6"
+                                  fill="none"
+                                  stroke="#ffffff"
+                                  stroke-width="2"
+                                  stroke-linecap="round"
+                                  stroke-dasharray="40 160"
+                                  filter="url(#giga-electric)">
+                                <animate attributeName="stroke-dashoffset" from="0" to="200"
+                                         dur="1.1s" repeatCount="indefinite" />
+                            </rect>
+                        </svg>
+                    }
                     @if (isLegendary)
                     {
                         @* Jagged lightning border for the 250M+ pill itself. The global

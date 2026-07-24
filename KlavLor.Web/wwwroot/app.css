@@ -107,6 +107,62 @@ body:not(.history-panel-open) #completion-history-panel {
     z-index: 1;
 }
 
+/* Giga (admin-injected untradeable, e.g. Infernal Cape / Quiver): a distinct cyan-violet
+   effect that spins a lightning ring around the WHOLE card, plus the same bolt treatment on
+   the pill as legendary but in the giga palette. Value-independent — driven by the IsSpecial
+   flag, not a GP threshold. The angle animation degrades to a static ring where @property is
+   unsupported. */
+@property --giga-angle {
+    syntax: "<angle>";
+    inherits: false;
+    initial-value: 0deg;
+}
+@keyframes giga-spin {
+    to { --giga-angle: 360deg; }
+}
+.giga-card {
+    position: relative;
+    isolation: isolate;
+    border-color: transparent !important;
+}
+.giga-card::before {
+    content: "";
+    position: absolute;
+    inset: -1.5px;
+    border-radius: 0.6rem;
+    padding: 2px;
+    background: conic-gradient(from var(--giga-angle), #22d3ee, #a855f7, #ffffff, #22d3ee, #22d3ee);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask-composite: exclude;
+    animation: giga-spin 2.4s linear infinite;
+    pointer-events: none;
+    z-index: 2;
+}
+.giga-item {
+    position: relative;
+    isolation: isolate;
+    font-size: 0.8125rem !important;
+    line-height: 1.1rem !important;
+    padding: 0.3rem 0.6rem !important;
+    gap: 0.3rem !important;
+    font-weight: 600;
+    border-color: transparent !important;
+}
+.giga-item img {
+    width: 1.1rem !important;
+    height: 1.1rem !important;
+}
+.giga-item > .giga-border {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+    z-index: 1;
+}
+
 @keyframes fade-in {
     from { opacity: 0; }
 }

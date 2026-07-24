@@ -31,4 +31,8 @@ public sealed class LootDropRow
     public int Price { get; set; }
 
     public bool IsFirstTime { get; set; }
+
+    // Admin-injected untradeable "giga" drop — see LootDrop.IsSpecial. Persisted so the feed
+    // rebuild (GetAllFeedTiers) can re-surface it despite its zero value.
+    public bool IsSpecial { get; set; }
 }

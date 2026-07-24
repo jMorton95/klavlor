@@ -5,6 +5,9 @@ namespace KlavLor.Application.Interfaces.Repositories;
 public interface IGameCharacterRepository
 {
     Task<GameCharacter?> GetById(int id);
+
+    // Visible characters an admin can target (e.g. for special-loot injection), ordered by name.
+    Task<List<GameCharacter>> GetSelectable();
     Task<GameCharacter?> GetByUserAndRuneLiteId(int userId, string runeLiteId);
     Task<List<GameCharacter>> GetByUserId(int userId);
     Task<Dictionary<int, (int Sources, long Kills, long Value)>> GetCharacterStats(int userId);

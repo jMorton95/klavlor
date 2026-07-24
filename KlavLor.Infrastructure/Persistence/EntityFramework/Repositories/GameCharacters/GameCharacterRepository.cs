@@ -21,6 +21,22 @@ internal sealed class GameCharacterRepository(DataContext dataContext, ILogger<G
         }
     }
 
+    public async Task<List<GameCharacter>> GetSelectable()
+    {
+        try
+        {
+            return await dataContext.GameCharacters
+                .Where(gc => gc.IsVisible && !gc.IsAdminHidden && gc.DisplayName != null)
+                .OrderBy(gc => gc.DisplayName)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to list selectable game characters");
+            throw new RepositoryException("Failed to list game characters", ex);
+        }
+    }
+
     public async Task<GameCharacter?> GetByUserAndRuneLiteId(int userId, string runeLiteId)
     {
         try

@@ -302,7 +302,7 @@ public sealed class LootIngestHandler(
     private async Task PublishRecordToFeed(string userName, LootRecord record, GameCharacter? character)
     {
         var drops = JsonSerializer.Deserialize<List<LootDrop>>(record.DropsJson) ?? [];
-        var feedDrops = drops.Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId))).ToList();
+        var feedDrops = drops.Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId), d.IsSpecial)).ToList();
         var dropsByTier = ILootFeedService.ClassifyDropsByTier(feedDrops);
         if (dropsByTier.Count == 0) return;
 
@@ -422,7 +422,8 @@ public sealed class LootIngestHandler(
             Name = d.Name,
             Quantity = d.Quantity,
             Price = d.Price,
-            IsFirstTime = d.IsFirstTime
+            IsFirstTime = d.IsFirstTime,
+            IsSpecial = d.IsSpecial
         }));
     }
 }

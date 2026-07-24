@@ -43,7 +43,7 @@ public sealed record LootFeedEntry(
     }
 }
 
-public sealed record LootFeedDrop(string Name, int Quantity, int Price, bool IsFirstTime = false, bool IsCollectionLogItem = false);
+public sealed record LootFeedDrop(string Name, int Quantity, int Price, bool IsFirstTime = false, bool IsCollectionLogItem = false, bool IsSpecial = false);
 
 public sealed record LootFeedBroadcast(LootFeedEntry Entry, string? PreviousDomId, HighlightChange? HighlightChange = null);
 

@@ -156,6 +156,16 @@
             <SourceRateModifierPanel />
         </section>
 
+        <section id="special" class="scroll-mt-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40 p-5">
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Special loot</h2>
+            <p class="text-sm text-slate-500 dark:text-white mb-3">
+                Manually add an untradeable special drop — an Infernal Cape or Dizana's Quiver — that RuneLite never logs, to a character's log at a time you choose. It carries no monetary value, populates their collection log, and always renders as a giga drop with the distinct spinning feed effect.
+            </p>
+            <div hx-get="@AppRoutes.AdminSpecialLoot.FromApi()" hx-trigger="load" hx-swap="innerHTML">
+                <div class="h-24 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
+            </div>
+        </section>
+
         <section id="leaderboard" class="scroll-mt-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40 p-5">
             <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Leaderboard exclusions</h2>
             <p class="text-sm text-slate-500 dark:text-white mb-3">
@@ -243,6 +253,7 @@
         ("clog", "Collection log"),
         ("drop-rates", "Drop rates"),
         ("modifiers", "Rate modifiers"),
+        ("special", "Special loot"),
         ("leaderboard", "Leaderboards"),
         ("icons", "Broken icons"),
         ("sources", "Source names"),

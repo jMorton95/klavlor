@@ -50,7 +50,9 @@ public interface ILootFeedService
         var result = new Dictionary<LootFeedTier, List<LootFeedDrop>>();
         foreach (var drop in drops)
         {
-            var tier = GetDropTier((long)drop.Quantity * drop.Price);
+            // Admin-injected untradeables have no value, so they'd never tier by GP — force them
+            // into the top lane so the giga effect can render.
+            var tier = drop.IsSpecial ? LootFeedTier.Legendary : GetDropTier((long)drop.Quantity * drop.Price);
             if (tier is null) continue;
             if (!result.TryGetValue(tier.Value, out var list))
             {

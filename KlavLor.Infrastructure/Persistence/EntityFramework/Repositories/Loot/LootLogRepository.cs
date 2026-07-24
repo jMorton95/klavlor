@@ -1129,12 +1129,16 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             foreach (var tier in tiers)
             {
                 var (tierMin, tierMax) = ILootFeedService.GetTierRange(tier);
+                // Zero-value special drops never clear the value gate, so pull records that carry
+                // one into the top lane explicitly.
+                var isLegendaryTier = tier == LootFeedTier.Legendary;
                 var take = initialTake;
 
                 while (true)
                 {
                     var candidates = await baseQuery
-                        .Where(x => x.Record.TotalValue >= tierMin)
+                        .Where(x => x.Record.TotalValue >= tierMin
+                                    || (isLegendaryTier && dataContext.LootDrops.Any(d => d.LootRecordId == x.Record.Id && d.IsSpecial)))
                         .OrderByDescending(x => x.Record.OccurredAt)
                         .Take(take)
                         .Select(x => new FeedTierProjection
@@ -1430,10 +1434,12 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             var tierDrops = allDrops
                 .Where(d =>
                 {
+                    // Admin-injected specials have no value; they belong only to the top lane.
+                    if (d.IsSpecial) return tier == LootFeedTier.Legendary;
                     var val = (long)d.Quantity * d.Price;
                     return val >= tierMin && (tierMax is null || val < tierMax.Value);
                 })
-                .Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId)))
+                .Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId), d.IsSpecial))
                 .ToList();
 
             if (tierDrops.Count == 0) continue;
@@ -1572,7 +1578,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             var allDrops = JsonSerializer.Deserialize<List<LootDrop>>(r.DropsJson) ?? [];
             var drops = allDrops
                 .Where(d => ILootFeedService.GetDropTier((long)d.Quantity * d.Price) is not null)
-                .Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId)))
+                .Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId), d.IsSpecial))
                 .ToList();
 
             if (drops.Count == 0) continue;
