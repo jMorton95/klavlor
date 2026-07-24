@@ -3,7 +3,13 @@
 
 @inject ISystemSettingsCache SystemSettingsCache
 
-<TopBarMetaData PageTitle="KlavLor - Admin Area" Title="Admin Area" Description="Site administration" />
+@* Only emit the header when rendered as an HTMX fragment (in-app nav) — it OOB-swaps into the
+   top bar. On a full page load the routable AdminSettingsTemplate wraps this in PageLayout, which
+   already renders the header, so it passes UpdateHeader=false to avoid a duplicate inline copy. *@
+@if (UpdateHeader)
+{
+    <TopBarMetaData PageTitle="KlavLor - Admin Area" Title="Admin Area" Description="Site administration" />
+}
 
 <div class="max-w-6xl mx-auto pb-32 lg:flex lg:gap-8 lg:items-start">
 
@@ -249,6 +255,10 @@
 </div>
 
 @code {
+    // True when served as an HTMX fragment (renders the OOB header); false when hosted inside
+    // PageLayout on a full page load (PageLayout renders the header instead).
+    [Parameter] public bool UpdateHeader { get; set; } = true;
+
     private static readonly (string Anchor, string Label)[] NavItems =
     [
         ("sync", "Sync status"),

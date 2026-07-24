@@ -4,5 +4,8 @@
 @attribute [Authorize(Roles = "Admin")]
 
 <PageLayout PageTitle="KlavLor - Admin Area" Title="Admin Area" Description="Site administration">
-    <AdminSettingsHub />
+    @* PageLayout already renders the header; suppress the hub's own so a full page load
+       doesn't show a duplicate. HTMX in-app nav renders the hub via its /api endpoint with
+       UpdateHeader defaulting true, which OOB-swaps the header into the top bar. *@
+    <AdminSettingsHub UpdateHeader="false" />
 </PageLayout>
