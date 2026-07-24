@@ -23,6 +23,16 @@ public sealed class LuckLeaderboardRefreshService(
     // Must be at least this many multiples off the expected kill count to make a board.
     private const double MinMultiple = 2.0;
 
+    // Special case for very rare items (1/2000 or rarer): they earn a place on the dry-streak
+    // board the moment a player pushes past the expected kill count, even below MinMultiple —
+    // to celebrate the sheer effort of these long grinds rather than only unlucky streaks.
+    private const int RareGrindDenominator = 2000;
+
+    // Dry-board inclusion: the usual multiple threshold, or — for rare-grind items — any amount
+    // over the expected kill count (multiple > 1).
+    private static bool QualifiesForDryBoard(double multiple, int rarityDenominator) =>
+        multiple >= MinMultiple || (rarityDenominator >= RareGrindDenominator && multiple > 1.0);
+
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -158,7 +168,7 @@ public sealed class LuckLeaderboardRefreshService(
             else
             {
                 var multiple = observed / expected;
-                if (multiple >= MinMultiple)
+                if (QualifiesForDryBoard(multiple, den))
                     entries.Add(Row(gen, charId, charName, source, e.ItemName,
                         LeaderboardBoard.DryStreak, multiple, obtained: true, observed, expected, den));
             }
@@ -175,7 +185,7 @@ public sealed class LuckLeaderboardRefreshService(
             if (observed <= 0) continue;
 
             var multiple = observed / expected;
-            if (multiple >= MinMultiple)
+            if (QualifiesForDryBoard(multiple, den))
                 entries.Add(Row(gen, charId, charName, source, m.ItemName,
                     LeaderboardBoard.DryStreak, multiple, obtained: false, observed, expected, den));
         }
