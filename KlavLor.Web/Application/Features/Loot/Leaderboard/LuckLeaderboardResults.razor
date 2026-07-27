@@ -13,6 +13,11 @@ else
         @foreach (var r in Rows)
         {
             var isSpoon = Board == LeaderboardBoard.Spoon;
+            // Rare-grind entries are ranked by a synthetic multiple (denominator/1000), so the
+            // displayed dryness comes from the real KC-vs-expected ratio, not that ranking value.
+            var shownMultiple = isSpoon
+                ? r.Multiple
+                : (r.ExpectedKc > 0 ? r.ObservedKc / r.ExpectedKc : r.Multiple);
             <li class="flex items-center gap-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2">
                 <span class="w-6 shrink-0 text-center text-sm font-semibold tabular-nums text-slate-400 dark:text-white">@(rank++)</span>
                 <img src="/api/images/item-icon?name=@Uri.EscapeDataString(r.ItemName)" alt="@r.ItemName"
@@ -35,7 +40,7 @@ else
                 </span>
                 <span class="shrink-0 text-right">
                     <span class="block text-sm font-semibold tabular-nums @(isSpoon ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400")">
-                        @r.Multiple.ToString("N1")× @(isSpoon ? "faster" : "dry")@(!isSpoon && !r.Obtained ? " (ongoing)" : "")
+                        @shownMultiple.ToString("N1")× @(isSpoon ? "faster" : "dry")@(!isSpoon && !r.Obtained ? " (ongoing)" : "")
                     </span>
                     <span class="block text-[11px] text-slate-400 dark:text-white tabular-nums">
                         @r.ObservedKc.ToString("N0") KC vs @Math.Round(r.ExpectedKc).ToString("N0") expected
