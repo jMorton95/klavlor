@@ -186,18 +186,27 @@ internal sealed class LootRecordRepository(DataContext dataContext, ILogger<Loot
     {
         // Chronological position of (cid, source) for this record, tiebroken by Id
         // so two records with identical timestamps don't both claim the same ordinal.
-        return await dataContext.LootRecords.CountAsync(o =>
+        var ordinal = await dataContext.LootRecords.CountAsync(o =>
             o.GameCharacterId == gameCharacterId
             && o.SourceName == sourceName
             && (o.OccurredAt < occurredAt
                 || (o.OccurredAt == occurredAt && o.Id <= recordId)));
+        return ordinal + await GetBaseline(gameCharacterId, sourceName);
     }
+
+    // Admin baseline KC for a character at a source (kills before we had data), or 0.
+    private async Task<int> GetBaseline(int gameCharacterId, string sourceName) =>
+        await dataContext.CharacterSourceBaselines
+            .Where(b => b.GameCharacterId == gameCharacterId && b.SourceName == sourceName)
+            .Select(b => (int?)b.BaselineKc)
+            .FirstOrDefaultAsync() ?? 0;
 
     public async Task<SessionKcBounds?> GetSessionBounds(
         int gameCharacterId, string sourceName, DateTimeOffset occurredAt, TimeSpan gap, TimeSpan breakGap)
     {
         try
         {
+            var baseline = await GetBaseline(gameCharacterId, sourceName);
             // Sessions of this source's recent kills, split with the shared site rules and
             // anchored the way the global model would: the latest real break in the last 14
             // days, else the source's first kill ever (continuous grinders never break, so
@@ -298,7 +307,7 @@ internal sealed class LootRecordRepository(DataContext dataContext, ILogger<Loot
                 MinKillCount: reader.IsDBNull(0) ? null : reader.GetInt32(0),
                 MaxKillCount: reader.IsDBNull(1) ? null : reader.GetInt32(1),
                 StartedAt: reader.GetFieldValue<DateTimeOffset>(2),
-                FirstOrdinal: reader.GetInt32(3));
+                FirstOrdinal: reader.GetInt32(3) + baseline);
         }
         catch (Exception ex)
         {

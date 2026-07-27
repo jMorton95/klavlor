@@ -519,6 +519,12 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             if (summary is null)
                 return new LootSourceSessions(sourceName, LootSourceType.Unknown, characterName, 0, 0, [], false, 0);
 
+            // Admin baseline KC for this character/source, added to the counted kill ordinals.
+            var baseline = await dataContext.CharacterSourceBaselines
+                .Where(b => b.GameCharacterId == characterId && b.SourceName == sourceName)
+                .Select(b => (int?)b.BaselineKc)
+                .FirstOrDefaultAsync() ?? 0;
+
             var connection = dataContext.Database.GetDbConnection();
             if (connection.State != System.Data.ConnectionState.Open)
                 await connection.OpenAsync();
@@ -549,7 +555,8 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                            (COUNT(*) OVER ())::int AS total_sessions
                     FROM summ
                 )
-                SELECT session_no, started, ended, kills, min_kc, max_kc, min_ord, max_ord, total_gp, total_sessions
+                SELECT session_no, started, ended, kills, min_kc, max_kc,
+                       min_ord + @baseline AS min_ord, max_ord + @baseline AS max_ord, total_gp, total_sessions
                 FROM ranked
                 WHERE rnk > @skip AND rnk <= @skip + @take
                 ORDER BY started DESC
@@ -566,6 +573,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 cmd.Parameters.Add(new NpgsqlParameter("@breakGap", LootFeedGrouping.SessionBreakGap));
                 cmd.Parameters.Add(new NpgsqlParameter("@skip", skip));
                 cmd.Parameters.Add(new NpgsqlParameter("@take", pageSize));
+                cmd.Parameters.Add(new NpgsqlParameter("@baseline", baseline));
                 await using var reader = await cmd.ExecuteReaderAsync();
                 while (await reader.ReadAsync())
                 {
@@ -678,6 +686,11 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
     {
         try
         {
+            var baseline = await dataContext.CharacterSourceBaselines
+                .Where(b => b.GameCharacterId == characterId && b.SourceName == sourceName)
+                .Select(b => (int?)b.BaselineKc)
+                .FirstOrDefaultAsync() ?? 0;
+
             var connection = dataContext.Database.GetDbConnection();
             if (connection.State != System.Data.ConnectionState.Open)
                 await connection.OpenAsync();
@@ -691,7 +704,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                     WHERE "GameCharacterId" = @cid AND "SourceName" = @src
                 ),
                 {SessionSql.GapIslandsWithCap("")}
-                SELECT "OccurredAt", "KillCount", "TotalValue", "DropsJson", kill_ord
+                SELECT "OccurredAt", "KillCount", "TotalValue", "DropsJson", kill_ord + @baseline AS kill_ord
                 FROM sessioned
                 WHERE session_no = @sessionNo
                 ORDER BY "OccurredAt" DESC, kill_ord DESC
@@ -704,6 +717,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             cmd.Parameters.Add(new NpgsqlParameter("@gap", LootFeedGrouping.MaxGap));
             cmd.Parameters.Add(new NpgsqlParameter("@breakGap", LootFeedGrouping.SessionBreakGap));
             cmd.Parameters.Add(new NpgsqlParameter("@sessionNo", (long)sessionNo));
+            cmd.Parameters.Add(new NpgsqlParameter("@baseline", baseline));
 
             var entries = new List<LootKillEntry>();
             await using var reader = await cmd.ExecuteReaderAsync();
@@ -787,7 +801,12 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                     FROM kept
                 )
                 SELECT "SourceName", source_type, session_no, started, ended, kills,
-                       min_kc, max_kc, min_ord, max_ord, total_gp, total_sessions
+                       min_kc, max_kc,
+                       min_ord + COALESCE((SELECT b."BaselineKc" FROM "CharacterSourceBaselines" b
+                                           WHERE b."GameCharacterId" = @cid AND b."SourceName" = ranked."SourceName"), 0) AS min_ord,
+                       max_ord + COALESCE((SELECT b."BaselineKc" FROM "CharacterSourceBaselines" b
+                                           WHERE b."GameCharacterId" = @cid AND b."SourceName" = ranked."SourceName"), 0) AS max_ord,
+                       total_gp, total_sessions
                 FROM ranked
                 WHERE rnk > @skip AND rnk <= @skip + @take
                 ORDER BY ended DESC
@@ -1379,11 +1398,12 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
         // same-timestamp kills, on a fallback-only label. Rides IX_LootRecords_GameCharacterId_SourceName.
         const string sql = """
             SELECT t.idx,
-                   (SELECT count(*) FROM "LootRecords" r
-                     WHERE r."GameCharacterId" = t.cid AND r."SourceName" = t.src AND r."OccurredAt" <  t.first)::int AS before_first,
-                   (SELECT count(*) FROM "LootRecords" r
-                     WHERE r."GameCharacterId" = t.cid AND r."SourceName" = t.src AND r."OccurredAt" <= t.last)::int  AS at_last
+                   ((SELECT count(*) FROM "LootRecords" r
+                     WHERE r."GameCharacterId" = t.cid AND r."SourceName" = t.src AND r."OccurredAt" <  t.first)::int + COALESCE(bl."BaselineKc", 0)) AS before_first,
+                   ((SELECT count(*) FROM "LootRecords" r
+                     WHERE r."GameCharacterId" = t.cid AND r."SourceName" = t.src AND r."OccurredAt" <= t.last)::int + COALESCE(bl."BaselineKc", 0)) AS at_last
             FROM unnest(@cids, @srcs, @firsts, @lasts) WITH ORDINALITY AS t(cid, src, first, last, idx)
+            LEFT JOIN "CharacterSourceBaselines" bl ON bl."GameCharacterId" = t.cid AND bl."SourceName" = t.src
             """;
 
         var connection = dataContext.Database.GetDbConnection();
@@ -2436,11 +2456,11 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                           )
                     )
                     SELECT r.item_name, r."OccurredAt", r."KillCount",
-                           (SELECT COUNT(*)::int FROM "LootRecords" o
+                           ((SELECT COUNT(*)::int FROM "LootRecords" o
                             WHERE o."GameCharacterId" = @cid
                               AND o."SourceName" = @source
                               AND (o."OccurredAt" < r."OccurredAt"
-                                   OR (o."OccurredAt" = r."OccurredAt" AND o."Id" <= r."Id"))) AS kill_ordinal
+                                   OR (o."OccurredAt" = r."OccurredAt" AND o."Id" <= r."Id"))) + @baseline) AS kill_ordinal
                     FROM ranked r
                     WHERE r.rn <= @limit
                     ORDER BY r.item_name, r."OccurredAt" DESC, r."Id" DESC
@@ -2448,6 +2468,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 eventsCmd.Parameters.Add(new NpgsqlParameter("@cid", characterId));
                 eventsCmd.Parameters.Add(new NpgsqlParameter("@source", sourceName));
                 eventsCmd.Parameters.Add(new NpgsqlParameter("@limit", RecentDropEventsPerItem));
+                eventsCmd.Parameters.Add(new NpgsqlParameter("@baseline", baseline));
                 await using var eventsReader = await eventsCmd.ExecuteReaderAsync();
                 while (await eventsReader.ReadAsync())
                 {
