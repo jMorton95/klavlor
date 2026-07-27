@@ -124,20 +124,21 @@ public sealed class LootCharacterProfileHandler(
         var enriched = collection with
         {
             Entries = collection.Entries
-                .Select(e => e with { EffectiveKcPerDrop = ExpectedKc(sourceName, e.ItemName, e.RarityNumerator, e.RarityDenominator, e.Rolls) })
+                .Select(e => e with { EffectiveKcPerDrop = ExpectedKc(sourceName, e.ItemName, e.RarityNumerator, e.RarityDenominator, e.Rolls, collection.CharacterDepth) })
                 .ToList(),
             MissingItems = collection.MissingItems
-                .Select(m => m with { EffectiveKcPerDrop = ExpectedKc(sourceName, m.ItemName, m.RarityNumerator, m.RarityDenominator, m.Rolls) })
+                .Select(m => m with { EffectiveKcPerDrop = ExpectedKc(sourceName, m.ItemName, m.RarityNumerator, m.RarityDenominator, m.Rolls, collection.CharacterDepth) })
                 .ToList()
         };
         return Result<SourceCollection>.Success(enriched);
     }
 
-    private double? ExpectedKc(string sourceName, string itemName, int? numerator, int? denominator, int rolls)
+    private double? ExpectedKc(string sourceName, string itemName, int? numerator, int? denominator, int rolls, int depth)
     {
-        if (denominator is not > 0) return null;
-        var expected = sourceLoot.ExpectedCompletions(sourceName, itemName, numerator ?? 1, denominator.Value, rolls);
-        return expected > 0 ? expected : null;
+        // Depth-aware sources (Doom) return a value even with no stored rate; ordinary sources
+        // without a usable denominator fall through to an unusable result (double.MaxValue) → null.
+        var expected = sourceLoot.ExpectedCompletions(sourceName, itemName, numerator ?? 1, denominator ?? 0, rolls, depth);
+        return expected is > 0 and < double.MaxValue ? expected : null;
     }
 
     public async Task<Result<SourceKillTrend>> HandleSourceKillTrend(int characterId, string sourceName)

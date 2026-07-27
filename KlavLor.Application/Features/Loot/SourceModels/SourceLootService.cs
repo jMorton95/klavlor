@@ -11,7 +11,7 @@ public sealed class SourceLootService
     // Bump when any strategy's derivation logic changes (e.g. Doom's rate table or depth
     // estimator is revised). The backfill service then re-derives every special-source record
     // whose stored EffectiveKillsVersion is below this. Never lower it.
-    public const int DerivationVersion = 1;
+    public const int DerivationVersion = 2;
 
     private readonly IReadOnlyDictionary<string, ISourceLootStrategy> _special;
     private readonly ISourceLootStrategy _default;
@@ -47,9 +47,16 @@ public sealed class SourceLootService
     // (flat rate for ordinary sources; unique-table-share scaling for raids), then scaled by any
     // admin-configured rate modifier for this source/item. itemName may be null/empty to get the
     // source-wide value.
-    public double ExpectedCompletions(string sourceName, string? itemName, int numerator, int denominator, int rolls)
+    public double ExpectedCompletions(string sourceName, string? itemName, int numerator, int denominator, int rolls, int depth = 0)
     {
-        var baseline = Resolve(sourceName).ExpectedCompletions(numerator, denominator, rolls);
+        var strategy = Resolve(sourceName);
+        // Depth-aware sources (Doom) compute per-item odds from how deep the run went, ignoring
+        // the flat rate; the admin modifier still applies on top.
+        if (depth > 0 && itemName is not null
+            && strategy.ExpectedCompletionsForDepth(itemName, depth) is { } delve && delve > 0)
+            return delve * _modifiers.GetMultiplier(sourceName, itemName);
+
+        var baseline = strategy.ExpectedCompletions(numerator, denominator, rolls);
         return baseline * _modifiers.GetMultiplier(sourceName, itemName);
     }
 

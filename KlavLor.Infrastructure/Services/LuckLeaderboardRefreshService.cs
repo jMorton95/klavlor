@@ -172,11 +172,15 @@ public sealed class LuckLeaderboardRefreshService(
         foreach (var e in collection.Entries)
         {
             if (excludedItems.Contains(e.ItemName)) continue;
-            if (e.RarityDenominator is not { } den || den <= 0) continue;
-            var perDropValue = e.TotalDrops > 0 ? e.TotalValue / e.TotalDrops : 0;
-            if (IsUninteresting(den, perDropValue)) continue;
-            var expected = sourceLoot.ExpectedCompletions(source, e.ItemName, e.RarityNumerator ?? 1, den, e.Rolls);
-            if (expected < 1) continue;                       // effectively guaranteed drop — not interesting
+            var den = e.RarityDenominator ?? 0;   // 0 for depth-modelled sources (Doom) with no flat rate
+            var expected = sourceLoot.ExpectedCompletions(source, e.ItemName, e.RarityNumerator ?? 1, den, e.Rolls, collection.CharacterDepth);
+            if (expected < 1 || expected >= double.MaxValue) continue; // no usable rate / guaranteed drop
+            // Rarity-based bottom-end filter only applies when there's a real denominator.
+            if (den > 0)
+            {
+                var perDropValue = e.TotalDrops > 0 ? e.TotalValue / e.TotalDrops : 0;
+                if (IsUninteresting(den, perDropValue)) continue;
+            }
             var observed = e.KillCount ?? e.KillOrdinal ?? 0; // prefer the real RuneLite KC, fall back to logged ordinal
             if (observed <= 0) continue;
 
@@ -198,11 +202,11 @@ public sealed class LuckLeaderboardRefreshService(
         foreach (var m in collection.MissingItems)
         {
             if (excludedItems.Contains(m.ItemName)) continue;
-            if (m.RarityDenominator is not { } den || den <= 0) continue;
-            // Missing items carry no received value; the bottom-end filter still drops commons.
-            if (IsUninteresting(den, 0)) continue;
-            var expected = sourceLoot.ExpectedCompletions(source, m.ItemName, m.RarityNumerator ?? 1, den, m.Rolls);
-            if (expected < 1) continue;
+            var den = m.RarityDenominator ?? 0;   // 0 for depth-modelled sources (Doom)
+            var expected = sourceLoot.ExpectedCompletions(source, m.ItemName, m.RarityNumerator ?? 1, den, m.Rolls, collection.CharacterDepth);
+            if (expected < 1 || expected >= double.MaxValue) continue;
+            // Missing items carry no received value; the bottom-end filter (rarity-based) still drops commons.
+            if (den > 0 && IsUninteresting(den, 0)) continue;
             var observed = collection.CharacterKc;
             if (observed <= 0) continue;
 

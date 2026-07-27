@@ -20,11 +20,15 @@ public sealed class DoomLootStrategy() : SourceLootStrategy("Doom of Mokhaiotl")
     private static readonly int[] Treads = { 0, 0, 0,    0,    1350, 810, 765, 720, 630, 540 };
     private static readonly int[] Pet    = { 0, 0, 0,    0,    0,    0,   1000, 750, 500, 250 };
 
-    // Off the leaderboard until its delve-aware luck is wired through the strategy; a flat
-    // rate would be meaningless for a boss that rolls loot per delve level.
-    public override bool IncludeInLeaderboard => false;
-
     public override int EffectiveKills(IReadOnlyList<ClaimDrop> drops) => EstimateDepth(drops);
+
+    // Expected runs to a first drop = 1 / P(at least one across a run to the character's depth).
+    // Null when the item isn't a Doom unique or the depth is unknown, so the caller falls back.
+    public double? ExpectedCompletionsForDepth(string itemName, int depth)
+    {
+        var p = ProbabilityOverRun(itemName, depth);
+        return p > 0 ? 1.0 / p : null;
+    }
 
     // Deepest delve the claim proves the run reached: the max of the unique-item gates present
     // and the depth implied by the Demon tears quantity. Never below 1.

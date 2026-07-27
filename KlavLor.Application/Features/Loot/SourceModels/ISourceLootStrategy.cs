@@ -28,6 +28,11 @@ public interface ISourceLootStrategy
     // Raid strategies reinterpret unique-table shares and scale by the per-completion unique
     // frequency, since the wiki stores a share ("given a unique, which item") not a per-raid rate.
     double ExpectedCompletions(int numerator, int denominator, int rolls);
+
+    // Depth-aware expected completions (in runs) to a first drop of a named item, for sources
+    // whose per-item odds depend on how far the run went (Doom's delve levels). Returns null for
+    // sources with no depth model, so the caller falls back to the flat ExpectedCompletions.
+    double? ExpectedCompletionsForDepth(string itemName, int depth) => null;
 }
 
 public abstract class SourceLootStrategy(string sourceName) : ISourceLootStrategy

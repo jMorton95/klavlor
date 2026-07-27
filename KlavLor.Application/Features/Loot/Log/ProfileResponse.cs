@@ -91,7 +91,10 @@ public sealed record SourceCollection(
     string SourceName,
     int CharacterKc,
     IReadOnlyList<CollectionEntry> Entries,
-    IReadOnlyList<MissingClogItem> MissingItems);
+    IReadOnlyList<MissingClogItem> MissingItems,
+    // Deepest delve reached at this source (max stored EffectiveKills); 0 for ordinary sources.
+    // Feeds Doom's depth-aware luck maths.
+    int CharacterDepth = 0);
 
 /// <summary>
 /// Monthly kill activity for one character at one source — drives the character source

@@ -2260,6 +2260,11 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 .Select(b => (int?)b.BaselineKc)
                 .FirstOrDefaultAsync() ?? 0;
 
+            // Deepest delve reached (max stored EffectiveKills) — feeds Doom's depth-aware luck.
+            var characterDepth = await dataContext.LootRecords
+                .Where(r => r.GameCharacterId == characterId && r.SourceName == sourceName && r.EffectiveKills != null)
+                .MaxAsync(r => (int?)r.EffectiveKills) ?? 0;
+
             var connection = dataContext.Database.GetDbConnection();
             if (connection.State != System.Data.ConnectionState.Open) await connection.OpenAsync();
 
@@ -2491,7 +2496,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 }
             }
 
-            return new SourceCollection(sourceName, characterKc, entries, missingItems);
+            return new SourceCollection(sourceName, characterKc, entries, missingItems, characterDepth);
         }
         catch (Exception ex)
         {
