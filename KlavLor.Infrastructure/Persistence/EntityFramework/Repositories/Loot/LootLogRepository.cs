@@ -2233,6 +2233,13 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
     {
         try
         {
+            // Admin baseline: kills done before we had any data for this character. Added to the
+            // counted (row-count) KC and ordinal fallbacks — never to a real reported KillCount.
+            var baseline = await dataContext.CharacterSourceBaselines
+                .Where(b => b.GameCharacterId == characterId && b.SourceName == sourceName)
+                .Select(b => (int?)b.BaselineKc)
+                .FirstOrDefaultAsync() ?? 0;
+
             var connection = dataContext.Database.GetDbConnection();
             if (connection.State != System.Data.ConnectionState.Open) await connection.OpenAsync();
 
@@ -2286,17 +2293,17 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 SELECT a.item_name, a.first_received, a.last_received, a.total_drops,
                        a.total_qty, a.total_value, a.has_first,
                        f."KillCount" AS first_kc,
-                       (SELECT COUNT(*)::int FROM "LootRecords" o
+                       ((SELECT COUNT(*)::int FROM "LootRecords" o
                         WHERE o."GameCharacterId" = @cid
                           AND o."SourceName" = @source
                           AND (o."OccurredAt" < f."OccurredAt"
-                               OR (o."OccurredAt" = f."OccurredAt" AND o."Id" <= f."Id"))) AS first_ordinal,
+                               OR (o."OccurredAt" = f."OccurredAt" AND o."Id" <= f."Id"))) + @baseline) AS first_ordinal,
                        l."KillCount" AS last_kc,
-                       (SELECT COUNT(*)::int FROM "LootRecords" o
+                       ((SELECT COUNT(*)::int FROM "LootRecords" o
                         WHERE o."GameCharacterId" = @cid
                           AND o."SourceName" = @source
                           AND (o."OccurredAt" < l."OccurredAt"
-                               OR (o."OccurredAt" = l."OccurredAt" AND o."Id" <= l."Id"))) AS last_ordinal,
+                               OR (o."OccurredAt" = l."OccurredAt" AND o."Id" <= l."Id"))) + @baseline) AS last_ordinal,
                        dr."Rarity", dr."RarityNumerator", dr."RarityDenominator", dr."Rolls"
                 FROM agg a
                 JOIN first_row f ON f.item_name = a.item_name
@@ -2311,6 +2318,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             cmd.CommandText = sql;
             cmd.Parameters.Add(new NpgsqlParameter("@cid", characterId));
             cmd.Parameters.Add(new NpgsqlParameter("@source", sourceName));
+            cmd.Parameters.Add(new NpgsqlParameter("@baseline", baseline));
 
             var entries = new List<CollectionEntry>();
             await using (var reader = await cmd.ExecuteReaderAsync())
@@ -2348,7 +2356,14 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                     LEFT JOIN "DropRates" dr
                         ON dr."SourceName" = @source
                        AND lower(dr."ItemName") = lower(cli."Name")
-                    WHERE @source = ANY (cli."Tabs")
+                    -- A clog item belongs to this source if the wiki tab mapping says so, OR we
+                    -- otherwise have data that it drops here: a stored drop rate for the source.
+                    -- The latter surfaces items (e.g. Dragon warhammer from Lizardman shaman) whose
+                    -- tab mapping doesn't list the source, so every character sees it consistently.
+                    WHERE (@source = ANY (cli."Tabs")
+                           OR EXISTS (SELECT 1 FROM "DropRates" dr2
+                                      WHERE dr2."SourceName" = @source
+                                        AND lower(dr2."ItemName") = lower(cli."Name")))
                       AND NOT EXISTS (
                           SELECT 1 FROM "LootRecords" lr
                           JOIN "LootDrops" ld ON ld."LootRecordId" = lr."Id"
@@ -2390,8 +2405,9 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             }
             else
             {
-                characterKc = await dataContext.LootRecords
+                var counted = await dataContext.LootRecords
                     .CountAsync(r => r.GameCharacterId == characterId && r.SourceName == sourceName);
+                characterKc = counted + baseline;
             }
 
             // Per-item drop events. Drives the KC-column hover popover that lists every

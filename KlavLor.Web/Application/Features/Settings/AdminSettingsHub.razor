@@ -176,6 +176,16 @@
             </div>
         </section>
 
+        <section id="baselines" class="scroll-mt-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40 p-5">
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Baseline kill counts</h2>
+            <p class="text-sm text-slate-500 dark:text-white mb-3">
+                Seed a character's kill count at a source for content they'd already ground before we had their data. It's added to counted kills, so once RuneLite starts logging them the count continues from the baseline.
+            </p>
+            <div hx-get="@AppRoutes.AdminBaseline.FromApi()" hx-trigger="load" hx-swap="innerHTML">
+                <div class="h-24 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
+            </div>
+        </section>
+
         <section id="leaderboard" class="scroll-mt-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40 p-5">
             <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Leaderboard exclusions</h2>
             <p class="text-sm text-slate-500 dark:text-white mb-3">
@@ -268,6 +278,7 @@
         ("drop-rates", "Drop rates"),
         ("modifiers", "Rate modifiers"),
         ("special", "Special loot"),
+        ("baselines", "Baseline KC"),
         ("leaderboard", "Leaderboards"),
         ("icons", "Broken icons"),
         ("sources", "Source names"),

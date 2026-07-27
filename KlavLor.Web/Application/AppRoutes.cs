@@ -176,6 +176,8 @@ public static class AppRoutes
     public const string AdminSourceModifierSearch = "/admin/settings/source-modifiers/search";
     public const string AdminSourceModifierApply = "/admin/settings/source-modifiers/apply";
     public const string AdminSourceModifierRemove = "/admin/settings/source-modifiers/remove";
+    public const string AdminBaseline = "/admin/settings/baselines";
+    public const string AdminBaselineSet = "/admin/settings/baselines/set";
     public const string AdminSpecialLoot = "/admin/settings/special-loot";
     public const string AdminSpecialLootItemSearch = "/admin/settings/special-loot/item-search";
     public const string AdminSpecialLootInject = "/admin/settings/special-loot/inject";

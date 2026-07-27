@@ -38,6 +38,7 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
     public virtual DbSet<SourceRateModifier> SourceRateModifiers => Set<SourceRateModifier>();
     public virtual DbSet<JobRun> JobRuns => Set<JobRun>();
     public virtual DbSet<JobSchedule> JobSchedules => Set<JobSchedule>();
+    public virtual DbSet<CharacterSourceBaseline> CharacterSourceBaselines => Set<CharacterSourceBaseline>();
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -481,6 +482,10 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
         modelBuilder.Entity<JobSchedule>()
             .Property(e => e.ManualRequestedAt)
             .HasColumnType("timestamp with time zone");
+
+        // Admin baseline kill counts, keyed by (character, source).
+        modelBuilder.Entity<CharacterSourceBaseline>()
+            .HasKey(e => new { e.GameCharacterId, e.SourceName });
 
         // Entity base class configuration (timestamps and row versions)
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())

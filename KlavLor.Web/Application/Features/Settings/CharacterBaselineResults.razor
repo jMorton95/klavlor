@@ -1,0 +1,22 @@
+@using KlavLor.Application.Features.Loot.Baseline
+
+@if (Rows.Count == 0)
+{
+    <p class="text-sm text-slate-400 dark:text-white py-2">No baselines configured yet.</p>
+}
+else
+{
+    <div class="space-y-1">
+        @foreach (var r in Rows)
+        {
+            <div class="flex items-center justify-between gap-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2">
+                <span class="text-sm text-slate-700 dark:text-slate-100 truncate min-w-0">@r.CharacterName <span class="text-slate-400 dark:text-white">·</span> @r.SourceName</span>
+                <span class="text-xs font-mono text-amber-600 dark:text-amber-400 shrink-0 tabular-nums">@r.BaselineKc.ToString("N0") KC</span>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public List<CharacterBaselineRow> Rows { get; set; } = [];
+}

@@ -1,0 +1,47 @@
+@using KlavLor.Application.Features.Loot.Baseline
+@using KlavLor.Application.Features.Loot.Special
+
+<div class="flex flex-wrap items-end gap-3 mb-3">
+    <div>
+        <label class="block text-[10px] uppercase tracking-wider text-slate-500 dark:text-white mb-1">Character</label>
+        <select id="csb-char" name="characterId"
+                class="w-56 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none">
+            @foreach (var c in Characters)
+            {
+                <option value="@c.Id">@c.Name</option>
+            }
+        </select>
+    </div>
+    <div>
+        <label class="block text-[10px] uppercase tracking-wider text-slate-500 dark:text-white mb-1">Source</label>
+        <input id="csb-source" name="sourceName" type="text" placeholder="e.g. Lizardman shaman" autocomplete="off"
+               class="w-56 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+    </div>
+    <div>
+        <label class="block text-[10px] uppercase tracking-wider text-slate-500 dark:text-white mb-1">Baseline KC</label>
+        <input id="csb-kc" name="baselineKc" type="number" min="0" step="1" value="0"
+               class="w-28 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+    </div>
+    <button type="button"
+            hx-post="@AppRoutes.AdminBaselineSet.FromApi()"
+            hx-include="#csb-char, #csb-source, #csb-kc"
+            hx-target="#csb-results"
+            hx-swap="innerHTML"
+            hx-disabled-elt="this"
+            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-amber-500 text-white hover:bg-amber-600 cursor-pointer disabled:opacity-50">
+        Set baseline
+    </button>
+</div>
+
+<p class="text-xs text-slate-400 dark:text-white mb-3">
+    Sets the kill count a character is assumed to have done at a source before we had their data — added to counted kills (never to a real reported kill count), so their luck and collection-log calculations start from a realistic number. Set to 0 to clear.
+</p>
+
+<div id="csb-results">
+    <CharacterBaselineResults Rows="Rows" />
+</div>
+
+@code {
+    [Parameter] public List<SpecialLootCharacterOption> Characters { get; set; } = [];
+    [Parameter] public List<CharacterBaselineRow> Rows { get; set; } = [];
+}

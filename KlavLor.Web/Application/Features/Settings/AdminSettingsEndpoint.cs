@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using KlavLor.Application.Features.CollectionLog;
 using KlavLor.Application.Features.DropRates;
 using KlavLor.Application.Common;
+using KlavLor.Application.Features.Loot.Baseline;
 using KlavLor.Application.Features.Loot.Leaderboard;
 using KlavLor.Application.Features.Loot.Special;
 using KlavLor.Application.Features.Loot.SourceModels;
@@ -98,6 +99,14 @@ public sealed class AdminSettingsEndpoint : IEndpoint
         app.MapPost(AppRoutes.AdminSourceModifierRemove.FromApi(), RemoveSourceModifier)
             .RequireAuthorization(nameof(RoleName.Admin))
             .RequireRateLimiting("mutation");
+
+        app.MapGet(AppRoutes.AdminBaseline.FromApi(), GetBaselines)
+            .RequireAuthorization(nameof(RoleName.Admin));
+
+        app.MapPost(AppRoutes.AdminBaselineSet.FromApi(), SetBaseline)
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("mutation")
+            .DisableAntiforgery();
 
         app.MapGet(AppRoutes.AdminSpecialLoot.FromApi(), GetSpecialLoot)
             .RequireAuthorization(nameof(RoleName.Admin));
@@ -362,6 +371,23 @@ public sealed class AdminSettingsEndpoint : IEndpoint
     {
         var items = await handler.Remove(source, item);
         return IResultExtensions.Component<SourceRateModifierResults>(new { Items = items, IsSearch = false });
+    }
+
+    private static async Task<RazorComponentResult> GetBaselines(CharacterBaselineAdminHandler handler)
+    {
+        var characters = await handler.GetCharacters();
+        var rows = await handler.List();
+        return IResultExtensions.Component<CharacterBaselinePanel>(new { Characters = characters, Rows = rows });
+    }
+
+    private static async Task<RazorComponentResult> SetBaseline(
+        [FromForm] int characterId,
+        [FromForm] string sourceName,
+        [FromForm] int baselineKc,
+        CharacterBaselineAdminHandler handler)
+    {
+        var rows = await handler.Set(characterId, sourceName, baselineKc);
+        return IResultExtensions.Component<CharacterBaselineResults>(new { Rows = rows });
     }
 
     private static async Task<RazorComponentResult> GetSpecialLoot(SpecialLootHandler handler)
