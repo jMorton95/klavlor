@@ -48,7 +48,9 @@ public sealed class LuckLeaderboardRefreshService(
         if (observed <= expected) return null;
         var actual = observed / expected;
         if (rarityDenominator >= RareGrindDenominator && observed >= rarityDenominator)
-            return Math.Max(rarityDenominator / 1000.0, actual);
+            // Rank just below its integer tier: shave 0.01 so a 1/3000 grind floors to tier 2 and
+            // sits under every natural 3.x streak rather than topping tier 3. Genuine dryness wins.
+            return Math.Max(rarityDenominator / 1000.0 - 0.01, actual);
         return actual >= MinMultiple ? actual : null;
     }
 
