@@ -32,7 +32,9 @@ public interface ISourceLootStrategy
     // Depth-aware expected completions (in runs) to a first drop of a named item, for sources
     // whose per-item odds depend on how far the run went (Doom's delve levels). Returns null for
     // sources with no depth model, so the caller falls back to the flat ExpectedCompletions.
-    double? ExpectedCompletionsForDepth(string itemName, int depth) => null;
+    // Not a default interface method: it must dispatch virtually through the base class so a
+    // derived strategy's override is used when called via the interface.
+    double? ExpectedCompletionsForDepth(string itemName, int depth);
 }
 
 public abstract class SourceLootStrategy(string sourceName) : ISourceLootStrategy
@@ -49,4 +51,7 @@ public abstract class SourceLootStrategy(string sourceName) : ISourceLootStrateg
         var p = Math.Max(1, rolls) * (double)Math.Max(1, numerator) / denominator;
         return p <= 0 ? double.MaxValue : 1.0 / p;
     }
+
+    // No depth model by default; depth-aware sources (Doom) override this.
+    public virtual double? ExpectedCompletionsForDepth(string itemName, int depth) => null;
 }

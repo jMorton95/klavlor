@@ -24,7 +24,7 @@ public sealed class DoomLootStrategy() : SourceLootStrategy("Doom of Mokhaiotl")
 
     // Expected runs to a first drop = 1 / P(at least one across a run to the character's depth).
     // Null when the item isn't a Doom unique or the depth is unknown, so the caller falls back.
-    public double? ExpectedCompletionsForDepth(string itemName, int depth)
+    public override double? ExpectedCompletionsForDepth(string itemName, int depth)
     {
         var p = ProbabilityOverRun(itemName, depth);
         return p > 0 ? 1.0 / p : null;
