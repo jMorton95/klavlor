@@ -38,9 +38,6 @@ public static class AppRoutes
     public const string TemplatesDelete = "/templates/delete/{id:int}";
     public const string TemplatesView = "/templates/{id:int}";
 
-    public const string TemplatesDuplicate = "/templates/{id:int}/duplicate";
-    public const string TemplatesExport = "/templates/{id:int}/export";
-
     public const string Builder = "/templates/{id:int}/builder";
     public const string BuilderNodes = "/templates/{id:int}/builder/nodes";
     public const string BuilderNodeCreate = "/templates/{id:int}/builder/nodes/create";
