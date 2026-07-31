@@ -1,6 +1,6 @@
 using KlavLor.Domain.Shared;
 using KlavLor.Infrastructure.ExternalServices.OsrsWiki;
-using KlavLor.Web.Application.Results;
+using KlavLor.Web.Application.HttpResults;
 
 namespace KlavLor.Web.Application.Features.Templates.Builder;
 

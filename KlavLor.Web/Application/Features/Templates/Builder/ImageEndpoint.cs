@@ -13,12 +13,12 @@ public sealed class ImageEndpoint : IEndpoint
     {
         var image = await cachedImageRepository.GetById(imageId);
         if (image is null)
-            return Microsoft.AspNetCore.Http.Results.NotFound();
+            return Results.NotFound();
 
         // Cached images are immutable — aggressive browser caching
         httpContext.Response.Headers.CacheControl = "public, max-age=31536000, immutable";
 
-        return Microsoft.AspNetCore.Http.Results.File(
+        return Results.File(
             image.ImageData,
             image.ContentType,
             enableRangeProcessing: false);

@@ -3,7 +3,7 @@ using KlavLor.Application.Features.Viewer.ViewerData;
 using KlavLor.Application.Interfaces.Authentication;
 using KlavLor.Domain.Interfaces.Repositories;
 using KlavLor.Domain.Shared;
-using KlavLor.Web.Application.Results;
+using KlavLor.Web.Application.HttpResults;
 
 namespace KlavLor.Web.Application.Features.Viewer;
 
@@ -26,17 +26,17 @@ public sealed class CompletionEndpoint : IEndpoint
         IUserNodeCompletionRepository completionRepository)
     {
         var userId = sessionManager.GetUserSessionId();
-        if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
+        if (userId is null) return Results.Unauthorized();
 
         var command = new ToggleCompletionCommand { TemplateId = id, NodeId = nodeId, Note = form.Note };
         var result = await toggleHandler.Handle(command);
-        if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
+        if (!result.IsSuccess) return Results.BadRequest(result.ErrorMessage);
 
         var template = await templateRepository.GetById(id);
-        if (template is null) return Microsoft.AspNetCore.Http.Results.NotFound();
+        if (template is null) return Results.NotFound();
 
         var node = template.Nodes.FirstOrDefault(n => n.Id == nodeId);
-        if (node is null) return Microsoft.AspNetCore.Http.Results.NotFound();
+        if (node is null) return Results.NotFound();
 
         var allCompletions = await completionRepository.GetByUserAndTemplate(userId.Value, id);
         var completionDates = allCompletions.ToDictionary(

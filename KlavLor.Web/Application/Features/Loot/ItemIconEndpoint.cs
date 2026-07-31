@@ -30,11 +30,11 @@ public sealed class ItemIconEndpoint : IEndpoint
             if (cached?.ImageData is null)
             {
                 httpContext.Response.Headers.CacheControl = "no-cache";
-                return Microsoft.AspNetCore.Http.Results.NotFound();
+                return Results.NotFound();
             }
 
             httpContext.Response.Headers.CacheControl = "public, max-age=604800";
-            return Microsoft.AspNetCore.Http.Results.File(cached.ImageData, cached.ContentType!);
+            return Results.File(cached.ImageData, cached.ContentType!);
         }
 
         var icon = await itemIconRepository.GetByItemName(name);
@@ -42,7 +42,7 @@ public sealed class ItemIconEndpoint : IEndpoint
         {
             memoryCache.Set(cacheKey, new CachedIconResult(null, null), TimeSpan.FromMinutes(5));
             httpContext.Response.Headers.CacheControl = "no-cache";
-            return Microsoft.AspNetCore.Http.Results.NotFound();
+            return Results.NotFound();
         }
 
         var image = await cachedImageRepository.GetById(icon.CachedImageId.Value);
@@ -50,11 +50,11 @@ public sealed class ItemIconEndpoint : IEndpoint
         {
             memoryCache.Set(cacheKey, new CachedIconResult(null, null), TimeSpan.FromMinutes(5));
             httpContext.Response.Headers.CacheControl = "no-cache";
-            return Microsoft.AspNetCore.Http.Results.NotFound();
+            return Results.NotFound();
         }
 
         memoryCache.Set(cacheKey, new CachedIconResult(image.ImageData, image.ContentType), TimeSpan.FromHours(1));
         httpContext.Response.Headers.CacheControl = "public, max-age=604800";
-        return Microsoft.AspNetCore.Http.Results.File(image.ImageData, image.ContentType);
+        return Results.File(image.ImageData, image.ContentType);
     }
 }

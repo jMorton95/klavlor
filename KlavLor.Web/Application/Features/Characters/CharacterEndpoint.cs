@@ -1,7 +1,7 @@
 using KlavLor.Application.Features.Characters;
 using KlavLor.Application.Interfaces.Services;
 using KlavLor.Domain.Shared;
-using KlavLor.Web.Application.Results;
+using KlavLor.Web.Application.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 
 namespace KlavLor.Web.Application.Features.Characters;

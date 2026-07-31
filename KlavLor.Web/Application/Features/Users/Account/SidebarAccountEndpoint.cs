@@ -1,6 +1,6 @@
 using KlavLor.Application.Features.Users.Account;
 using KlavLor.Domain.Shared;
-using KlavLor.Web.Application.Results;
+using KlavLor.Web.Application.HttpResults;
 
 namespace KlavLor.Web.Application.Features.Users.Account;
 

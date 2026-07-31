@@ -3,7 +3,7 @@ using KlavLor.Application.Features.Builder.UndoLayout;
 using KlavLor.Application.Interfaces.Authentication;
 using KlavLor.Domain.Interfaces.Repositories;
 using KlavLor.Domain.Shared;
-using KlavLor.Web.Application.Results;
+using KlavLor.Web.Application.HttpResults;
 
 namespace KlavLor.Web.Application.Features.Templates.Builder;
 
@@ -22,14 +22,14 @@ public sealed class LayoutEndpoints : IEndpoint
         ITemplateRepository templateRepository)
     {
         var userId = sessionManager.GetUserSessionId();
-        if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
+        if (userId is null) return Results.Unauthorized();
 
         var command = new ApplyAutoLayoutCommand { TemplateId = id };
         var result = await handler.Handle(command);
-        if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
+        if (!result.IsSuccess) return Results.BadRequest(result.ErrorMessage);
 
         var template = await templateRepository.GetById(id);
-        if (template is null) return Microsoft.AspNetCore.Http.Results.NotFound();
+        if (template is null) return Results.NotFound();
 
         return IResultExtensions.Component<BuilderPage>(new { Template = template });
     }
@@ -41,14 +41,14 @@ public sealed class LayoutEndpoints : IEndpoint
         ITemplateRepository templateRepository)
     {
         var userId = sessionManager.GetUserSessionId();
-        if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
+        if (userId is null) return Results.Unauthorized();
 
         var command = new UndoLayoutCommand { TemplateId = id };
         var result = await handler.Handle(command);
-        if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
+        if (!result.IsSuccess) return Results.BadRequest(result.ErrorMessage);
 
         var template = await templateRepository.GetById(id);
-        if (template is null) return Microsoft.AspNetCore.Http.Results.NotFound();
+        if (template is null) return Results.NotFound();
 
         return IResultExtensions.Component<BuilderPage>(new { Template = template });
     }

@@ -1,4 +1,4 @@
-namespace KlavLor.Web.Application.Results;
+namespace KlavLor.Web.Application.HttpResults;
 
 public sealed class HtmxRefreshResult : IResult
 {

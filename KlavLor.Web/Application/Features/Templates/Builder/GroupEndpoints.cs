@@ -6,7 +6,7 @@ using KlavLor.Application.Features.Builder.AssignNodeToGroup;
 using KlavLor.Application.Interfaces.Authentication;
 using KlavLor.Domain.Interfaces.Repositories;
 using KlavLor.Domain.Shared;
-using KlavLor.Web.Application.Results;
+using KlavLor.Web.Application.HttpResults;
 
 namespace KlavLor.Web.Application.Features.Templates.Builder;
 
@@ -27,14 +27,14 @@ public sealed class GroupEndpoints : IEndpoint
         ITemplateRepository templateRepository)
     {
         var userId = sessionManager.GetUserSessionId();
-        if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
+        if (userId is null) return Results.Unauthorized();
 
         var template = await templateRepository.GetById(id);
         if (template is null || (template.CreatedById != userId.Value && !sessionManager.IsUserSessionAdministrator()))
-            return Microsoft.AspNetCore.Http.Results.NotFound();
+            return Results.NotFound();
 
         var group = template.Groups.FirstOrDefault(g => g.Id == groupId);
-        if (group is null) return Microsoft.AspNetCore.Http.Results.NotFound();
+        if (group is null) return Results.NotFound();
 
         var groupNodes = template.Nodes.Where(n => n.GroupId == groupId).OrderBy(n => n.SortOrder).ThenBy(n => n.Id).ToList();
         return IResultExtensions.Component<BuilderGroup>(new
@@ -52,10 +52,10 @@ public sealed class GroupEndpoints : IEndpoint
         ITemplateRepository templateRepository)
     {
         var userId = sessionManager.GetUserSessionId();
-        if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
+        if (userId is null) return Results.Unauthorized();
 
         var result = await handler.Handle(command);
-        if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
+        if (!result.IsSuccess) return Results.BadRequest(result.ErrorMessage);
 
         var template = await templateRepository.GetById(command.TemplateId);
         return IResultExtensions.Component<BuilderCanvas>(new { Template = template });
@@ -67,13 +67,13 @@ public sealed class GroupEndpoints : IEndpoint
         DeleteGroupHandler handler)
     {
         var userId = sessionManager.GetUserSessionId();
-        if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
+        if (userId is null) return Results.Unauthorized();
 
         var command = new DeleteGroupCommand { TemplateId = id, GroupId = groupId };
         var result = await handler.Handle(command);
-        if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
+        if (!result.IsSuccess) return Results.BadRequest(result.ErrorMessage);
 
-        return Microsoft.AspNetCore.Http.Results.NoContent();
+        return Results.NoContent();
     }
 
     private static async Task<IResult> UpdateGroupPosition(
@@ -83,15 +83,15 @@ public sealed class GroupEndpoints : IEndpoint
         UpdateGroupPositionHandler handler)
     {
         var userId = sessionManager.GetUserSessionId();
-        if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
+        if (userId is null) return Results.Unauthorized();
 
         command.TemplateId = id;
         command.GroupId = groupId;
         var result = await handler.Handle(command);
 
         return result.IsSuccess
-            ? Microsoft.AspNetCore.Http.Results.NoContent()
-            : Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
+            ? Results.NoContent()
+            : Results.BadRequest(result.ErrorMessage);
     }
 
     private static async Task<IResult> AssignNodeToGroup(
@@ -102,12 +102,12 @@ public sealed class GroupEndpoints : IEndpoint
         ITemplateRepository templateRepository)
     {
         var userId = sessionManager.GetUserSessionId();
-        if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
+        if (userId is null) return Results.Unauthorized();
 
         command.TemplateId = id;
         command.NodeId = nodeId;
         var result = await handler.Handle(command);
-        if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
+        if (!result.IsSuccess) return Results.BadRequest(result.ErrorMessage);
 
         var template = await templateRepository.GetById(id);
         return IResultExtensions.Component<BuilderCanvas>(new { Template = template });

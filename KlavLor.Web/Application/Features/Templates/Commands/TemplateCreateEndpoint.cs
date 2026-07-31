@@ -4,7 +4,7 @@ using KlavLor.Application.Features.Templates.Search;
 using KlavLor.Application.Interfaces.Authentication;
 using KlavLor.Application.Interfaces.Repositories;
 using KlavLor.Domain.Shared;
-using KlavLor.Web.Application.Results;
+using KlavLor.Web.Application.HttpResults;
 
 namespace KlavLor.Web.Application.Features.Templates.Commands;
 
@@ -21,7 +21,7 @@ public sealed class TemplateCreateEndpoint : IEndpoint
         ITemplateSearchRepository searchRepository)
     {
         var userId = sessionManager.GetUserSessionId();
-        if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
+        if (userId is null) return Results.Unauthorized();
 
         var cloneOptions = await searchRepository.GetCloneOptions(userId.Value);
         return IResultExtensions.Component<TemplateForm>(new

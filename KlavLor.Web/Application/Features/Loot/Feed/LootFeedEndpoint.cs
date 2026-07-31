@@ -1,6 +1,6 @@
 using KlavLor.Application.Features.Loot.Feed;
 using KlavLor.Application.Interfaces.Services;
-using KlavLor.Web.Application.Results;
+using KlavLor.Web.Application.HttpResults;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 

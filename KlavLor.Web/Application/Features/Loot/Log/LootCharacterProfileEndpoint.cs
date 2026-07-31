@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using KlavLor.Application.Features.Loot.Log;
 using KlavLor.Web.Application.Features.Loot.Log.Profile;
 using KlavLor.Web.Application.Filters;
-using KlavLor.Web.Application.Results;
+using KlavLor.Web.Application.HttpResults;
 
 namespace KlavLor.Web.Application.Features.Loot.Log;
 
@@ -55,7 +55,7 @@ public sealed class LootCharacterProfileEndpoint : IEndpoint
     {
         var page = pageNumber is null or < 1 ? 1 : pageNumber.Value;
         var result = await handler.HandleCharacterSessions(id, page);
-        if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.NotFound();
+        if (!result.IsSuccess) return Results.NotFound();
 
         // Page 1 renders the whole panel (heading + section); "load more" re-renders just the
         // day-grouped section (cumulative), swapping #char-session-section.
@@ -81,7 +81,7 @@ public sealed class LootCharacterProfileEndpoint : IEndpoint
         LootCharacterProfileHandler profileHandler)
     {
         var result = await logHandler.HandleSourceTable(id, query);
-        if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.NotFound();
+        if (!result.IsSuccess) return Results.NotFound();
         var table = result.Value!;
 
         // Page 2+ appends rows; a sort/filter request re-renders just the table; a fresh
@@ -109,10 +109,10 @@ public sealed class LootCharacterProfileEndpoint : IEndpoint
     private static async Task<IResult> GetDayFeed(int id, string date, LootCharacterProfileHandler handler)
     {
         if (!DateOnly.TryParseExact(date, "yyyy-MM-dd", out var day))
-            return Microsoft.AspNetCore.Http.Results.NotFound();
+            return Results.NotFound();
 
         var result = await handler.HandleDayFeed(id, day);
-        if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.NotFound();
+        if (!result.IsSuccess) return Results.NotFound();
 
         return IResultExtensions.Component<CharacterDayFeedPage>(new
         {
@@ -129,7 +129,7 @@ public sealed class LootCharacterProfileEndpoint : IEndpoint
     {
         var normalised = string.Equals(range, "all", StringComparison.OrdinalIgnoreCase) ? "all" : "12m";
         var result = await handler.HandleMonthlyTrend(id, normalised);
-        if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.NotFound();
+        if (!result.IsSuccess) return Results.NotFound();
         return IResultExtensions.Component<ProfileMonthlyTrend>(new
         {
             Trend = result.Value,
@@ -147,7 +147,7 @@ public sealed class LootCharacterProfileEndpoint : IEndpoint
             ? HeatmapMode.Clogs
             : HeatmapMode.Gp;
         var result = await handler.HandleHeatmap(id, heatmapMode);
-        if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.NotFound();
+        if (!result.IsSuccess) return Results.NotFound();
         return IResultExtensions.Component<ProfileHeatmap>(new
         {
             Data = result.Value,
@@ -158,7 +158,7 @@ public sealed class LootCharacterProfileEndpoint : IEndpoint
     private static async Task<IResult> GetRecords(int id, LootCharacterProfileHandler handler)
     {
         var result = await handler.HandleRecords(id);
-        if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.NotFound();
+        if (!result.IsSuccess) return Results.NotFound();
         return IResultExtensions.Component<ProfileRecords>(new
         {
             Records = result.Value,
@@ -169,7 +169,7 @@ public sealed class LootCharacterProfileEndpoint : IEndpoint
     private static async Task<IResult> GetTopItems(int id, LootCharacterProfileHandler handler)
     {
         var result = await handler.HandleTopItems(id, 10);
-        if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.NotFound();
+        if (!result.IsSuccess) return Results.NotFound();
         return IResultExtensions.Component<ProfileTopItems>(new
         {
             Items = result.Value,
@@ -180,7 +180,7 @@ public sealed class LootCharacterProfileEndpoint : IEndpoint
     private static async Task<IResult> GetRecentFirsts(int id, LootCharacterProfileHandler handler)
     {
         var result = await handler.HandleFirstTimeFeed(id, before: null, pageSize: 12);
-        if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.NotFound();
+        if (!result.IsSuccess) return Results.NotFound();
         return IResultExtensions.Component<ProfileRecentFirsts>(new
         {
             Feed = result.Value,
@@ -194,7 +194,7 @@ public sealed class LootCharacterProfileEndpoint : IEndpoint
         LootCharacterProfileHandler handler)
     {
         var result = await handler.HandleSourceCollection(id, name);
-        if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.NotFound();
+        if (!result.IsSuccess) return Results.NotFound();
         return IResultExtensions.Component<SourceCollectionPanel>(new
         {
             Collection = result.Value,
@@ -208,7 +208,7 @@ public sealed class LootCharacterProfileEndpoint : IEndpoint
         LootCharacterProfileHandler handler)
     {
         var result = await handler.HandleSourceKillTrend(id, name);
-        if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.NotFound();
+        if (!result.IsSuccess) return Results.NotFound();
         return IResultExtensions.Component<SourceKillHistoryPanel>(new
         {
             Trend = result.Value
@@ -223,7 +223,7 @@ public sealed class LootCharacterProfileEndpoint : IEndpoint
     {
         var size = Math.Clamp(pageSize ?? 50, 1, 200);
         var result = await handler.HandleFirstTimeFeed(id, before, size);
-        if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.NotFound();
+        if (!result.IsSuccess) return Results.NotFound();
 
         if (before is not null)
         {

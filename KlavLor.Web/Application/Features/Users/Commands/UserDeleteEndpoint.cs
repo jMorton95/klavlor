@@ -1,6 +1,6 @@
 using KlavLor.Application.Features.Users.Delete;
 using KlavLor.Domain.Shared;
-using KlavLor.Web.Application.Results;
+using KlavLor.Web.Application.HttpResults;
 using KlavLor.Web.Components.Generic.Modals;
 using KlavLor.Web.Components.Generic.Toast;
 using KlavLor.Web.Enums;

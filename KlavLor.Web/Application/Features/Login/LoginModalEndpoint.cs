@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using KlavLor.Application.Features.Login;
 using KlavLor.Application.Interfaces.Authentication;
-using KlavLor.Web.Application.Results;
+using KlavLor.Web.Application.HttpResults;
 
 namespace KlavLor.Web.Application.Features.Login;
 

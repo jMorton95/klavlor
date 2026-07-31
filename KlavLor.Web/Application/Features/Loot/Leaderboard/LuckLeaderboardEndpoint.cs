@@ -3,7 +3,7 @@ using KlavLor.Application.Features.Loot.Leaderboard;
 using KlavLor.Domain.Entities;
 using KlavLor.Domain.Shared;
 using KlavLor.Web.Application.Filters;
-using KlavLor.Web.Application.Results;
+using KlavLor.Web.Application.HttpResults;
 
 namespace KlavLor.Web.Application.Features.Loot.Leaderboard;
 
