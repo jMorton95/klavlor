@@ -52,16 +52,8 @@ builder.Services.AddRazorComponents();
 
 builder.Services.AddDomain();
 builder.Services.AddApplication();
+// Background services are registered inside AddInfrastructure (they all live in that assembly).
 builder.Services.AddInfrastructure(builder.Configuration);
-
-builder.Services.AddHostedService<ImageCacheBackfillService>();
-builder.Services.AddHostedService<ItemIconBackfillService>();
-builder.Services.AddHostedService<SourceIconBackfillService>();
-builder.Services.AddHostedService<CachedImageReprocessService>();
-builder.Services.AddHostedService<CollectionLogSyncService>();
-builder.Services.AddHostedService<DropRateSyncService>();
-builder.Services.AddHostedService<LuckLeaderboardRefreshService>();
-builder.Services.AddHostedService<LootDerivationBackfillService>();
 
 builder.Services.AddRateLimiter(options =>
 {
