@@ -12,9 +12,10 @@
         }
     </span>
     <span class="flex items-center gap-2 shrink-0">
-        @if (!string.IsNullOrEmpty(Drop.Rarity))
+        @* Effective rate first — includes the source loot model and any admin rate modifier. *@
+        @if (!string.IsNullOrEmpty(Drop.EffectiveRarity) || !string.IsNullOrEmpty(Drop.Rarity))
         {
-            <span class="font-mono text-[10px] text-slate-500 dark:text-white" title="Drop rate">@Drop.Rarity</span>
+            <span class="font-mono text-[10px] text-slate-500 dark:text-white" title="Drop rate (after this source's loot model and any admin rate adjustment)">@(!string.IsNullOrEmpty(Drop.EffectiveRarity) ? Drop.EffectiveRarity : Drop.Rarity)</span>
         }
         <span class="text-amber-600 dark:text-amber-400 font-medium whitespace-nowrap">@GoldFormat.Format(Drop.TotalValue)</span>
     </span>

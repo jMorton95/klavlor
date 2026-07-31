@@ -1,10 +1,14 @@
 using Microsoft.Extensions.Caching.Memory;
 using KlavLor.Application.Common;
+using KlavLor.Application.Features.Loot.SourceModels;
 using KlavLor.Application.Interfaces.Repositories;
 
 namespace KlavLor.Application.Features.Source;
 
-public sealed class GlobalSourceHandler(IGlobalSourceRepository repository, IMemoryCache cache)
+public sealed class GlobalSourceHandler(
+    IGlobalSourceRepository repository,
+    SourceLootService sourceLoot,
+    IMemoryCache cache)
 {
     public const int TopDropsLimit = 12;
     public const int PlayersLimit = 12;
@@ -17,8 +21,21 @@ public sealed class GlobalSourceHandler(IGlobalSourceRepository repository, IMem
     public Task<GlobalSourceOverview?> GetOverview(string sourceName)
         => Cached("overview", sourceName, () => repository.GetOverview(sourceName));
 
-    public Task<List<GlobalSourceDrop>> GetTopDrops(string sourceName)
-        => Cached("topdrops", sourceName, () => repository.GetTopDrops(sourceName, TopDropsLimit));
+    // Rates shown here go through SourceLootService so an admin rate modifier — a global baseline
+    // by definition — and the source's loot model are reflected on the all-players page too, not
+    // just on a character's own source page. No per-run depth exists in a global aggregate, so
+    // depth-modelled sources simply show no rate here rather than inventing an assumed depth.
+    public async Task<List<GlobalSourceDrop>> GetTopDrops(string sourceName)
+    {
+        var drops = await Cached("topdrops", sourceName, () => repository.GetTopDrops(sourceName, TopDropsLimit));
+        return drops
+            .Select(d => d with
+            {
+                EffectiveRarity = sourceLoot
+                    .EffectiveRate(sourceName, d.ItemName, d.RarityNumerator, d.RarityDenominator, d.Rolls)?.Rarity
+            })
+            .ToList();
+    }
 
     public Task<List<SourcePlayerRow>> GetPlayers(string sourceName)
         => Cached("players", sourceName, () => repository.GetPlayers(sourceName, PlayersLimit));

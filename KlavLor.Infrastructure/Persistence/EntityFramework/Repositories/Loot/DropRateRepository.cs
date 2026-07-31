@@ -115,6 +115,26 @@ internal sealed class DropRateRepository(DataContext dataContext, ILogger<DropRa
                ?? matches.FirstOrDefault();
     }
 
+    public async Task<IReadOnlyDictionary<string, DropRate>> GetRates(string sourceName, IReadOnlyCollection<string> itemNames)
+    {
+        if (itemNames.Count == 0)
+            return new Dictionary<string, DropRate>(StringComparer.OrdinalIgnoreCase);
+
+        var lowered = itemNames.Select(n => n.ToLower()).Distinct().ToList();
+        var matches = await dataContext.DropRates
+            .Where(d => d.SourceName == sourceName && lowered.Contains(d.ItemName.ToLower()))
+            .ToListAsync();
+
+        // Same variant-preference rule as GetRate: a row with a parsed numeric rarity wins, so a
+        // "Always"/unparsed variant can't shadow the usable one.
+        return matches
+            .GroupBy(d => d.ItemName, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g => g.FirstOrDefault(d => d.RarityNumerator != null && d.RarityDenominator != null) ?? g.First(),
+                StringComparer.OrdinalIgnoreCase);
+    }
+
     public async Task<(int SourceCount, int RateCount, DateTimeOffset? LastSynced)> GetStatus()
     {
         var rateCount = await dataContext.DropRates.CountAsync();

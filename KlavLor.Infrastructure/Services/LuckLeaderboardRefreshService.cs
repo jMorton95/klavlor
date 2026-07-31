@@ -34,7 +34,6 @@ public sealed class LuckLeaderboardRefreshService(
     // reads as 5x and a 1/3000 as 3x, never below the genuine dryness.
     private const int RareGrindDenominator = 2000;
 
-    // Bottom end: items more common than 1/100 that are also low value aren't interesting.
     private const int CommonDenominator = 100;
     private const long MinInterestingValue = 100_000;
 
@@ -42,7 +41,6 @@ public sealed class LuckLeaderboardRefreshService(
         rarityDenominator < CommonDenominator && perDropValue < MinInterestingValue;
 
     // Dry-board multiple for an item, or null if it doesn't qualify. A rare-grind item past its
-    // own drop rate in kills is ranked by denominator/1000; everything else needs MinMultiple.
     private static double? DryMultiple(double observed, double expected, int rarityDenominator)
     {
         if (observed <= expected) return null;
@@ -169,13 +167,17 @@ public sealed class LuckLeaderboardRefreshService(
         SourceLootService sourceLoot, IReadOnlySet<string> excludedItems)
     {
         var entries = new List<LuckLeaderboardEntry>();
+        var allDepths = collection.Runs.Select(r => r.Depth).ToList();
 
         // Obtained clog items → a spoon if received faster than expected, a dry streak if slower.
         foreach (var e in collection.Entries)
         {
             if (excludedItems.Contains(e.ItemName)) continue;
             var den = e.RarityDenominator ?? 0;   // 0 for depth-modelled sources (Doom) with no flat rate
-            var expected = sourceLoot.ExpectedCompletions(source, e.ItemName, e.RarityNumerator ?? 1, den, e.Rolls, collection.CharacterDepth);
+            // Depth-modelled sources are scored against the runs done up to the drop itself, so a
+            // shallow grind isn't judged as if every run had been a deep delve.
+            var expected = sourceLoot.ExpectedCompletions(
+                source, e.ItemName, e.RarityNumerator ?? 1, den, e.Rolls, DepthsUpTo(collection.Runs, e.FirstRecordId));
             if (expected < 1 || expected >= double.MaxValue) continue; // no usable rate / guaranteed drop
             // Rarity-based bottom-end filter only applies when there's a real denominator.
             if (den > 0)
@@ -205,7 +207,7 @@ public sealed class LuckLeaderboardRefreshService(
         {
             if (excludedItems.Contains(m.ItemName)) continue;
             var den = m.RarityDenominator ?? 0;   // 0 for depth-modelled sources (Doom)
-            var expected = sourceLoot.ExpectedCompletions(source, m.ItemName, m.RarityNumerator ?? 1, den, m.Rolls, collection.CharacterDepth);
+            var expected = sourceLoot.ExpectedCompletions(source, m.ItemName, m.RarityNumerator ?? 1, den, m.Rolls, allDepths);
             if (expected < 1 || expected >= double.MaxValue) continue;
             // Missing items carry no received value; the bottom-end filter (rarity-based) still drops commons.
             if (den > 0 && IsUninteresting(den, 0)) continue;
@@ -218,6 +220,19 @@ public sealed class LuckLeaderboardRefreshService(
         }
 
         return entries;
+    }
+
+    // Depths of the runs up to and including the one an item first dropped on. Empty for ordinary
+    // sources (no derived depths), which makes the facade fall back to the flat rate.
+    private static List<int> DepthsUpTo(IReadOnlyList<SourceRun> runs, int lastRecordId)
+    {
+        if (runs.Count == 0) return [];
+        for (var i = 0; i < runs.Count; i++)
+        {
+            if (runs[i].RecordId == lastRecordId)
+                return runs.Take(i + 1).Select(r => r.Depth).ToList();
+        }
+        return runs.Select(r => r.Depth).ToList();
     }
 
     private static LuckLeaderboardEntry Row(

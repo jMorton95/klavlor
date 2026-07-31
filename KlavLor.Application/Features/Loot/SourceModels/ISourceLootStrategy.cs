@@ -30,11 +30,23 @@ public interface ISourceLootStrategy
     double ExpectedCompletions(int numerator, int denominator, int rolls);
 
     // Depth-aware expected completions (in runs) to a first drop of a named item, for sources
-    // whose per-item odds depend on how far the run went (Doom's delve levels). Returns null for
-    // sources with no depth model, so the caller falls back to the flat ExpectedCompletions.
+    // whose per-item odds depend on how far each run went (Doom's delve levels).
+    //
+    // Takes the depth of EVERY actual run, never a single summary depth: a max-ever depth would
+    // assume every run reached the deepest level the player has ever hit, overstating the odds
+    // and making everyone look drier than they are. Returns null for sources with no depth
+    // model, so the caller falls back to the flat ExpectedCompletions.
+    //
     // Not a default interface method: it must dispatch virtually through the base class so a
     // derived strategy's override is used when called via the interface.
-    double? ExpectedCompletionsForDepth(string itemName, int depth);
+    double? ExpectedCompletionsForRuns(string itemName, IReadOnlyList<int> runDepths);
+
+    // True when this strategy is the sole authority on its source's rates, so an item it does not
+    // model has NO usable rate rather than falling back to the stored wiki rate. Needed for
+    // depth-modelled sources: Doom's guaranteed accumulating drops (Demon tears, waystones) carry
+    // a stored per-level rarity that is meaningless as a per-run chance, and falling back to it
+    // reported players as "21x dry" on an item they receive every single run.
+    bool OverridesStoredRates { get; }
 }
 
 public abstract class SourceLootStrategy(string sourceName) : ISourceLootStrategy
@@ -53,5 +65,8 @@ public abstract class SourceLootStrategy(string sourceName) : ISourceLootStrateg
     }
 
     // No depth model by default; depth-aware sources (Doom) override this.
-    public virtual double? ExpectedCompletionsForDepth(string itemName, int depth) => null;
+    public virtual double? ExpectedCompletionsForRuns(string itemName, IReadOnlyList<int> runDepths) => null;
+
+    // Ordinary and raid sources still trust the stored wiki rates.
+    public virtual bool OverridesStoredRates => false;
 }

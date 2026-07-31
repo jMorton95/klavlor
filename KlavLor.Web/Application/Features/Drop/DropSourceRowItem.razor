@@ -35,7 +35,12 @@
             ? $"1/{Math.Max(1, (long)Math.Round((double)Row.Kills / Row.Drops)):N0}"
             : "—";
 
-    private string WikiRate => !string.IsNullOrEmpty(Row.Rarity) ? Row.Rarity! : "—";
+    // Effective rate first: it carries this source's loot model and any admin rate modifier
+    // (a global baseline), so it can differ from the raw wiki value stored on the row.
+    private string WikiRate =>
+        !string.IsNullOrEmpty(Row.EffectiveRarity) ? Row.EffectiveRarity!
+        : !string.IsNullOrEmpty(Row.Rarity) ? Row.Rarity!
+        : "—";
 
     private string TypeClasses => Row.SourceType switch
     {

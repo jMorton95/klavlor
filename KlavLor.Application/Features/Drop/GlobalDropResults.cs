@@ -34,7 +34,13 @@ public sealed record DropSourceRow(
     int? RarityNumerator,
     int? RarityDenominator,
     DateTimeOffset FirstSeen,
-    DateTimeOffset LastSeen);
+    DateTimeOffset LastSeen,
+    // Loot-table rolls per kill for this item — needed so the effective rate matches the character
+    // page's, which reads Rolls from DropRates. Hardcoding 1 understated multi-roll tables.
+    int Rolls = 1,
+    // Rate after this source's loot model and any admin rate modifier, e.g. "1/540". Admin rate
+    // modifiers are a global baseline, so this — not the raw wiki Rarity — is what the page shows.
+    string? EffectiveRarity = null);
 
 public sealed record DropSourceTable(
     IReadOnlyList<DropSourceRow> Rows,

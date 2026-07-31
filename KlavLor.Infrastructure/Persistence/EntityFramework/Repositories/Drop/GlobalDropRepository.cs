@@ -119,7 +119,7 @@ internal sealed class GlobalDropRepository(DataContext dataContext, ILogger<Glob
                 SELECT d.source_name, d.source_type::text, d.drops, COALESCE(k.kills, 0) AS kills,
                        d.total_qty, d.total_value,
                        dr."Rarity", dr."RarityNumerator", dr."RarityDenominator",
-                       d.first_seen, d.last_seen
+                       d.first_seen, d.last_seen, dr."Rolls"
                 FROM drop_agg d
                 LEFT JOIN kill_agg k ON k.source_name = d.source_name
                 LEFT JOIN "DropRates" dr ON dr."SourceName" = d.source_name AND lower(dr."ItemName") = lower(@item)
@@ -154,7 +154,8 @@ internal sealed class GlobalDropRepository(DataContext dataContext, ILogger<Glob
                     reader.IsDBNull(7) ? null : reader.GetInt32(7),
                     reader.IsDBNull(8) ? null : reader.GetInt32(8),
                     reader.GetFieldValue<DateTimeOffset>(9),
-                    reader.GetFieldValue<DateTimeOffset>(10)));
+                    reader.GetFieldValue<DateTimeOffset>(10),
+                    reader.IsDBNull(11) ? 1 : reader.GetInt32(11)));
             }
 
             return new DropSourceTable(

@@ -231,14 +231,18 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             WITH agg AS (
                 SELECT ld."Name" as item_name,
                        SUM(ld."Quantity"::bigint) as total_qty,
-                       SUM(ld."Quantity"::bigint * ld."Price"::bigint) as total_value
+                       SUM(ld."Quantity"::bigint * ld."Price"::bigint) as total_value,
+                       -- Best SINGLE drop, not the running total: feed-tier classification asks
+                       -- "did one of these ever land in a swimlane", so 500 cheap drops summing
+                       -- to millions must not read as a legendary.
+                       MAX(ld."Quantity"::bigint * ld."Price"::bigint) as best_drop_value
                 FROM "LootRecords" lr
                 JOIN "LootDrops" ld ON ld."LootRecordId" = lr."Id"
                 WHERE lr."GameCharacterId" = @characterId
                   AND lr."SourceName" = @sourceName
                 GROUP BY ld."Name"
             )
-            SELECT a.item_name, a.total_qty, a.total_value,
+            SELECT a.item_name, a.total_qty, a.total_value, a.best_drop_value,
                    dr."Rarity", dr."RarityNumerator", dr."RarityDenominator"
             FROM agg a
             LEFT JOIN "DropRates" dr
@@ -261,9 +265,10 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 reader.GetString(0),
                 reader.GetInt64(1),
                 reader.GetInt64(2),
-                reader.IsDBNull(3) ? null : reader.GetString(3),
-                reader.IsDBNull(4) ? null : reader.GetInt32(4),
-                reader.IsDBNull(5) ? null : reader.GetInt32(5)));
+                reader.IsDBNull(4) ? null : reader.GetString(4),
+                reader.IsDBNull(5) ? null : reader.GetInt32(5),
+                reader.IsDBNull(6) ? null : reader.GetInt32(6),
+                reader.IsDBNull(3) ? 0 : reader.GetInt64(3)));
         }
 
         return drops;
@@ -1171,7 +1176,8 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                             OccurredAt = x.Record.OccurredAt,
                             CharacterName = x.Character.DisplayName ?? x.User.FirstName + " " + x.User.LastName,
                             GameCharacterId = x.Character.Id,
-                            KillCount = x.Record.KillCount
+                            KillCount = x.Record.KillCount,
+                            EffectiveKills = x.Record.EffectiveKills
                             // KillOrdinal is intentionally NOT computed per-row here: it's only a
                             // fallback label shown when RuneLite omitted KillCount, so a per-row
                             // correlated count over (up to) hardCap candidates × 5 tiers on every
@@ -1480,7 +1486,8 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 MaxKillCount: r.KillCount,
                 MinKillOrdinal: r.KillOrdinal,
                 MaxKillOrdinal: r.KillOrdinal,
-                Scope: scope);
+                Scope: scope,
+                RunDepth: r.EffectiveKills);
 
             var bestIndex = -1;
             var bestDelta = TimeSpan.MaxValue;
@@ -1560,6 +1567,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                     CharacterName = x.Character.DisplayName ?? x.User.FirstName + " " + x.User.LastName,
                     GameCharacterId = x.Character.Id,
                     KillCount = x.Record.KillCount,
+                    EffectiveKills = x.Record.EffectiveKills,
                     KillOrdinal = dataContext.LootRecords.Count(o =>
                         o.GameCharacterId == x.Character.Id
                         && o.SourceName == x.Record.SourceName
@@ -1618,7 +1626,8 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 MinKillCount: r.KillCount,
                 MaxKillCount: r.KillCount,
                 MinKillOrdinal: r.KillOrdinal,
-                MaxKillOrdinal: r.KillOrdinal);
+                MaxKillOrdinal: r.KillOrdinal,
+                RunDepth: r.EffectiveKills);
 
             var bestIndex = -1;
             var bestDelta = TimeSpan.MaxValue;
@@ -2260,10 +2269,16 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 .Select(b => (int?)b.BaselineKc)
                 .FirstOrDefaultAsync() ?? 0;
 
-            // Deepest delve reached (max stored EffectiveKills) — feeds Doom's depth-aware luck.
-            var characterDepth = await dataContext.LootRecords
+            // Every run at this source that carries a derived depth, oldest first. Deliberately
+            // the full per-run list and NOT a max/aggregate: depth-modelled luck (Doom) must be
+            // computed from the depth each run actually reached, otherwise every shallow run is
+            // scored as if it had gone as deep as the player's best ever, which overstates the
+            // odds and reports everyone as dry. Empty for ordinary sources (EffectiveKills null).
+            var runs = await dataContext.LootRecords
                 .Where(r => r.GameCharacterId == characterId && r.SourceName == sourceName && r.EffectiveKills != null)
-                .MaxAsync(r => (int?)r.EffectiveKills) ?? 0;
+                .OrderBy(r => r.OccurredAt).ThenBy(r => r.Id)
+                .Select(r => new SourceRun(r.Id, r.OccurredAt, r.EffectiveKills!.Value))
+                .ToListAsync();
 
             var connection = dataContext.Database.GetDbConnection();
             if (connection.State != System.Data.ConnectionState.Open) await connection.OpenAsync();
@@ -2317,6 +2332,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 )
                 SELECT a.item_name, a.first_received, a.last_received, a.total_drops,
                        a.total_qty, a.total_value, a.has_first,
+                       f."Id" AS first_record_id,
                        f."KillCount" AS first_kc,
                        ((SELECT COUNT(*)::int FROM "LootRecords" o
                         WHERE o."GameCharacterId" = @cid
@@ -2358,14 +2374,15 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                         TotalQuantity: reader.GetInt64(4),
                         TotalValue: reader.IsDBNull(5) ? 0 : reader.GetInt64(5),
                         MarkedFirstTime: !reader.IsDBNull(6) && reader.GetBoolean(6),
-                        KillCount: reader.IsDBNull(7) ? null : reader.GetInt32(7),
-                        KillOrdinal: reader.IsDBNull(8) ? null : reader.GetInt32(8),
-                        LastKillCount: reader.IsDBNull(9) ? null : reader.GetInt32(9),
-                        LastKillOrdinal: reader.IsDBNull(10) ? null : reader.GetInt32(10),
-                        Rarity: reader.IsDBNull(11) ? null : reader.GetString(11),
-                        RarityNumerator: reader.IsDBNull(12) ? null : reader.GetInt32(12),
-                        RarityDenominator: reader.IsDBNull(13) ? null : reader.GetInt32(13),
-                        Rolls: reader.IsDBNull(14) ? 1 : reader.GetInt32(14)));
+                        KillCount: reader.IsDBNull(8) ? null : reader.GetInt32(8),
+                        KillOrdinal: reader.IsDBNull(9) ? null : reader.GetInt32(9),
+                        LastKillCount: reader.IsDBNull(10) ? null : reader.GetInt32(10),
+                        LastKillOrdinal: reader.IsDBNull(11) ? null : reader.GetInt32(11),
+                        Rarity: reader.IsDBNull(12) ? null : reader.GetString(12),
+                        RarityNumerator: reader.IsDBNull(13) ? null : reader.GetInt32(13),
+                        RarityDenominator: reader.IsDBNull(14) ? null : reader.GetInt32(14),
+                        Rolls: reader.IsDBNull(15) ? 1 : reader.GetInt32(15),
+                        FirstRecordId: reader.IsDBNull(7) ? 0 : reader.GetInt32(7)));
                 }
             }
 
@@ -2423,17 +2440,18 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             var maxKc = await dataContext.LootRecords
                 .Where(r => r.GameCharacterId == characterId && r.SourceName == sourceName && r.KillCount != null && r.KillCount > 0)
                 .MaxAsync(r => (int?)r.KillCount);
-            int characterKc;
-            if (maxKc.HasValue)
-            {
-                characterKc = maxKc.Value;
-            }
-            else
-            {
-                var counted = await dataContext.LootRecords
-                    .CountAsync(r => r.GameCharacterId == characterId && r.SourceName == sourceName);
-                characterKc = counted + baseline;
-            }
+            var counted = await dataContext.LootRecords
+                .CountAsync(r => r.GameCharacterId == characterId && r.SourceName == sourceName);
+
+            // Two scales exist and they must never be mixed. A reported KillCount is the absolute
+            // in-game counter (the baseline is already inside it). The fallback — logged rows plus
+            // the admin baseline — is our own reconstruction. Per-item ordinals use the
+            // reconstruction, so if a character only started reporting KC partway through, taking
+            // the raw max would compare an absolute in-game number against reconstructed ordinals
+            // for the same source. Take whichever scale is larger: the reported counter is
+            // authoritative when it leads, and the reconstruction wins when it has more kills
+            // than the counter ever reported.
+            var characterKc = Math.Max(maxKc ?? 0, counted + baseline);
 
             // Per-item drop events. Drives the KC-column hover popover that lists every
             // drop occurrence for an item. Only rows that show up as clog entries get
@@ -2496,7 +2514,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                 }
             }
 
-            return new SourceCollection(sourceName, characterKc, entries, missingItems, characterDepth);
+            return new SourceCollection(sourceName, characterKc, entries, missingItems, runs);
         }
         catch (Exception ex)
         {
@@ -2739,5 +2757,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
         public required int GameCharacterId { get; init; }
         public int? KillCount { get; init; }
         public int? KillOrdinal { get; init; }
+        // Derived per-run depth for depth-modelled sources (Doom); null otherwise.
+        public int? EffectiveKills { get; init; }
     }
 }

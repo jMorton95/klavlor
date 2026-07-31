@@ -87,13 +87,7 @@
                                 </span>
                             </td>
                             <td class="px-3 py-2 text-slate-500 dark:text-white text-xs font-mono">
-                                @if (!string.IsNullOrEmpty(e.Rarity))
-                                {
-                                    <span class="relative group inline-block">
-                                        <span class="@(e.Rolls > 1 ? "cursor-help underline decoration-dotted decoration-slate-400/50 underline-offset-2" : "")">@e.Rarity</span>
-                                        @RenderRollsPopover(e.Rarity, e.RarityNumerator, e.RarityDenominator, e.Rolls)
-                                    </span>
-                                }
+                                @RenderRate(e.EffectiveRarity, e.Rarity, e.RarityNumerator, e.RarityDenominator, e.Rolls)
                             </td>
                             <td class="px-3 py-2">
                                 @if (luck is not null)
@@ -129,13 +123,7 @@
                                 </span>
                             </td>
                             <td class="px-3 py-2 text-slate-500 dark:text-white text-xs font-mono">
-                                @if (!string.IsNullOrEmpty(item.Rarity))
-                                {
-                                    <span class="relative group inline-block">
-                                        <span class="@(item.Rolls > 1 ? "cursor-help underline decoration-dotted decoration-slate-400/50 underline-offset-2" : "")">@item.Rarity</span>
-                                        @RenderRollsPopover(item.Rarity, item.RarityNumerator, item.RarityDenominator, item.Rolls)
-                                    </span>
-                                }
+                                @RenderRate(item.EffectiveRarity, item.Rarity, item.RarityNumerator, item.RarityDenominator, item.Rolls)
                             </td>
                             <td class="px-3 py-2">
                                 @if (luck is not null)
@@ -182,6 +170,31 @@
     private string GetKillPageUrl() =>
         AppRoutes.LootLogSource.WithId(CharacterId)
         + "?name=" + Uri.EscapeDataString(Collection.SourceName) + "&view=kills";
+
+    // The Rate column shows the EFFECTIVE rate — the one the luck maths actually used, after the
+    // source model (raid unique-table shares, Doom's per-run delve model) and any admin rate
+    // modifier. That makes depth-modelled sources show a rate at all (they have no stored wiki
+    // rate) and makes an admin override visible instead of silently applied. When the effective
+    // rate differs from the raw wiki rate, the wiki value is kept alongside it so the override is
+    // legible rather than looking like bad data.
+    private RenderFragment RenderRate(string? effectiveRarity, string? wikiRarity, int? numerator, int? denominator, int rolls) => __builder =>
+    {
+        var shown = !string.IsNullOrEmpty(effectiveRarity) ? effectiveRarity : wikiRarity;
+        if (string.IsNullOrEmpty(shown)) return;
+
+        var overridden = !string.IsNullOrEmpty(effectiveRarity)
+                         && !string.IsNullOrEmpty(wikiRarity)
+                         && !string.Equals(effectiveRarity, wikiRarity, StringComparison.OrdinalIgnoreCase);
+
+        <span class="relative group inline-block">
+            <span class="@(rolls > 1 ? "cursor-help underline decoration-dotted decoration-slate-400/50 underline-offset-2" : "")">@shown</span>
+            @if (overridden)
+            {
+                <span class="ml-1 text-[10px] text-slate-400 dark:text-white" title="Wiki rate before this source's loot model and any admin rate adjustment">(wiki @wikiRarity)</span>
+            }
+            @RenderRollsPopover(shown, numerator, denominator, rolls)
+        </span>;
+    };
 
     // Pre-computed factorials for the Poisson PMF — drop-rate charts never need k > 15
     // (kMax is capped at 12 visually), so a small fixed table is plenty.

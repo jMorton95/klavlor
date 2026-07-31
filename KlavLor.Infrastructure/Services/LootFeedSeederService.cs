@@ -1,3 +1,4 @@
+using KlavLor.Application.Features.Loot.Feed;
 using KlavLor.Application.Interfaces.Repositories;
 using KlavLor.Application.Interfaces.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,7 +23,10 @@ public sealed class LootFeedSeederService(
         try
         {
             using var scope = scopeFactory.CreateScope();
-            var repository = scope.ServiceProvider.GetRequiredService<ILootLogRepository>();
+            // Goes through the handler, not straight to the repository, so seeded entries carry the
+            // per-drop effective rates. Buffered entries are merged with live drops on publish, and
+            // a merged card would otherwise show rate chips only on the freshly arrived items.
+            var feedTiers = scope.ServiceProvider.GetRequiredService<LootFeedTiersHandler>();
 
             var totalSeeded = 0;
 
@@ -30,7 +34,7 @@ public sealed class LootFeedSeederService(
             // history available immediately after restart.
             foreach (var feedScope in Enum.GetValues<LootFeedScope>())
             {
-                var tiers = await repository.GetAllFeedTiers(50, feedScope);
+                var tiers = await feedTiers.Handle(feedScope);
                 var seededForScope = 0;
 
                 foreach (var (_, entries) in tiers)

@@ -117,28 +117,54 @@ public sealed class LootCharacterProfileHandler(
 
         var collection = await lootLogRepository.GetSourceCollection(characterId, sourceName);
 
-        // Normalise each item's expected kills-to-drop through the per-source loot model so the
-        // character page's luck pills and distribution charts match the leaderboard's maths
-        // (raid unique-table shares, multi-roll tables). The raw stored rate is a per-roll wiki
-        // share; the facade turns it into a real per-player expected KC.
+        // Normalise every item's expected kills-to-drop through SourceLootService so the character
+        // page's rate column, luck pills and distribution charts agree with the leaderboard and
+        // the live feed: raid unique-table shares, multi-roll tables, Doom's per-run depth model,
+        // and admin rate modifiers all land here. EffectiveRarity is what the Rate column renders,
+        // so an overridden or depth-derived rate is visible rather than silently applied.
+        var allDepths = Depths(collection.Runs);
+
         var enriched = collection with
         {
             Entries = collection.Entries
-                .Select(e => e with { EffectiveKcPerDrop = ExpectedKc(sourceName, e.ItemName, e.RarityNumerator, e.RarityDenominator, e.Rolls, collection.CharacterDepth) })
+                .Select(e =>
+                {
+                    // An obtained item is judged against the runs that happened up to and
+                    // including the one it dropped on — not the character's whole history, which
+                    // would credit it with delves done long after the drop.
+                    var depths = DepthsUpTo(collection.Runs, e.FirstRecordId);
+                    var rate = sourceLoot.EffectiveRate(sourceName, e.ItemName, e.RarityNumerator, e.RarityDenominator, e.Rolls, depths);
+                    return e with { EffectiveKcPerDrop = rate?.ExpectedKc, EffectiveRarity = rate?.Rarity };
+                })
                 .ToList(),
             MissingItems = collection.MissingItems
-                .Select(m => m with { EffectiveKcPerDrop = ExpectedKc(sourceName, m.ItemName, m.RarityNumerator, m.RarityDenominator, m.Rolls, collection.CharacterDepth) })
+                .Select(m =>
+                {
+                    // Still-missing items are measured against every run done so far.
+                    var rate = sourceLoot.EffectiveRate(sourceName, m.ItemName, m.RarityNumerator, m.RarityDenominator, m.Rolls, allDepths);
+                    return m with { EffectiveKcPerDrop = rate?.ExpectedKc, EffectiveRarity = rate?.Rarity };
+                })
                 .ToList()
         };
         return Result<SourceCollection>.Success(enriched);
     }
 
-    private double? ExpectedKc(string sourceName, string itemName, int? numerator, int? denominator, int rolls, int depth)
+    private static List<int> Depths(IReadOnlyList<SourceRun> runs) =>
+        runs.Select(r => r.Depth).ToList();
+
+    private static List<int> DepthsUpTo(IReadOnlyList<SourceRun> runs, int lastRecordId)
     {
-        // Depth-aware sources (Doom) return a value even with no stored rate; ordinary sources
-        // without a usable denominator fall through to an unusable result (double.MaxValue) → null.
-        var expected = sourceLoot.ExpectedCompletions(sourceName, itemName, numerator ?? 1, denominator ?? 0, rolls, depth);
-        return expected is > 0 and < double.MaxValue ? expected : null;
+        if (runs.Count == 0) return [];
+        // Runs arrive oldest-first; find the drop's own run and keep everything up to it. A
+        // record id we don't recognise (no derived depth on that run) falls back to all runs.
+        var index = -1;
+        for (var i = 0; i < runs.Count; i++)
+        {
+            if (runs[i].RecordId != lastRecordId) continue;
+            index = i;
+            break;
+        }
+        return index < 0 ? Depths(runs) : runs.Take(index + 1).Select(r => r.Depth).ToList();
     }
 
     public async Task<Result<SourceKillTrend>> HandleSourceKillTrend(int characterId, string sourceName)

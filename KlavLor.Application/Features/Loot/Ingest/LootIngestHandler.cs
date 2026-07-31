@@ -6,7 +6,6 @@ using KlavLor.Application.Features.Drop;
 using KlavLor.Application.Features.Loot.Feed;
 using KlavLor.Application.Features.Loot.Log;
 using KlavLor.Application.Features.Loot.SourceModels;
-using KlavLor.Application.Features.Progression;
 using KlavLor.Application.Features.Source;
 using KlavLor.Application.Interfaces.Authentication;
 using KlavLor.Application.Interfaces.Repositories;
@@ -25,7 +24,7 @@ public sealed class LootIngestHandler(
     IUserRepository userRepository,
     ICollectionLogCache collectionLogCache,
     IMemoryCache memoryCache,
-    ProgressionAutoCompletionHandler progressionAutoCompleter,
+    IDropRateRepository dropRateRepository,
     SourceLootService sourceLoot)
 {
     private static readonly string[] DateFormats =
@@ -86,16 +85,8 @@ public sealed class LootIngestHandler(
                 GlobalDropCache.Invalidate(memoryCache, drop.Name);
         }
 
-        // First-time receipts auto-complete the user's matching gear-progression nodes.
-        if (character is not null && record.Id > 0)
-        {
-            var unlocks = drops
-                .Where(d => d.IsFirstTime)
-                .Select(d => new ProgressionAutoCompletionHandler.FirstUnlock(
-                    d.Name, record.SourceName, record.OccurredAt, record.KillCount, character.Id, record.Id))
-                .ToList();
-            await progressionAutoCompleter.Run(userId.Value, unlocks);
-        }
+        // NOTE: ingest never touches template-node completion. Progression is manual-only —
+        // the drop-driven auto-completion (and its generated notes) was removed deliberately.
 
         if (ShouldPublishToFeed(record, character))
             await PublishToFeed(userId.Value, record, character);
@@ -219,17 +210,7 @@ public sealed class LootIngestHandler(
         foreach (var item in itemsTouched)
             GlobalDropCache.Invalidate(memoryCache, item);
 
-        // First-time receipts across the batch auto-complete matching gear-progression nodes.
-        // Run dedupes per item to the earliest receipt, so cross-character firsts collapse correctly.
-        var batchUnlocks = parsedItems
-            .Where(p => p.Character is not null && p.Parsed.Record.Id > 0)
-            .SelectMany(p => p.Parsed.Drops
-                .Where(d => d.IsFirstTime)
-                .Select(d => new ProgressionAutoCompletionHandler.FirstUnlock(
-                    d.Name, p.Parsed.Record.SourceName, p.Parsed.Record.OccurredAt,
-                    p.Parsed.Record.KillCount, p.Character!.Id, p.Parsed.Record.Id)))
-            .ToList();
-        await progressionAutoCompleter.Run(userId.Value, batchUnlocks);
+        // NOTE: no template-node completion here either — see the comment in Handle.
 
         var liveRecords = parsedItems
             .Where(p => ShouldPublishToFeed(p.Parsed.Record, p.Character))
@@ -302,7 +283,25 @@ public sealed class LootIngestHandler(
     private async Task PublishRecordToFeed(string userName, LootRecord record, GameCharacter? character)
     {
         var drops = JsonSerializer.Deserialize<List<LootDrop>>(record.DropsJson) ?? [];
-        var feedDrops = drops.Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId), d.IsSpecial)).ToList();
+
+        // Attach the effective rate to every drop so a feed card can say how lucky it was using
+        // exactly the same numbers as the character page and the leaderboard. One batched lookup
+        // per record. The depth passed in is THIS record's own derived depth, so a depth-modelled
+        // source (Doom) is rated against the run that actually produced the drop.
+        var rates = await dropRateRepository.GetRates(record.SourceName, drops.Select(d => d.Name).ToList());
+        var runDepths = record.EffectiveKills is > 0 ? new[] { record.EffectiveKills.Value } : null;
+
+        var feedDrops = drops.Select(d =>
+        {
+            rates.TryGetValue(d.Name, out var rate);
+            var effective = sourceLoot.EffectiveRate(
+                record.SourceName, d.Name, rate?.RarityNumerator, rate?.RarityDenominator,
+                rate?.Rolls ?? 1, runDepths);
+            return new LootFeedDrop(
+                d.Name, d.Quantity, d.Price, d.IsFirstTime,
+                collectionLogCache.IsCollectionLogItem(d.ItemId), d.IsSpecial,
+                effective?.ExpectedKc, effective?.Rarity);
+        }).ToList();
         var dropsByTier = ILootFeedService.ClassifyDropsByTier(feedDrops);
         if (dropsByTier.Count == 0) return;
 
