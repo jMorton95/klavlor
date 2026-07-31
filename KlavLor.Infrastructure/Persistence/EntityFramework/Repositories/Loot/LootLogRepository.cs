@@ -2673,9 +2673,16 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                     JOIN "LootDrops" ld ON ld."LootRecordId" = lr."Id"
                     WHERE lr."GameCharacterId" = @cid
                 ),
+                -- "mostly from <source>" means most OFTEN, so rank by occurrence count rather
+                -- than GP value, with source name as a deterministic final tie-break. See the
+                -- matching comment in SearchRepository.SearchDrops: without the tie-break, every
+                -- zero-price item tied at 0 and the alphabetically first source always won.
                 top_source AS (
-                    SELECT item_name, "SourceName", SUM(value) AS src_value,
-                           ROW_NUMBER() OVER (PARTITION BY item_name ORDER BY SUM(value) DESC) AS rn
+                    SELECT item_name, "SourceName",
+                           ROW_NUMBER() OVER (
+                               PARTITION BY item_name
+                               ORDER BY COUNT(*) DESC, SUM(qty) DESC, SUM(value) DESC, "SourceName"
+                           ) AS rn
                     FROM unrolled
                     GROUP BY item_name, "SourceName"
                 )

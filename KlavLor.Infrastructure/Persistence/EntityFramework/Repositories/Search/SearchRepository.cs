@@ -142,9 +142,19 @@ internal sealed class SearchRepository(DataContext dataContext, ILogger<SearchRe
                     WHERE gc."IsVisible" = true AND gc."IsAdminHidden" = false AND gc."IsLeagues" = false
                       AND ld."Name" ILIKE '%' || @term || '%'
                 ),
+                -- "mostly <source>" means the source this item dropped from most OFTEN, so rank
+                -- by occurrence count, not by GP value: Coins came out as "mostly Chambers of
+                -- Xeric" (highest value) when Tombs of Amascut had dropped it 851 times vs 790.
+                -- The trailing source_name is a deterministic tie-break; without it, tied rows
+                -- (every zero-price item — pets, untradeables — ties at 0) fell out in the
+                -- group-aggregate's input order, i.e. alphabetically, so a source starting with
+                -- "A" always won regardless of how many drops it actually had.
                 top_source AS (
-                    SELECT item_name, source_name, SUM(value) AS sv,
-                           ROW_NUMBER() OVER (PARTITION BY item_name ORDER BY SUM(value) DESC) AS rn
+                    SELECT item_name, source_name,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY item_name
+                               ORDER BY COUNT(*) DESC, SUM(qty) DESC, SUM(value) DESC, source_name
+                           ) AS rn
                     FROM unrolled
                     GROUP BY item_name, source_name
                 )
