@@ -4,7 +4,7 @@ using KlavLor.Web.Application.HttpResults;
 
 namespace KlavLor.Web.Application.Features.Logout;
 
-public class LogoutEndpoint : IEndpoint
+public sealed class LogoutEndpoint : IEndpoint
 {
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {

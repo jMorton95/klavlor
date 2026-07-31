@@ -46,10 +46,13 @@ public sealed class LootFeedEndpoint : IEndpoint
         return MapLeaguesStream(app, AppRoutes.LootFeedLeaguesStreamLegendary, LootFeedTier.Legendary);
     }
 
+    // The "sse" policy is a per-IP *concurrency* limiter (see Program.cs): streams are held open
+    // for the life of the page, so the limit that matters is simultaneous sockets per IP.
     private static RouteHandlerBuilder MapStream(IEndpointRouteBuilder app, string route, LootFeedScope scope, LootFeedTier tier) =>
         app.MapGet(route.FromApi(), (HttpContext ctx, ILootFeedService svc, IServiceProvider sp, ILoggerFactory lf) =>
                 StreamFeed(ctx, svc, sp, lf, scope, tier))
-            .AllowAnonymous();
+            .AllowAnonymous()
+            .RequireRateLimiting("sse");
 
     private static RouteHandlerBuilder MapLeaguesStream(IEndpointRouteBuilder app, string route, LootFeedTier tier) =>
         app.MapGet(route.FromApi(), async (HttpContext ctx, ILootFeedService svc, ISystemSettingsCache settings, IServiceProvider sp, ILoggerFactory lf) =>
@@ -61,7 +64,8 @@ public sealed class LootFeedEndpoint : IEndpoint
                 }
                 await StreamFeed(ctx, svc, sp, lf, LootFeedScope.Leagues, tier);
             })
-            .AllowAnonymous();
+            .AllowAnonymous()
+            .RequireRateLimiting("sse");
 
     private static async Task<IResult> GetPage(LootFeedTiersHandler handler, LootFeedScope scope)
     {

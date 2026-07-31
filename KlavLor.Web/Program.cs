@@ -96,6 +96,16 @@ builder.Services.AddRateLimiter(options =>
         RateLimitPartition.GetFixedWindowLimiter(
             context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
             _ => new FixedWindowRateLimiterOptions { PermitLimit = 120, Window = TimeSpan.FromMinutes(1) }));
+
+    // Per-IP: SSE feed streams. These are long-lived connections, so the meaningful limit is
+    // how many a single IP may hold open at once, not requests per minute — a window limiter
+    // would let one client pin 120 sockets for hours. One feed page opens five streams (one
+    // per tier), so 20 permits allows ~4 concurrent tabs. QueueLimit 0 rejects immediately
+    // with 429 rather than parking the request: a queued EventSource just hangs.
+    options.AddPolicy("sse", context =>
+        RateLimitPartition.GetConcurrencyLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new ConcurrencyLimiterOptions { PermitLimit = 20, QueueLimit = 0 }));
 });
 
 if (builder.Environment.IsProduction()) { }

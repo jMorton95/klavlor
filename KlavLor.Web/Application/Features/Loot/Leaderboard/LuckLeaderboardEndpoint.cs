@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using KlavLor.Application.Features.Loot.Leaderboard;
 using KlavLor.Domain.Entities;
-using KlavLor.Domain.Shared;
 using KlavLor.Web.Application.Filters;
 using KlavLor.Web.Application.HttpResults;
 
@@ -11,12 +10,15 @@ public sealed class LuckLeaderboardEndpoint : IEndpoint
 {
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
+        // Public, like the rest of the loot read surface (feed, character logs): the sidebar
+        // shows the Luck Leaderboard to signed-out visitors, and the board contains no
+        // per-user data — LuckLeaderboardHandler reads a precomputed global board.
         app.MapGet(AppRoutes.LootLeaderboard.FromApi(), GetPage)
-            .RequireAuthorization(nameof(RoleName.User))
+            .AllowAnonymous()
             .AddEndpointFilter<HtmxNavigationFilter>();
 
         return app.MapGet(AppRoutes.LootLeaderboardResults.FromApi(), GetResults)
-            .RequireAuthorization(nameof(RoleName.User))
+            .AllowAnonymous()
             .RequireRateLimiting("anonymous");
     }
 
