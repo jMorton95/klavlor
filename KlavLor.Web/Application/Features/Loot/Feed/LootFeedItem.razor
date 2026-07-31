@@ -67,6 +67,7 @@
             : "#";
         var kcLabel = FormatKillCount(Entry.MinKillCount, Entry.MaxKillCount)
                       ?? FormatKillOrdinal(Entry.MinKillOrdinal, Entry.MaxKillOrdinal);
+        var sessionKills = SessionKillCount();
     }
     <div class="mb-1.5 min-w-0">
         @* Row 1: "{user} killed {icon} {source}" — source flexes into all remaining width *@
@@ -93,11 +94,20 @@
                      class="w-4 h-4 rounded shrink-0"
                      loading="lazy"
                      onerror="this.style.display='none'" />
-                <span class="truncate">@Entry.SourceName@(Entry.RunCount > 1 ? $" ({Entry.RunCount})" : "")</span>
+                @* No bracketed RunCount here: it counted merged loot records, which reads as a
+                   kill count but isn't one, and contradicted the KC range on the row below. The
+                   session's real kill count is shown next to that range instead. *@
+                <span class="truncate">@Entry.SourceName</span>
             </a>
         </div>
-        @* Row 2: KC · time *@
+        @* Row 2: kills this session · KC · time *@
         <div class="flex items-center gap-1.5 mt-0.5 text-[10px] text-slate-500 dark:text-slate-300">
+            @if (sessionKills is > 1)
+            {
+                <span class="text-slate-600 dark:text-slate-200 font-medium whitespace-nowrap"
+                      title="Kills in this session, from the kill-count range below">@sessionKills.Value.ToString("N0") kills</span>
+                <span aria-hidden="true">·</span>
+            }
             @if (kcLabel is not null)
             {
                 <span class="text-slate-600 dark:text-slate-200 whitespace-nowrap">@kcLabel</span>
@@ -321,6 +331,23 @@
             _ => ($"{drop.EffectiveRarity} · {ratio:0.#}× dry", "bg-rose-700/80 text-white")
         };
         return new DropLuck(text, classes, $"{title}. This drop came at {observed.Value:N0} kills.");
+    }
+
+    // How many kills this session actually spans, derived from the same bounds the KC range is
+    // printed from so the two numbers can never disagree. Min and Max are the kill counts of the
+    // first and last kill IN the session (see GetSessionBounds), so the span is inclusive: a
+    // session from 4,000 to 5,000 is 1,001 kills, and a single-kill session is 1, not 0.
+    // Prefers RuneLite's reported KC and falls back to our chronological ordinals.
+    private int? SessionKillCount()
+    {
+        var span = Span(Entry.MinKillCount, Entry.MaxKillCount) ?? Span(Entry.MinKillOrdinal, Entry.MaxKillOrdinal);
+        return span;
+
+        static int? Span(int? min, int? max)
+        {
+            if (min is null || max is null || max.Value < min.Value) return null;
+            return max.Value - min.Value + 1;
+        }
     }
 
     private static string? FormatKillCount(int? min, int? max)
