@@ -19,6 +19,9 @@ dotnet run --project KlavLor.Web/KlavLor.Web.csproj
 
 # Build Tailwind CSS once (also runs automatically before dotnet build via .csproj target)
 npm run build:css
+
+# Run the integration tests (needs a working Docker daemon — Testcontainers starts its own Postgres)
+dotnet test KlavLor.IntegrationTests/KlavLor.IntegrationTests.csproj
 ```
 
 **App URL:** https://localhost:7081
@@ -43,16 +46,19 @@ Clean Architecture with four layers. Dependencies flow inward: Web → Applicati
 - **KlavLor.Application** — Feature handlers (CQRS-style), FluentValidation validators, the Result pattern. Handlers and validators are auto-registered via assembly scanning (classes ending in `*Handler` get scoped registration).
 - **KlavLor.Infrastructure** — EF Core DbContext (`DataContext`), repository implementations, OSRS Wiki API client, image caching. Repositories are auto-registered via reflection (scans for `IxxxRepository` implementations in Domain and `IxxxQueryRepository`/`IxxxLogRepository` in Application).
 - **KlavLor.Web** — ASP.NET Core host, Razor components, HTMX endpoints, cookie auth + API key auth.
+- **KlavLor.IntegrationTests** — xUnit tests over a real PostgreSQL (Testcontainers, `postgres:16-alpine`) with the full migration set applied. See "Integration Tests" below.
 
 ### Key Patterns
 
-**Endpoint registration:** Each endpoint class implements `IEndpoint` with a static `MapEndpoint` method. Registration is **not** automatic — every new endpoint class must be added to the explicit `MapEndpoints<T>()` list in `KlavLor.Web/Configuration/ConfigureEndpoints.cs` (called from `MapApplicationRequestHandlers()` in Program.cs), or its routes silently 404.
+**Endpoint registration:** Each endpoint class implements `IEndpoint` with a static `MapEndpoint` method and is declared `sealed` (endpoints are never subclassed — `MapEndpoint` is static, so inheritance buys nothing). Registration is **not** automatic — every new endpoint class must be added to the explicit `MapEndpoints<T>()` list in `KlavLor.Web/Configuration/ConfigureEndpoints.cs` (called from `MapApplicationRequestHandlers()` in Program.cs), or its routes silently 404.
 
 **Handler flow:** Endpoint receives request → validates via FluentValidation → handler loads aggregate root from repository → calls domain method on entity → saves via repository → returns `Result<T>`.
 
 **Result pattern:** `Result<T>` with `Success(T)`, `Failure(string)`, and `ValidationFailure(errors)` variants. Handlers never throw; they return Result.
 
-**HTMX integration:** Endpoints return Razor components via `IResultExtensions.Component<TComponent>()`. Other HTMX results: `HtmxRedirect()`, `HtmxRefresh()`, `HtmxRetargetResult<T>()`. Auth redirects are HTMX-aware (returns HX-Redirect header instead of 302 when HX-Request header present).
+**HTMX integration:** Endpoints return Razor components via `IResultExtensions.Component<TComponent>()`. Other HTMX results: `HtmxRedirect()`, `HtmxRefresh()`, `HtmxRetargetResult<T>()`. These are C# extension members hanging off `IResultExtensions`, defined in `KlavLor.Web/Application/HttpResults/`. Auth redirects are HTMX-aware (returns HX-Redirect header instead of 302 when HX-Request header present).
+
+**Never name a namespace `Results`.** That folder is `HttpResults`, not `Results`, on purpose: a `KlavLor.Web.Application.Results` namespace shadows the framework's `Microsoft.AspNetCore.Http.Results` static class for every file under `KlavLor.Web.Application.*`, because C# resolves enclosing-namespace members before using-directives. It previously forced ~117 call sites to write `Microsoft.AspNetCore.Http.Results.Ok(...)` in full. Plain `Results.Ok(...)` / `Results.NotFound()` now works everywhere; keep it that way.
 
 **Route conventions:** Routes are defined as constants in `AppRoutes.cs`. The `.FromApi()` helper prepends `/api` to all route paths.
 
@@ -73,6 +79,22 @@ The rules:
 - **Components must never inject repositories** (`I*Repository`). When a page component loads its own data, it goes through a `*Handler`. There are no exceptions.
 - **Multiple loads inside one component must be awaited sequentially** — never `Task.WhenAll` over handler or repository calls.
 
+### Luck Maths: One Path Only
+
+`SourceLootService` is the **only** place expected kill counts are computed. Never derive a rate from `numerator`/`denominator`/`rolls` at a call site — that bug shipped once in the (now deleted) progression auto-completer and made the same drop read "dry as the desert" on one page and "lucky" on another, because the hand-rolled maths skipped raid unique-table scaling and admin rate modifiers.
+
+- `ExpectedCompletions(...)` returns expected KC; `EffectiveRate(...)` also returns the display string (`"1/540"`).
+- **Admin rate modifiers are a global baseline.** They are applied inside the facade, so every surface — collection log, character/source page, luck leaderboard, live feed cards, global source and drop pages — must read its rate through it. Rate columns render `EffectiveRarity`, not the raw stored `Rarity`, so an override or model-derived rate is visible rather than silently applied.
+- **Depth-modelled sources are scored per run, never from an aggregate depth.** Doom of Mokhaiotl rolls loot at every delve level a run clears, so `SourceCollection.Runs` carries the derived depth of *every* actual claim and `ExpectedCompletionsForRuns` sums the per-run probabilities: `expected runs per drop = runs / Σ P(item | depth_r)`. An earlier version used the character's max-ever depth, which scored shallow runs as if they had all been deep delves and reported everyone as dry. An obtained item is windowed to the runs up to its first receipt (`CollectionEntry.FirstRecordId`); missing items use every run so far. Global (all-players) pages have no run to attribute, so they show no rate for depth-modelled sources rather than assuming a depth.
+
+**Dry-board entry rules.** Not-yet-obtained items join the dry streak board as soon as the character has done enough kills to have expected the drop once (`MinMissingMultiple` = 1.0) — a 1/100 item still missing at 101 kills shows as 1× dry. Items already obtained keep the 2× bar (`MinMultiple`), since a drop that arrived slightly late isn't worth a slot. The bottom-end rarity filter still drops anything more common than 1/100, or a 1× bar would flood the board with commons. `GetBoard` orders by tier descending, so if the 200-row cap bites it trims the mildest streaks first.
+
+**Feed tiers are per drop, everywhere.** Anything that classifies an item into a swimlane must use the value of a single receipt, never a running total — `LootDropSummary.BestDropValue` exists for exactly this, so 500 cheap drops summing to millions can't read as a legendary. Always classify via `ILootFeedService.GetDropTier` rather than re-hardcoding thresholds; the character/source page's drop grid and the live feed cards share it.
+
+### Progression Completion Is Manual Only
+
+Template-node completion happens **only** when a user clicks a node in the viewer. There is deliberately no drop-driven auto-completion and no generated completion notes — that feature was removed, along with `Features/Progression/` and the `GetAutoCompletableNodes`/`AddCompletions` repository methods. Loot ingest must never write to `UserNodeCompletions`.
+
 ### Rate Limiting Policies
 
 New endpoints must use one of these existing policies (applied via `.RequireRateLimiting("name")`):
@@ -82,25 +104,58 @@ New endpoints must use one of these existing policies (applied via `.RequireRate
 - **position** — Per-user: 300 requests/min (high-frequency drag updates)
 - **loot-ingest** — Per-user: 120 requests/min (RuneLite plugin ingestion)
 - **anonymous** — Per-IP: 120 requests/min (read-only endpoints)
+- **sse** — Per-IP: 20 *concurrent* connections, no queue (SSE feed streams only)
+
+`sse` is a concurrency limiter, not a fixed window: feed streams stay open for the life of the page, so the limit that matters is simultaneous sockets per IP, not requests per minute. One feed page opens five streams (one per tier), so 20 permits ≈ 4 tabs. `QueueLimit` is 0 so excess connections get an immediate 429 instead of a hung `EventSource`. Any new long-lived/streaming endpoint must use this policy.
 
 ### Authentication & Authorization
 
 - **Cookie auth** (`KlavLor.Web.Auth`) — 30-day sliding expiration, HttpOnly, Strict SameSite
 - **API key auth** — Alternative scheme for programmatic access (e.g., RuneLite plugin). Both schemes are accepted on User/Admin policies.
 - **ICurrentUser** — Injected into handlers for auth checks (`UserId`, `IsAdmin`). Authorization is checked inline in handlers, not via middleware attributes (beyond `[Authorize]`).
-- **Policies:** `User` (any authenticated user) and `Admin` (requires Admin role). Default policy requires authentication.
+- **Policies:** `User` (any authenticated user), `Admin` (requires Admin role), `Auditor` (sync-log access). Default policy requires authentication.
+
+**Public read surface.** Anonymous by design: loot feed (+ Leagues feed and their SSE streams), character loot logs / profiles / source detail / collection tabs, item and source icons, template search, and the Luck Leaderboard. These are linked in the sidebar for signed-out visitors, so an endpoint behind them must be `.AllowAnonymous()` or the nav link 401-redirects to login.
+
+Authenticated (`RoleName.User`) despite also being read-only: the **global** source and drop detail pages (`Features/Source`, `Features/Drop`) and global search. Their routable pages carry `@attribute [Authorize]` to match. Everything that writes or reads one user's own data (templates CRUD, builder, completion, characters, admin, sync logs, ingest) requires authorization too.
+
+**Routable Razor pages authorize separately from endpoints.** `MapRazorComponents<App>()` has no fallback policy, so a `@page` component is anonymous unless it carries `@attribute [Authorize]`. A page and the `/api` endpoint that serves its HTMX-navigated content must agree — otherwise direct URL loads and in-app navigation disagree about who may see it.
 
 ### Feature Folder Structure
 
-Code is organized by feature, not by technical concern. Feature folders live under `KlavLor.Application/Features/` and `KlavLor.Web/Application/Features/`. The two layers overlap but don't mirror exactly — e.g. Application has top-level `ApiKeys/` and `Builder/` folders, whereas Web nests that work under `Users/` and `Templates/`. Common feature areas:
+Code is organized by feature, not by technical concern. Feature folders live under `KlavLor.Application/Features/` and `KlavLor.Web/Application/Features/`. The two layers overlap but don't mirror exactly — Application has top-level `ApiKeys/`, `Builder/`, `CollectionLog/`, `DropRates/` and `Maintenance/` folders whose Web-side counterparts are nested under `Users/`, `Templates/` and `Settings/`.
+
+Shared in both layers:
 
 - `Characters/` — Character profile pages
-- `Home/` — Home/landing page
-- `Login/` / `Logout/` — Authentication
-- `Loot/` — RuneLite drop ingest (`Ingest/`), live feed streams (`Feed/`), loot log (`Log/`)
-- `Templates/` — Template CRUD (`Commands/`, `Queries/`), import/export/duplication (`ImportExport/`), visual canvas builder (`Builder/` — nodes, edges, groups, annotations, regions, layouts)
+- `Drop/` — Global drop detail (one item across every source; `GlobalDropCache` memoises the aggregate)
+- `Login/` — Authentication (Web also has `Logout/` and `Home/`, which just redirects to the loot feed)
+- `Loot/` — the largest area, see breakdown below
+- `Search/` — Global search across characters, sources and drops
+- `Settings/` — Admin settings hub. One page with many independently-loading HTMX panels: leagues toggle, character baselines, collection-log blacklist, drop-rate resync, failed icons, job health/run history, leaderboard source + item exclusions, source renames, source rate modifiers, special loot
+- `Source/` — Global source (boss/monster) detail across all characters, with `GlobalSourceCache`
+- `Templates/` — Template CRUD (`Commands/`, `Queries/`) and the visual canvas builder (`Builder/` — nodes, edges, groups, annotations, regions, layouts). There is deliberately no export, import or duplicate feature: the endpoints existed but were never registered or linked from the UI, and were removed rather than finished.
 - `Users/` — Admin user management, API key generation/revocation, character assignment
 - `Viewer/` — Read-only template viewing, completion tracking
+
+`Loot/` subfolders:
+
+- `Ingest/` — RuneLite batch ingest (+ `Ingest/Audit/` sync logs for the Auditor role)
+- `Feed/` — Live SSE feed streams and cards (main + Leagues scopes)
+- `Log/` — Per-character loot log, source detail, kill sessions, collection progress
+- `Leaderboard/` — Luck leaderboard (spoons / dry streaks) and its source + item exclusion admin
+- `SourceModels/` (Application only) — Pluggable per-source drop maths behind `ISourceLootStrategy`: `DefaultSourceLootStrategy`, `DoomLootStrategy` (per-run delve depth), `RaidUniqueShareStrategy`, dispatched by `SourceLootService`, plus admin rate modifiers. **Strategies are matched by interface dispatch — a new strategy must be registered with `SourceLootService` or it silently never engages** (see commit `abf0996`).
+- `Baseline/` (Application only) — Admin-entered pre-tracking kill counts, added to derived KC
+- `Special/` (Application only) — Special/one-off loot item configuration
+
+Application-only:
+
+- `CollectionLog/` — Collection-log item blacklist admin
+- `DropRates/` — Drop-rate admin + resync, missing-rate reporting
+- `Maintenance/` — Icon audit, job health, sync status, source rename/admin
+
+Web-only:
+
 - `HealthCheck/` — Health check endpoint
 
 ### Frontend
@@ -127,12 +182,33 @@ All entities extend `Entity` base class (Id, RowVersion, SavedAt, SavedById audi
 
 ### Background Services
 
+All implementations live in `KlavLor.Infrastructure/Services/`, and **all of them are registered in one place** — `AddBackgroundServices()` inside `InfrastructureDependencyConfiguration`, called at the end of `AddInfrastructure()`. Registration used to be split between there and Program.cs, which hid the startup order; don't reintroduce `AddHostedService` calls in Program.cs. Hosted services start in registration order, and `LootFeedSeederService` must stay first.
+
+- `LootFeedSeederService` — Seeds the feed with historical data on startup (must run first)
 - `ImageCacheBackfillService` — Backfills OSRS Wiki image cache
 - `ItemIconBackfillService` — Backfills item icon data
 - `SourceIconBackfillService` — Backfills source (monster/boss) icon data
-- `LootFeedSeederService` — Seeds feed with historical data on startup
+- `CachedImageReprocessService` — Reprocesses previously cached images
+- `CollectionLogSyncService` — Syncs collection-log item definitions from the Wiki
+- `DropRateSyncService` — Syncs per-source drop rates from the Wiki
+- `LuckLeaderboardRefreshService` — Rebuilds the luck leaderboard hourly
+- `LootDerivationBackfillService` — Backfills derived loot columns (effective kills, drop projection)
 
-These are the only places where manual DI scopes are acceptable (via `IServiceScopeFactory`).
+Recurring services poll `IJobScheduler` for an elapsed interval or a manual admin trigger, and record each cycle via `IJobRunRecorder` for the admin job-health panel (`BackgroundJobNames` holds the job keys).
+
+These are the only places where manual DI scopes are acceptable (via `IServiceScopeFactory`). Program.cs startup also primes the singleton caches (`ICollectionLogCache`, `ISystemSettingsCache`, `ISourceRateModifierCache`) *before* the host starts, because the seeder classifies drops against them immediately.
+
+## Integration Tests
+
+`KlavLor.IntegrationTests` (xUnit) runs against a real PostgreSQL started by Testcontainers (`postgres:16-alpine`) with the full EF migration set applied, so tests exercise real SQL — including the raw-ADO repositories and the `LootDrop` projection — rather than an in-memory fake. **Docker must be running.** The container is shared via `PostgresFixture` / the `"postgres"` collection, so tests in that collection must not assume an empty database; seed and scope your own rows.
+
+Coverage is targeted at the loot-derivation maths and query surface, not the web layer: character sessions, drop-rate bucket client and sync, feed ordinals and one-off drops, loot-drop projection, source rename, source tables, and golden-file assertions for drop search.
+
+```bash
+dotnet test KlavLor.IntegrationTests/KlavLor.IntegrationTests.csproj
+```
+
+There is no unit-test project and no coverage of Web endpoints/components. The top-level `tests/` directory holds manual testing-plan docs (Markdown), not runnable tests.
 
 ## Deployment
 
@@ -219,6 +295,6 @@ tools/klavlor-sync/
 └── RUNBOOK.md                    # User documentation
 ```
 
-## No Test Suite
+## Tests
 
-There are currently no test projects in this solution. The top-level `tests/` directory holds manual testing-plan docs (Markdown), not runnable tests.
+See "Integration Tests" above. `KlavLor.IntegrationTests` is the only test project.
