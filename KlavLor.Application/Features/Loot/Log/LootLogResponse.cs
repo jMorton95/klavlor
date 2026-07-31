@@ -45,7 +45,11 @@ public sealed record LootDropSummary(
     long TotalValue,
     string? Rarity = null,
     int? RarityNumerator = null,
-    int? RarityDenominator = null);
+    int? RarityDenominator = null,
+    // Value of the single biggest receipt of this item, NOT the running total. Feed tiers are
+    // classified per drop, so the source page can only mark an item as rare/epic/legendary if one
+    // individual drop reached that band — 500 cheap drops summing to millions must not qualify.
+    long BestDropValue = 0);
 
 public sealed record LootSourceDetail(
     string SourceName,

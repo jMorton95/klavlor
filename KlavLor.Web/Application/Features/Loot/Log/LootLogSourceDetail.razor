@@ -1,3 +1,4 @@
+@using KlavLor.Application.Interfaces.Services
 @using KlavLor.Application.Common
 @using KlavLor.Application.Features.Loot.Log
 @using KlavLor.Domain.Entities
@@ -43,26 +44,73 @@
 
             @if (Detail.AllDrops.Count > 0)
             {
-                <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">All Drops (aggregated)</h3>
-                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
-                    @foreach (var drop in Detail.AllDrops)
-                    {
-                        <div class="flex items-center justify-between text-xs bg-slate-50 dark:bg-slate-800 rounded-lg px-3 py-2">
-                            <span class="text-slate-700 dark:text-slate-100 truncate mr-2 inline-flex items-center gap-1">
-                                <img src="/api/images/item-icon?name=@Uri.EscapeDataString(drop.Name)" alt="@drop.Name"
-                                     class="w-4 h-4 inline-block shrink-0"
-                                     loading="lazy"
-                                     onerror="this.style.display='none'" />
-                                @drop.Name
-                                @if (drop.TotalQuantity > 1)
-                                {
-                                    <span class="ml-1 text-slate-400 dark:text-white">x@(drop.TotalQuantity.ToString("N0"))</span>
-                                }
-                            </span>
-                            <span class="text-amber-600 dark:text-amber-400 font-medium whitespace-nowrap">@GoldFormat.Format(drop.TotalValue)</span>
-                        </div>
-                    }
-                </div>
+                @* Two tiers of presentation. An item whose biggest SINGLE receipt reached a feed
+                   swimlane (Uncommon and up) gets a larger card wearing that lane's colours, so the
+                   page reads like the live feed; everything else collapses into a dense chip grid.
+                   Classification uses BestDropValue, never the running total — 500 cheap drops
+                   summing to millions is not a legendary. Thresholds come from ILootFeedService so
+                   the two surfaces can never drift apart. *@
+                var tiered = Detail.AllDrops
+                    .Where(d => ILootFeedService.GetDropTier(d.BestDropValue) is not null and not LootFeedTier.Standard)
+                    .OrderByDescending(d => d.BestDropValue)
+                    .ToList();
+                var plain = Detail.AllDrops
+                    .Where(d => ILootFeedService.GetDropTier(d.BestDropValue) is null or LootFeedTier.Standard)
+                    .OrderByDescending(d => d.TotalValue)
+                    .ToList();
+
+                <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    All Drops (aggregated)
+                    <span class="ml-1 font-normal text-xs text-slate-500 dark:text-white">@Detail.AllDrops.Count.ToString("N0") items</span>
+                </h3>
+
+                @if (tiered.Count > 0)
+                {
+                    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-2 mb-3">
+                        @foreach (var drop in tiered)
+                        {
+                            var tier = ILootFeedService.GetDropTier(drop.BestDropValue)!.Value;
+                            <div class="rounded-lg shadow-sm border p-2 bg-slate-50 dark:bg-slate-900 @TierCardClasses(tier)">
+                                <div class="flex items-center gap-1.5 min-w-0">
+                                    <img src="/api/images/item-icon?name=@Uri.EscapeDataString(drop.Name)" alt="@drop.Name"
+                                         class="w-5 h-5 shrink-0" loading="lazy" onerror="this.style.display='none'" />
+                                    <span class="text-xs font-medium text-slate-800 dark:text-slate-100 truncate">@drop.Name</span>
+                                    @if (drop.TotalQuantity > 1)
+                                    {
+                                        <span class="text-[10px] text-slate-500 dark:text-white shrink-0">×@drop.TotalQuantity.ToString("N0")</span>
+                                    }
+                                </div>
+                                <div class="flex items-center justify-between gap-2 mt-1">
+                                    <span class="px-1 py-0 rounded-sm text-[9px] font-semibold uppercase tracking-wide @TierBadgeClasses(tier)"
+                                          title="@($"Biggest single drop: {GoldFormat.Format(drop.BestDropValue)}")">@tier</span>
+                                    <span class="text-xs font-medium text-amber-600 dark:text-amber-400 whitespace-nowrap">@GoldFormat.Format(drop.TotalValue)</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+
+                @if (plain.Count > 0)
+                {
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-1">
+                        @foreach (var drop in plain)
+                        {
+                            <div class="flex items-center justify-between gap-1 text-[11px] bg-slate-100 dark:bg-slate-800 rounded px-1.5 py-0.5"
+                                 title="@($"{drop.Name} — ×{drop.TotalQuantity:N0} for {GoldFormat.Format(drop.TotalValue)}")">
+                                <span class="text-slate-700 dark:text-slate-100 truncate inline-flex items-center gap-1 min-w-0">
+                                    <img src="/api/images/item-icon?name=@Uri.EscapeDataString(drop.Name)" alt=""
+                                         class="w-3.5 h-3.5 shrink-0" loading="lazy" onerror="this.style.display='none'" />
+                                    <span class="truncate">@drop.Name</span>
+                                    @if (drop.TotalQuantity > 1)
+                                    {
+                                        <span class="text-slate-400 dark:text-white shrink-0">×@drop.TotalQuantity.ToString("N0")</span>
+                                    }
+                                </span>
+                                <span class="text-amber-600 dark:text-amber-400 font-medium whitespace-nowrap">@GoldFormat.Format(drop.TotalValue)</span>
+                            </div>
+                        }
+                    </div>
+                }
             }
         </div>
 
@@ -198,5 +246,26 @@
         LootSourceType.Pickpocket => "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300",
         LootSourceType.Player => "bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300",
         _ => "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-white"
+    };
+
+    // Deliberately the same border+ring treatment LootFeedItem uses for a card in that swimlane,
+    // so an item that can headline the live feed is recognisable here at a glance.
+    private static string TierCardClasses(LootFeedTier tier) => tier switch
+    {
+        LootFeedTier.Legendary => "border-amber-400 ring-1 ring-amber-400/40",
+        LootFeedTier.Epic => "border-purple-400 ring-1 ring-purple-400/30",
+        LootFeedTier.Rare => "border-blue-400 ring-1 ring-blue-400/30",
+        LootFeedTier.Uncommon => "border-green-400",
+        _ => "border-slate-200 dark:border-slate-700"
+    };
+
+    // Matches LootFeedItem's per-drop chip tint.
+    private static string TierBadgeClasses(LootFeedTier tier) => tier switch
+    {
+        LootFeedTier.Legendary => "bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300",
+        LootFeedTier.Epic => "bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300",
+        LootFeedTier.Rare => "bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300",
+        LootFeedTier.Uncommon => "bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-300",
+        _ => "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-white"
     };
 }
