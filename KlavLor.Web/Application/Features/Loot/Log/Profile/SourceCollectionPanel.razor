@@ -87,7 +87,7 @@
                                 </span>
                             </td>
                             <td class="px-3 py-2 text-slate-500 dark:text-white text-xs font-mono">
-                                @RenderRate(e.EffectiveRarity, e.Rarity, e.RarityNumerator, e.RarityDenominator, e.Rolls)
+                                @RenderRate(e.EffectiveRarity, e.Rarity, e.RarityNumerator, e.RarityDenominator, e.Rolls, e.EffectiveKcPerDrop)
                             </td>
                             <td class="px-3 py-2">
                                 @if (luck is not null)
@@ -123,7 +123,7 @@
                                 </span>
                             </td>
                             <td class="px-3 py-2 text-slate-500 dark:text-white text-xs font-mono">
-                                @RenderRate(item.EffectiveRarity, item.Rarity, item.RarityNumerator, item.RarityDenominator, item.Rolls)
+                                @RenderRate(item.EffectiveRarity, item.Rarity, item.RarityNumerator, item.RarityDenominator, item.Rolls, item.EffectiveKcPerDrop)
                             </td>
                             <td class="px-3 py-2">
                                 @if (luck is not null)
@@ -177,7 +177,7 @@
     // rate) and makes an admin override visible instead of silently applied. When the effective
     // rate differs from the raw wiki rate, the wiki value is kept alongside it so the override is
     // legible rather than looking like bad data.
-    private RenderFragment RenderRate(string? effectiveRarity, string? wikiRarity, int? numerator, int? denominator, int rolls) => __builder =>
+    private RenderFragment RenderRate(string? effectiveRarity, string? wikiRarity, int? numerator, int? denominator, int rolls, double? effectiveKc) => __builder =>
     {
         var shown = !string.IsNullOrEmpty(effectiveRarity) ? effectiveRarity : wikiRarity;
         if (string.IsNullOrEmpty(shown)) return;
@@ -192,7 +192,7 @@
             {
                 <span class="ml-1 text-[10px] text-slate-400 dark:text-white" title="Wiki rate before this source's loot model and any admin rate adjustment">(wiki @wikiRarity)</span>
             }
-            @RenderRollsPopover(shown, numerator, denominator, rolls)
+            @RenderRollsPopover(shown, numerator, denominator, rolls, effectiveKc)
         </span>;
     };
 
@@ -326,20 +326,19 @@
     // table multiple times per kill (Zulrah ×2, Vorkath ×2 for certain unique
     // tables, etc.). Only shown when rolls > 1 — single-roll items don't need
     // the clarification.
-    private RenderFragment RenderRollsPopover(string rarity, int? numerator, int? denominator, int rolls) => __builder =>
+    private RenderFragment RenderRollsPopover(string rarity, int? numerator, int? denominator, int rolls, double? effectiveKc) => __builder =>
     {
         if (rolls <= 1) return;
 
-        double? effective = null;
-        double? expectedKc = null;
-        if (denominator is > 0 && numerator is > 0)
+        // Use the expected KC the row was already given by SourceLootService rather than
+        // recomputing rolls x num/den here: a hand-rolled figure ignores the source model and
+        // any admin rate modifier, so this popover would contradict the Rate column above it.
+        // Falls back to the raw per-roll maths only when no effective rate could be derived.
+        double? expectedKc = effectiveKc is > 0 ? effectiveKc : null;
+        if (expectedKc is null && denominator is > 0 && numerator is > 0)
         {
             var p = (double)rolls * numerator.Value / denominator.Value;
-            if (p > 0)
-            {
-                effective = p;
-                expectedKc = 1.0 / p;
-            }
+            if (p > 0) expectedKc = 1.0 / p;
         }
 
         <div class="hidden group-hover:block absolute bottom-full left-0 z-40 pb-2 w-[260px]" role="tooltip">
@@ -352,15 +351,15 @@
                     <span class="text-slate-500 dark:text-white">Per roll</span>
                     <span class="font-mono text-slate-700 dark:text-slate-200">@rarity</span>
                 </div>
-                @if (effective is not null)
+                @if (expectedKc is not null)
                 {
                     <div class="flex items-center justify-between">
                         <span class="text-slate-500 dark:text-white">Per kill (≈)</span>
-                        <span class="font-mono text-amber-600 dark:text-amber-400">1 / @((1.0 / effective.Value).ToString("0", System.Globalization.CultureInfo.InvariantCulture))</span>
+                        <span class="font-mono text-amber-600 dark:text-amber-400">1 / @expectedKc!.Value.ToString("0", System.Globalization.CultureInfo.InvariantCulture)</span>
                     </div>
                     <div class="flex items-center justify-between">
                         <span class="text-slate-500 dark:text-white">Expected first drop</span>
-                        <span class="font-mono text-slate-700 dark:text-slate-200">KC @expectedKc!.Value.ToString("0", System.Globalization.CultureInfo.InvariantCulture)</span>
+                        <span class="font-mono text-slate-700 dark:text-slate-200">KC @expectedKc.Value.ToString("0", System.Globalization.CultureInfo.InvariantCulture)</span>
                     </div>
                 }
                 <div class="pt-1 mt-1 border-t border-slate-200 dark:border-slate-700/50 text-[10px] text-slate-500 dark:text-white">
