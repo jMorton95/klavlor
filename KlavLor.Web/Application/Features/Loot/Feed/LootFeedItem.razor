@@ -105,13 +105,13 @@
             @if (sessionKills is > 1)
             {
                 <span class="text-slate-600 dark:text-slate-200 font-medium whitespace-nowrap"
-                      title="Kills in this session, from the kill-count range below">@sessionKills.Value.ToString("N0") kills</span>
-                <span aria-hidden="true">·</span>
+                      title="Rolls in this session, from the kill-count range below">@sessionKills.Value.ToString("N0") rolls</span>
+                <span class="mx-0.5" aria-hidden="true">·</span>
             }
             @if (kcLabel is not null)
             {
                 <span class="text-slate-600 dark:text-slate-200 whitespace-nowrap">@kcLabel</span>
-                <span aria-hidden="true">·</span>
+                <span class="mx-0.5" aria-hidden="true">·</span>
             }
             <time datetime="@Entry.OccurredAt.UtcDateTime.ToString("o")" class="whitespace-nowrap loot-timestamp">@FormatTime(Entry.OccurredAt)</time>
         </div>
@@ -120,13 +120,15 @@
     @if (Entry.Drops.Count > 0)
     {
         var grouped = GroupDrops(Entry.Drops);
-        <div class="flex flex-wrap gap-1.5 mt-1.5">
+        @* items-start so each drop is its own block: the chip, with its rate line beneath. *@
+        <div class="flex flex-wrap items-start gap-1.5 mt-1.5">
             @foreach (var drop in grouped.Take(8))
             {
                 var isNewUnique = drop.IsFirstTime && drop.IsCollectionLogItem;
                 var dropTotal = (long)drop.Quantity * drop.Price;
                 var isLegendary = dropTotal >= 250_000_000;
                 var isSpecial = drop.IsSpecial;
+                <span class="flex flex-col min-w-0">
                 <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] border @GetDropTierClasses(drop.Price) text-slate-700 dark:text-slate-200 @((isNewUnique && !isLegendary && !isSpecial) ? GetFirstTimeRingClasses(Entry.Tier) : "") @(isLegendary ? "legendary-item" : "") @(isSpecial ? "giga-item" : "")"
                       title="@(isNewUnique ? "First-time collection log unlock" : null)">
                     @if (isSpecial)
@@ -194,14 +196,6 @@
                         <span class="font-medium text-amber-600 dark:text-amber-400">@drop.Quantity.ToString("N0")x</span>
                     }
                     <span>@drop.Name</span>
-                    @if (LuckLabel(drop) is { } luckLabel)
-                    {
-                        @* Effective rate + how this drop landed against it. The numbers come from
-                           SourceLootService at publish time, so they already include the source's
-                           loot model (raid unique shares, Doom's per-run delve depth) and any admin
-                           rate modifier — identical to the character page and the leaderboard. *@
-                        <span class="px-1 py-0 rounded-sm text-[9px] font-medium @luckLabel.Classes" title="@luckLabel.Title">@luckLabel.Text</span>
-                    }
                     @if (drop.Price > 0)
                     {
                         @if (Entry.RunCount > 1 && drop.Quantity > 1)
@@ -213,6 +207,23 @@
                             <span class="text-slate-700 dark:text-slate-200">(@GoldFormat.Format((long)drop.Quantity * drop.Price))</span>
                         }
                     }
+                </span>
+                @if (LuckLabel(drop) is { } luckLabel)
+                {
+                    @* Rate + how this drop landed, on its own line UNDER the item rather than
+                       crowding the name. Collection-log items only, and only when we hold a rate
+                       for this item AT THIS SOURCE - see LuckLabel. The figures come from
+                       SourceLootService, so they match the character page and the leaderboard. *@
+                    <span class="mt-1 pl-1 text-[9px] leading-tight text-slate-500 dark:text-white whitespace-nowrap"
+                          title="@luckLabel.Title">
+                        @luckLabel.Text
+                        @if (luckLabel.Verdict is { } verdict)
+                        {
+                            <span class="mx-0.5" aria-hidden="true">·</span>
+                            <span class="font-medium @luckLabel.VerdictClass">@verdict</span>
+                        }
+                    </span>
+                }
                 </span>
             }
             @if (grouped.Count > 8)
@@ -305,35 +316,43 @@
             .OrderByDescending(d => (long)d.Quantity * d.Price)
             .ToList();
 
-    private sealed record DropLuck(string Text, string Classes, string Title);
+    private sealed record DropLuck(string Text, string? Verdict, string VerdictClass, string Title);
 
-    // "1/540 · 3.2× dry" style chip: the effective rate plus how this kill compares to it. Null
-    // when we have no usable rate, or no kill count to compare against. Thresholds match the
-    // character page's luck pills so the same drop never reads lucky in one place and dry in another.
+    // The line under an item: "KC 4,312 . 1/5,000" plus a lucky/dry verdict.
+    //
+    // Collection-log items ONLY. A snapdragon seed or rune platelegs has a drop rate but nobody is
+    // tracking their luck on it, and showing one on every common drop buries the interesting ones.
+    // Null also when we hold no rate for this item at this source: ExpectedKc/EffectiveRarity are
+    // resolved per (source, item) so an item that drops from several bosses is always rated against
+    // the one that actually dropped it, never a blend.
     private DropLuck? LuckLabel(LootFeedDrop drop)
     {
+        if (!drop.IsCollectionLogItem) return null;
         if (drop.ExpectedKc is not > 0 || string.IsNullOrEmpty(drop.EffectiveRarity)) return null;
 
         var expected = drop.ExpectedKc.Value;
         var observed = Entry.MaxKillCount ?? Entry.MaxKillOrdinal;
-        var title = $"Effective rate {drop.EffectiveRarity} (~{Math.Round(expected):N0} kills expected), including this source's loot model and any admin rate adjustment";
+        var title = $"Effective rate {drop.EffectiveRarity} (~{Math.Round(expected):N0} expected), "
+                    + "after this source's loot model and any admin rate adjustment";
 
+        // No kill count to compare against: still worth showing the rate.
         if (observed is not > 0)
-            return new DropLuck(drop.EffectiveRarity!, "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-white", title);
+            return new DropLuck(drop.EffectiveRarity!, null, "", title);
 
+        var text = $"KC {observed.Value:N0} · {drop.EffectiveRarity}";
         var ratio = observed.Value / expected;
-        var (text, classes) = ratio switch
+        var (verdict, verdictClass) = ratio switch
         {
-            <= 0.10 => ($"{drop.EffectiveRarity} · {1 / ratio:0.#}× spooned", "bg-emerald-600 text-white"),
-            <= 0.50 => ($"{drop.EffectiveRarity} · {1 / ratio:0.#}× lucky", "bg-emerald-700/80 text-white"),
-            <= 1.50 => ($"{drop.EffectiveRarity} · on rate", "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-white"),
-            <= 3.00 => ($"{drop.EffectiveRarity} · {ratio:0.#}× dry", "bg-amber-700/80 text-white"),
-            _ => ($"{drop.EffectiveRarity} · {ratio:0.#}× dry", "bg-rose-700/80 text-white")
+            <= 0.50 => ($"{1 / ratio:0.#}x lucky", "text-emerald-600 dark:text-emerald-400"),
+            <= 1.50 => ("on rate", "text-slate-500 dark:text-white"),
+            <= 3.00 => ($"{ratio:0.#}x dry", "text-amber-600 dark:text-amber-400"),
+            _ => ($"{ratio:0.#}x dry", "text-rose-600 dark:text-rose-400")
         };
-        return new DropLuck(text, classes, $"{title}. This drop came at {observed.Value:N0} kills.");
+        return new DropLuck(text, verdict, verdictClass, $"{title}. This drop came at {observed.Value:N0}.");
     }
 
-    // How many kills this session actually spans, derived from the same bounds the KC range is
+
+    // How many rolls this session actually spans, derived from the same bounds the KC range is
     // printed from so the two numbers can never disagree. Min and Max are the kill counts of the
     // first and last kill IN the session (see GetSessionBounds), so the span is inclusive: a
     // session from 4,000 to 5,000 is 1,001 kills, and a single-kill session is 1, not 0.
