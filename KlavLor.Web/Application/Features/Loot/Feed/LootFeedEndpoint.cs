@@ -12,10 +12,12 @@ public sealed class LootFeedEndpoint : IEndpoint
     {
         // Main feed routes. The page route is deliberately handler-free — see GetPage.
         app.MapGet(AppRoutes.LootFeed.FromApi(), () => GetPage(LootFeedScope.Main))
-            .AllowAnonymous();
+            .AllowAnonymous()
+            .RequireRateLimiting("anonymous");
 
         app.MapGet(AppRoutes.LootFeedGrid.FromApi(), (LootFeedTiersHandler handler, string? tiers) => GetGrid(handler, LootFeedScope.Main, tiers))
-            .AllowAnonymous();
+            .AllowAnonymous()
+            .RequireRateLimiting("anonymous");
 
         MapStream(app, AppRoutes.LootFeedStreamStandard, LootFeedScope.Main, LootFeedTier.Standard);
         MapStream(app, AppRoutes.LootFeedStreamUncommon, LootFeedScope.Main, LootFeedTier.Uncommon);
@@ -29,14 +31,16 @@ public sealed class LootFeedEndpoint : IEndpoint
                 settings.IsLeaguesEnabled
                     ? GetPage(LootFeedScope.Leagues)
                     : TypedResults.NotFound())
-            .AllowAnonymous();
+            .AllowAnonymous()
+            .RequireRateLimiting("anonymous");
 
         app.MapGet(AppRoutes.LootFeedLeaguesGrid.FromApi(), async (LootFeedTiersHandler handler, ISystemSettingsCache settings, string? tiers) =>
             {
                 if (!settings.IsLeaguesEnabled) return TypedResults.NotFound();
                 return await GetGrid(handler, LootFeedScope.Leagues, tiers);
             })
-            .AllowAnonymous();
+            .AllowAnonymous()
+            .RequireRateLimiting("anonymous");
 
         MapLeaguesStream(app, AppRoutes.LootFeedLeaguesStreamStandard, LootFeedTier.Standard);
         MapLeaguesStream(app, AppRoutes.LootFeedLeaguesStreamUncommon, LootFeedTier.Uncommon);
