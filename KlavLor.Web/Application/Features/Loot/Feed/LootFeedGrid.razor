@@ -17,19 +17,15 @@
 <div class="@containerClass">
     @foreach (var tier in activeTiers)
     {
-        var style = TierStyle.For(tier);
         <div class="@colClass"
              hx-get="@(TierStyle.ColumnRoute(tier, Scope).FromApi() + "?cols=" + activeTiers.Count)"
              hx-trigger="load"
              hx-swap="outerHTML">
-            @* Skeleton matching the real column's header + card rhythm so nothing jumps. *@
+            @* Header placeholder only. There were previously four card-shaped blocks here too,
+               which read as a second translucent layer sitting on the bordered outlines and, worse,
+               reserved a height that never matched the real cards — so the layout jumped when a lane
+               landed. A single bar is enough to show the lane is loading. *@
             <div class="h-4 w-24 mb-2 rounded bg-slate-200 dark:bg-slate-800 animate-pulse"></div>
-            <div class="space-y-2">
-                @for (var card = 0; card < 4; card++)
-                {
-                    <div class="h-16 rounded-lg bg-slate-100 dark:bg-slate-900 border @style.EmptyBorderClass animate-pulse"></div>
-                }
-            </div>
         </div>
     }
 </div>
