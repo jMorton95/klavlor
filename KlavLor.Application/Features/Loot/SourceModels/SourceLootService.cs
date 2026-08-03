@@ -85,6 +85,10 @@ public sealed class SourceLootService
         return (expected, $"1/{Math.Round(expected):N0}");
     }
 
+    // True when this source's strategy owns its rates outright, so callers know that "no effective
+    // rate" means "we genuinely have none" rather than "fall back to the stored wiki value".
+    public bool OverridesStoredRates(string sourceName) => Resolve(sourceName).OverridesStoredRates;
+
     private ISourceLootStrategy Resolve(string sourceName) =>
         _special.TryGetValue(sourceName, out var strategy) ? strategy : _default;
 }

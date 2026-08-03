@@ -129,11 +129,20 @@ public sealed class LootCharacterProfileHandler(
             Entries = collection.Entries
                 .Select(e =>
                 {
-                    // An obtained item is judged against the runs that happened up to and
-                    // including the one it dropped on — not the character's whole history, which
-                    // would credit it with delves done long after the drop.
-                    var depths = DepthsUpTo(collection.Runs, e.FirstRecordId);
-                    var rate = sourceLoot.EffectiveRate(sourceName, e.ItemName, e.RarityNumerator, e.RarityDenominator, e.Rolls, depths);
+                    // The FULL depth profile, deliberately, not a window up to the first drop.
+                    // This page states luck as "where you are now" (SourceCollectionPanel compares
+                    // against the character's current total), so the expectation must cover the same
+                    // span. Windowing one side only made obtained items read as dry: an expectation
+                    // built from the first few runs, judged against all the progress since. The
+                    // leaderboard is the place that windows, because there the observed value is the
+                    // drop's own kill count.
+                    var rate = sourceLoot.EffectiveRate(sourceName, e.ItemName, e.RarityNumerator, e.RarityDenominator, e.Rolls, allDepths);
+                    // A source that owns its rates (Doom) has no usable figure for items its model
+                    // doesn't cover — its guaranteed accumulating drops carry a stored per-level
+                    // rarity that means nothing per run. Blank the wiki values too, so no consumer
+                    // falls back to them and prints "7/104, very dry" for an item you get every run.
+                    if (rate is null && Owns(sourceName))
+                        return e with { EffectiveKcPerDrop = null, EffectiveRarity = null, Rarity = null, RarityNumerator = null, RarityDenominator = null };
                     return e with { EffectiveKcPerDrop = rate?.ExpectedKc, EffectiveRarity = rate?.Rarity };
                 })
                 .ToList(),
@@ -142,6 +151,8 @@ public sealed class LootCharacterProfileHandler(
                 {
                     // Still-missing items are measured against every run done so far.
                     var rate = sourceLoot.EffectiveRate(sourceName, m.ItemName, m.RarityNumerator, m.RarityDenominator, m.Rolls, allDepths);
+                    if (rate is null && Owns(sourceName))
+                        return m with { EffectiveKcPerDrop = null, EffectiveRarity = null, Rarity = null, RarityNumerator = null, RarityDenominator = null };
                     return m with { EffectiveKcPerDrop = rate?.ExpectedKc, EffectiveRarity = rate?.Rarity };
                 })
                 .ToList()
@@ -149,23 +160,13 @@ public sealed class LootCharacterProfileHandler(
         return Result<SourceCollection>.Success(enriched);
     }
 
+    // True when the source's strategy is the sole authority on its rates, so an unmodelled item
+    // must show no rate at all rather than the misleading stored one.
+    private bool Owns(string sourceName) => sourceLoot.OverridesStoredRates(sourceName);
+
     private static List<int> Depths(IReadOnlyList<SourceRun> runs) =>
         runs.Select(r => r.Depth).ToList();
 
-    private static List<int> DepthsUpTo(IReadOnlyList<SourceRun> runs, int lastRecordId)
-    {
-        if (runs.Count == 0) return [];
-        // Runs arrive oldest-first; find the drop's own run and keep everything up to it. A
-        // record id we don't recognise (no derived depth on that run) falls back to all runs.
-        var index = -1;
-        for (var i = 0; i < runs.Count; i++)
-        {
-            if (runs[i].RecordId != lastRecordId) continue;
-            index = i;
-            break;
-        }
-        return index < 0 ? Depths(runs) : runs.Take(index + 1).Select(r => r.Depth).ToList();
-    }
 
     public async Task<Result<SourceKillTrend>> HandleSourceKillTrend(int characterId, string sourceName)
     {

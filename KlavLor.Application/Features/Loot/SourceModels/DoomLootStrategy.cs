@@ -33,25 +33,33 @@ public sealed class DoomLootStrategy() : SourceLootStrategy("Doom of Mokhaiotl")
     // Items this strategy does not model therefore have no rate, rather than a wrong one.
     public override bool OverridesStoredRates => true;
 
-    // Expected runs to a first drop, computed from the depth of EVERY run the player actually
-    // did. Each run r has its own P(at least one) for its own depth, so the expected number of
-    // drops over the whole set is the sum of those probabilities. Inverting the AVERAGE per-run
-    // probability gives the depth-weighted equivalent of a flat "1 in N runs" rate:
+    // Expected DELVES to a first drop, computed from the depth of every run the player actually did.
     //
-    //     expected runs per drop = runs / Σ P(item | depth_r)
+    // Doom's odds are per delve level, not per run: a single claim can be anywhere from one to
+    // twenty delves deep, so counting runs is the wrong unit to judge luck in — two players on
+    // "38 runs" have done wildly different amounts of rolling if one dives to level 8 and the other
+    // bails at level 3. Each run r has its own P(at least one) for its own depth, so the expected
+    // number of drops across the set is the sum of those probabilities, and:
     //
-    // This reduces exactly to N when every run has the same 1/N chance, and it never assumes a
-    // run went deeper than its own loot proves. Null when the item isn't a Doom unique or no run
-    // could have produced it, so the caller falls back to the flat rate.
+    //     expected delves per drop = (total delves done) / Σ P(item | depth_r)
+    //
+    // Callers must therefore compare this against the player's total delve count, not their run
+    // count. It reduces to the flat per-level expectation when every run reaches the same depth,
+    // and never assumes a run went deeper than its own loot proves. Null when the item isn't a Doom
+    // unique or no run could have produced it, so the caller falls back to the flat rate.
     public override double? ExpectedCompletionsForRuns(string itemName, IReadOnlyList<int> runDepths)
     {
         if (RatesFor(itemName) is null || runDepths.Count == 0) return null;
 
         var expectedDrops = 0.0;
+        var totalDelves = 0;
         foreach (var depth in runDepths)
+        {
             expectedDrops += ProbabilityOverRun(itemName, depth);
+            totalDelves += depth;
+        }
 
-        return expectedDrops > 0 ? runDepths.Count / expectedDrops : null;
+        return expectedDrops > 0 && totalDelves > 0 ? totalDelves / expectedDrops : null;
     }
 
     // Deepest delve the claim proves the run reached: the max of the unique-item gates present

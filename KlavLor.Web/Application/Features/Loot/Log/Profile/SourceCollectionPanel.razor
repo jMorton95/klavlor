@@ -50,7 +50,17 @@
                     }
                 </span>
                 <span class="text-slate-500 dark:text-white">
-                    @Collection.CharacterKc.ToString("N0") @(Collection.CharacterKc == 1 ? "kill" : "kills") at this source
+                    @* Depth-modelled sources (Doom) are counted in delve levels, the unit their
+                       drop rates are defined in: one run can be four delves or twenty, so a run
+                       count cannot be compared against a per-level rate. *@
+                    @if (Collection.IsDepthModelled)
+                    {
+                        <text>@Collection.TotalDelves.ToString("N0") delves across @Collection.CharacterKc.ToString("N0") @(Collection.CharacterKc == 1 ? "run" : "runs")</text>
+                    }
+                    else
+                    {
+                        <text>@Collection.CharacterKc.ToString("N0") @(Collection.CharacterKc == 1 ? "kill" : "kills") at this source</text>
+                    }
                 </span>
             </div>
             <table class="w-full text-sm">
@@ -72,8 +82,8 @@
                         // luck statistic is "drops received vs expected at where you are
                         // now" — coherent for both single-drop spoons (1 in 17 KC at
                         // 1/1024 still flags strongly) and multi-drop items (8 in 515 KC
-                        // at 1/50 lands as Dry, not bogus Spooned-30×).
-                        var luck = ComputeReceivedLuck(Collection.CharacterKc, e.TotalDrops, e.Rolls, e.RarityDenominator, e.RarityNumerator, e.EffectiveKcPerDrop);
+                        // at 1/50 lands as Dry, not a bogus Lucky-30x).
+                        var luck = ComputeReceivedLuck(Collection.LuckObserved, e.TotalDrops, e.Rolls, e.RarityDenominator, e.RarityNumerator, e.EffectiveKcPerDrop);
                         <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40">
                             <td class="px-4 py-2 text-slate-800 dark:text-slate-100">
                                 <span class="inline-flex items-center gap-1.5">
@@ -94,7 +104,7 @@
                                 {
                                     <span class="relative group inline-block">
                                         <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium cursor-help @luck.PillClasses">@luck.Text</span>
-                                        @RenderDistributionPopover(e.ItemName, Collection.CharacterKc, e.TotalDrops, e.Rolls, e.RarityNumerator, e.RarityDenominator, isReceived: true, firstDropKc: e.KillCount ?? e.KillOrdinal, effectiveKc: e.EffectiveKcPerDrop)
+                                        @RenderDistributionPopover(e.ItemName, Collection.LuckObserved, e.TotalDrops, e.Rolls, e.RarityNumerator, e.RarityDenominator, isReceived: true, firstDropKc: e.KillCount ?? e.KillOrdinal, effectiveKc: e.EffectiveKcPerDrop)
                                     </span>
                                 }
                             </td>
@@ -113,7 +123,7 @@
                     }
                     @foreach (var item in Collection.MissingItems)
                     {
-                        var luck = ComputeMissingLuck(Collection.CharacterKc, item.Rolls, item.RarityDenominator, item.RarityNumerator, item.EffectiveKcPerDrop);
+                        var luck = ComputeMissingLuck(Collection.LuckObserved, item.Rolls, item.RarityDenominator, item.RarityNumerator, item.EffectiveKcPerDrop);
                         <tr class="opacity-60 hover:opacity-100 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-opacity">
                             <td class="px-4 py-2 text-slate-500 dark:text-white">
                                 <span class="inline-flex items-center gap-1.5">
@@ -130,7 +140,7 @@
                                 {
                                     <span class="relative group inline-block">
                                         <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium cursor-help @luck.PillClasses">@luck.Text</span>
-                                        @RenderDistributionPopover(item.ItemName, Collection.CharacterKc, 0, item.Rolls, item.RarityNumerator, item.RarityDenominator, isReceived: false, firstDropKc: null, effectiveKc: item.EffectiveKcPerDrop)
+                                        @RenderDistributionPopover(item.ItemName, Collection.LuckObserved, 0, item.Rolls, item.RarityNumerator, item.RarityDenominator, isReceived: false, firstDropKc: null, effectiveKc: item.EffectiveKcPerDrop)
                                     </span>
                                 }
                             </td>
@@ -561,7 +571,7 @@
         }
         if (expected <= 0) return null;
         var ratio = totalDrops / expected;
-        if (ratio >= 1.5) return new LuckLabel($"Spooned {ratio:0.0}×", "bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300");
+        if (ratio >= 1.5) return new LuckLabel($"Lucky {ratio:0.0}×", "bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300");
         if (ratio >= 0.85) return new LuckLabel("On rate", "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300");
         var dryRatio = 1.0 / Math.Max(ratio, 0.01);
         return new LuckLabel($"Dry {dryRatio:0.0}×", "bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300");

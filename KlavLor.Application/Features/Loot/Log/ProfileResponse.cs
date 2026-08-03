@@ -100,7 +100,21 @@ public sealed record SourceCollection(
     // (Doom) compute expected KC from these ACTUAL per-run depths — never from a single
     // max-ever depth, which would assume every run went as deep as the best one and make
     // everyone look drier than they are. Empty for ordinary flat-rate sources.
-    IReadOnlyList<SourceRun> Runs);
+    IReadOnlyList<SourceRun> Runs)
+{
+    /// <summary>
+    /// Total delve levels cleared across every run, for depth-modelled sources; 0 for ordinary ones.
+    /// This - not CharacterKc - is what a Doom luck figure must be measured against, because the
+    /// rates are per delve level and one run can be four delves or twenty.
+    /// </summary>
+    public int TotalDelves { get; } = Runs.Sum(r => r.Depth);
+
+    /// <summary>Whether this source's odds are modelled per delve rather than per kill.</summary>
+    public bool IsDepthModelled => TotalDelves > 0;
+
+    /// <summary>The figure luck is judged against: delves where we model depth, else kills.</summary>
+    public int LuckObserved => IsDepthModelled ? TotalDelves : CharacterKc;
+}
 
 /// <summary>
 /// Monthly kill activity for one character at one source — drives the character source

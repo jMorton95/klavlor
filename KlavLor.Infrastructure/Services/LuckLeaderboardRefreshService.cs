@@ -185,18 +185,27 @@ public sealed class LuckLeaderboardRefreshService(
         {
             if (excludedItems.Contains(e.ItemName)) continue;
             var den = e.RarityDenominator ?? 0;   // 0 for depth-modelled sources (Doom) with no flat rate
-            // Depth-modelled sources are scored against the runs done up to the drop itself, so a
-            // shallow grind isn't judged as if every run had been a deep delve.
+
+            // Depth-modelled sources are scored in DELVE LEVELS on both sides (see
+            // DoomLootStrategy.ExpectedCompletionsForRuns): the rates are per level, and one run can
+            // be four delves deep or twenty, so a run count can't be compared against them. The
+            // window stops at the drop itself, so a shallow grind isn't judged as if every run had
+            // been a deep delve, and the observed figure is the delves done up to that same point.
+            var window = DepthsUpTo(collection.Runs, e.FirstRecordId);
+            var observed = window.Count > 0
+                ? window.Sum()
+                : e.KillCount ?? e.KillOrdinal ?? 0; // prefer the real RuneLite KC, else logged ordinal
+
             var expected = sourceLoot.ExpectedCompletions(
-                source, e.ItemName, e.RarityNumerator ?? 1, den, e.Rolls, DepthsUpTo(collection.Runs, e.FirstRecordId));
+                source, e.ItemName, e.RarityNumerator ?? 1, den, e.Rolls, window);
             if (expected < 1 || expected >= double.MaxValue) continue; // no usable rate / guaranteed drop
+
             // Rarity-based bottom-end filter only applies when there's a real denominator.
             if (den > 0)
             {
                 var perDropValue = e.TotalDrops > 0 ? e.TotalValue / e.TotalDrops : 0;
                 if (IsUninteresting(den, perDropValue)) continue;
             }
-            var observed = e.KillCount ?? e.KillOrdinal ?? 0; // prefer the real RuneLite KC, fall back to logged ordinal
             if (observed <= 0) continue;
 
             if (observed <= expected)
