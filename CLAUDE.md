@@ -79,6 +79,16 @@ The rules:
 - **Components must never inject repositories** (`I*Repository`). When a page component loads its own data, it goes through a `*Handler`. There are no exceptions.
 - **Multiple loads inside one component must be awaited sequentially** — never `Task.WhenAll` over handler or repository calls.
 
+### The Loot Feed Loads Its Swimlanes After First Paint
+
+The feed page route (`GetPage`) and both routable feed pages are deliberately **query-free and synchronous** so the shell paints without a DB round-trip (~15ms / 7KB, versus ~1.2s when it was server-rendered). `LootFeedContent` renders skeleton columns plus `hx-trigger="load"` on `#feed-grid-container`, which then fetches `GetGrid`.
+
+That one grid response carries **both** halves of the feed together — the backfill entries and the `sse-connect` attributes — so history and live streaming arrive in the same swap and htmx opens the EventSources as it processes the new nodes. Keep them together: splitting them would open a window where published drops are missed. Do not reintroduce a handler on the page route.
+
+The saved tier filter is appended by site.js's `htmx:configRequest` hook (it matches any `/api/loot/feed/**/grid` request), so the initial fetch is already filtered and `initFeedFilter` must NOT re-fetch — that would double-request and re-open every stream.
+
+`StreamFeed` flushes an SSE comment (`: connected`) immediately. Without it the response head is withheld until the first drop, leaving the browser's EventSource in CONNECTING — indistinguishable from a failed connection, unable to fire `onopen` or detect a dead socket.
+
 ### Luck Maths: One Path Only
 
 `SourceLootService` is the **only** place expected kill counts are computed. Never derive a rate from `numerator`/`denominator`/`rolls` at a call site — that bug shipped once in the (now deleted) progression auto-completer and made the same drop read "dry as the desert" on one page and "lucky" on another, because the hand-rolled maths skipped raid unique-table scaling and admin rate modifiers.
