@@ -73,16 +73,18 @@
                             <div class="rounded-lg shadow-sm border p-2 bg-slate-50 dark:bg-slate-900 @TierCardClasses(tier)">
                                 <div class="flex items-center gap-1.5 min-w-0">
                                     <img src="/api/images/item-icon?name=@Uri.EscapeDataString(drop.Name)" alt="@drop.Name"
-                                         class="w-5 h-5 shrink-0" loading="lazy" onerror="this.style.display='none'" />
+                                         class="w-5 h-5 shrink-0 object-contain" loading="lazy" onerror="this.style.display='none'" />
                                     <span class="text-xs font-medium text-slate-800 dark:text-slate-100 truncate">@drop.Name</span>
                                     @if (drop.TotalQuantity > 1)
                                     {
                                         <span class="text-[10px] text-slate-500 dark:text-white shrink-0">×@drop.TotalQuantity.ToString("N0")</span>
                                     }
                                 </div>
-                                <div class="flex items-center justify-between gap-2 mt-1">
-                                    <span class="px-1 py-0 rounded-sm text-[9px] font-semibold uppercase tracking-wide @TierBadgeClasses(tier)"
-                                          title="@($"Biggest single drop: {GoldFormat.Format(drop.BestDropValue)}")">@tier</span>
+                                @* No tier word: the border colour already says which lane this
+                                   item can headline, and spelling it out just adds noise. The
+                                   biggest single drop stays available on hover. *@
+                                <div class="flex items-center justify-end gap-2 mt-1"
+                                     title="@($"Biggest single drop: {GoldFormat.Format(drop.BestDropValue)}")">
                                     <span class="text-xs font-medium text-amber-600 dark:text-amber-400 whitespace-nowrap">@GoldFormat.Format(drop.TotalValue)</span>
                                 </div>
                             </div>
@@ -99,7 +101,7 @@
                                  title="@($"{drop.Name} — ×{drop.TotalQuantity:N0} for {GoldFormat.Format(drop.TotalValue)}")">
                                 <span class="text-slate-700 dark:text-slate-100 truncate inline-flex items-center gap-1 min-w-0">
                                     <img src="/api/images/item-icon?name=@Uri.EscapeDataString(drop.Name)" alt=""
-                                         class="w-3.5 h-3.5 shrink-0" loading="lazy" onerror="this.style.display='none'" />
+                                         class="w-4 h-4 shrink-0 object-contain" loading="lazy" onerror="this.style.display='none'" />
                                     <span class="truncate">@drop.Name</span>
                                     @if (drop.TotalQuantity > 1)
                                     {
@@ -259,13 +261,4 @@
         _ => "border-slate-200 dark:border-slate-700"
     };
 
-    // Matches LootFeedItem's per-drop chip tint.
-    private static string TierBadgeClasses(LootFeedTier tier) => tier switch
-    {
-        LootFeedTier.Legendary => "bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300",
-        LootFeedTier.Epic => "bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300",
-        LootFeedTier.Rare => "bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300",
-        LootFeedTier.Uncommon => "bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-300",
-        _ => "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-white"
-    };
 }
