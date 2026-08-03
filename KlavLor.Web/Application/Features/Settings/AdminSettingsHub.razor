@@ -186,6 +186,16 @@
             </div>
         </section>
 
+        <section id="delve-depths" class="scroll-mt-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40 p-5">
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Average delve depth</h2>
+            <p class="text-sm text-slate-500 dark:text-white mb-3">
+                Doom of Mokhaiotl rolls its loot once per delve level, so luck has to be measured in delves rather than runs — but the loot itself never says how deep a run went. Set a character's real average here to make their Doom rates and luck accurate; anyone without an override is assumed to average @KlavLor.Application.Features.Loot.DelveDepth.CharacterDelveDepthAdminHandler.DefaultDepth delves per run.
+            </p>
+            <div hx-get="@AppRoutes.AdminDelveDepth.FromApi()" hx-trigger="load" hx-swap="innerHTML">
+                <div class="h-24 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
+            </div>
+        </section>
+
         <section id="leaderboard" class="scroll-mt-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40 p-5">
             <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Leaderboard exclusions</h2>
             <p class="text-sm text-slate-500 dark:text-white mb-3">
@@ -279,6 +289,7 @@
         ("modifiers", "Rate modifiers"),
         ("special", "Special loot"),
         ("baselines", "Baseline KC"),
+        ("delve-depths", "Delve depth"),
         ("leaderboard", "Leaderboards"),
         ("icons", "Broken icons"),
         ("sources", "Source names"),

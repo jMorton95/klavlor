@@ -105,6 +105,7 @@ public sealed class LuckLeaderboardRefreshService(
             var sourceLoot = scope.ServiceProvider.GetRequiredService<SourceLootService>();
             var exclusions = scope.ServiceProvider.GetRequiredService<ILeaderboardSourceExclusionRepository>();
             var itemExclusions = scope.ServiceProvider.GetRequiredService<ILeaderboardItemExclusionRepository>();
+            var delveDepths = scope.ServiceProvider.GetRequiredService<ICharacterDelveDepthRepository>();
 
             // Admin-blacklisted sources (wrong stored rates) are dropped from both boards.
             var excluded = (await exclusions.GetExcludedSourceNames())
@@ -142,7 +143,11 @@ public sealed class LuckLeaderboardRefreshService(
                     if (excluded.Contains(source)) { excludedSkipped++; continue; }
 
                     var collection = await lootLog.GetSourceCollection(charId, source);
-                    var entries = BuildEntries(generation, charId, charName, source, collection, sourceLoot, excludedItems);
+                    // Same admin delve-depth override the character page honours, so the board and
+                    // the page can never disagree about how deep a player's runs were.
+                    var overrideDepth = await delveDepths.GetAverageDepth(charId, source);
+                    var entries = BuildEntries(
+                        generation, charId, charName, source, collection, sourceLoot, excludedItems, overrideDepth);
                     if (entries.Count > 0)
                     {
                         await board.InsertEntries(entries);
@@ -175,13 +180,13 @@ public sealed class LuckLeaderboardRefreshService(
 
     private static List<LuckLeaderboardEntry> BuildEntries(
         long gen, int charId, string charName, string source, SourceCollection collection,
-        SourceLootService sourceLoot, IReadOnlySet<string> excludedItems)
+        SourceLootService sourceLoot, IReadOnlySet<string> excludedItems, int? overrideDepth)
     {
         var entries = new List<LuckLeaderboardEntry>();
         // Same shared normalisation the character page uses. Without it the raw run list contains a
         // zero depth for every record the backfill hasn't stamped, and for every non-depth source,
         // which would zero out the observed figure and silently drop entries from the board.
-        var runs = sourceLoot.NormaliseRuns(source, collection.Runs);
+        var runs = sourceLoot.NormaliseRuns(source, collection.Runs, overrideDepth);
         var allDepths = runs.Select(r => r.Depth).ToList();
 
         // Obtained clog items → a spoon if received faster than expected, a dry streak if slower.

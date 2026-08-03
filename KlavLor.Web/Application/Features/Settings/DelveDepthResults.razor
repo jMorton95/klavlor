@@ -1,0 +1,32 @@
+@using KlavLor.Application.Features.Loot.DelveDepth
+
+@if (Rows.Count == 0)
+{
+    <p class="text-sm text-slate-400 dark:text-white py-2">
+        No overrides configured. Every character is assumed to average @CharacterDelveDepthAdminHandler.DefaultDepth delves per run.
+    </p>
+}
+else
+{
+    <div class="space-y-1">
+        @foreach (var r in Rows)
+        {
+            <div class="flex items-center justify-between gap-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2">
+                <span class="text-sm text-slate-700 dark:text-slate-100 truncate min-w-0">@r.CharacterName <span class="text-slate-400 dark:text-white">·</span> @r.SourceName</span>
+                <span class="inline-flex items-center gap-2 shrink-0">
+                    <span class="text-xs font-mono text-amber-600 dark:text-amber-400 tabular-nums">@r.AverageDepth delves / run</span>
+                    <button type="button"
+                            hx-delete="@($"{AppRoutes.AdminDelveDepthRemove.FromApi()}?characterId={r.CharacterId}&source={Uri.EscapeDataString(r.SourceName)}")"
+                            hx-target="#cdd-results"
+                            hx-swap="innerHTML"
+                            class="text-xs text-slate-400 hover:text-rose-500 dark:text-white dark:hover:text-rose-400 cursor-pointer"
+                            title="Clear this override and fall back to the assumed default">Clear</button>
+                </span>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public List<CharacterDelveDepthRow> Rows { get; set; } = [];
+}

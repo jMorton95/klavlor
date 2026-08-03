@@ -179,6 +179,11 @@ public static class AppRoutes
     public const string AdminSourceModifierRemove = "/admin/settings/source-modifiers/remove";
     public const string AdminBaseline = "/admin/settings/baselines";
     public const string AdminBaselineSet = "/admin/settings/baselines/set";
+
+    // Admin-set average delve depth per character, for depth-modelled sources (Doom).
+    public const string AdminDelveDepth = "/admin/settings/delve-depths";
+    public const string AdminDelveDepthSet = "/admin/settings/delve-depths/set";
+    public const string AdminDelveDepthRemove = "/admin/settings/delve-depths/remove";
     public const string AdminSpecialLoot = "/admin/settings/special-loot";
     public const string AdminSpecialLootItemSearch = "/admin/settings/special-loot/item-search";
     public const string AdminSpecialLootInject = "/admin/settings/special-loot/inject";

@@ -106,9 +106,16 @@ public sealed class SourceLootService
     //   - depth-modelled sources get any missing depth derived from the claim's own drops, so the
     //     model works on records the backfill hasn't stamped yet instead of silently degrading to a
     //     plain run count. That gate is exactly why Doom looked broken.
-    public IReadOnlyList<SourceRun> NormaliseRuns(string sourceName, IReadOnlyList<SourceRun> runs)
+    // overrideDepth is the admin-set average delve depth for this character at this source, when one
+    // is configured. It wins outright: depth cannot be read from the payload, so an admin who knows
+    // the player's real average is a better source of truth than our assumption.
+    public IReadOnlyList<SourceRun> NormaliseRuns(
+        string sourceName, IReadOnlyList<SourceRun> runs, int? overrideDepth = null)
     {
         if (!HasDepthModel(sourceName) || runs.Count == 0) return [];
+
+        if (overrideDepth is > 0)
+            return runs.Select(r => r with { Depth = overrideDepth.Value }).ToList();
 
         var result = new List<SourceRun>(runs.Count);
         foreach (var run in runs)

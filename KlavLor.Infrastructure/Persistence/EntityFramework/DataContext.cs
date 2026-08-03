@@ -39,6 +39,7 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
     public virtual DbSet<JobRun> JobRuns => Set<JobRun>();
     public virtual DbSet<JobSchedule> JobSchedules => Set<JobSchedule>();
     public virtual DbSet<CharacterSourceBaseline> CharacterSourceBaselines => Set<CharacterSourceBaseline>();
+    public virtual DbSet<CharacterDelveDepth> CharacterDelveDepths => Set<CharacterDelveDepth>();
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -485,6 +486,10 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
 
         // Admin baseline kill counts, keyed by (character, source).
         modelBuilder.Entity<CharacterSourceBaseline>()
+            .HasKey(e => new { e.GameCharacterId, e.SourceName });
+
+        // Admin average delve depths, keyed the same way.
+        modelBuilder.Entity<CharacterDelveDepth>()
             .HasKey(e => new { e.GameCharacterId, e.SourceName });
 
         // Entity base class configuration (timestamps and row versions)

@@ -9,6 +9,7 @@ public sealed class LootCharacterProfileHandler(
     ILootLogRepository lootLogRepository,
     CharacterAccessChecker accessChecker,
     SourceLootService sourceLoot,
+    ICharacterDelveDepthRepository delveDepths,
     IMemoryCache cache)
 {
     public async Task<Result<ProfileHeader>> HandleHeader(int characterId)
@@ -118,8 +119,10 @@ public sealed class LootCharacterProfileHandler(
         var collection = await lootLogRepository.GetSourceCollection(characterId, sourceName);
 
         // One shared normalisation for every consumer of Runs: empty for sources with no depth
-        // model, and missing depths derived on read so the model doesn't wait on the backfill.
-        collection = collection with { Runs = sourceLoot.NormaliseRuns(sourceName, collection.Runs) };
+        // model, the admin's average applied when one is configured, and otherwise the assumed
+        // default, so the model never waits on the derivation backfill.
+        var overrideDepth = await delveDepths.GetAverageDepth(characterId, sourceName);
+        collection = collection with { Runs = sourceLoot.NormaliseRuns(sourceName, collection.Runs, overrideDepth) };
 
         // Normalise every item's expected kills-to-drop through SourceLootService so the character
         // page's rate column, luck pills and distribution charts agree with the leaderboard and

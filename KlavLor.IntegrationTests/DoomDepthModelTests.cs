@@ -1,4 +1,5 @@
 using KlavLor.Application.Features.Loot.Log;
+using KlavLor.Application.Features.Loot.Log;
 using KlavLor.Application.Features.Loot.SourceModels;
 using KlavLor.Application.Interfaces.Services;
 
@@ -146,6 +147,60 @@ public sealed class DoomDepthModelTests
 
         // ...while the items the model does cover still resolve.
         Assert.NotNull(svc.EffectiveRate(Doom, Cloth, null, null, 1, runDepths: [7, 7, 7]));
+    }
+
+    [Fact]
+    public void A_run_is_credited_with_the_assumed_average_depth()
+    {
+        // Depth can't be read from the payload, so a claim with nothing depth-revealing in it is
+        // credited with the stated assumption rather than an inference from tear counts.
+        var doom = new DoomLootStrategy();
+
+        Assert.Equal(DoomLootStrategy.AssumedAverageDepth,
+            doom.EffectiveKills([new ClaimDrop("Demon tears", 250)]));
+        Assert.Equal(6, DoomLootStrategy.AssumedAverageDepth);
+    }
+
+    [Fact]
+    public void A_claimed_unique_raises_the_depth_when_it_proves_a_deeper_run()
+    {
+        var doom = new DoomLootStrategy();
+
+        // Nothing gates deeper than the assumption, so these stay at the assumed average...
+        Assert.Equal(6, doom.EffectiveKills([new ClaimDrop("Mokhaiotl cloth", 1)]));
+        Assert.Equal(6, doom.EffectiveKills([new ClaimDrop("Avernic treads", 1)]));
+        // ...and tear quantity is deliberately ignored entirely, however large.
+        Assert.Equal(6, doom.EffectiveKills([new ClaimDrop("Demon tears", 5000)]));
+    }
+
+    [Fact]
+    public void An_admin_override_replaces_every_run_depth()
+    {
+        var svc = Service();
+        var runs = new List<SourceRun>
+        {
+            new(1, DateTimeOffset.UnixEpoch, 3),
+            new(2, DateTimeOffset.UnixEpoch, 6),
+        };
+
+        var overridden = svc.NormaliseRuns(Doom, runs, overrideDepth: 9);
+        Assert.All(overridden, r => Assert.Equal(9, r.Depth));
+
+        // No override leaves the stored depths alone.
+        var untouched = svc.NormaliseRuns(Doom, runs);
+        Assert.Equal([3, 6], untouched.Select(r => r.Depth));
+    }
+
+    [Fact]
+    public void Runs_are_discarded_for_sources_with_no_depth_model()
+    {
+        // Raids store an EffectiveKills of 1 per completion, which is a roll count and must not be
+        // mistaken for a depth — otherwise the page announces "N delves across N runs".
+        var runs = new List<SourceRun> { new(1, DateTimeOffset.UnixEpoch, 1) };
+
+        Assert.Empty(Service().NormaliseRuns("Chambers of Xeric", runs));
+        Assert.Empty(Service().NormaliseRuns("Vorkath", runs));
+        Assert.NotEmpty(Service().NormaliseRuns(Doom, runs));
     }
 
     private sealed class NoModifiers : ISourceRateModifierCache

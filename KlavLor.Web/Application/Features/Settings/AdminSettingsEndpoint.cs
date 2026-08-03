@@ -4,6 +4,7 @@ using KlavLor.Application.Features.CollectionLog;
 using KlavLor.Application.Features.DropRates;
 using KlavLor.Application.Common;
 using KlavLor.Application.Features.Loot.Baseline;
+using KlavLor.Application.Features.Loot.DelveDepth;
 using KlavLor.Application.Features.Loot.Leaderboard;
 using KlavLor.Application.Features.Loot.Special;
 using KlavLor.Application.Features.Loot.SourceModels;
@@ -104,6 +105,19 @@ public sealed class AdminSettingsEndpoint : IEndpoint
             .RequireAuthorization(nameof(RoleName.Admin));
 
         app.MapPost(AppRoutes.AdminBaselineSet.FromApi(), SetBaseline)
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("mutation")
+            .DisableAntiforgery();
+
+        app.MapGet(AppRoutes.AdminDelveDepth.FromApi(), GetDelveDepths)
+            .RequireAuthorization(nameof(RoleName.Admin));
+
+        app.MapPost(AppRoutes.AdminDelveDepthSet.FromApi(), SetDelveDepth)
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("mutation")
+            .DisableAntiforgery();
+
+        app.MapDelete(AppRoutes.AdminDelveDepthRemove.FromApi(), RemoveDelveDepth)
             .RequireAuthorization(nameof(RoleName.Admin))
             .RequireRateLimiting("mutation")
             .DisableAntiforgery();
@@ -378,6 +392,32 @@ public sealed class AdminSettingsEndpoint : IEndpoint
         var characters = await handler.GetCharacters();
         var rows = await handler.List();
         return IResultExtensions.Component<CharacterBaselinePanel>(new { Characters = characters, Rows = rows });
+    }
+
+    private static async Task<RazorComponentResult> GetDelveDepths(CharacterDelveDepthAdminHandler handler)
+    {
+        var characters = await handler.GetCharacters();
+        var rows = await handler.List();
+        return IResultExtensions.Component<DelveDepthPanel>(new { Characters = characters, Rows = rows });
+    }
+
+    private static async Task<RazorComponentResult> SetDelveDepth(
+        [FromForm] int characterId,
+        [FromForm] string sourceName,
+        [FromForm] int averageDepth,
+        CharacterDelveDepthAdminHandler handler)
+    {
+        var rows = await handler.Set(characterId, sourceName, averageDepth);
+        return IResultExtensions.Component<DelveDepthResults>(new { Rows = rows });
+    }
+
+    private static async Task<RazorComponentResult> RemoveDelveDepth(
+        [FromQuery] int characterId,
+        [FromQuery] string source,
+        CharacterDelveDepthAdminHandler handler)
+    {
+        var rows = await handler.Remove(characterId, source);
+        return IResultExtensions.Component<DelveDepthResults>(new { Rows = rows });
     }
 
     private static async Task<RazorComponentResult> SetBaseline(

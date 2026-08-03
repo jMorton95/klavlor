@@ -6,13 +6,21 @@ namespace KlavLor.Application.Features.Loot.SourceModels;
 // Module:Doom_of_Mokhaiotl_loot, indexed by min(level, 9); 0 = the item can't roll at that
 // level yet. Deep delves past 8 repeat the level-9 rate.
 //
-// We can't read delve depth from the loot payload, so we estimate it from the claimed items:
-// each unique gates a minimum depth, and the guaranteed Demon tears scale with depth (a
-// stronger signal). EffectiveKills returns that estimate so a deep run contributes its true
-// weight to the kill count. Accuracy is deliberately approximate.
+// We can't read delve depth from the loot payload. An earlier version inferred it from the Demon
+// tear quantity, but that isn't depth-proportional — the wiki gives 50 guaranteed plus a 100-300
+// roll at 7/104 — and the inference read systematically low (averaging ~4.8 against a real ~7, with
+// 9% of completed runs scoring depth 1). Rather than dress a guess up as a measurement, a run is now
+// credited with AssumedAverageDepth, raised only where a claimed unique proves it went deeper.
+// Admins override the average per character from the admin hub, which is the only way to be accurate
+// until depth is captured at source.
 public sealed class DoomLootStrategy() : SourceLootStrategy("Doom of Mokhaiotl")
 {
     private const int MaxLevel = 9; // the level-9 rate also covers all deeper "deep delves"
+
+    // Assumed delves per run when we have nothing better. A stated assumption, not a measurement:
+    // it is deliberately visible and adjustable rather than buried in a heuristic. Admins override
+    // it per character via CharacterDelveDepth.
+    public const int AssumedAverageDepth = 6;
 
     // Per-item drop-rate denominator by delve level (index 0 unused; 1..9). 0 = not eligible yet.
     private static readonly int[] Cloth  = { 0, 0, 2500, 2000, 1350, 810, 765, 720, 630, 540 };
@@ -65,25 +73,24 @@ public sealed class DoomLootStrategy() : SourceLootStrategy("Doom of Mokhaiotl")
         return expectedDrops > 0 && totalDelves > 0 ? totalDelves / expectedDrops : null;
     }
 
-    // Deepest delve the claim proves the run reached: the max of the unique-item gates present
-    // and the depth implied by the Demon tears quantity. Never below 1.
+    // The delve depth we credit a run with: the stated assumption, raised when a claimed unique
+    // proves the run must have gone deeper than that (each unique only rolls from its own level up).
+    // Never an inference from tear counts — see the note at the top of this file.
     public int EstimateDepth(IReadOnlyList<ClaimDrop> drops)
     {
-        var depth = 1;
-        var tears = 0;
+        var provenFloor = 1;
 
         foreach (var d in drops)
         {
             var name = d.ItemName;
-            if (Contains(name, "Avernic treads")) depth = Math.Max(depth, 4);
-            else if (Contains(name, "Eye of ayak")) depth = Math.Max(depth, 3);
-            else if (Contains(name, "Mokhaiotl cloth")) depth = Math.Max(depth, 2);
+            if (Contains(name, "Avernic treads")) provenFloor = Math.Max(provenFloor, 4);
+            else if (Contains(name, "Eye of ayak")) provenFloor = Math.Max(provenFloor, 3);
+            else if (Contains(name, "Mokhaiotl cloth")) provenFloor = Math.Max(provenFloor, 2);
 
-            if (string.Equals(name, "Dom", StringComparison.OrdinalIgnoreCase)) depth = Math.Max(depth, 6);
-            if (Contains(name, "Demon tear")) tears += d.Quantity;
+            if (string.Equals(name, "Dom", StringComparison.OrdinalIgnoreCase)) provenFloor = Math.Max(provenFloor, 6);
         }
 
-        return Math.Max(depth, TearsToDepth(tears));
+        return Math.Max(AssumedAverageDepth, provenFloor);
     }
 
     // Probability of receiving at least one of an item across a run that reached `depth`,
@@ -111,18 +118,6 @@ public sealed class DoomLootStrategy() : SourceLootStrategy("Doom of Mokhaiotl")
         if (string.Equals(itemName, "Dom", StringComparison.OrdinalIgnoreCase)) return Pet;
         return null;
     }
-
-    // Guaranteed Demon tears accumulate ~50/110/180/260/350/450 by delve 3..8.
-    private static int TearsToDepth(int tears) => tears switch
-    {
-        >= 450 => 8,
-        >= 350 => 7,
-        >= 260 => 6,
-        >= 180 => 5,
-        >= 110 => 4,
-        >= 50 => 3,
-        _ => 1
-    };
 
     private static bool Contains(string haystack, string needle) =>
         haystack.Contains(needle, StringComparison.OrdinalIgnoreCase);
