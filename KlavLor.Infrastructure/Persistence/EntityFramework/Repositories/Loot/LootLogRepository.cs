@@ -2274,10 +2274,15 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             // computed from the depth each run actually reached, otherwise every shallow run is
             // scored as if it had gone as deep as the player's best ever, which overstates the
             // odds and reports everyone as dry. Empty for ordinary sources (EffectiveKills null).
+            // Every claim at this source, with its stored depth where the backfill has derived one
+            // and its DropsJson so the handler can derive the rest on read. Deliberately NOT
+            // filtered to EffectiveKills != null: gating on that left the whole depth model inert
+            // for any character whose records the backfill had not reached, which is how Doom ended
+            // up showing a plain run count. The handler discards this for non-depth sources.
             var runs = await dataContext.LootRecords
-                .Where(r => r.GameCharacterId == characterId && r.SourceName == sourceName && r.EffectiveKills != null)
+                .Where(r => r.GameCharacterId == characterId && r.SourceName == sourceName)
                 .OrderBy(r => r.OccurredAt).ThenBy(r => r.Id)
-                .Select(r => new SourceRun(r.Id, r.OccurredAt, r.EffectiveKills!.Value))
+                .Select(r => new SourceRun(r.Id, r.OccurredAt, r.EffectiveKills ?? 0, r.DropsJson))
                 .ToListAsync();
 
             var connection = dataContext.Database.GetDbConnection();

@@ -89,7 +89,11 @@ public sealed record BiggestItem(
 
 /// One actual claim at a depth-modelled source (e.g. one Doom run), carrying the depth that
 /// claim's loot proves it reached. Ordered oldest-first. Empty for ordinary sources.
-public sealed record SourceRun(int RecordId, DateTimeOffset OccurredAt, int Depth);
+/// One actual claim at a depth-modelled source (e.g. one Doom run). Depth is the stored
+/// EffectiveKills where the backfill has derived it, otherwise 0 — in which case DropsJson lets the
+/// handler derive it on read, so the page is correct even before the backfill has run. Ordered
+/// oldest-first. Empty for sources with no depth model.
+public sealed record SourceRun(int RecordId, DateTimeOffset OccurredAt, int Depth, string? DropsJson = null);
 
 public sealed record SourceCollection(
     string SourceName,
@@ -107,7 +111,10 @@ public sealed record SourceCollection(
     /// This - not CharacterKc - is what a Doom luck figure must be measured against, because the
     /// rates are per delve level and one run can be four delves or twenty.
     /// </summary>
-    public int TotalDelves { get; } = Runs.Sum(r => r.Depth);
+    // Computed, NOT an initialised auto-property: `with { Runs = [] }` copies backing fields and
+    // does not re-run initialisers, so an initialised TotalDelves kept its old value and left raids
+    // reporting "520 delves across 520 runs" after Runs had been cleared.
+    public int TotalDelves => Runs.Sum(r => r.Depth);
 
     /// <summary>Whether this source's odds are modelled per delve rather than per kill.</summary>
     public bool IsDepthModelled => TotalDelves > 0;

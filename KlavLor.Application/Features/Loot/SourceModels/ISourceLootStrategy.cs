@@ -47,6 +47,12 @@ public interface ISourceLootStrategy
     // a stored per-level rarity that is meaningless as a per-run chance, and falling back to it
     // reported players as "21x dry" on an item they receive every single run.
     bool OverridesStoredRates { get; }
+
+    // Whether this source's odds depend on how far a run went, i.e. whether EffectiveKills is a
+    // DEPTH rather than a roll count. Raids also store an EffectiveKills (always 1, one completion),
+    // so "EffectiveKills is set" is NOT the same question and must not be used as a proxy for it —
+    // doing so had the character page announcing "790 delves across 790 runs" for Chambers of Xeric.
+    bool HasDepthModel { get; }
 }
 
 public abstract class SourceLootStrategy(string sourceName) : ISourceLootStrategy
@@ -69,4 +75,8 @@ public abstract class SourceLootStrategy(string sourceName) : ISourceLootStrateg
 
     // Ordinary and raid sources still trust the stored wiki rates.
     public virtual bool OverridesStoredRates => false;
+
+    // Only depth-aware sources (Doom) model depth. Raids also carry an EffectiveKills — always 1,
+    // because a raid is one completion — so that field's presence is NOT evidence of a depth model.
+    public virtual bool HasDepthModel => false;
 }

@@ -1,4 +1,7 @@
+using System.Text.Json;
+using KlavLor.Application.Features.Loot.Log;
 using KlavLor.Application.Interfaces.Services;
+using KlavLor.Domain.Entities;
 
 namespace KlavLor.Application.Features.Loot.SourceModels;
 
@@ -82,12 +85,63 @@ public sealed class SourceLootService
     {
         var expected = ExpectedCompletions(sourceName, itemName, numerator ?? 1, denominator ?? 0, rolls, runDepths);
         if (expected is <= 0 or >= double.MaxValue || double.IsNaN(expected)) return null;
-        return (expected, $"1/{Math.Round(expected):N0}");
+        // Name the unit for depth-modelled sources. Doom's figure is expected DELVES, and it can sit
+        // well outside the wiki's per-level band (1/1,350 down to 1/540 for Avernic treads) because
+        // the average is taken over every delve including the shallow levels where the item cannot
+        // roll at all. A bare "1/2,269" printed beside a wiki rate of 1/1,350 reads as a bug; saying
+        // "delves" makes it a different, correct statistic rather than a mysterious one.
+        var label = HasDepthModel(sourceName)
+            ? $"1/{Math.Round(expected):N0} delves"
+            : $"1/{Math.Round(expected):N0}";
+        return (expected, label);
+    }
+
+    // Turns the raw run list the repository returns into the depth profile the luck maths needs.
+    // Every consumer of SourceCollection.Runs must go through this, because the repository cannot
+    // know which sources model depth:
+    //
+    //   - sources with no depth model get an EMPTY list (raids store an EffectiveKills of 1 per
+    //     completion, which is a roll count, not a depth — treating it as one had Chambers of Xeric
+    //     reporting "520 delves across 520 runs"), and
+    //   - depth-modelled sources get any missing depth derived from the claim's own drops, so the
+    //     model works on records the backfill hasn't stamped yet instead of silently degrading to a
+    //     plain run count. That gate is exactly why Doom looked broken.
+    public IReadOnlyList<SourceRun> NormaliseRuns(string sourceName, IReadOnlyList<SourceRun> runs)
+    {
+        if (!HasDepthModel(sourceName) || runs.Count == 0) return [];
+
+        var result = new List<SourceRun>(runs.Count);
+        foreach (var run in runs)
+        {
+            result.Add(run.Depth > 0
+                ? run
+                : run with { Depth = EffectiveKills(sourceName, ParseClaim(run.DropsJson)) });
+        }
+        return result;
+    }
+
+    private static List<ClaimDrop> ParseClaim(string? dropsJson)
+    {
+        if (string.IsNullOrWhiteSpace(dropsJson)) return [];
+        try
+        {
+            var drops = JsonSerializer.Deserialize<List<LootDrop>>(dropsJson);
+            return drops is null ? [] : drops.Select(d => new ClaimDrop(d.Name, d.Quantity)).ToList();
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
     }
 
     // True when this source's strategy owns its rates outright, so callers know that "no effective
     // rate" means "we genuinely have none" rather than "fall back to the stored wiki value".
     public bool OverridesStoredRates(string sourceName) => Resolve(sourceName).OverridesStoredRates;
+
+    // True when this source's stored EffectiveKills is a delve DEPTH, so luck should be judged in
+    // delves. False for raids, whose EffectiveKills is always 1 (one completion) and which must not
+    // be presented as depth-modelled.
+    public bool HasDepthModel(string sourceName) => Resolve(sourceName).HasDepthModel;
 
     private ISourceLootStrategy Resolve(string sourceName) =>
         _special.TryGetValue(sourceName, out var strategy) ? strategy : _default;

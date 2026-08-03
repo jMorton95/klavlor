@@ -33,6 +33,9 @@ public sealed class DoomLootStrategy() : SourceLootStrategy("Doom of Mokhaiotl")
     // Items this strategy does not model therefore have no rate, rather than a wrong one.
     public override bool OverridesStoredRates => true;
 
+    // Doom is the one source whose EffectiveKills is a delve depth rather than a roll count.
+    public override bool HasDepthModel => true;
+
     // Expected DELVES to a first drop, computed from the depth of every run the player actually did.
     //
     // Doom's odds are per delve level, not per run: a single claim can be anywhere from one to

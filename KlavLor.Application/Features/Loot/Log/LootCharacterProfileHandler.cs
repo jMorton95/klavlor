@@ -117,6 +117,10 @@ public sealed class LootCharacterProfileHandler(
 
         var collection = await lootLogRepository.GetSourceCollection(characterId, sourceName);
 
+        // One shared normalisation for every consumer of Runs: empty for sources with no depth
+        // model, and missing depths derived on read so the model doesn't wait on the backfill.
+        collection = collection with { Runs = sourceLoot.NormaliseRuns(sourceName, collection.Runs) };
+
         // Normalise every item's expected kills-to-drop through SourceLootService so the character
         // page's rate column, luck pills and distribution charts agree with the leaderboard and
         // the live feed: raid unique-table shares, multi-roll tables, Doom's per-run depth model,

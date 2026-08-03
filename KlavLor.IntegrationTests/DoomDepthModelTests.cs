@@ -103,7 +103,7 @@ public sealed class DoomDepthModelTests
 
         Assert.NotNull(rate);
         Assert.Equal(ClothDepth9ExpectedDelves, rate!.Value.ExpectedKc, 6);
-        Assert.Equal("1/1,003", rate.Value.Rarity);
+        Assert.Equal("1/1,003 delves", rate.Value.Rarity);
 
         // Sanity-check the model against the published per-level table rather than trusting the
         // constant: cloth rolls once per cleared level from 2 to 9, and the answer is in delves.

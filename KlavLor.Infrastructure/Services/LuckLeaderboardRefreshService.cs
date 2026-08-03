@@ -178,7 +178,11 @@ public sealed class LuckLeaderboardRefreshService(
         SourceLootService sourceLoot, IReadOnlySet<string> excludedItems)
     {
         var entries = new List<LuckLeaderboardEntry>();
-        var allDepths = collection.Runs.Select(r => r.Depth).ToList();
+        // Same shared normalisation the character page uses. Without it the raw run list contains a
+        // zero depth for every record the backfill hasn't stamped, and for every non-depth source,
+        // which would zero out the observed figure and silently drop entries from the board.
+        var runs = sourceLoot.NormaliseRuns(source, collection.Runs);
+        var allDepths = runs.Select(r => r.Depth).ToList();
 
         // Obtained clog items → a spoon if received faster than expected, a dry streak if slower.
         foreach (var e in collection.Entries)
@@ -191,7 +195,7 @@ public sealed class LuckLeaderboardRefreshService(
             // be four delves deep or twenty, so a run count can't be compared against them. The
             // window stops at the drop itself, so a shallow grind isn't judged as if every run had
             // been a deep delve, and the observed figure is the delves done up to that same point.
-            var window = DepthsUpTo(collection.Runs, e.FirstRecordId);
+            var window = DepthsUpTo(runs, e.FirstRecordId);
             var observed = window.Count > 0
                 ? window.Sum()
                 : e.KillCount ?? e.KillOrdinal ?? 0; // prefer the real RuneLite KC, else logged ordinal
