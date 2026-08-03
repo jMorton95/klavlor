@@ -15,7 +15,13 @@ public sealed class LootFeedEndpoint : IEndpoint
             .AllowAnonymous()
             .RequireRateLimiting("anonymous");
 
-        app.MapGet(AppRoutes.LootFeedGrid.FromApi(), (LootFeedTiersHandler handler, string? tiers) => GetGrid(handler, LootFeedScope.Main, tiers))
+        // Grid = swimlane shells only, no loot and no query. Each shell then fetches its own tier.
+        app.MapGet(AppRoutes.LootFeedGrid.FromApi(), (string? tiers) => GetGrid(LootFeedScope.Main, tiers))
+            .AllowAnonymous()
+            .RequireRateLimiting("anonymous");
+
+        app.MapGet(AppRoutes.LootFeedColumn.FromApi(), (string tier, int? cols, LootFeedTiersHandler handler) =>
+                GetColumn(handler, LootFeedScope.Main, tier, cols))
             .AllowAnonymous()
             .RequireRateLimiting("anonymous");
 
@@ -34,10 +40,17 @@ public sealed class LootFeedEndpoint : IEndpoint
             .AllowAnonymous()
             .RequireRateLimiting("anonymous");
 
-        app.MapGet(AppRoutes.LootFeedLeaguesGrid.FromApi(), async (LootFeedTiersHandler handler, ISystemSettingsCache settings, string? tiers) =>
+        app.MapGet(AppRoutes.LootFeedLeaguesGrid.FromApi(), IResult (ISystemSettingsCache settings, string? tiers) =>
+                settings.IsLeaguesEnabled
+                    ? GetGrid(LootFeedScope.Leagues, tiers)
+                    : TypedResults.NotFound())
+            .AllowAnonymous()
+            .RequireRateLimiting("anonymous");
+
+        app.MapGet(AppRoutes.LootFeedLeaguesColumn.FromApi(), async (string tier, int? cols, LootFeedTiersHandler handler, ISystemSettingsCache settings) =>
             {
                 if (!settings.IsLeaguesEnabled) return TypedResults.NotFound();
-                return await GetGrid(handler, LootFeedScope.Leagues, tiers);
+                return await GetColumn(handler, LootFeedScope.Leagues, tier, cols);
             })
             .AllowAnonymous()
             .RequireRateLimiting("anonymous");
@@ -78,22 +91,41 @@ public sealed class LootFeedEndpoint : IEndpoint
     private static RazorComponentResult GetPage(LootFeedScope scope)
         => IResultExtensions.Component<LootFeedContent>(new { Scope = scope });
 
-    private static async Task<IResult> GetGrid(LootFeedTiersHandler handler, LootFeedScope scope, string? tiers)
+    // Shells only — synchronous and query-free. Its sole job is to decide which lanes exist, since
+    // the active-tier filter lives in the browser and arrives as ?tiers=. Each lane then loads
+    // itself via GetColumn, so no request ever carries the whole grid.
+    private static RazorComponentResult GetGrid(LootFeedScope scope, string? tiers)
     {
         var requestedTiers = ParseTiers(tiers);
-        var tierData = await handler.Handle(scope, requestedTiers);
-
         return IResultExtensions.Component<LootFeedGrid>(new
         {
-            StandardEntries = (IReadOnlyList<LootFeedEntry>)tierData[LootFeedTier.Standard],
-            UncommonEntries = (IReadOnlyList<LootFeedEntry>)tierData[LootFeedTier.Uncommon],
-            RareEntries = (IReadOnlyList<LootFeedEntry>)tierData[LootFeedTier.Rare],
-            EpicEntries = (IReadOnlyList<LootFeedEntry>)tierData[LootFeedTier.Epic],
-            LegendaryEntries = (IReadOnlyList<LootFeedEntry>)tierData[LootFeedTier.Legendary],
             ActiveTiers = requestedTiers is not null
                 ? (IReadOnlyList<LootFeedTier>)requestedTiers.Order().ToList()
                 : (IReadOnlyList<LootFeedTier>)ILootFeedService.AllTiers,
             Scope = scope
+        });
+    }
+
+    // One swimlane: its backfill entries and its SSE subscription, in a single response so history
+    // and live streaming still arrive together.
+    //
+    // `cols` is the number of lanes the requesting shell laid out. The column replaces its own
+    // shell via outerHTML, so it has to reproduce that width or the lane would resize as it lands —
+    // and a single-tier response can't otherwise know how many siblings it has.
+    private static async Task<IResult> GetColumn(LootFeedTiersHandler handler, LootFeedScope scope, string tier, int? cols)
+    {
+        if (!Enum.TryParse<LootFeedTier>(tier, ignoreCase: true, out var parsed))
+            return Results.NotFound();
+
+        var tierData = await handler.Handle(scope, new HashSet<LootFeedTier> { parsed });
+
+        return IResultExtensions.Component<LootFeedColumn>(new
+        {
+            Tier = parsed,
+            Scope = scope,
+            Entries = (IReadOnlyList<LootFeedEntry>)tierData[parsed],
+            ColumnClass = FeedColumnLayout.ColumnClass(
+                Math.Clamp(cols ?? ILootFeedService.AllTiers.Length, 1, ILootFeedService.AllTiers.Length))
         });
     }
 

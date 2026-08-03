@@ -1,0 +1,51 @@
+@using KlavLor.Application.Features.Loot.Feed
+@using KlavLor.Application.Interfaces.Services
+
+@* One swimlane, fetched by its own API call. Each tier loads independently, so a slow tier can't
+   hold up the others and no request carries the whole grid.
+
+   Backfill and live streaming arrive together in this one response: the entries below are the
+   history, and sse-connect on the same element subscribes the column. Keep them together —
+   splitting them would open a window where published drops are missed. *@
+
+@{
+    var style = TierStyle.For(Tier);
+    var stream = TierStyle.StreamRoute(Tier, Scope).FromApi();
+}
+
+<div class="@ColumnClass">
+    <h2 class="text-xs font-semibold @style.HeaderClass mb-2 px-0.5">
+        @style.Label
+        <span class="text-[10px] font-normal text-slate-400 dark:text-white">@style.Range</span>
+    </h2>
+    <div id="feed-col-@style.Slug"
+         hx-ext="sse"
+         sse-connect="@stream"
+         sse-swap="message"
+         hx-swap="afterbegin"
+         hx-on::after-settle="if(this.children.length > 50) { while(this.children.length > 50) this.removeChild(this.lastElementChild); }"
+         class="space-y-2">
+        @if (Entries is not null && Entries.Count > 0)
+        {
+            @foreach (var entry in Entries)
+            {
+                <LootFeedItem Entry="@entry" />
+            }
+        }
+        else
+        {
+            <div class="feed-empty-state bg-slate-50 dark:bg-slate-900 rounded-lg shadow-sm border @style.EmptyBorderClass p-5 text-center">
+                <p class="text-xs text-slate-500 dark:text-white">No @style.Label.ToLowerInvariant() drops yet.</p>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public LootFeedTier Tier { get; set; }
+    [Parameter] public LootFeedScope Scope { get; set; } = LootFeedScope.Main;
+    [Parameter] public IReadOnlyList<LootFeedEntry>? Entries { get; set; }
+
+    // Passed in rather than derived, so the column matches the width the shell reserved for it.
+    [Parameter] public string ColumnClass { get; set; } = "";
+}

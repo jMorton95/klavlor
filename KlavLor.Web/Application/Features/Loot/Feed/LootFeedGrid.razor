@@ -1,187 +1,33 @@
 @using KlavLor.Application.Features.Loot.Feed
 @using KlavLor.Application.Interfaces.Services
-@using KlavLor.Web.Components.Layout
 
-@{
-    var isLeagues = Scope == LootFeedScope.Leagues;
-    var headerTitle = isLeagues ? "Leagues Feed" : "Loot Feed";
-    var headerPageTitle = isLeagues ? "KlavLor - Leagues Feed" : "KlavLor - Loot Feed";
-    var headerDescription = isLeagues
-        ? "Real-time loot drops from leagues characters"
-        : "Real-time loot drops from all users";
+@* Swimlane SHELLS only — this component touches no loot and issues no query.
 
-    // SSE stream URLs differ per scope; everything else (columns, styling, JS) is identical.
-    var streamStandard   = (isLeagues ? AppRoutes.LootFeedLeaguesStreamStandard   : AppRoutes.LootFeedStreamStandard).FromApi();
-    var streamUncommon   = (isLeagues ? AppRoutes.LootFeedLeaguesStreamUncommon   : AppRoutes.LootFeedStreamUncommon).FromApi();
-    var streamRare       = (isLeagues ? AppRoutes.LootFeedLeaguesStreamRare       : AppRoutes.LootFeedStreamRare).FromApi();
-    var streamEpic       = (isLeagues ? AppRoutes.LootFeedLeaguesStreamEpic       : AppRoutes.LootFeedStreamEpic).FromApi();
-    var streamLegendary  = (isLeagues ? AppRoutes.LootFeedLeaguesStreamLegendary  : AppRoutes.LootFeedStreamLegendary).FromApi();
-}
-
-@if (UpdateHeader)
-{
-    <TopBarMetaData PageTitle="@headerPageTitle" Title="@headerTitle" Description="@headerDescription" />
-}
+   Each lane then fetches itself from its own per-tier endpoint (LootFeedColumn), so one slow or
+   heavy tier can't hold up the rest and no single request carries the whole grid. This shell
+   response exists purely to decide WHICH lanes to render, because the active-tier filter lives in
+   the browser's localStorage and is sent up as ?tiers=... by site.js's htmx:configRequest hook. *@
 
 @{
     var activeTiers = ActiveTiers ?? ILootFeedService.AllTiers;
-    var colCount = activeTiers.Count;
-
-    var containerClass = FeedColumnLayout.ContainerClass(colCount);
-    var colClass = FeedColumnLayout.ColumnClass(colCount);
+    var containerClass = FeedColumnLayout.ContainerClass(activeTiers.Count);
+    var colClass = FeedColumnLayout.ColumnClass(activeTiers.Count);
 }
 
 <div class="@containerClass">
-    @if (activeTiers.Contains(LootFeedTier.Standard))
+    @foreach (var tier in activeTiers)
     {
-        <div class="@colClass">
-            <h2 class="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 px-0.5">
-                Standard
-                <span class="text-[10px] font-normal text-slate-400 dark:text-white">10K – 100K</span>
-            </h2>
-            <div id="feed-col-standard"
-                 hx-ext="sse"
-                 sse-connect="@streamStandard"
-                 sse-swap="message"
-                 hx-swap="afterbegin"
-                 hx-on::after-settle="if(this.children.length > 50) { while(this.children.length > 50) this.removeChild(this.lastElementChild); }"
-                 class="space-y-2">
-                @if (StandardEntries is not null && StandardEntries.Count > 0)
+        var style = TierStyle.For(tier);
+        <div class="@colClass"
+             hx-get="@(TierStyle.ColumnRoute(tier, Scope).FromApi() + "?cols=" + activeTiers.Count)"
+             hx-trigger="load"
+             hx-swap="outerHTML">
+            @* Skeleton matching the real column's header + card rhythm so nothing jumps. *@
+            <div class="h-4 w-24 mb-2 rounded bg-slate-200 dark:bg-slate-800 animate-pulse"></div>
+            <div class="space-y-2">
+                @for (var card = 0; card < 4; card++)
                 {
-                    @foreach (var entry in StandardEntries)
-                    {
-                        <LootFeedItem Entry="@entry" />
-                    }
-                }
-                else
-                {
-                    <div class="feed-empty-state bg-slate-50 dark:bg-slate-900 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 p-5 text-center">
-                        <p class="text-xs text-slate-500 dark:text-white">No standard drops yet.</p>
-                    </div>
-                }
-            </div>
-        </div>
-    }
-
-    @if (activeTiers.Contains(LootFeedTier.Uncommon))
-    {
-        <div class="@colClass">
-            <h2 class="text-xs font-semibold text-green-600 dark:text-green-400 mb-2 px-0.5">
-                Uncommon
-                <span class="text-[10px] font-normal text-slate-400 dark:text-white">100K – 1M</span>
-            </h2>
-            <div id="feed-col-uncommon"
-                 hx-ext="sse"
-                 sse-connect="@streamUncommon"
-                 sse-swap="message"
-                 hx-swap="afterbegin"
-                 hx-on::after-settle="if(this.children.length > 50) { while(this.children.length > 50) this.removeChild(this.lastElementChild); }"
-                 class="space-y-2">
-                @if (UncommonEntries is not null && UncommonEntries.Count > 0)
-                {
-                    @foreach (var entry in UncommonEntries)
-                    {
-                        <LootFeedItem Entry="@entry" />
-                    }
-                }
-                else
-                {
-                    <div class="feed-empty-state bg-slate-50 dark:bg-slate-900 rounded-lg shadow-sm border border-green-200 dark:border-green-900 p-5 text-center">
-                        <p class="text-xs text-slate-500 dark:text-white">No uncommon drops yet.</p>
-                    </div>
-                }
-            </div>
-        </div>
-    }
-
-    @if (activeTiers.Contains(LootFeedTier.Rare))
-    {
-        <div class="@colClass">
-            <h2 class="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-2 px-0.5">
-                Rare
-                <span class="text-[10px] font-normal text-slate-400 dark:text-white">1M – 10M</span>
-            </h2>
-            <div id="feed-col-rare"
-                 hx-ext="sse"
-                 sse-connect="@streamRare"
-                 sse-swap="message"
-                 hx-swap="afterbegin"
-                 hx-on::after-settle="if(this.children.length > 50) { while(this.children.length > 50) this.removeChild(this.lastElementChild); }"
-                 class="space-y-2">
-                @if (RareEntries is not null && RareEntries.Count > 0)
-                {
-                    @foreach (var entry in RareEntries)
-                    {
-                        <LootFeedItem Entry="@entry" />
-                    }
-                }
-                else
-                {
-                    <div class="feed-empty-state bg-slate-50 dark:bg-slate-900 rounded-lg shadow-sm border border-blue-200 dark:border-blue-900 p-5 text-center">
-                        <p class="text-xs text-slate-500 dark:text-white">No rare drops yet.</p>
-                    </div>
-                }
-            </div>
-        </div>
-    }
-
-    @if (activeTiers.Contains(LootFeedTier.Epic))
-    {
-        <div class="@colClass">
-            <h2 class="text-xs font-semibold text-purple-600 dark:text-purple-400 mb-2 px-0.5">
-                Epic
-                <span class="text-[10px] font-normal text-slate-400 dark:text-white">10M – 100M</span>
-            </h2>
-            <div id="feed-col-epic"
-                 hx-ext="sse"
-                 sse-connect="@streamEpic"
-                 sse-swap="message"
-                 hx-swap="afterbegin"
-                 hx-on::after-settle="if(this.children.length > 50) { while(this.children.length > 50) this.removeChild(this.lastElementChild); }"
-                 class="space-y-2">
-                @if (EpicEntries is not null && EpicEntries.Count > 0)
-                {
-                    @foreach (var entry in EpicEntries)
-                    {
-                        <LootFeedItem Entry="@entry" />
-                    }
-                }
-                else
-                {
-                    <div class="feed-empty-state bg-slate-50 dark:bg-slate-900 rounded-lg shadow-sm border border-purple-200 dark:border-purple-900 p-5 text-center">
-                        <p class="text-xs text-slate-500 dark:text-white">No epic drops yet.</p>
-                    </div>
-                }
-            </div>
-        </div>
-    }
-
-    @if (activeTiers.Contains(LootFeedTier.Legendary))
-    {
-        <div class="@colClass">
-            <h2 class="text-xs font-semibold text-amber-600 dark:text-amber-400 mb-2 px-0.5">
-                Legendary
-                <span class="text-[10px] font-normal text-slate-400 dark:text-white">100M+</span>
-            </h2>
-            <div id="feed-col-legendary"
-                 hx-ext="sse"
-                 sse-connect="@streamLegendary"
-                 sse-swap="message"
-                 hx-swap="afterbegin"
-                 hx-on::after-settle="if(this.children.length > 50) { while(this.children.length > 50) this.removeChild(this.lastElementChild); }"
-                 class="space-y-2">
-                @if (LegendaryEntries is not null && LegendaryEntries.Count > 0)
-                {
-                    @foreach (var entry in LegendaryEntries)
-                    {
-                        <LootFeedItem Entry="@entry" />
-                    }
-                }
-                else
-                {
-                    <div class="feed-empty-state bg-slate-50 dark:bg-slate-900 rounded-lg shadow-sm border border-amber-200 dark:border-amber-900 p-5 text-center">
-                        <p class="text-xs text-slate-500 dark:text-white">No legendary drops yet.</p>
-                    </div>
+                    <div class="h-16 rounded-lg bg-slate-100 dark:bg-slate-900 border @style.EmptyBorderClass animate-pulse"></div>
                 }
             </div>
         </div>
@@ -190,47 +36,50 @@
 
 <script>
     (() => {
-        // Empty state removal when items arrive via SSE
-        for (const col of ['standard', 'uncommon', 'rare', 'epic', 'legendary']) {
-            const container = document.getElementById(`feed-col-${col}`);
-            if (!container) continue;
+        // Empty state removal when items arrive via SSE. Runs on every grid/column swap; columns
+        // may not exist yet when this executes, so it retries as lanes land.
+        const wire = () => {
+            for (const col of ['standard', 'uncommon', 'rare', 'epic', 'legendary']) {
+                const container = document.getElementById(`feed-col-${col}`);
+                if (!container || container.dataset.emptyWatch) continue;
+                container.dataset.emptyWatch = '1';
 
-            const observer = new MutationObserver(() => {
-                const empty = container.querySelector('.feed-empty-state');
-                if (empty && container.children.length > 1) empty.remove();
-            });
-            observer.observe(container, { childList: true });
-        }
-
-        // Live-update relative timestamps every 30 seconds
-        setInterval(() => {
-            for (const el of document.querySelectorAll('.loot-timestamp')) {
-                const dt = el.getAttribute('datetime');
-                if (!dt) continue;
-                const diff = (Date.now() - new Date(dt).getTime()) / 1000;
-                if (diff < 60) el.textContent = 'just now';
-                else if (diff < 3600) el.textContent = Math.floor(diff / 60) + 'm ago';
-                else if (diff < 86400) el.textContent = Math.floor(diff / 3600) + 'h ago';
-                else {
-                    const d = new Date(dt);
-                    const mon = d.toLocaleString('en', { month: 'short' });
-                    const day = String(d.getDate()).padStart(2, '0');
-                    const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-                    const year = d.getFullYear() !== new Date().getFullYear() ? ` ${d.getFullYear()}` : '';
-                    el.textContent = `${mon} ${day}${year}, ${time}`;
-                }
+                const observer = new MutationObserver(() => {
+                    const empty = container.querySelector('.feed-empty-state');
+                    if (empty && container.children.length > 1) empty.remove();
+                });
+                observer.observe(container, { childList: true });
             }
-        }, 30000);
+        };
+        wire();
+        document.body.addEventListener('htmx:afterSettle', wire);
+
+        // Live-update relative timestamps every 30 seconds. Guarded so repeated grid swaps don't
+        // stack up duplicate intervals.
+        if (!window.__lootTimestampTicker) {
+            window.__lootTimestampTicker = setInterval(() => {
+                for (const el of document.querySelectorAll('.loot-timestamp')) {
+                    const dt = el.getAttribute('datetime');
+                    if (!dt) continue;
+                    const diff = (Date.now() - new Date(dt).getTime()) / 1000;
+                    if (diff < 60) el.textContent = 'just now';
+                    else if (diff < 3600) el.textContent = Math.floor(diff / 60) + 'm ago';
+                    else if (diff < 86400) el.textContent = Math.floor(diff / 3600) + 'h ago';
+                    else {
+                        const d = new Date(dt);
+                        const mon = d.toLocaleString('en', { month: 'short' });
+                        const day = String(d.getDate()).padStart(2, '0');
+                        const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+                        const year = d.getFullYear() !== new Date().getFullYear() ? ` ${d.getFullYear()}` : '';
+                        el.textContent = `${mon} ${day}${year}, ${time}`;
+                    }
+                }
+            }, 30000);
+        }
     })();
 </script>
 
 @code {
-    [Parameter] public IReadOnlyList<LootFeedEntry>? StandardEntries { get; set; }
-    [Parameter] public IReadOnlyList<LootFeedEntry>? UncommonEntries { get; set; }
-    [Parameter] public IReadOnlyList<LootFeedEntry>? RareEntries { get; set; }
-    [Parameter] public IReadOnlyList<LootFeedEntry>? EpicEntries { get; set; }
-    [Parameter] public IReadOnlyList<LootFeedEntry>? LegendaryEntries { get; set; }
     [Parameter] public IReadOnlyList<LootFeedTier>? ActiveTiers { get; set; }
     [Parameter] public LootFeedScope Scope { get; set; } = LootFeedScope.Main;
-    [Parameter] public bool UpdateHeader { get; set; } = true;
 }

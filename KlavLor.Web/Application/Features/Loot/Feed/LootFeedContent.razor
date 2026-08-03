@@ -77,21 +77,10 @@
      hx-get="@gridUrl"
      hx-trigger="load"
      hx-swap="innerHTML">
-    @* Skeleton laid out with the same helper the real grid uses, so the columns don't jump. *@
-    <div class="@FeedColumnLayout.ContainerClass(SkeletonColumns)">
-        @for (var col = 0; col < SkeletonColumns; col++)
-        {
-            <div class="@FeedColumnLayout.ColumnClass(SkeletonColumns)">
-                <div class="h-4 w-24 mb-2 rounded bg-slate-200 dark:bg-slate-800 animate-pulse"></div>
-                <div class="space-y-2">
-                    @for (var card = 0; card < 4; card++)
-                    {
-                        <div class="h-16 rounded-lg bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 animate-pulse"></div>
-                    }
-                </div>
-            </div>
-        }
-    </div>
+    @* No skeleton here on purpose. The grid request below is DB-free and returns in a few
+       milliseconds with one shell per lane, and each shell carries its own skeleton — so painting
+       a second set here just made the feed flash one skeleton, then five. *@
+    <div class="min-h-[60vh]"></div>
 </div>
 
 <div id="feed-no-tiers" class="hidden">

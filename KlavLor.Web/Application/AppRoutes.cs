@@ -79,6 +79,9 @@ public static class AppRoutes
     public const string LootIngestBatch = "/loot/ingest/batch";
     public const string LootFeed = "/loot/feed";
     public const string LootFeedGrid = "/loot/feed/grid";
+    // One route per swimlane: each tier fetches its own entries + SSE subscription, so no single
+    // request carries the whole grid. {tier} is a TierStyle slug (standard/uncommon/rare/...).
+    public const string LootFeedColumn = "/loot/feed/column/{tier}";
     public const string LootFeedStreamStandard = "/loot/feed/stream/standard";
     public const string LootFeedStreamUncommon = "/loot/feed/stream/uncommon";
     public const string LootFeedStreamRare = "/loot/feed/stream/rare";
@@ -86,6 +89,7 @@ public static class AppRoutes
     public const string LootFeedStreamLegendary = "/loot/feed/stream/legendary";
     public const string LootFeedLeagues = "/loot/feed/leagues";
     public const string LootFeedLeaguesGrid = "/loot/feed/leagues/grid";
+    public const string LootFeedLeaguesColumn = "/loot/feed/leagues/column/{tier}";
     public const string LootFeedLeaguesStreamStandard = "/loot/feed/leagues/stream/standard";
     public const string LootFeedLeaguesStreamUncommon = "/loot/feed/leagues/stream/uncommon";
     public const string LootFeedLeaguesStreamRare = "/loot/feed/leagues/stream/rare";
