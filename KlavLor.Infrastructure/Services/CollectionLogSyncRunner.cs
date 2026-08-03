@@ -35,7 +35,7 @@ internal sealed class CollectionLogSyncRunner(
 
         await repository.ReplaceAll(items);
         // Re-read the effective set (synced minus admin blacklist) so exclusions hold.
-        cache.Replace(await repository.GetAllItemIds());
+        cache.Replace(await repository.GetAllEntries());
         return items.Count;
     }
 }

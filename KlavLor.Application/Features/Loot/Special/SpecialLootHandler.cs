@@ -116,7 +116,7 @@ public sealed class SpecialLootHandler(
             var ownerName = owner is not null ? $"{owner.FirstName} {owner.LastName}" : "Unknown";
             var scope = character.IsLeagues ? LootFeedScope.Leagues : LootFeedScope.Main;
             var feedDrop = new LootFeedDrop(drop.Name, 1, 0, isFirstTime,
-                collectionLogCache.IsCollectionLogItem(drop.ItemId), IsSpecial: true);
+                collectionLogCache.IsCollectionLogItem(drop.ItemId, drop.Name), IsSpecial: true);
 
             lootFeedService.Publish(new LootFeedEntry(
                 ownerName,

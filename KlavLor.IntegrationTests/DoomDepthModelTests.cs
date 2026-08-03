@@ -14,6 +14,7 @@ public sealed class DoomDepthModelTests
 {
     private const string Doom = "Doom of Mokhaiotl";
     private const string Cloth = "Mokhaiotl cloth";
+    private const string Treads = "Avernic treads";
 
     private static SourceLootService Service(ISourceRateModifierCache? modifiers = null) =>
         new([new DefaultSourceLootStrategy(), new DoomLootStrategy()], modifiers ?? new NoModifiers());
@@ -201,6 +202,38 @@ public sealed class DoomDepthModelTests
         Assert.Empty(Service().NormaliseRuns("Chambers of Xeric", runs));
         Assert.Empty(Service().NormaliseRuns("Vorkath", runs));
         Assert.NotEmpty(Service().NormaliseRuns(Doom, runs));
+    }
+
+    [Fact]
+    public void The_effective_rate_improves_with_depth_and_plateaus_at_nine()
+    {
+        // Treads roll at every level from 4 up, and each level's own rate is better than the last
+        // (1/1,350 at 4 down to 1/540 at 9), so a deeper run must come out strictly better per delve.
+        // The wiki's 1/1,350 is only the level-4 figure and is not the rate for a deep run.
+        var svc = Service();
+
+        double RateAt(int depth) =>
+            svc.EffectiveRate(Doom, Treads, null, null, 1, runDepths: [depth])!.Value.ExpectedKc;
+
+        var d4 = RateAt(4);
+        var d6 = RateAt(6);
+        var d7 = RateAt(7);
+        var d9 = RateAt(9);
+
+        Assert.True(d6 < d4, $"depth 6 ({d6:0.#}) should beat depth 4 ({d4:0.#})");
+        Assert.True(d7 < d6, $"depth 7 ({d7:0.#}) should beat depth 6 ({d6:0.#})");
+        Assert.True(d9 < d7, $"depth 9 ({d9:0.#}) should beat depth 7 ({d9:0.#})");
+
+        // Level 9's rate covers every deeper delve, so each level past 9 adds the same increment of
+        // probability. (Dividing expected delves by depth would NOT be constant, because levels 1-3
+        // can't drop treads at all and dilute the average.)
+        var doom = new DoomLootStrategy();
+        var gain10 = doom.ProbabilityOverRun(Treads, 10) - doom.ProbabilityOverRun(Treads, 9);
+        var gain11 = doom.ProbabilityOverRun(Treads, 11) - doom.ProbabilityOverRun(Treads, 10);
+        Assert.True(gain10 > 0);
+        // Each extra level uses the identical 1/540, so the gains are near-identical — very slightly
+        // decreasing, because each is scaled by the shrinking chance of not having got it already.
+        Assert.InRange(gain11 / gain10, 0.99, 1.0);
     }
 
     private sealed class NoModifiers : ISourceRateModifierCache

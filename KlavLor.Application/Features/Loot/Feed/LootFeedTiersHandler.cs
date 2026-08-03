@@ -9,6 +9,7 @@ namespace KlavLor.Application.Features.Loot.Feed;
 public sealed class LootFeedTiersHandler(
     ILootLogRepository lootLogRepository,
     IDropRateRepository dropRateRepository,
+    ICharacterDelveDepthRepository delveDepths,
     SourceLootService sourceLoot)
 {
     public const int EntriesPerTier = 50;
@@ -60,8 +61,20 @@ public sealed class LootFeedTiersHandler(
                 // that produced the drop rather than the character's deepest ever delve.
                 var runDepths = entry.RunDepth is > 0 ? new[] { entry.RunDepth.Value } : null;
 
+                // Depth-modelled sources are rated per delve, so the card's observed figure has to
+                // be converted from runs to delves or the luck multiple is out by the depth factor.
+                int? luckObserved = null;
+                if (sourceLoot.HasDepthModel(entry.SourceName) && entry.GameCharacterId is { } cid)
+                {
+                    var depth = await delveDepths.GetAverageDepth(cid, entry.SourceName)
+                                ?? DoomLootStrategy.AssumedAverageDepth;
+                    var runs = entry.MaxKillCount ?? entry.MaxKillOrdinal;
+                    if (runs is > 0) luckObserved = runs.Value * depth;
+                }
+
                 entries[i] = entry with
                 {
+                    LuckObserved = luckObserved,
                     Drops = entry.Drops.Select(d =>
                     {
                         rates.TryGetValue(d.Name, out var rate);

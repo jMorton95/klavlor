@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using KlavLor.Application.Interfaces.Services;
 using Microsoft.Extensions.Logging;
 using KlavLor.Application.Common.Exceptions;
 using KlavLor.Domain.Entities;
@@ -8,13 +9,13 @@ namespace KlavLor.Infrastructure.Persistence.EntityFramework.Repositories.Loot;
 
 internal sealed class CollectionLogItemRepository(DataContext dataContext, ILogger<CollectionLogItemRepository> logger) : ICollectionLogItemRepository
 {
-    public async Task<IReadOnlyList<int>> GetAllItemIds()
+    public async Task<IReadOnlyList<CollectionLogEntryRef>> GetAllEntries()
     {
         // Effective set: synced items minus the admin blacklist, so the in-memory cache
         // (and anything primed from it) never treats an excluded item as a clog item.
         return await dataContext.CollectionLogItems
             .Where(c => !dataContext.CollectionLogExclusions.Any(e => e.ItemId == c.ItemId))
-            .Select(c => c.ItemId)
+            .Select(c => new CollectionLogEntryRef(c.ItemId, c.Name))
             .ToListAsync();
     }
 

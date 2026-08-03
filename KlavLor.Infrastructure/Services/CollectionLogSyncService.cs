@@ -62,7 +62,7 @@ public sealed class CollectionLogSyncService(
             // before the (slower) wiki fetch completes.
             if (!_primed)
             {
-                var existing = await repository.GetAllItemIds();
+                var existing = await repository.GetAllEntries();
                 if (existing.Count > 0)
                 {
                     cache.Replace(existing);

@@ -24,7 +24,12 @@ public sealed record LootFeedEntry(
     // Derived depth of the run this card represents, for depth-modelled sources (Doom's delve
     // level); null for ordinary sources. Feeds the per-drop effective rate so a card is rated
     // against the run that actually produced the drop, not a whole-history average.
-    int? RunDepth = null)
+    int? RunDepth = null,
+    // The figure a drop's luck must be judged against, already on the same scale as its rate. For
+    // depth-modelled sources that is DELVES, not the kill count: comparing 10 runs against a
+    // per-delve rate of 1/1,830 produced "183x lucky" on an Avernic treads card. Null for ordinary
+    // sources, where the kill count is already the right scale.
+    int? LuckObserved = null)
 {
     public DateTimeOffset GroupAnchorAt => GroupStartedAt ?? OccurredAt;
 

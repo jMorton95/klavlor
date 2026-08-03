@@ -403,7 +403,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                         k.KillCount,
                         k.Ordinal,
                         k.TotalValue,
-                        drops.Select(d => new LootKillDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId)))
+                        drops.Select(d => new LootKillDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId, d.Name)))
                             .OrderByDescending(d => (long)d.Quantity * d.Price)
                             .ToList());
                 }).ToList();
@@ -646,7 +646,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                         (int)Math.Min(qty, int.MaxValue),
                         reader.GetInt32(4),
                         reader.GetBoolean(5),
-                        collectionLogCache.IsCollectionLogItem(reader.GetInt32(6))));
+                        collectionLogCache.IsCollectionLogItem(reader.GetInt32(6), reader.GetString(1))));
                 }
             }
 
@@ -735,7 +735,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                     reader.IsDBNull(1) ? null : reader.GetInt32(1),
                     (int)reader.GetInt64(4),
                     reader.GetInt64(2),
-                    drops.Select(d => new LootKillDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId)))
+                    drops.Select(d => new LootKillDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId, d.Name)))
                         .OrderByDescending(d => (long)d.Quantity * d.Price)
                         .ToList()));
             }
@@ -897,7 +897,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                         (int)Math.Min(qty, int.MaxValue),
                         reader.GetInt32(4),
                         reader.GetBoolean(5),
-                        collectionLogCache.IsCollectionLogItem(reader.GetInt32(6))));
+                        collectionLogCache.IsCollectionLogItem(reader.GetInt32(6), reader.GetString(1))));
                 }
             }
 
@@ -1465,7 +1465,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
                     var val = (long)d.Quantity * d.Price;
                     return val >= tierMin && (tierMax is null || val < tierMax.Value);
                 })
-                .Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId), d.IsSpecial))
+                .Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId, d.Name), d.IsSpecial))
                 .ToList();
 
             if (tierDrops.Count == 0) continue;
@@ -1606,7 +1606,7 @@ internal sealed class LootLogRepository(DataContext dataContext, ILogger<LootLog
             var allDrops = JsonSerializer.Deserialize<List<LootDrop>>(r.DropsJson) ?? [];
             var drops = allDrops
                 .Where(d => ILootFeedService.GetDropTier((long)d.Quantity * d.Price) is not null)
-                .Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId), d.IsSpecial))
+                .Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId, d.Name), d.IsSpecial))
                 .ToList();
 
             if (drops.Count == 0) continue;

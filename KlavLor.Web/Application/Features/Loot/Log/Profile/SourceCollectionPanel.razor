@@ -192,7 +192,11 @@
         var shown = !string.IsNullOrEmpty(effectiveRarity) ? effectiveRarity : wikiRarity;
         if (string.IsNullOrEmpty(shown)) return;
 
-        var overridden = !string.IsNullOrEmpty(effectiveRarity)
+        // For a depth-modelled source the stored wiki value is ONE delve level's rate — Avernic
+        // treads at 1/1,350 is the level-4 figure, improving every level to 1/540 by level 9 — so it
+        // isn't comparable to a per-run figure and printing it alongside one reads as a contradiction.
+        var overridden = !Collection.IsDepthModelled
+                         && !string.IsNullOrEmpty(effectiveRarity)
                          && !string.IsNullOrEmpty(wikiRarity)
                          && !string.Equals(effectiveRarity, wikiRarity, StringComparison.OrdinalIgnoreCase);
 
@@ -530,8 +534,12 @@
 
     private RenderFragment RenderKcRange(CollectionEntry e) => __builder =>
     {
-        var first = e.KillCount ?? e.KillOrdinal;
-        var last = e.LastKillCount ?? e.LastKillOrdinal;
+        // Depth-modelled sources are measured in delves everywhere else on this page, so a drop's
+        // position must be converted too — a run number printed beside a per-delve rate invites
+        // exactly the wrong comparison.
+        var scale = Collection.DelvesPerRun;
+        var first = (e.KillCount ?? e.KillOrdinal) * scale;
+        var last = (e.LastKillCount ?? e.LastKillOrdinal) * scale;
         if (first is null && last is null)
         {
             <text><span class="text-slate-400 dark:text-white">—</span></text>

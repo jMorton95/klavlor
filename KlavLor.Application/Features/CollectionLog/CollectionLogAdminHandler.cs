@@ -40,7 +40,7 @@ public sealed class CollectionLogAdminHandler(
     // on those pages until their 5-minute entry TTL expires.
     private async Task RefreshCache()
     {
-        cache.Replace(await items.GetAllItemIds());
+        cache.Replace(await items.GetAllEntries());
         AggregateCacheGeneration.Bump(aggregateCache);
     }
 }

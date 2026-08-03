@@ -121,7 +121,7 @@ await migrationService.ApplyStartupDatabaseMigrations();
 // (the feed seeder starts immediately and would otherwise classify against an empty set).
 var collectionLogCache = scope.ServiceProvider.GetRequiredService<KlavLor.Application.Interfaces.Services.ICollectionLogCache>();
 var collectionLogItemRepository = scope.ServiceProvider.GetRequiredService<KlavLor.Domain.Interfaces.Repositories.ICollectionLogItemRepository>();
-collectionLogCache.Replace(await collectionLogItemRepository.GetAllItemIds());
+collectionLogCache.Replace(await collectionLogItemRepository.GetAllEntries());
 
 // Prime the system-settings cache so the sidebar / character pages / feed endpoints
 // can branch on feature flags without a DB hit per request.

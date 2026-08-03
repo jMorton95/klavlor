@@ -6,12 +6,26 @@ using Microsoft.EntityFrameworkCore;
 
 namespace KlavLor.IntegrationTests;
 
-// Minimal ICollectionLogCache stand-in: a fixed set of "is a collection-log item" ids.
+// Minimal ICollectionLogCache stand-in: fixed sets of "is a collection-log item" ids and names.
+// Matches on either, like the real cache, because the two don't always agree for the same item.
 internal sealed class FakeClogCache(params int[] ids) : ICollectionLogCache
 {
     private readonly HashSet<int> _ids = [.. ids];
-    public bool IsCollectionLogItem(int itemId) => _ids.Contains(itemId);
-    public void Replace(IEnumerable<int> itemIds) { _ids.Clear(); foreach (var i in itemIds) _ids.Add(i); }
+    private readonly HashSet<string> _names = new(StringComparer.OrdinalIgnoreCase);
+
+    public bool IsCollectionLogItem(int itemId, string? itemName = null) =>
+        _ids.Contains(itemId) || (!string.IsNullOrEmpty(itemName) && _names.Contains(itemName));
+
+    public void Replace(IEnumerable<CollectionLogEntryRef> entries)
+    {
+        _ids.Clear();
+        _names.Clear();
+        foreach (var e in entries)
+        {
+            _ids.Add(e.ItemId);
+            if (!string.IsNullOrWhiteSpace(e.Name)) _names.Add(e.Name);
+        }
+    }
 }
 
 internal static class Seed

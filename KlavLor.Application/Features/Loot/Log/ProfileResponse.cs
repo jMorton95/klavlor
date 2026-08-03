@@ -121,6 +121,15 @@ public sealed record SourceCollection(
 
     /// <summary>The figure luck is judged against: delves where we model depth, else kills.</summary>
     public int LuckObserved => IsDepthModelled ? TotalDelves : CharacterKc;
+
+    /// <summary>
+    /// Delves credited per run. Every run carries the same depth (the assumption, or the admin
+    /// override), so this converts any run-denominated number — a drop's kill count, for instance —
+    /// onto the delve scale the rates are expressed in. 1 for sources with no depth model.
+    /// </summary>
+    public int DelvesPerRun => IsDepthModelled && Runs.Count > 0
+        ? Math.Max(1, TotalDelves / Runs.Count)
+        : 1;
 }
 
 /// <summary>

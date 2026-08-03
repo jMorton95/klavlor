@@ -25,6 +25,7 @@ public sealed class LootIngestHandler(
     ICollectionLogCache collectionLogCache,
     IMemoryCache memoryCache,
     IDropRateRepository dropRateRepository,
+    ICharacterDelveDepthRepository delveDepthRepository,
     SourceLootService sourceLoot)
 {
     private static readonly string[] DateFormats =
@@ -299,7 +300,7 @@ public sealed class LootIngestHandler(
                 rate?.Rolls ?? 1, runDepths);
             return new LootFeedDrop(
                 d.Name, d.Quantity, d.Price, d.IsFirstTime,
-                collectionLogCache.IsCollectionLogItem(d.ItemId), d.IsSpecial,
+                collectionLogCache.IsCollectionLogItem(d.ItemId, d.Name), d.IsSpecial,
                 effective?.ExpectedKc, effective?.Rarity);
         }).ToList();
         var dropsByTier = ILootFeedService.ClassifyDropsByTier(feedDrops);
@@ -328,6 +329,17 @@ public sealed class LootIngestHandler(
         // Route to the matching feed scope. Characters without IsLeagues set default to Main.
         var scope = character?.IsLeagues == true ? LootFeedScope.Leagues : LootFeedScope.Main;
 
+        // Depth-modelled sources are rated per delve, so convert the card's observed figure from
+        // runs to delves — otherwise the luck multiple is out by the whole depth factor.
+        int? luckObserved = null;
+        if (sourceLoot.HasDepthModel(record.SourceName) && character is not null)
+        {
+            var depth = await delveDepthRepository.GetAverageDepth(character.Id, record.SourceName)
+                        ?? DoomLootStrategy.AssumedAverageDepth;
+            var runs = bounds?.MaxKillCount ?? record.KillCount ?? ordinal;
+            if (runs is > 0) luckObserved = runs.Value * depth;
+        }
+
         foreach (var (tier, tierDrops) in dropsByTier)
         {
             // Skip Standard/Uncommon tiers for imported records to avoid flooding.
@@ -351,7 +363,8 @@ public sealed class LootIngestHandler(
                 MaxKillCount: bounds?.MaxKillCount ?? record.KillCount,
                 MinKillOrdinal: bounds?.FirstOrdinal ?? ordinal,
                 MaxKillOrdinal: ordinal,
-                Scope: scope));
+                Scope: scope,
+                LuckObserved: luckObserved));
         }
     }
 
