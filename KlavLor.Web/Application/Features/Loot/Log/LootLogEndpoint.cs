@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using KlavLor.Application.Features.Loot.Log;
 using KlavLor.Web.Application.Features.Loot.Log.Profile;
 using KlavLor.Web.Application.Filters;
-using KlavLor.Web.Application.Results;
+using KlavLor.Web.Application.HttpResults;
 
 namespace KlavLor.Web.Application.Features.Loot.Log;
 

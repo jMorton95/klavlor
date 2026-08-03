@@ -14,7 +14,7 @@ public sealed class SyncVersionFilter : IEndpointFilter
             || version < MinimumSyncVersion)
         {
             context.HttpContext.Response.StatusCode = StatusCodes.Status426UpgradeRequired;
-            return Microsoft.AspNetCore.Http.Results.Json(
+            return Results.Json(
                 new { error = $"Sync client is outdated. Minimum version required: {MinimumSyncVersion}. Please update klavlor-sync." },
                 statusCode: StatusCodes.Status426UpgradeRequired);
         }

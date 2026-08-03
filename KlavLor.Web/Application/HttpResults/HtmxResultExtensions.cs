@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace KlavLor.Web.Application.Results;
+namespace KlavLor.Web.Application.HttpResults;
 
 public static class HttpResultExtensions
 {

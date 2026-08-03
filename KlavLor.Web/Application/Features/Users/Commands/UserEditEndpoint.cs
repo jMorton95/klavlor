@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using KlavLor.Application.Features.Users.Edit;
 using KlavLor.Application.Features.Users.GetById;
 using KlavLor.Domain.Shared;
-using KlavLor.Web.Application.Results;
+using KlavLor.Web.Application.HttpResults;
 
 namespace KlavLor.Web.Application.Features.Users.Commands;
 

@@ -12,7 +12,7 @@ using KlavLor.Application.Features.Settings;
 using KlavLor.Application.Interfaces.Services;
 using KlavLor.Domain.Shared;
 using KlavLor.Web.Application.Filters;
-using KlavLor.Web.Application.Results;
+using KlavLor.Web.Application.HttpResults;
 
 namespace KlavLor.Web.Application.Features.Settings;
 

@@ -1,7 +1,7 @@
 using KlavLor.Application.Features.Characters;
 using KlavLor.Application.Interfaces.Services;
 using KlavLor.Domain.Shared;
-using KlavLor.Web.Application.Results;
+using KlavLor.Web.Application.HttpResults;
 using KlavLor.Web.Components.Generic.Modals;
 using KlavLor.Web.Components.Generic.Toast;
 using KlavLor.Web.Enums;

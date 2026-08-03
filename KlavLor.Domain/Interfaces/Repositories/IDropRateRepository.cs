@@ -37,7 +37,15 @@ public interface IDropRateRepository
     /// <summary>
     /// The drop rate for a (source, item) pair (item matched case-insensitively). When a source
     /// lists the item under several variants, prefers a row with a parsed numeric rarity. Null
-    /// when no rate is stored. Used by loot auto-completion to judge how lucky/dry a drop was.
+    /// when no rate is stored.
     /// </summary>
     Task<DropRate?> GetRate(string sourceName, string itemName);
+
+    /// <summary>
+    /// Drop rates for several items at one source in a single round trip, keyed by item name
+    /// (case-insensitive). Same variant-preference rule as <see cref="GetRate"/>. Items with no
+    /// stored rate are simply absent. Used by the live feed, which needs a rate per drop on a
+    /// record and must not issue one query per item.
+    /// </summary>
+    Task<IReadOnlyDictionary<string, DropRate>> GetRates(string sourceName, IReadOnlyCollection<string> itemNames);
 }

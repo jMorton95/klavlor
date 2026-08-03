@@ -72,7 +72,6 @@ public static class InfrastructureDependencyConfiguration
 
             services.AddSingleton<ILootFeedHighlightTracker, LootFeedHighlightTracker>();
             services.AddSingleton<ILootFeedService, LootFeedService>();
-            services.AddHostedService<LootFeedSeederService>();
 
             // Records every background-service cycle into the JobRuns log for the admin health panel.
             services.AddSingleton<KlavLor.Application.Interfaces.Services.IJobRunRecorder, JobRunRecorder>();
@@ -90,6 +89,27 @@ public static class InfrastructureDependencyConfiguration
             services.AddTransient<OsrsWikiRateLimitHandler>();
             services.AddOsrsWikiClient();
             services.AddImageCacheService();
+
+            services.AddBackgroundServices();
+        }
+
+        // Every BackgroundService implementation lives in this assembly (Infrastructure/Services),
+        // so registration belongs here too — it used to be split, with the feed seeder here and the
+        // other eight in Program.cs, which made the startup order impossible to read in one place.
+        // Order matters: hosted services start in registration order, and the feed seeder must run
+        // first (Program.cs primes the collection-log cache before the host starts for the same
+        // reason — the seeder classifies drops against it).
+        private void AddBackgroundServices()
+        {
+            services.AddHostedService<LootFeedSeederService>();
+            services.AddHostedService<ImageCacheBackfillService>();
+            services.AddHostedService<ItemIconBackfillService>();
+            services.AddHostedService<SourceIconBackfillService>();
+            services.AddHostedService<CachedImageReprocessService>();
+            services.AddHostedService<CollectionLogSyncService>();
+            services.AddHostedService<DropRateSyncService>();
+            services.AddHostedService<LuckLeaderboardRefreshService>();
+            services.AddHostedService<LootDerivationBackfillService>();
         }
 
         private void AddDomainRepositories()

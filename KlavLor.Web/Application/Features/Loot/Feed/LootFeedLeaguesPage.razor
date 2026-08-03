@@ -1,46 +1,24 @@
 @page "/loot/feed/leagues"
-@using KlavLor.Application.Features.Loot.Feed
 @using KlavLor.Application.Interfaces.Services
 @using KlavLor.Web.Application
 @using KlavLor.Web.Components.Layout
 
-@inject LootFeedTiersHandler FeedHandler
 @inject ISystemSettingsCache SystemSettingsCache
 @inject NavigationManager NavigationManager
 
+@* Same lazy shell as the main feed — see LootFeedPage. Reads only the singleton settings cache,
+   never the DB, so the leagues feed also paints before any query runs. *@
 @if (SystemSettingsCache.IsLeaguesEnabled)
 {
     <PageLayout PageTitle="KlavLor - Leagues Feed" Title="Leagues Feed" Description="Real-time loot drops from leagues characters">
-        <LootFeedContent StandardEntries="@_standard"
-                         UncommonEntries="@_uncommon"
-                         RareEntries="@_rare"
-                         EpicEntries="@_epic"
-                         LegendaryEntries="@_legendary"
-                         Scope="LootFeedScope.Leagues"
-                         UpdateHeader="false" />
+        <LootFeedContent Scope="LootFeedScope.Leagues" UpdateHeader="false" />
     </PageLayout>
 }
 
 @code {
-    private IReadOnlyList<LootFeedEntry> _standard = [];
-    private IReadOnlyList<LootFeedEntry> _uncommon = [];
-    private IReadOnlyList<LootFeedEntry> _rare = [];
-    private IReadOnlyList<LootFeedEntry> _epic = [];
-    private IReadOnlyList<LootFeedEntry> _legendary = [];
-
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
         if (!SystemSettingsCache.IsLeaguesEnabled)
-        {
             NavigationManager.NavigateTo(AppRoutes.LootFeed, replace: true);
-            return;
-        }
-
-        var tiers = await FeedHandler.Handle(LootFeedScope.Leagues);
-        _standard = tiers[LootFeedTier.Standard];
-        _uncommon = tiers[LootFeedTier.Uncommon];
-        _rare = tiers[LootFeedTier.Rare];
-        _epic = tiers[LootFeedTier.Epic];
-        _legendary = tiers[LootFeedTier.Legendary];
     }
 }

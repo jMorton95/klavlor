@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using KlavLor.Application.Features.Templates.Search;
 using KlavLor.Application.Interfaces.Authentication;
-using KlavLor.Web.Application.Results;
+using KlavLor.Web.Application.HttpResults;
 
 namespace KlavLor.Web.Application.Features.Templates.Queries;
 

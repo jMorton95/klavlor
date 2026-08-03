@@ -59,17 +59,39 @@
     </div>
 </div>
 
-@* data-grid-url tells the filter JS which grid endpoint to refresh against — the
-   same site.js handles both /loot/feed and /loot/feed/leagues this way. *@
-<div id="feed-grid-container" data-grid-url="@gridUrl">
-    <LootFeedGrid StandardEntries="@StandardEntries"
-                  UncommonEntries="@UncommonEntries"
-                  RareEntries="@RareEntries"
-                  EpicEntries="@EpicEntries"
-                  LegendaryEntries="@LegendaryEntries"
-                  ActiveTiers="@ActiveTiers"
-                  Scope="@Scope"
-                  UpdateHeader="false" />
+@* The swimlanes load AFTER first paint. This component renders no loot at all, so the page
+   shell is served without a single DB round-trip; hx-trigger="load" then fetches the grid,
+   which carries both halves of the feed's behaviour together:
+     - backfill: the grid endpoint renders the recent entries per tier, and
+     - live: the same markup carries sse-connect per column, so htmx opens the EventSources
+       as it processes the swapped-in nodes.
+   Both therefore survive the move, and there is no new gap between reading history and
+   subscribing — the two still happen in one response, as they did when this was server-rendered.
+
+   data-grid-url tells the filter JS which grid endpoint to refresh against — the same site.js
+   handles both /loot/feed and /loot/feed/leagues this way. The saved tier filter is appended by
+   site.js's htmx:configRequest hook, which matches any /api/loot/feed/**/grid request, so this
+   initial fetch already honours the user's filter and needs no follow-up request. *@
+<div id="feed-grid-container"
+     data-grid-url="@gridUrl"
+     hx-get="@gridUrl"
+     hx-trigger="load"
+     hx-swap="innerHTML">
+    @* Skeleton laid out with the same helper the real grid uses, so the columns don't jump. *@
+    <div class="@FeedColumnLayout.ContainerClass(SkeletonColumns)">
+        @for (var col = 0; col < SkeletonColumns; col++)
+        {
+            <div class="@FeedColumnLayout.ColumnClass(SkeletonColumns)">
+                <div class="h-4 w-24 mb-2 rounded bg-slate-200 dark:bg-slate-800 animate-pulse"></div>
+                <div class="space-y-2">
+                    @for (var card = 0; card < 4; card++)
+                    {
+                        <div class="h-16 rounded-lg bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 animate-pulse"></div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
 </div>
 
 <div id="feed-no-tiers" class="hidden">
@@ -79,12 +101,12 @@
 </div>
 
 @code {
-    [Parameter] public IReadOnlyList<LootFeedEntry>? StandardEntries { get; set; }
-    [Parameter] public IReadOnlyList<LootFeedEntry>? UncommonEntries { get; set; }
-    [Parameter] public IReadOnlyList<LootFeedEntry>? RareEntries { get; set; }
-    [Parameter] public IReadOnlyList<LootFeedEntry>? EpicEntries { get; set; }
-    [Parameter] public IReadOnlyList<LootFeedEntry>? LegendaryEntries { get; set; }
-    [Parameter] public IReadOnlyList<LootFeedTier>? ActiveTiers { get; set; }
+    // Deliberately takes no loot: this component must never trigger a query. It carries only
+    // what the shell needs, which is why the page can render before any DB work happens.
     [Parameter] public LootFeedScope Scope { get; set; } = LootFeedScope.Main;
     [Parameter] public bool UpdateHeader { get; set; } = true;
+
+    // The full five lanes; the skeleton can't know the user's saved filter (it lives in
+    // localStorage), and guessing narrower would make the columns jump when the grid lands.
+    private const int SkeletonColumns = 5;
 }

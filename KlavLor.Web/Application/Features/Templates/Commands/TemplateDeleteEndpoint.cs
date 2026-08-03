@@ -1,7 +1,7 @@
 using KlavLor.Application.Features.Templates.Delete;
 using KlavLor.Application.Interfaces.Authentication;
 using KlavLor.Domain.Shared;
-using KlavLor.Web.Application.Results;
+using KlavLor.Web.Application.HttpResults;
 using KlavLor.Web.Components.Generic.Modals;
 using KlavLor.Web.Enums;
 

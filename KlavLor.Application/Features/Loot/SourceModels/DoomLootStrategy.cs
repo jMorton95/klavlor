@@ -22,12 +22,36 @@ public sealed class DoomLootStrategy() : SourceLootStrategy("Doom of Mokhaiotl")
 
     public override int EffectiveKills(IReadOnlyList<ClaimDrop> drops) => EstimateDepth(drops);
 
-    // Expected runs to a first drop = 1 / P(at least one across a run to the character's depth).
-    // Null when the item isn't a Doom unique or the depth is unknown, so the caller falls back.
-    public override double? ExpectedCompletionsForDepth(string itemName, int depth)
+    // Doom's luck IS computable, so it belongs on the leaderboard alongside every other source —
+    // it just needs the per-run depth model below rather than a flat rate.
+    public override bool IncludeInLeaderboard => true;
+
+    // This strategy owns Doom's rates outright. The wiki stores per-LEVEL rarities for Doom, which
+    // are not per-run chances, and the guaranteed accumulating drops (Demon tears, Mokhaiotl
+    // waystone) have rates that mean nothing as a per-run probability at all. Falling back to them
+    // put "320 kills vs 15 expected — 21x dry" on the board for an item players get every run.
+    // Items this strategy does not model therefore have no rate, rather than a wrong one.
+    public override bool OverridesStoredRates => true;
+
+    // Expected runs to a first drop, computed from the depth of EVERY run the player actually
+    // did. Each run r has its own P(at least one) for its own depth, so the expected number of
+    // drops over the whole set is the sum of those probabilities. Inverting the AVERAGE per-run
+    // probability gives the depth-weighted equivalent of a flat "1 in N runs" rate:
+    //
+    //     expected runs per drop = runs / Σ P(item | depth_r)
+    //
+    // This reduces exactly to N when every run has the same 1/N chance, and it never assumes a
+    // run went deeper than its own loot proves. Null when the item isn't a Doom unique or no run
+    // could have produced it, so the caller falls back to the flat rate.
+    public override double? ExpectedCompletionsForRuns(string itemName, IReadOnlyList<int> runDepths)
     {
-        var p = ProbabilityOverRun(itemName, depth);
-        return p > 0 ? 1.0 / p : null;
+        if (RatesFor(itemName) is null || runDepths.Count == 0) return null;
+
+        var expectedDrops = 0.0;
+        foreach (var depth in runDepths)
+            expectedDrops += ProbabilityOverRun(itemName, depth);
+
+        return expectedDrops > 0 ? runDepths.Count / expectedDrops : null;
     }
 
     // Deepest delve the claim proves the run reached: the max of the unique-item gates present

@@ -43,21 +43,46 @@ public sealed class SourceLootService
     // Whether the source should appear on the luck leaderboard at all.
     public bool IncludeInLeaderboard(string sourceName) => Resolve(sourceName).IncludeInLeaderboard;
 
-    // Expected completions to a first drop for one player, normalised per the source's model
-    // (flat rate for ordinary sources; unique-table-share scaling for raids), then scaled by any
-    // admin-configured rate modifier for this source/item. itemName may be null/empty to get the
-    // source-wide value.
-    public double ExpectedCompletions(string sourceName, string? itemName, int numerator, int denominator, int rolls, int depth = 0)
+    // THE single source of truth for "how many kills should this drop have taken". Normalises per
+    // the source's model (flat rate for ordinary sources, unique-table-share scaling for raids,
+    // per-run depth for Doom) and then applies the admin rate modifier, which is a GLOBAL
+    // baseline: every luck figure, rate column, leaderboard row and feed card must come through
+    // here so an admin override is reflected identically everywhere. Never recompute
+    // numerator/denominator/rolls by hand at a call site.
+    //
+    // runDepths carries the depth of every actual run at this source, for depth-modelled sources
+    // only; pass null/empty for ordinary sources. itemName may be null/empty for a source-wide value.
+    public double ExpectedCompletions(
+        string sourceName, string? itemName, int numerator, int denominator, int rolls,
+        IReadOnlyList<int>? runDepths = null)
     {
         var strategy = Resolve(sourceName);
-        // Depth-aware sources (Doom) compute per-item odds from how deep the run went, ignoring
-        // the flat rate; the admin modifier still applies on top.
-        if (depth > 0 && itemName is not null
-            && strategy.ExpectedCompletionsForDepth(itemName, depth) is { } delve && delve > 0)
+        // Depth-modelled sources (Doom) derive per-item odds from the real per-run depths and
+        // ignore the flat rate entirely; the admin modifier still applies on top.
+        if (runDepths is { Count: > 0 } && itemName is not null
+            && strategy.ExpectedCompletionsForRuns(itemName, runDepths) is { } delve && delve > 0)
             return delve * _modifiers.GetMultiplier(sourceName, itemName);
+
+        // A strategy that owns its source's rates must not fall back to the stored wiki value for
+        // items it doesn't model — that value isn't a per-run chance and produces nonsense luck.
+        if (strategy.OverridesStoredRates)
+            return double.MaxValue;
 
         var baseline = strategy.ExpectedCompletions(numerator, denominator, rolls);
         return baseline * _modifiers.GetMultiplier(sourceName, itemName);
+    }
+
+    // Effective expected KC plus its display form ("1/540"), or null when there is no usable
+    // rate. Use this anywhere a rate is shown to a user: it already includes the source model and
+    // the admin modifier, so it can differ from the raw stored Rarity — and it is populated for
+    // depth-modelled sources that have no stored Rarity at all.
+    public (double ExpectedKc, string Rarity)? EffectiveRate(
+        string sourceName, string? itemName, int? numerator, int? denominator, int rolls,
+        IReadOnlyList<int>? runDepths = null)
+    {
+        var expected = ExpectedCompletions(sourceName, itemName, numerator ?? 1, denominator ?? 0, rolls, runDepths);
+        if (expected is <= 0 or >= double.MaxValue || double.IsNaN(expected)) return null;
+        return (expected, $"1/{Math.Round(expected):N0}");
     }
 
     private ISourceLootStrategy Resolve(string sourceName) =>

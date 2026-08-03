@@ -1,8 +1,8 @@
-using KlavLor.Web.Application.Results;
+using KlavLor.Web.Application.HttpResults;
 
 namespace KlavLor.Web.Application.Features.Home;
 
-public class HomePageEndpoint : IEndpoint
+public sealed class HomePageEndpoint : IEndpoint
 {
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {

@@ -8,7 +8,7 @@ using KlavLor.Application.Interfaces.Authentication;
 using KlavLor.Domain.Interfaces.Repositories;
 using KlavLor.Domain.Shared;
 using KlavLor.Infrastructure.ExternalServices.OsrsWiki;
-using KlavLor.Web.Application.Results;
+using KlavLor.Web.Application.HttpResults;
 
 namespace KlavLor.Web.Application.Features.Templates.Builder;
 
@@ -33,7 +33,7 @@ public sealed class NodeEndpoints : IEndpoint
         ISessionStateManager sessionManager)
     {
         var userId = sessionManager.GetUserSessionId();
-        if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
+        if (userId is null) return Results.Unauthorized();
 
         return IResultExtensions.Component<NodeCreateModal>(new
         {
@@ -52,16 +52,16 @@ public sealed class NodeEndpoints : IEndpoint
         IImageCacheService imageCacheService)
     {
         var userId = sessionManager.GetUserSessionId();
-        if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
+        if (userId is null) return Results.Unauthorized();
 
         // Cache wiki image and use local URL
         command.IconUrl = await CacheIconUrl(command.IconUrl, imageCacheService);
 
         var result = await handler.Handle(command);
-        if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
+        if (!result.IsSuccess) return Results.BadRequest(result.ErrorMessage);
 
         var template = await templateRepository.GetById(command.TemplateId);
-        if (template is null) return Microsoft.AspNetCore.Http.Results.NotFound();
+        if (template is null) return Results.NotFound();
 
         var node = result.Value!;
         var groupId = node.GroupId!.Value;
@@ -82,14 +82,14 @@ public sealed class NodeEndpoints : IEndpoint
         ITemplateRepository templateRepository)
     {
         var userId = sessionManager.GetUserSessionId();
-        if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
+        if (userId is null) return Results.Unauthorized();
 
         var template = await templateRepository.GetById(id);
         if (template is null || (template.CreatedById != userId.Value && !sessionManager.IsUserSessionAdministrator()))
-            return Microsoft.AspNetCore.Http.Results.NotFound();
+            return Results.NotFound();
 
         var node = template.Nodes.FirstOrDefault(n => n.Id == nodeId);
-        if (node is null) return Microsoft.AspNetCore.Http.Results.NotFound();
+        if (node is null) return Results.NotFound();
 
         return IResultExtensions.Component<NodeEditModal>(new
         {
@@ -111,19 +111,19 @@ public sealed class NodeEndpoints : IEndpoint
         IImageCacheService imageCacheService)
     {
         var userId = sessionManager.GetUserSessionId();
-        if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
+        if (userId is null) return Results.Unauthorized();
 
         // Cache wiki image and use local URL
         command.IconUrl = await CacheIconUrl(command.IconUrl, imageCacheService);
 
         var result = await handler.Handle(command);
-        if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
+        if (!result.IsSuccess) return Results.BadRequest(result.ErrorMessage);
 
         var template = await templateRepository.GetById(command.TemplateId);
-        if (template is null) return Microsoft.AspNetCore.Http.Results.NotFound();
+        if (template is null) return Results.NotFound();
 
         var node = template.Nodes.FirstOrDefault(n => n.Id == command.NodeId);
-        if (node?.GroupId is null) return Microsoft.AspNetCore.Http.Results.NotFound();
+        if (node?.GroupId is null) return Results.NotFound();
 
         var group = template.Groups.First(g => g.Id == node.GroupId.Value);
         var groupNodes = template.Nodes.Where(n => n.GroupId == node.GroupId.Value).OrderBy(n => n.SortOrder).ThenBy(n => n.Id).ToList();
@@ -143,15 +143,15 @@ public sealed class NodeEndpoints : IEndpoint
         UpdateNodePositionHandler handler)
     {
         var userId = sessionManager.GetUserSessionId();
-        if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
+        if (userId is null) return Results.Unauthorized();
 
         command.TemplateId = id;
         command.NodeId = nodeId;
         var result = await handler.Handle(command);
 
         return result.IsSuccess
-            ? Microsoft.AspNetCore.Http.Results.NoContent()
-            : Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
+            ? Results.NoContent()
+            : Results.BadRequest(result.ErrorMessage);
     }
 
     private static async Task<IResult> DeleteNode(
@@ -161,21 +161,21 @@ public sealed class NodeEndpoints : IEndpoint
         ITemplateRepository templateRepository)
     {
         var userId = sessionManager.GetUserSessionId();
-        if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
+        if (userId is null) return Results.Unauthorized();
 
         // Capture state before deletion
         var templateBefore = await templateRepository.GetById(id);
-        if (templateBefore is null) return Microsoft.AspNetCore.Http.Results.NotFound();
+        if (templateBefore is null) return Results.NotFound();
         var nodeToDelete = templateBefore.Nodes.FirstOrDefault(n => n.Id == nodeId);
         var groupId = nodeToDelete?.GroupId;
         var edgeIdsBefore = templateBefore.Edges.Select(e => e.Id).ToHashSet();
 
         var command = new DeleteNodeCommand { TemplateId = id, NodeId = nodeId };
         var result = await handler.Handle(command);
-        if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
+        if (!result.IsSuccess) return Results.BadRequest(result.ErrorMessage);
 
         var template = await templateRepository.GetById(id);
-        if (template is null) return Microsoft.AspNetCore.Http.Results.NotFound();
+        if (template is null) return Results.NotFound();
 
         var removedEdgeIds = edgeIdsBefore.Except(template.Edges.Select(e => e.Id)).ToList();
         var groupStillExists = groupId.HasValue && template.Groups.Any(g => g.Id == groupId.Value);
@@ -203,7 +203,7 @@ public sealed class NodeEndpoints : IEndpoint
             .Select(p => new[] { p.Item1, p.Item2 })
             .ToList();
 
-        return Microsoft.AspNetCore.Http.Results.Json(new
+        return Results.Json(new
         {
             removedEdgeIds,
             removedGroupPairs,
@@ -220,17 +220,17 @@ public sealed class NodeEndpoints : IEndpoint
         ITemplateRepository templateRepository)
     {
         var userId = sessionManager.GetUserSessionId();
-        if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
+        if (userId is null) return Results.Unauthorized();
 
         var command = new ReorderNodeCommand { TemplateId = id, NodeId = nodeId, Direction = direction };
         var result = await handler.Handle(command);
-        if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
+        if (!result.IsSuccess) return Results.BadRequest(result.ErrorMessage);
 
         var template = await templateRepository.GetById(id);
-        if (template is null) return Microsoft.AspNetCore.Http.Results.NotFound();
+        if (template is null) return Results.NotFound();
 
         var node = template.Nodes.FirstOrDefault(n => n.Id == nodeId);
-        if (node?.GroupId is null) return Microsoft.AspNetCore.Http.Results.NotFound();
+        if (node?.GroupId is null) return Results.NotFound();
 
         var group = template.Groups.First(g => g.Id == node.GroupId.Value);
         var groupNodes = template.Nodes.Where(n => n.GroupId == node.GroupId.Value).OrderBy(n => n.SortOrder).ThenBy(n => n.Id).ToList();

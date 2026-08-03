@@ -250,6 +250,11 @@ window.initHistoryPanel = function() {
         return ALL_TIERS;
     }
 
+    // Only syncs the checkboxes to the saved filter. It deliberately does NOT re-fetch the grid:
+    // #feed-grid-container carries hx-trigger="load" and fetches itself, and the configRequest
+    // hook below appends the saved tiers to that request — so the first grid the user sees is
+    // already filtered. Re-fetching here would fire a second identical request and re-open every
+    // SSE stream.
     function initFeedFilter() {
         const checkboxes = document.querySelectorAll('.feed-filter-checkbox');
         if (checkboxes.length === 0) return;
@@ -257,14 +262,6 @@ window.initHistoryPanel = function() {
         const active = getActiveTiers();
         for (const cb of checkboxes) {
             cb.checked = active.includes(cb.value);
-        }
-
-        // If user has a non-default filter, re-fetch with their filter applied
-        if (JSON.stringify([...active].sort()) !== JSON.stringify([...ALL_TIERS].sort())) {
-            htmx.ajax('GET', getGridApi() + '?tiers=' + active.join(','), {
-                target: '#feed-grid-container',
-                swap: 'innerHTML'
-            });
         }
     }
 

@@ -1,7 +1,7 @@
 using KlavLor.Application.Common;
 using KlavLor.Application.Features.Users.Roles;
 using KlavLor.Domain.Shared;
-using KlavLor.Web.Application.Results;
+using KlavLor.Web.Application.HttpResults;
 
 namespace KlavLor.Web.Application.Features.Users.Commands;
 

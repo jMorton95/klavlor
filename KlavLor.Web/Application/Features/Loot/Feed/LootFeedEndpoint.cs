@@ -1,6 +1,6 @@
 using KlavLor.Application.Features.Loot.Feed;
 using KlavLor.Application.Interfaces.Services;
-using KlavLor.Web.Application.Results;
+using KlavLor.Web.Application.HttpResults;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 
@@ -10,12 +10,14 @@ public sealed class LootFeedEndpoint : IEndpoint
 {
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
-        // Main feed routes
-        app.MapGet(AppRoutes.LootFeed.FromApi(), (LootFeedTiersHandler handler) => GetPage(handler, LootFeedScope.Main))
-            .AllowAnonymous();
+        // Main feed routes. The page route is deliberately handler-free — see GetPage.
+        app.MapGet(AppRoutes.LootFeed.FromApi(), () => GetPage(LootFeedScope.Main))
+            .AllowAnonymous()
+            .RequireRateLimiting("anonymous");
 
         app.MapGet(AppRoutes.LootFeedGrid.FromApi(), (LootFeedTiersHandler handler, string? tiers) => GetGrid(handler, LootFeedScope.Main, tiers))
-            .AllowAnonymous();
+            .AllowAnonymous()
+            .RequireRateLimiting("anonymous");
 
         MapStream(app, AppRoutes.LootFeedStreamStandard, LootFeedScope.Main, LootFeedTier.Standard);
         MapStream(app, AppRoutes.LootFeedStreamUncommon, LootFeedScope.Main, LootFeedTier.Uncommon);
@@ -25,19 +27,20 @@ public sealed class LootFeedEndpoint : IEndpoint
 
         // Leagues feed routes — parallel set, filters to IsLeagues=true characters.
         // All Leagues endpoints short-circuit to 404 when the admin has disabled the feature.
-        app.MapGet(AppRoutes.LootFeedLeagues.FromApi(), async (LootFeedTiersHandler handler, ISystemSettingsCache settings) =>
-            {
-                if (!settings.IsLeaguesEnabled) return TypedResults.NotFound();
-                return await GetPage(handler, LootFeedScope.Leagues);
-            })
-            .AllowAnonymous();
+        app.MapGet(AppRoutes.LootFeedLeagues.FromApi(), IResult (ISystemSettingsCache settings) =>
+                settings.IsLeaguesEnabled
+                    ? GetPage(LootFeedScope.Leagues)
+                    : TypedResults.NotFound())
+            .AllowAnonymous()
+            .RequireRateLimiting("anonymous");
 
         app.MapGet(AppRoutes.LootFeedLeaguesGrid.FromApi(), async (LootFeedTiersHandler handler, ISystemSettingsCache settings, string? tiers) =>
             {
                 if (!settings.IsLeaguesEnabled) return TypedResults.NotFound();
                 return await GetGrid(handler, LootFeedScope.Leagues, tiers);
             })
-            .AllowAnonymous();
+            .AllowAnonymous()
+            .RequireRateLimiting("anonymous");
 
         MapLeaguesStream(app, AppRoutes.LootFeedLeaguesStreamStandard, LootFeedTier.Standard);
         MapLeaguesStream(app, AppRoutes.LootFeedLeaguesStreamUncommon, LootFeedTier.Uncommon);
@@ -46,10 +49,13 @@ public sealed class LootFeedEndpoint : IEndpoint
         return MapLeaguesStream(app, AppRoutes.LootFeedLeaguesStreamLegendary, LootFeedTier.Legendary);
     }
 
+    // The "sse" policy is a per-IP *concurrency* limiter (see Program.cs): streams are held open
+    // for the life of the page, so the limit that matters is simultaneous sockets per IP.
     private static RouteHandlerBuilder MapStream(IEndpointRouteBuilder app, string route, LootFeedScope scope, LootFeedTier tier) =>
         app.MapGet(route.FromApi(), (HttpContext ctx, ILootFeedService svc, IServiceProvider sp, ILoggerFactory lf) =>
                 StreamFeed(ctx, svc, sp, lf, scope, tier))
-            .AllowAnonymous();
+            .AllowAnonymous()
+            .RequireRateLimiting("sse");
 
     private static RouteHandlerBuilder MapLeaguesStream(IEndpointRouteBuilder app, string route, LootFeedTier tier) =>
         app.MapGet(route.FromApi(), async (HttpContext ctx, ILootFeedService svc, ISystemSettingsCache settings, IServiceProvider sp, ILoggerFactory lf) =>
@@ -61,22 +67,16 @@ public sealed class LootFeedEndpoint : IEndpoint
                 }
                 await StreamFeed(ctx, svc, sp, lf, LootFeedScope.Leagues, tier);
             })
-            .AllowAnonymous();
+            .AllowAnonymous()
+            .RequireRateLimiting("sse");
 
-    private static async Task<IResult> GetPage(LootFeedTiersHandler handler, LootFeedScope scope)
-    {
-        var tierData = await handler.Handle(scope);
-
-        return IResultExtensions.Component<LootFeedContent>(new
-        {
-            StandardEntries = (IReadOnlyList<LootFeedEntry>)tierData[LootFeedTier.Standard],
-            UncommonEntries = (IReadOnlyList<LootFeedEntry>)tierData[LootFeedTier.Uncommon],
-            RareEntries = (IReadOnlyList<LootFeedEntry>)tierData[LootFeedTier.Rare],
-            EpicEntries = (IReadOnlyList<LootFeedEntry>)tierData[LootFeedTier.Epic],
-            LegendaryEntries = (IReadOnlyList<LootFeedEntry>)tierData[LootFeedTier.Legendary],
-            Scope = scope
-        });
-    }
+    // Synchronous and query-free on purpose: the feed shell is the one page that must paint
+    // without waiting on the DB. LootFeedContent renders skeleton columns and an hx-trigger="load"
+    // on #feed-grid-container, which then fetches GetGrid — that single response carries both the
+    // backfill entries and the sse-connect attributes, so history and live streaming still arrive
+    // together. Do not reintroduce a handler here.
+    private static RazorComponentResult GetPage(LootFeedScope scope)
+        => IResultExtensions.Component<LootFeedContent>(new { Scope = scope });
 
     private static async Task<IResult> GetGrid(LootFeedTiersHandler handler, LootFeedScope scope, string? tiers)
     {
@@ -121,8 +121,17 @@ public sealed class LootFeedEndpoint : IEndpoint
         context.Response.ContentType = "text/event-stream";
         context.Response.Headers.CacheControl = "no-cache";
         context.Response.Headers.Connection = "keep-alive";
+        // Disable proxy buffering (Traefik/nginx honour this) so events aren't held back.
+        context.Response.Headers["X-Accel-Buffering"] = "no";
 
         var ct = context.RequestAborted;
+
+        // Flush an SSE comment immediately. Without it the response head isn't written until the
+        // first drop is published, so the browser's EventSource sits in CONNECTING — indistinguishable
+        // from a failed connection, and it can't fire onopen or detect a dead socket to retry. A
+        // leading ":" line is a no-op the client ignores, so this only makes the subscription observable.
+        await context.Response.WriteAsync(": connected\n\n", ct);
+        await context.Response.Body.FlushAsync(ct);
 
         await foreach (var broadcast in feedService.SubscribeAsync(scope, tier, ct))
         {

@@ -97,7 +97,7 @@ internal sealed class GlobalSourceRepository(DataContext dataContext, ILogger<Gl
                     GROUP BY ld."Name"
                 )
                 SELECT a.item_name, a.total_qty, a.total_value,
-                       dr."Rarity", dr."RarityNumerator", dr."RarityDenominator"
+                       dr."Rarity", dr."RarityNumerator", dr."RarityDenominator", dr."Rolls"
                 FROM agg a
                 LEFT JOIN "DropRates" dr
                     ON dr."SourceName" = @source
@@ -122,7 +122,8 @@ internal sealed class GlobalSourceRepository(DataContext dataContext, ILogger<Gl
                     reader.IsDBNull(2) ? 0 : reader.GetInt64(2),
                     reader.IsDBNull(3) ? null : reader.GetString(3),
                     reader.IsDBNull(4) ? null : reader.GetInt32(4),
-                    reader.IsDBNull(5) ? null : reader.GetInt32(5)));
+                    reader.IsDBNull(5) ? null : reader.GetInt32(5),
+                    reader.IsDBNull(6) ? 1 : reader.GetInt32(6)));
             }
 
             return drops;

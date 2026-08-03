@@ -7,7 +7,7 @@ using KlavLor.Application.Features.Builder.DeleteRegion;
 using KlavLor.Application.Interfaces.Authentication;
 using KlavLor.Domain.Interfaces.Repositories;
 using KlavLor.Domain.Shared;
-using KlavLor.Web.Application.Results;
+using KlavLor.Web.Application.HttpResults;
 
 namespace KlavLor.Web.Application.Features.Templates.Builder;
 
@@ -30,10 +30,10 @@ public sealed class RegionEndpoints : IEndpoint
         ITemplateRepository templateRepository)
     {
         var userId = sessionManager.GetUserSessionId();
-        if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
+        if (userId is null) return Results.Unauthorized();
 
         var result = await handler.Handle(command);
-        if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
+        if (!result.IsSuccess) return Results.BadRequest(result.ErrorMessage);
 
         var template = await templateRepository.GetById(command.TemplateId);
         return IResultExtensions.Component<BuilderCanvas>(new { Template = template });
@@ -45,14 +45,14 @@ public sealed class RegionEndpoints : IEndpoint
         ITemplateRepository templateRepository)
     {
         var userId = sessionManager.GetUserSessionId();
-        if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
+        if (userId is null) return Results.Unauthorized();
 
         var template = await templateRepository.GetById(id);
         if (template is null || (template.CreatedById != userId.Value && !sessionManager.IsUserSessionAdministrator()))
-            return Microsoft.AspNetCore.Http.Results.NotFound();
+            return Results.NotFound();
 
         var region = template.Regions.FirstOrDefault(r => r.Id == regionId);
-        if (region is null) return Microsoft.AspNetCore.Http.Results.NotFound();
+        if (region is null) return Results.NotFound();
 
         return IResultExtensions.Component<RegionEditModal>(new
         {
@@ -71,16 +71,16 @@ public sealed class RegionEndpoints : IEndpoint
         ITemplateRepository templateRepository)
     {
         var userId = sessionManager.GetUserSessionId();
-        if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
+        if (userId is null) return Results.Unauthorized();
 
         var result = await handler.Handle(command);
-        if (!result.IsSuccess) return Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
+        if (!result.IsSuccess) return Results.BadRequest(result.ErrorMessage);
 
         var template = await templateRepository.GetById(command.TemplateId);
-        if (template is null) return Microsoft.AspNetCore.Http.Results.NotFound();
+        if (template is null) return Results.NotFound();
 
         var region = template.Regions.FirstOrDefault(r => r.Id == command.RegionId);
-        if (region is null) return Microsoft.AspNetCore.Http.Results.NotFound();
+        if (region is null) return Results.NotFound();
 
         return IResultExtensions.Component<BuilderRegion>(new
         {
@@ -96,15 +96,15 @@ public sealed class RegionEndpoints : IEndpoint
         UpdateRegionPositionHandler handler)
     {
         var userId = sessionManager.GetUserSessionId();
-        if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
+        if (userId is null) return Results.Unauthorized();
 
         command.TemplateId = id;
         command.RegionId = regionId;
         var result = await handler.Handle(command);
 
         return result.IsSuccess
-            ? Microsoft.AspNetCore.Http.Results.NoContent()
-            : Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
+            ? Results.NoContent()
+            : Results.BadRequest(result.ErrorMessage);
     }
 
     private static async Task<IResult> UpdateRegionSize(
@@ -114,15 +114,15 @@ public sealed class RegionEndpoints : IEndpoint
         UpdateRegionSizeHandler handler)
     {
         var userId = sessionManager.GetUserSessionId();
-        if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
+        if (userId is null) return Results.Unauthorized();
 
         command.TemplateId = id;
         command.RegionId = regionId;
         var result = await handler.Handle(command);
 
         return result.IsSuccess
-            ? Microsoft.AspNetCore.Http.Results.NoContent()
-            : Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
+            ? Results.NoContent()
+            : Results.BadRequest(result.ErrorMessage);
     }
 
     private static async Task<IResult> DeleteRegion(
@@ -131,13 +131,13 @@ public sealed class RegionEndpoints : IEndpoint
         DeleteRegionHandler handler)
     {
         var userId = sessionManager.GetUserSessionId();
-        if (userId is null) return Microsoft.AspNetCore.Http.Results.Unauthorized();
+        if (userId is null) return Results.Unauthorized();
 
         var command = new DeleteRegionCommand { TemplateId = id, RegionId = regionId };
         var result = await handler.Handle(command);
 
         return result.IsSuccess
-            ? Microsoft.AspNetCore.Http.Results.NoContent()
-            : Microsoft.AspNetCore.Http.Results.BadRequest(result.ErrorMessage);
+            ? Results.NoContent()
+            : Results.BadRequest(result.ErrorMessage);
     }
 }

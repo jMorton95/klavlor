@@ -87,14 +87,20 @@ public sealed record BiggestItem(
     string SourceName,
     DateTimeOffset OccurredAt);
 
+/// One actual claim at a depth-modelled source (e.g. one Doom run), carrying the depth that
+/// claim's loot proves it reached. Ordered oldest-first. Empty for ordinary sources.
+public sealed record SourceRun(int RecordId, DateTimeOffset OccurredAt, int Depth);
+
 public sealed record SourceCollection(
     string SourceName,
     int CharacterKc,
     IReadOnlyList<CollectionEntry> Entries,
     IReadOnlyList<MissingClogItem> MissingItems,
-    // Deepest delve reached at this source (max stored EffectiveKills); 0 for ordinary sources.
-    // Feeds Doom's depth-aware luck maths.
-    int CharacterDepth = 0);
+    // Every run at this source with a derived depth, oldest first. Depth-modelled sources
+    // (Doom) compute expected KC from these ACTUAL per-run depths — never from a single
+    // max-ever depth, which would assume every run went as deep as the best one and make
+    // everyone look drier than they are. Empty for ordinary flat-rate sources.
+    IReadOnlyList<SourceRun> Runs);
 
 /// <summary>
 /// Monthly kill activity for one character at one source — drives the character source
@@ -118,9 +124,14 @@ public sealed record MissingClogItem(
     int? RarityDenominator = null,
     int Rolls = 1,
     // Expected kills-to-first-drop for this item at this source, normalised through the
-    // per-source loot model (raid unique-table shares, multi-roll tables, etc.). Null when
-    // there's no usable rate. The character page prefers this over the raw rolls×num/den.
-    double? EffectiveKcPerDrop = null);
+    // per-source loot model (raid unique-table shares, multi-roll tables, depth models) and
+    // scaled by any admin rate modifier. Null when there's no usable rate. This — not the raw
+    // stored Rarity — is what every luck surface must use.
+    double? EffectiveKcPerDrop = null,
+    // Display form of EffectiveKcPerDrop, e.g. "1/540". Differs from Rarity whenever a source
+    // model or an admin rate modifier applies, and is populated for depth-modelled sources that
+    // have no stored Rarity at all. Rate columns must render this in preference to Rarity.
+    string? EffectiveRarity = null);
 
 /// <summary>
 /// Compact source overview rendered into the hover popover on a feed card.
@@ -153,9 +164,16 @@ public sealed record CollectionEntry(
     int Rolls = 1,
     IReadOnlyList<DropEvent>? DropEvents = null,
     // Expected kills-to-first-drop for this item at this source, normalised through the
-    // per-source loot model (raid unique-table shares, multi-roll tables, etc.). Null when
-    // there's no usable rate. The character page prefers this over the raw rolls×num/den.
-    double? EffectiveKcPerDrop = null);
+    // per-source loot model (raid unique-table shares, multi-roll tables, depth models) and
+    // scaled by any admin rate modifier. Null when there's no usable rate. This — not the raw
+    // stored Rarity — is what every luck surface must use.
+    double? EffectiveKcPerDrop = null,
+    // Display form of EffectiveKcPerDrop, e.g. "1/540". See MissingClogItem.EffectiveRarity.
+    string? EffectiveRarity = null,
+    // Id of the LootRecord this item first dropped on. Used to window SourceCollection.Runs to
+    // the runs that happened up to (and including) the first receipt, so a depth-modelled
+    // item's luck is judged against the depths actually delved before it dropped.
+    int FirstRecordId = 0);
 
 public sealed record DropEvent(DateTimeOffset OccurredAt, int? KillCount, int? KillOrdinal);
 

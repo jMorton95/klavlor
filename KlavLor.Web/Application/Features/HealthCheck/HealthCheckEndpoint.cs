@@ -13,7 +13,7 @@ public sealed class HealthCheckEndpoint : IEndpoint
     {
         var canConnect = await databaseConnector.CanConnect();
         return canConnect
-            ? Microsoft.AspNetCore.Http.Results.Ok(new { Status = "Healthy" })
-            : Microsoft.AspNetCore.Http.Results.StatusCode(503);
+            ? Results.Ok(new { Status = "Healthy" })
+            : Results.StatusCode(503);
     }
 }

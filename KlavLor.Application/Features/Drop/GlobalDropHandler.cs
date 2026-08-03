@@ -1,10 +1,14 @@
 using Microsoft.Extensions.Caching.Memory;
 using KlavLor.Application.Common;
+using KlavLor.Application.Features.Loot.SourceModels;
 using KlavLor.Application.Interfaces.Repositories;
 
 namespace KlavLor.Application.Features.Drop;
 
-public sealed class GlobalDropHandler(IGlobalDropRepository repository, IMemoryCache cache)
+public sealed class GlobalDropHandler(
+    IGlobalDropRepository repository,
+    SourceLootService sourceLoot,
+    IMemoryCache cache)
 {
     public const int SessionsLimit = 18;
 
@@ -21,13 +25,28 @@ public sealed class GlobalDropHandler(IGlobalDropRepository repository, IMemoryC
     public Task<GlobalDropOverview?> GetOverview(string itemName)
         => Cached("overview", itemName, () => repository.GetOverview(itemName));
 
-    public Task<DropSourceTable> GetSources(string itemName, string? sortBy, SortDirection? direction, string? term)
+    // Each row's rate goes through SourceLootService so an admin rate modifier — a global baseline
+    // — and the source's loot model are reflected here too, per (source, item) pair. No per-run
+    // depth exists in a global aggregate, so depth-modelled sources show no rate here rather than
+    // inventing an assumed depth.
+    public async Task<DropSourceTable> GetSources(string itemName, string? sortBy, SortDirection? direction, string? term)
     {
         var sort = string.IsNullOrWhiteSpace(sortBy) ? DefaultSourceSort : sortBy;
         var dir = direction ?? DefaultDirection;
-        return IsDefaultView(sort, dir, term, DefaultSourceSort)
+        var table = await (IsDefaultView(sort, dir, term, DefaultSourceSort)
             ? Cached("sources", itemName, () => repository.GetSources(itemName, sort, dir, null))
-            : repository.GetSources(itemName, sort, dir, Normalize(term));
+            : repository.GetSources(itemName, sort, dir, Normalize(term)));
+
+        return table with
+        {
+            Rows = table.Rows
+                .Select(r => r with
+                {
+                    EffectiveRarity = sourceLoot
+                        .EffectiveRate(r.SourceName, itemName, r.RarityNumerator, r.RarityDenominator, r.Rolls)?.Rarity
+                })
+                .ToList()
+        };
     }
 
     public Task<DropCharacterTable> GetCharacters(string itemName, string? sortBy, SortDirection? direction, string? term)

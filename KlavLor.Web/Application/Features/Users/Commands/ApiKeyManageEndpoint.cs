@@ -2,7 +2,7 @@ using KlavLor.Application.Features.ApiKeys.Generate;
 using KlavLor.Application.Features.ApiKeys.Search;
 using KlavLor.Domain.Interfaces.Repositories;
 using KlavLor.Domain.Shared;
-using KlavLor.Web.Application.Results;
+using KlavLor.Web.Application.HttpResults;
 
 namespace KlavLor.Web.Application.Features.Users.Commands;
 

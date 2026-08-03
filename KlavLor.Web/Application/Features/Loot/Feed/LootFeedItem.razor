@@ -67,6 +67,7 @@
             : "#";
         var kcLabel = FormatKillCount(Entry.MinKillCount, Entry.MaxKillCount)
                       ?? FormatKillOrdinal(Entry.MinKillOrdinal, Entry.MaxKillOrdinal);
+        var sessionKills = SessionKillCount();
     }
     <div class="mb-1.5 min-w-0">
         @* Row 1: "{user} killed {icon} {source}" — source flexes into all remaining width *@
@@ -93,11 +94,20 @@
                      class="w-4 h-4 rounded shrink-0"
                      loading="lazy"
                      onerror="this.style.display='none'" />
-                <span class="truncate">@Entry.SourceName@(Entry.RunCount > 1 ? $" ({Entry.RunCount})" : "")</span>
+                @* No bracketed RunCount here: it counted merged loot records, which reads as a
+                   kill count but isn't one, and contradicted the KC range on the row below. The
+                   session's real kill count is shown next to that range instead. *@
+                <span class="truncate">@Entry.SourceName</span>
             </a>
         </div>
-        @* Row 2: KC · time *@
+        @* Row 2: kills this session · KC · time *@
         <div class="flex items-center gap-1.5 mt-0.5 text-[10px] text-slate-500 dark:text-slate-300">
+            @if (sessionKills is > 1)
+            {
+                <span class="text-slate-600 dark:text-slate-200 font-medium whitespace-nowrap"
+                      title="Kills in this session, from the kill-count range below">@sessionKills.Value.ToString("N0") kills</span>
+                <span aria-hidden="true">·</span>
+            }
             @if (kcLabel is not null)
             {
                 <span class="text-slate-600 dark:text-slate-200 whitespace-nowrap">@kcLabel</span>
@@ -184,6 +194,14 @@
                         <span class="font-medium text-amber-600 dark:text-amber-400">@drop.Quantity.ToString("N0")x</span>
                     }
                     <span>@drop.Name</span>
+                    @if (LuckLabel(drop) is { } luckLabel)
+                    {
+                        @* Effective rate + how this drop landed against it. The numbers come from
+                           SourceLootService at publish time, so they already include the source's
+                           loot model (raid unique shares, Doom's per-run delve depth) and any admin
+                           rate modifier — identical to the character page and the leaderboard. *@
+                        <span class="px-1 py-0 rounded-sm text-[9px] font-medium @luckLabel.Classes" title="@luckLabel.Title">@luckLabel.Text</span>
+                    }
                     @if (drop.Price > 0)
                     {
                         @if (Entry.RunCount > 1 && drop.Quantity > 1)
@@ -269,12 +287,68 @@
         _ => "ring-2 ring-slate-400/70 dark:ring-slate-300/60"
     };
 
+    // Collapse repeats of the same item into one chip. Every flag must be carried through:
+    // dropping IsSpecial/ExpectedKc/EffectiveRarity here would silently strip the giga-effect
+    // marker and the rate label from any card that happened to list an item twice.
     private static List<LootFeedDrop> GroupDrops(List<LootFeedDrop> drops) =>
         drops
             .GroupBy(d => d.Name)
-            .Select(g => new LootFeedDrop(g.Key, g.Sum(d => d.Quantity), g.First().Price, g.Any(d => d.IsFirstTime), g.Any(d => d.IsCollectionLogItem)))
+            .Select(g => new LootFeedDrop(
+                g.Key,
+                g.Sum(d => d.Quantity),
+                g.First().Price,
+                g.Any(d => d.IsFirstTime),
+                g.Any(d => d.IsCollectionLogItem),
+                g.Any(d => d.IsSpecial),
+                g.Select(d => d.ExpectedKc).FirstOrDefault(k => k is > 0),
+                g.Select(d => d.EffectiveRarity).FirstOrDefault(r => !string.IsNullOrEmpty(r))))
             .OrderByDescending(d => (long)d.Quantity * d.Price)
             .ToList();
+
+    private sealed record DropLuck(string Text, string Classes, string Title);
+
+    // "1/540 · 3.2× dry" style chip: the effective rate plus how this kill compares to it. Null
+    // when we have no usable rate, or no kill count to compare against. Thresholds match the
+    // character page's luck pills so the same drop never reads lucky in one place and dry in another.
+    private DropLuck? LuckLabel(LootFeedDrop drop)
+    {
+        if (drop.ExpectedKc is not > 0 || string.IsNullOrEmpty(drop.EffectiveRarity)) return null;
+
+        var expected = drop.ExpectedKc.Value;
+        var observed = Entry.MaxKillCount ?? Entry.MaxKillOrdinal;
+        var title = $"Effective rate {drop.EffectiveRarity} (~{Math.Round(expected):N0} kills expected), including this source's loot model and any admin rate adjustment";
+
+        if (observed is not > 0)
+            return new DropLuck(drop.EffectiveRarity!, "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-white", title);
+
+        var ratio = observed.Value / expected;
+        var (text, classes) = ratio switch
+        {
+            <= 0.10 => ($"{drop.EffectiveRarity} · {1 / ratio:0.#}× spooned", "bg-emerald-600 text-white"),
+            <= 0.50 => ($"{drop.EffectiveRarity} · {1 / ratio:0.#}× lucky", "bg-emerald-700/80 text-white"),
+            <= 1.50 => ($"{drop.EffectiveRarity} · on rate", "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-white"),
+            <= 3.00 => ($"{drop.EffectiveRarity} · {ratio:0.#}× dry", "bg-amber-700/80 text-white"),
+            _ => ($"{drop.EffectiveRarity} · {ratio:0.#}× dry", "bg-rose-700/80 text-white")
+        };
+        return new DropLuck(text, classes, $"{title}. This drop came at {observed.Value:N0} kills.");
+    }
+
+    // How many kills this session actually spans, derived from the same bounds the KC range is
+    // printed from so the two numbers can never disagree. Min and Max are the kill counts of the
+    // first and last kill IN the session (see GetSessionBounds), so the span is inclusive: a
+    // session from 4,000 to 5,000 is 1,001 kills, and a single-kill session is 1, not 0.
+    // Prefers RuneLite's reported KC and falls back to our chronological ordinals.
+    private int? SessionKillCount()
+    {
+        var span = Span(Entry.MinKillCount, Entry.MaxKillCount) ?? Span(Entry.MinKillOrdinal, Entry.MaxKillOrdinal);
+        return span;
+
+        static int? Span(int? min, int? max)
+        {
+            if (min is null || max is null || max.Value < min.Value) return null;
+            return max.Value - min.Value + 1;
+        }
+    }
 
     private static string? FormatKillCount(int? min, int? max)
     {

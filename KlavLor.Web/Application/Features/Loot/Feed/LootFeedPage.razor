@@ -1,33 +1,10 @@
 @page "/loot/feed"
-@using KlavLor.Application.Features.Loot.Feed
-@using KlavLor.Application.Interfaces.Services
 @using KlavLor.Web.Components.Layout
 
-@inject LootFeedTiersHandler FeedHandler
-
+@* Routable shell for direct browser navigation / refresh. No handler, no OnInitializedAsync and
+   no DB work: LootFeedContent renders skeleton swimlanes and fetches the grid itself once the
+   page has loaded, so first paint never waits on a query. That grid response carries the backfill
+   entries and the SSE subscriptions together. *@
 <PageLayout PageTitle="KlavLor - Loot Feed" Title="Loot Feed" Description="Real-time loot drops from all users">
-    <LootFeedContent StandardEntries="@_standard"
-                     UncommonEntries="@_uncommon"
-                     RareEntries="@_rare"
-                     EpicEntries="@_epic"
-                     LegendaryEntries="@_legendary"
-                     UpdateHeader="false" />
+    <LootFeedContent UpdateHeader="false" />
 </PageLayout>
-
-@code {
-    private IReadOnlyList<LootFeedEntry> _standard = [];
-    private IReadOnlyList<LootFeedEntry> _uncommon = [];
-    private IReadOnlyList<LootFeedEntry> _rare = [];
-    private IReadOnlyList<LootFeedEntry> _epic = [];
-    private IReadOnlyList<LootFeedEntry> _legendary = [];
-
-    protected override async Task OnInitializedAsync()
-    {
-        var tiers = await FeedHandler.Handle();
-        _standard = tiers[LootFeedTier.Standard];
-        _uncommon = tiers[LootFeedTier.Uncommon];
-        _rare = tiers[LootFeedTier.Rare];
-        _epic = tiers[LootFeedTier.Epic];
-        _legendary = tiers[LootFeedTier.Legendary];
-    }
-}
