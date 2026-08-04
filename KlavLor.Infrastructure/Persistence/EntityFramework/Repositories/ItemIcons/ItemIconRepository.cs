@@ -59,13 +59,29 @@ internal sealed class ItemIconRepository(DataContext dataContext, ILogger<ItemIc
             var results = await dataContext.Database
                 .SqlQueryRaw<UncataloguedItem>(
                     """
-                    SELECT DISTINCT ld."Name" AS "ItemName",
-                           MIN(ld."ItemId") AS "ItemId"
-                    FROM "LootDrops" ld
+                    -- Candidates come from loot we've received AND from the collection log.
+                    --
+                    -- Loot alone wasn't enough: an item nobody has ever received never got an
+                    -- ItemIcons row, so the icon endpoint 404'd forever and the backfill never even
+                    -- tried it. That is exactly what the luck leaderboard and the collection tab
+                    -- create — they show clog items a character is DRY on, which by definition have
+                    -- no loot record anywhere. Magic fang was the reported symptom; locally 1,646
+                    -- clog items were in the same state, every one of them never received.
+                    --
+                    -- Reads EffectiveCollectionLogItems, so admin-blacklisted entries stay out and we
+                    -- don't spend wiki fetches on items the site deliberately ignores.
+                    SELECT s."ItemName", MIN(s."ItemId") AS "ItemId"
+                    FROM (
+                        SELECT ld."Name" AS "ItemName", ld."ItemId" AS "ItemId"
+                        FROM "LootDrops" ld
+                        UNION ALL
+                        SELECT cli."Name", cli."ItemId"
+                        FROM "EffectiveCollectionLogItems" cli
+                    ) s
                     WHERE NOT EXISTS (
-                        SELECT 1 FROM "ItemIcons" ii WHERE LOWER(ii."ItemName") = LOWER(ld."Name")
+                        SELECT 1 FROM "ItemIcons" ii WHERE LOWER(ii."ItemName") = LOWER(s."ItemName")
                     )
-                    GROUP BY ld."Name"
+                    GROUP BY s."ItemName"
                     LIMIT {0}
                     """, limit)
                 .ToListAsync();
