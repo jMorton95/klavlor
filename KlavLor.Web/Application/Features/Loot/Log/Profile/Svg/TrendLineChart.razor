@@ -112,7 +112,8 @@
                      style="padding-bottom: 0;">
                     @for (var i = 0; i < count; i++)
                     {
-                        var sv = Points[i].SecondaryValue ?? 0;
+                        var p = Points[i];
+                        var sv = p.SecondaryValue ?? 0;
                         var h = SecondaryPx(sv);
                         @* px-0.5 so consecutive weeks read as separate bars; without a gap a run of
                            similar weeks merged into one solid block. *@
@@ -123,7 +124,10 @@
                                     @FormatSecondary(sv)
                                 </span>
                             }
-                            <div class="w-full rounded-t bg-emerald-500/70 dark:bg-emerald-400/60"
+                            @* A still-running period is hatched, because its bar is short only
+                               because the period isn't over. Left solid it read as a real collapse
+                               in activity, which is the opposite of what a part-week means. *@
+                            <div class="w-full rounded-t @(p.IsPartial ? "bg-emerald-500/35 dark:bg-emerald-400/30 trend-bar-partial" : "bg-emerald-500/70 dark:bg-emerald-400/60")"
                                  style="height: @(Math.Max(sv > 0 ? 2 : 0, h).ToString("0.##", inv))px;"></div>
                         </div>
                     }
@@ -153,7 +157,10 @@
                     var anchor = TooltipAnchor(i, count);
                     <div class="relative flex-1 group">
                         <div class="hidden group-hover:block absolute inset-y-0 left-1/2 w-px bg-slate-400/40 dark:bg-slate-500/40 pointer-events-none"></div>
-                        <div class="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400 pointer-events-none"
+                        @* Ringed in the panel colour so the node still reads where it lands on top
+                           of a bar — the bar is the full column width, so the newest node in
+                           particular sat inside one and was easy to lose. *@
+                        <div class="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-amber-500 dark:bg-amber-400 ring-2 ring-slate-50 dark:ring-slate-900 pointer-events-none"
                              style="top: @(y.ToString("0.##", inv))px;"></div>
                         @if (p.SecondaryValue is { } sv && !SecondaryAsBars)
                         {
@@ -232,7 +239,10 @@
         string ValueText,
         string? Detail = null,
         long? SecondaryValue = null,
-        string? SecondaryText = null);
+        string? SecondaryText = null,
+        // True for a period that hasn't finished yet. Its bar is hatched rather than solid, since
+        // a part-week is short for a reason that has nothing to do with how much was played.
+        bool IsPartial = false);
 
     [Parameter] public required IReadOnlyList<Point> Points { get; set; }
     [Parameter] public Func<long, string>? FormatValue { get; set; }

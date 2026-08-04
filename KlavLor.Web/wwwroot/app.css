@@ -44,6 +44,18 @@ body:not(.history-panel-open) #completion-history-panel {
     opacity: 1;
 }
 
+/* An in-progress period's bar on the kill-history chart (TrendLineChart). Hatched so a part-week
+   is not mistaken for a collapse in activity: its bar is short because the week isn't over, and a
+   solid bar makes that look like a real drop-off. Plain CSS because a repeating-gradient overlay
+   isn't expressible as a Tailwind utility. */
+.trend-bar-partial {
+    background-image: repeating-linear-gradient(
+        45deg,
+        transparent 0 3px,
+        rgb(255 255 255 / 0.35) 3px 6px
+    );
+}
+
 /* Histogram-segment hover tooltip — show on hover of the segment row.
    Done in plain CSS so a new Tailwind variant doesn't need an ASP.NET static-asset
    restart to register. */
