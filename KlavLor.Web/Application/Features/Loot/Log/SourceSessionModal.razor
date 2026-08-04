@@ -4,7 +4,7 @@
 @* A session's loot, shown in a popover modal. Rendered into #hx-modal-container; closes on
    backdrop click or the X (same pattern as ConfirmationModal). Opens on the grouped-loot
    view (every distinct item summed) so the whole haul is visible at a glance; the toggle
-   swaps to the per-kill play-by-play. *@
+   swaps to the per-roll play-by-play. *@
 <div id="modal-element" class="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
     <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
          onclick="document.getElementById('modal-element').remove()"></div>
@@ -74,7 +74,7 @@
                 }
             </div>
 
-            @* Hidden until the user toggles: the original per-kill play-by-play. *@
+            @* Hidden until the user toggles: the original per-roll play-by-play. *@
             <div id="session-rolls" class="hidden">
                 <LootLogSessionKills Kills="Kills" />
             </div>
@@ -111,7 +111,7 @@
     {
         get
         {
-            if (Kills.Count == 0) return "No kills";
+            if (Kills.Count == 0) return "No rolls";
             // GetSessionKills returns newest-first.
             var newest = IngestTimezone.ToZoneTime(Kills[0].OccurredAt);
             var oldest = IngestTimezone.ToZoneTime(Kills[^1].OccurredAt);

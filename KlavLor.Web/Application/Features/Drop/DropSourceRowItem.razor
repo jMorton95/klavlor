@@ -16,7 +16,7 @@
     </td>
     <td class="px-3 py-1.5 text-right tabular-nums">@Row.Drops.ToString("N0")</td>
     <td class="px-3 py-1.5 text-right tabular-nums text-slate-500 dark:text-white">@Row.Kills.ToString("N0")</td>
-    <td class="px-3 py-1.5 text-right tabular-nums text-slate-600 dark:text-slate-300" title="Observed in our data (drops ÷ kills)">@ObservedRate</td>
+    <td class="px-3 py-1.5 text-right tabular-nums text-slate-600 dark:text-slate-300" title="Observed in our data (drops ÷ rolls)">@ObservedRate</td>
     <td class="px-3 py-1.5 text-right font-mono text-[11px] text-slate-400 dark:text-white" title="OSRS Wiki drop rate">@WikiRate</td>
     <td class="px-3 py-1.5 text-right tabular-nums text-slate-500 dark:text-white">@Row.TotalQuantity.ToString("N0")</td>
     <td class="px-3 py-1.5 text-right tabular-nums font-medium text-amber-600 dark:text-amber-400">@GoldFormat.Format(Row.TotalValue)</td>
@@ -29,7 +29,7 @@
 
     private string SourceUrl => AppRoutes.Source + "?name=" + Uri.EscapeDataString(Row.SourceName);
 
-    // Observed rate as "1/N", N = kills per drop. Only meaningful with at least one of each.
+    // Observed rate as "1/N", N = rolls per drop. Only meaningful with at least one of each.
     private string ObservedRate =>
         Row is { Drops: > 0, Kills: > 0 }
             ? $"1/{Math.Max(1, (long)Math.Round((double)Row.Kills / Row.Drops)):N0}"

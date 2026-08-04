@@ -70,7 +70,7 @@
         var sessionKills = SessionKillCount();
     }
     <div class="mb-1.5 min-w-0">
-        @* Row 1: "{user} killed {icon} {source}" — source flexes into all remaining width *@
+        @* Row 1: "{user} rolled {icon} {source}" — source flexes into all remaining width *@
         <div class="flex items-center gap-1 min-w-0">
             @if (Entry.GameCharacterId is not null)
             {
@@ -84,7 +84,7 @@
             {
                 <span class="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate shrink-0 max-w-[40%]">@Entry.UserName</span>
             }
-            <span class="text-[10px] text-slate-500 dark:text-white shrink-0">@(Entry.SourceType switch { KlavLor.Domain.Entities.LootSourceType.Event => "rolled", KlavLor.Domain.Entities.LootSourceType.Pickpocket => "pickpocketed", _ => "killed" })</span>
+            <span class="text-[10px] text-slate-500 dark:text-white shrink-0">@(Entry.SourceType switch { KlavLor.Domain.Entities.LootSourceType.Event => "rolled", KlavLor.Domain.Entities.LootSourceType.Pickpocket => "pickpocketed", _ => "rolled" })</span>
             <a hx-get="@sourceApi"
                hx-target="#hx-page-container"
                hx-push-url="@sourceUrl"
@@ -100,12 +100,12 @@
                 <span class="truncate">@Entry.SourceName</span>
             </a>
         </div>
-        @* Row 2: kills this session · KC · time *@
+        @* Row 2: rolls this session · KC · time *@
         <div class="flex items-center gap-1.5 mt-0.5 text-[10px] text-slate-500 dark:text-slate-300">
             @if (sessionKills is > 1)
             {
                 <span class="text-slate-600 dark:text-slate-200 font-medium whitespace-nowrap"
-                      title="Rolls in this session, from the kill-count range below">@sessionKills.Value.ToString("N0") rolls</span>
+                      title="Rolls in this session, from the roll range below">@sessionKills.Value.ToString("N0") rolls</span>
                 <span class="mx-0.5" aria-hidden="true">·</span>
             }
             @if (kcLabel is not null)
@@ -353,7 +353,7 @@
         if (observed is not > 0)
             return new DropLuck(drop.EffectiveRarity!, null, "", title);
 
-        var text = $"KC {observed.Value:N0} · {drop.EffectiveRarity}";
+        var text = $"#{observed.Value:N0} · {drop.EffectiveRarity}";
         var ratio = observed.Value / expected;
         var (verdict, verdictClass) = ratio switch
         {
@@ -362,7 +362,7 @@
             <= 3.00 => ($"{ratio:0.#}x dry", "text-amber-600 dark:text-amber-400"),
             _ => ($"{ratio:0.#}x dry", "text-rose-600 dark:text-rose-400")
         };
-        return new DropLuck(text, verdict, verdictClass, $"{title}. This drop came at {observed.Value:N0}.");
+        return new DropLuck(text, verdict, verdictClass, $"{title}. This drop came at roll {observed.Value:N0}.");
     }
 
 
@@ -388,7 +388,7 @@
         if (min is null && max is null) return null;
         var lo = min ?? max;
         var hi = max ?? min;
-        return lo == hi ? $"KC #{lo:N0}" : $"KC #{lo:N0}–{hi:N0}";
+        return lo == hi ? $"#{lo:N0}" : $"#{lo:N0}–{hi:N0}";
     }
 
     private static string? FormatKillOrdinal(int? min, int? max)
@@ -396,7 +396,7 @@
         if (min is null && max is null) return null;
         var lo = min ?? max;
         var hi = max ?? min;
-        return lo == hi ? $"Kill #{lo:N0}" : $"Kill #{lo:N0}–{hi:N0}";
+        return lo == hi ? $"#{lo:N0}" : $"#{lo:N0}–{hi:N0}";
     }
 
     private static string FormatTime(DateTimeOffset time)

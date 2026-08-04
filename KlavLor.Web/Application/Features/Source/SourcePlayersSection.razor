@@ -5,7 +5,7 @@
     <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">Players</h2>
     @if (Players.Count == 0)
     {
-        <p class="text-sm text-slate-400 dark:text-white">No tracked players have killed this source yet.</p>
+        <p class="text-sm text-slate-400 dark:text-white">No tracked players have rolled this source yet.</p>
     }
     else
     {
@@ -26,7 +26,7 @@
                         </div>
                     </div>
                     <div class="flex items-center gap-3 text-xs text-slate-500 dark:text-white">
-                        <span>@player.TotalKills.ToString("N0") kills</span>
+                        <span>@player.TotalKills.ToString("N0") rolls</span>
                         <span class="font-medium text-amber-600 dark:text-amber-400">@GoldFormat.Format(player.TotalValue) gp</span>
                     </div>
                 </a>

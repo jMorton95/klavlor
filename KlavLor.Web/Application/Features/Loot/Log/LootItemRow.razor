@@ -30,7 +30,7 @@
                      onerror="this.style.display='none'" />
                 <span class="text-slate-700 dark:text-slate-200 truncate flex-1 hover:text-amber-600 dark:hover:text-amber-400">@source.SourceName</span>
                 <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium @GetSourceTypeBadgeClasses(source.SourceType)">@source.SourceType</span>
-                <span class="text-slate-500 dark:text-white whitespace-nowrap tabular-nums">@source.TotalKills.ToString("N0") @(source.SourceType == "Event" ? "rolls" : "kills")</span>
+                <span class="text-slate-500 dark:text-white whitespace-nowrap tabular-nums">@source.TotalKills.ToString("N0") rolls</span>
                 <span class="text-slate-500 dark:text-white whitespace-nowrap tabular-nums">@source.Quantity.ToString("N0") qty</span>
                 <span class="text-amber-600 dark:text-amber-400 font-medium whitespace-nowrap tabular-nums w-20 text-right">@GoldFormat.Format(source.Value)</span>
             </a>

@@ -20,7 +20,7 @@
                 hx-swap="outerHTML"
                 onclick="history.replaceState(history.state, '', '@GetKillPageUrl()')"
                 class="px-3 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:text-white dark:hover:text-slate-200 cursor-pointer">
-            Kill Sessions
+            Roll Sessions
         </button>
     </div>
 
@@ -59,7 +59,7 @@
                     }
                     else
                     {
-                        <text>@Collection.CharacterKc.ToString("N0") @(Collection.CharacterKc == 1 ? "kill" : "kills") at this source</text>
+                        <text>@Collection.CharacterKc.ToString("N0") @(Collection.CharacterKc == 1 ? "roll" : "rolls") at this source</text>
                     }
                 </span>
             </div>
@@ -359,7 +359,7 @@
             <div class="bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-xl p-3 space-y-1 text-[11px]">
                 <div class="flex items-center justify-between font-semibold">
                     <span class="text-slate-700 dark:text-slate-200">Drop rate</span>
-                    <span class="text-slate-500 dark:text-white">@rolls rolls / kill</span>
+                    <span class="text-slate-500 dark:text-white">@rolls chances / roll</span>
                 </div>
                 <div class="flex items-center justify-between">
                     <span class="text-slate-500 dark:text-white">Per roll</span>
@@ -368,7 +368,7 @@
                 @if (expectedKc is not null)
                 {
                     <div class="flex items-center justify-between">
-                        <span class="text-slate-500 dark:text-white">Per kill (≈)</span>
+                        <span class="text-slate-500 dark:text-white">Per roll (≈)</span>
                         <span class="font-mono text-amber-600 dark:text-amber-400">1 / @expectedKc!.Value.ToString("0", System.Globalization.CultureInfo.InvariantCulture)</span>
                     </div>
                     <div class="flex items-center justify-between">
@@ -377,7 +377,7 @@
                     </div>
                 }
                 <div class="pt-1 mt-1 border-t border-slate-200 dark:border-slate-700/50 text-[10px] text-slate-500 dark:text-white">
-                    Each kill rolls the rare table @rolls times, so the per-kill chance is roughly the per-roll rate × rolls.
+                    Each roll takes @rolls chances at the rare table, so the per-roll chance is roughly the single-chance rate × @rolls.
                 </div>
             </div>
         </div>;
@@ -448,7 +448,7 @@
         }
         sb.Append("<text x=\"").Append(PadL).Append("\" y=\"").Append(H - 16).Append("\" text-anchor=\"middle\" font-size=\"11\" fill=\"#94a3b8\">0</text>");
         sb.Append("<text x=\"").Append(PadL + plotW).Append("\" y=\"").Append(H - 16).Append("\" text-anchor=\"middle\" font-size=\"11\" fill=\"#94a3b8\">").Append(xMax.ToString("0", inv)).Append("</text>");
-        sb.Append("<text x=\"").Append(PadL + plotW / 2.0).Append("\" y=\"").Append(H - 4).Append("\" text-anchor=\"middle\" font-size=\"11\" fill=\"#64748b\">kills</text>");
+        sb.Append("<text x=\"").Append(PadL + plotW / 2.0).Append("\" y=\"").Append(H - 4).Append("\" text-anchor=\"middle\" font-size=\"11\" fill=\"#64748b\">rolls</text>");
         sb.Append("</svg>");
         return sb.ToString();
     }

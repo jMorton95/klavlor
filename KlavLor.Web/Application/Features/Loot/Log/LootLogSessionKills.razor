@@ -3,11 +3,11 @@
 
 @if (Kills.Count == 0)
 {
-    <p class="text-xs text-slate-400 dark:text-white py-2">No individual kills found for this session.</p>
+    <p class="text-xs text-slate-400 dark:text-white py-2">No individual rolls found for this session.</p>
 }
 else
 {
-    @* Dense per-kill rows: KC/time on the left, drop chips in the middle, kill value on
+    @* Dense per-roll rows: number/time on the left, drop chips in the middle, roll value on
        the right. No per-row card chrome — just thin dividers — so a long session reads
        as a tight ledger. *@
     <ul class="divide-y divide-slate-100 dark:divide-slate-800/70 border-t border-slate-100 dark:border-slate-800/70">
@@ -52,9 +52,9 @@ else
 
     private static string KcLabel(LootKillEntry kill) =>
         kill.KillCount is not null
-            ? $"KC #{kill.KillCount.Value:N0}"
+            ? $"#{kill.KillCount.Value:N0}"
             : kill.KillOrdinal is not null
-                ? $"Kill #{kill.KillOrdinal.Value:N0}"
+                ? $"#{kill.KillOrdinal.Value:N0}"
                 : "";
 
     private static string LocalTime(DateTimeOffset at) =>

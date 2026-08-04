@@ -3,8 +3,8 @@
 @using KlavLor.Application.Features.Loot.Log
 @using KlavLor.Web.Application.Features.Loot.Log.Profile.Svg
 
-@* Kill history for one character at one source: a cumulative kill line (long-term progression)
-   with per-week kill bars overlaid (short-term grind density — gaps are weeks the character didn't
+@* Roll history for one character at one source: a cumulative roll line (long-term progression)
+   with per-week roll bars overlaid (short-term grind density — gaps are weeks the character didn't
    touch the source). Loaded via its own HTMX request.
 
    Weekly, not monthly: a steady 1k-a-day grind produces twelve indistinguishable monthly bars,
@@ -17,9 +17,9 @@
     <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
         <div class="flex items-start justify-between gap-2 mb-4 flex-wrap">
             <div>
-                <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Kill history</h2>
+                <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Roll history</h2>
                 <p class="text-xs text-slate-500 dark:text-white mt-0.5">
-                    @_lifetimeTotal.ToString("N0") logged kills all time · @_windowTotal.ToString("N0") in this window
+                    @_lifetimeTotal.ToString("N0") logged rolls all time · @_windowTotal.ToString("N0") in this window
                     @if (_activeWeeks > 0)
                     {
                         <span> · @_perActiveWeek.ToString("N0") per active week</span>
@@ -44,14 +44,14 @@
                         FormatValue="@FormatCount"
                         FormatSecondaryValue="@FormatCount"
                         ChartHeightPx="220"
-                        PrimaryName="Cumulative kills"
-                        SecondaryName="Kills that week"
+                        PrimaryName="Cumulative rolls"
+                        SecondaryName="Rolls that week"
                         SecondaryAsBars="true"
                         SecondaryOwnAxis="true"
                         ShowSecondaryLabels="true" />
 
         <p class="text-xs text-slate-500 dark:text-white mt-3">
-            The line is cumulative progress at this source and keeps its lifetime total even when the window starts later; the bars are that week's kills on their own scale, so a quiet week is still visibly different from a heavy one. The final bar is hatched while the week is still in progress.
+            The line is cumulative progress at this source and keeps its lifetime total even when the window starts later; the bars are that week's rolls on their own scale, so a quiet week is still visibly different from a heavy one. The final bar is hatched while the week is still in progress.
         </p>
     </div>
 }
@@ -145,12 +145,12 @@
                 Label: label,
                 Value: cumulative,
                 Title: $"Week of {week.Day} {monthShort} {week.Year}" + (isPartial ? " (in progress)" : ""),
-                ValueText: $"{cumulative:N0} total kills",
+                ValueText: $"{cumulative:N0} total rolls",
                 Detail: kills > 0 ? $"{GoldFormat.Format(value)} gp that week" : null,
                 SecondaryValue: kills,
                 SecondaryText: kills > 0
-                    ? $"+{kills:N0} kills that week" + (isPartial ? " so far" : "")
-                    : "no kills that week",
+                    ? $"+{kills:N0} rolls that week" + (isPartial ? " so far" : "")
+                    : "no rolls that week",
                 IsPartial: isPartial));
         }
     }

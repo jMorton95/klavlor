@@ -45,7 +45,7 @@
         if (detailResult.IsSuccess) _detail = detailResult.Value;
 
         // Only build the data the active tab actually renders (see LootLogSourceDetail): the
-        // Kill Sessions view needs sessions, every other view needs the collection. Loading both
+        // Roll Sessions view needs sessions, every other view needs the collection. Loading both
         // made the page pay for the (heavy) collection aggregate even when showing kills.
         if (string.Equals(ViewParam, "kills", StringComparison.OrdinalIgnoreCase))
         {

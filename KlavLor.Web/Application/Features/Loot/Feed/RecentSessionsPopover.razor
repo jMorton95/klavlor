@@ -75,11 +75,11 @@
     Last @Panel.WindowHours hours.
     @if (Panel.FilteredOut > 0)
     {
-        <span>@Panel.FilteredOut one-off @(Panel.FilteredOut == 1 ? "kill" : "kills") hidden as incidental — a session needs @LootFeedGrouping.MinNotableSessionRolls rolls, @GoldFormat.Format(LootFeedGrouping.MinOneOffSessionValue) of loot, or a source with a collection log.</span>
+        <span>@Panel.FilteredOut one-off @(Panel.FilteredOut == 1 ? "roll" : "rolls") hidden as incidental — a session needs @LootFeedGrouping.MinNotableSessionRolls rolls, @GoldFormat.Format(LootFeedGrouping.MinOneOffSessionValue) of loot, or a source with a collection log.</span>
     }
     else
     {
-        <span>Incidental one-off kills are hidden.</span>
+        <span>Incidental one-off rolls are hidden.</span>
     }
 </p>
 
@@ -87,14 +87,14 @@
     [Parameter] public required RecentSessionsPanel Panel { get; set; }
     [Parameter] public LootFeedScope Scope { get; set; } = LootFeedScope.Main;
 
-    // Events (clues, raids) are "rolls"; monsters are "kills". Singular matters here because a
-    // single raid run is a case the panel deliberately keeps, so "1 rolls" would be on screen often.
+    // Pickpocketing gets its own word; everything else rolls a drop table. Singular matters here
+    // because a single raid run is a case the panel deliberately keeps, so "1 rolls" would show often.
     private static string Noun(RecentSession session) => (session.SourceType, session.Rolls) switch
     {
-        (LootSourceType.Event, 1) => "roll",
-        (LootSourceType.Event, _) => "rolls",
-        (_, 1) => "kill",
-        _ => "kills"
+        (LootSourceType.Pickpocket, 1) => "theft",
+        (LootSourceType.Pickpocket, _) => "thefts",
+        (_, 1) => "roll",
+        _ => "rolls"
     };
 
     // Rendered server-side, so this is "how long ago as of this response". The panel is cached for

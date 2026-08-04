@@ -5,7 +5,9 @@
 @{
     var start = IngestTimezone.ToZoneTime(Session.StartedAt);
     var end = IngestTimezone.ToZoneTime(Session.EndedAt);
-    var killNoun = SourceType == LootSourceType.Event ? "rolls" : SourceType == LootSourceType.Pickpocket ? "thefts" : "kills";
+    // Every source rolls a drop table, so "rolls" covers monsters and events alike now; only
+    // pickpocketing keeps its own word because "thefts" is what that activity actually is.
+    var rollNoun = SourceType == LootSourceType.Pickpocket ? "thefts" : "rolls";
     var hasRealKc = Session.MinKillCount is not null && Session.MaxKillCount is not null;
 }
 
@@ -28,7 +30,7 @@
                 <span class="text-[10px] font-normal text-slate-400 dark:text-white whitespace-nowrap">· @DurationText</span>
             </div>
             <div class="flex items-center gap-1.5 mt-0.5 text-[11px] text-slate-500 dark:text-white">
-                <span class="whitespace-nowrap">@Session.KillCount.ToString("N0") @killNoun</span>
+                <span class="whitespace-nowrap">@Session.KillCount.ToString("N0") @rollNoun</span>
                 <span aria-hidden="true">·</span>
                 @if (hasRealKc)
                 {
@@ -36,7 +38,7 @@
                 }
                 else
                 {
-                    <span class="whitespace-nowrap" title="Position in the kill log at this source (RuneLite didn't report an in-game kill count)">@KcRange</span>
+                    <span class="whitespace-nowrap" title="Position in the roll log at this source (RuneLite didn't report an in-game roll count)">@KcRange</span>
                 }
             </div>
         </div>
@@ -102,7 +104,7 @@
     {
         get
         {
-            if (Session.KillCount <= 1) return "single kill";
+            if (Session.KillCount <= 1) return "single roll";
             var d = Session.EndedAt - Session.StartedAt;
             if (d.TotalHours >= 1) return $"{(int)d.TotalHours}h {d.Minutes:D2}m";
             if (d.TotalMinutes >= 1) return $"{(int)d.TotalMinutes}m";
@@ -115,10 +117,10 @@
         get
         {
             if (Session.MinKillCount is int mn && Session.MaxKillCount is int mx)
-                return mn == mx ? $"KC #{mn:N0}" : $"KC #{mn:N0}–{mx:N0}";
+                return mn == mx ? $"#{mn:N0}" : $"#{mn:N0}–{mx:N0}";
             return Session.MinKillOrdinal == Session.MaxKillOrdinal
-                ? $"Kill #{Session.MinKillOrdinal:N0}"
-                : $"Kill #{Session.MinKillOrdinal:N0}–{Session.MaxKillOrdinal:N0}";
+                ? $"#{Session.MinKillOrdinal:N0}"
+                : $"#{Session.MinKillOrdinal:N0}–{Session.MaxKillOrdinal:N0}";
         }
     }
 

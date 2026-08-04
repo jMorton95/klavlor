@@ -190,7 +190,7 @@
                     TextClass: StackPalette.Other.Text));
             }
 
-            var tooltip = $"{monthShort} {m.Year} — {GoldFormat.Format(m.Gp)} gp · {m.Kills:N0} kills"
+            var tooltip = $"{monthShort} {m.Year} — {GoldFormat.Format(m.Gp)} gp · {m.Kills:N0} rolls"
                 + (m.Clogs > 0 ? $" · {m.Clogs:N0} clog{(m.Clogs == 1 ? "" : "s")}" : "");
 
             _bars.Add(new HistogramBars.Bar(

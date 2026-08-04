@@ -6,7 +6,7 @@
 <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
     <div class="flex items-baseline justify-between gap-2 mb-4">
         <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Activity</h2>
-        <span class="text-xs text-slate-400 dark:text-white">kills per month, by character</span>
+        <span class="text-xs text-slate-400 dark:text-white">rolls per month, by character</span>
     </div>
 
     @if (_bars.Count == 0 || _totalKills == 0)
@@ -30,7 +30,7 @@
             </div>
         }
 
-        <p class="text-xs text-slate-400 dark:text-white mt-3">@_totalKills.ToString("N0") kills over @_recentCount months · hover a segment for the character breakdown.</p>
+        <p class="text-xs text-slate-400 dark:text-white mt-3">@_totalKills.ToString("N0") rolls over @_recentCount months · hover a segment for the character breakdown.</p>
     }
 </div>
 
@@ -110,7 +110,7 @@
                         Value: 0,
                         FillClass: "bg-cyan-500 dark:bg-cyan-400",
                         ItemName: cl.ItemName,
-                        ValueText: cl.KillCount is > 0 ? $"KC #{cl.KillCount.Value:N0}" : $"Kill #{cl.KillOrdinal:N0}")).ToList()
+                        ValueText: cl.KillCount is > 0 ? $"#{cl.KillCount.Value:N0}" : $"#{cl.KillOrdinal:N0}")).ToList()
                     : null;
 
                 if (fillByName.TryGetValue(c.CharacterName, out var fill))
@@ -120,7 +120,7 @@
                         Value: c.Kills,
                         FillClass: fill,
                         ItemName: c.CharacterName,
-                        ValueText: $"{c.Kills:N0} kills",
+                        ValueText: $"{c.Kills:N0} rolls",
                         OverflowItems: clogItems));
                     namedTotal += c.Kills;
                 }
@@ -131,7 +131,7 @@
                         Value: c.Kills,
                         FillClass: OtherFill,
                         ItemName: c.CharacterName,
-                        ValueText: $"{c.Kills:N0} kills"));
+                        ValueText: $"{c.Kills:N0} rolls"));
                 }
             }
 
@@ -144,14 +144,14 @@
                     FillClass: OtherFill,
                     ItemName: "Other",
                     SourceName: $"characters outside the top {Palette.Length}",
-                    ValueText: $"{other:N0} kills",
+                    ValueText: $"{other:N0} rolls",
                     OverflowItems: outsiders.Count > 0 ? outsiders : null));
             }
 
             _bars.Add(new HistogramBars.Bar(
                 Label: label,
                 Value: m.Kills,
-                Tooltip: $"{monthShort} {m.Year} — {m.Kills:N0} kills · {GoldFormat.Format(m.Value)} gp",
+                Tooltip: $"{monthShort} {m.Year} — {m.Kills:N0} rolls · {GoldFormat.Format(m.Value)} gp",
                 Segments: named.Count > 0 ? named : null));
         }
     }

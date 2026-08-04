@@ -45,7 +45,7 @@
                                         hx-target="#hx-page-container"
                                         hx-swap="innerHTML transition:true"
                                         class="cursor-pointer"
-                                        title="Mark this character as a Leagues character — kills will appear on the Leagues feed instead of the main Loot Feed">
+                                        title="Mark this character as a Leagues character — rolls will appear on the Leagues feed instead of the main Loot Feed">
                                     @if (character.IsLeagues)
                                     {
                                         <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
@@ -101,7 +101,7 @@
                             <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/>
                             </svg>
-                            @character.TotalKills.ToString("N0") kills
+                            @character.TotalKills.ToString("N0") rolls
                         </span>
                         <span class="flex items-center gap-1 font-medium text-amber-600 dark:text-amber-400">
                             @GoldFormat.Format(character.TotalValue) gp
