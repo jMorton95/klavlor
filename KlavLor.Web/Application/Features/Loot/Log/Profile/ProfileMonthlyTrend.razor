@@ -57,7 +57,7 @@
     else
     {
         <HistogramBars Bars="@_bars" FormatValue="@(v => GoldFormat.Format(v))"
-                       ChartHeightPx="@(Expanded ? 900 : 270)"
+                       ChartHeightPx="@(Expanded ? 900 : 405)"
                        ShowInlineLabels="true"
                        MinSegmentPx="@(Expanded ? 16 : 4)"
                        MaxSegmentFraction="@(Expanded ? (double?)0.25 : null)"
@@ -127,10 +127,10 @@
             .ToList();
 
         var top = StackPalette.Assign(perMonth, TopN, MinPerMonth);
-        var fillByKey = top.ToDictionary(t => t.Key, t => t.Fill);
+        var styleByKey = top.ToDictionary(t => t.Key, t => t.Style);
 
         _legend = top
-            .Select(t => new LegendEntry(t.Key.Item, t.Key.Source, t.Fill))
+            .Select(t => new LegendEntry(t.Key.Item, t.Key.Source, t.Style.Fill))
             .ToList();
 
         _bars = new List<HistogramBars.Bar>(Trend.Months.Count);
@@ -151,16 +151,17 @@
             long namedTotal = 0;
             foreach (var seg in m.TopSegments.OrderByDescending(s => s.Value))
             {
-                if (fillByKey.TryGetValue((seg.ItemName, seg.SourceName), out var fill))
+                if (styleByKey.TryGetValue((seg.ItemName, seg.SourceName), out var style))
                 {
                     segments.Add(new HistogramBars.BarSegment(
                         Label: $"{seg.ItemName} · {seg.SourceName} — {GoldFormat.Format(seg.Value)}",
                         Value: seg.Value,
-                        FillClass: fill,
+                        FillClass: style.Fill,
                         ItemName: seg.ItemName,
                         SourceName: seg.SourceName,
                         ValueText: GoldFormat.Format(seg.Value),
-                        IconUrl: "/api/images/item-icon?name=" + Uri.EscapeDataString(seg.ItemName)));
+                        IconUrl: "/api/images/item-icon?name=" + Uri.EscapeDataString(seg.ItemName),
+                        TextClass: style.Text));
                     namedTotal += seg.Value;
                 }
                 else
@@ -168,10 +169,11 @@
                     outsiders.Add(new HistogramBars.BarSegment(
                         Label: $"{seg.ItemName} · {seg.SourceName} — {GoldFormat.Format(seg.Value)}",
                         Value: seg.Value,
-                        FillClass: StackPalette.OtherFill,
+                        FillClass: StackPalette.Other.Fill,
                         ItemName: seg.ItemName,
                         SourceName: seg.SourceName,
-                        ValueText: GoldFormat.Format(seg.Value)));
+                        ValueText: GoldFormat.Format(seg.Value),
+                        TextClass: StackPalette.Other.Text));
                 }
             }
             var other = Math.Max(0, m.Gp - namedTotal);
@@ -180,11 +182,12 @@
                 segments.Add(new HistogramBars.BarSegment(
                     Label: $"Other — {GoldFormat.Format(other)}",
                     Value: other,
-                    FillClass: StackPalette.OtherFill,
+                    FillClass: StackPalette.Other.Fill,
                     ItemName: "Other",
                     SourceName: "everything else this month",
                     ValueText: GoldFormat.Format(other),
-                    OverflowItems: outsiders.Count > 0 ? outsiders : null));
+                    OverflowItems: outsiders.Count > 0 ? outsiders : null,
+                    TextClass: StackPalette.Other.Text));
             }
 
             var tooltip = $"{monthShort} {m.Year} — {GoldFormat.Format(m.Gp)} gp · {m.Kills:N0} kills"

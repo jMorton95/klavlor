@@ -74,7 +74,7 @@ public sealed class StackPaletteTests
         var assigned = StackPalette.Assign(bars, globalTopN: 3, minPerBar: 0);
 
         Assert.Equal(["big", "mid", "small"], assigned.Select(x => x.Key));
-        Assert.Equal(assigned.Count, assigned.Select(x => x.Fill).Distinct().Count());
+        Assert.Equal(assigned.Count, assigned.Select(x => x.Style.Fill).Distinct().Count());
     }
 
     [Fact]
@@ -88,8 +88,8 @@ public sealed class StackPaletteTests
 
         var assigned = StackPalette.Assign(bars, globalTopN: 40, minPerBar: 4);
 
-        Assert.Equal(StackPalette.Fills.Length, assigned.Count);
-        Assert.Equal(assigned.Count, assigned.Select(x => x.Fill).Distinct().Count());
+        Assert.Equal(StackPalette.Palette.Length, assigned.Count);
+        Assert.Equal(assigned.Count, assigned.Select(x => x.Style.Fill).Distinct().Count());
     }
 
     [Fact]
@@ -110,5 +110,30 @@ public sealed class StackPaletteTests
     public void NoBars_ReturnsNothing()
     {
         Assert.Empty(StackPalette.Assign(Array.Empty<IReadOnlyList<(string, long)>>(), 10, 3));
+    }
+
+    [Fact]
+    public void EveryPaletteEntry_PairsAFillWithAnExplicitTextColour()
+    {
+        // The reason Fill and Text live on one record: a fill added without a legible text colour is
+        // how a label silently becomes unreadable on that one shade. Tailwind can't tell us the
+        // contrast, so the pairing being present is the part worth enforcing.
+        Assert.All(StackPalette.Palette, e =>
+        {
+            Assert.StartsWith("bg-", e.Fill);
+            Assert.Contains("text-", e.Text);
+        });
+        Assert.StartsWith("bg-", StackPalette.Other.Fill);
+        Assert.Contains("text-", StackPalette.Other.Text);
+    }
+
+    [Fact]
+    public void PaletteFills_AreAllDistinct()
+    {
+        // Three bands of the same hues, so a copy-paste slip would silently give two entries the
+        // same colour and make the legend ambiguous.
+        Assert.Equal(
+            StackPalette.Palette.Length,
+            StackPalette.Palette.Select(e => e.Fill).Distinct().Count());
     }
 }

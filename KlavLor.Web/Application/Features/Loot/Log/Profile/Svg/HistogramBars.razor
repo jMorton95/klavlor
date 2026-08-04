@@ -281,7 +281,10 @@
         string? SourceName = null,
         string? ValueText = null,
         IReadOnlyList<BarSegment>? OverflowItems = null,
-        string? IconUrl = null);
+        string? IconUrl = null,
+        // Text colour legible on FillClass — supplied together with it by StackPalette, since the
+        // two are only correct as a pair. Defaults to white when a caller doesn't set it.
+        string? TextClass = null);
 
     [Parameter] public required IReadOnlyList<Bar> Bars { get; set; }
     [Parameter] public long? MaxValue { get; set; }
@@ -332,36 +335,35 @@
     // Icon + name (+ value + source, as height allows) centred inside a segment block.
     // pointer-events-none keeps hover on the segment itself (tooltips keep working).
     //
-    // The text sits on its own near-opaque dark plate rather than directly on the fill. A
-    // text-shadow was not enough: the palette spans 500-level lime, yellow and amber, and white
-    // text on those is barely legible whatever shadow it carries. Rather than maintain a parallel
-    // table of per-colour text colours (which would have to be revisited every time a palette
-    // entry changes), the plate guarantees the same contrast on all of them, in both themes.
+    // Text is drawn straight onto the fill in the colour that segment's palette entry declares
+    // legible on it (StackPalette pairs the two). An earlier version put a dark plate behind the
+    // text to make one colour work everywhere; it did, but it looked like a black box stamped over
+    // the chart. Plain white was not an option either — the palette includes 500-level lime, yellow
+    // and amber, where white is barely readable whatever shadow it carries.
     private RenderFragment InlineLabel(BarSegment seg, double segPx) => __builder =>
     {
         if (!ShowInlineLabels || segPx < InlineIconMinPx || string.IsNullOrEmpty(seg.ItemName)) return;
 
         var showValue = segPx >= InlineValueMinPx && !string.IsNullOrEmpty(seg.ValueText);
         var showSource = segPx >= InlineSourceMinPx && !string.IsNullOrEmpty(seg.SourceName);
+        var textClass = seg.TextClass ?? "text-white";
 
-        <div class="absolute inset-0 flex items-center justify-center px-0.5 pointer-events-none overflow-hidden">
-            <span class="flex flex-col items-center justify-center gap-0.5 max-w-full rounded bg-slate-950/70 px-1 py-px text-white text-center">
-                <span class="flex items-center gap-1 max-w-full">
-                    @if (!string.IsNullOrEmpty(seg.IconUrl))
-                    {
-                        <img src="@seg.IconUrl" alt="" class="w-3 h-3 shrink-0" loading="lazy" onerror="this.style.display='none'" />
-                    }
-                    <span class="text-[9px] font-semibold leading-none truncate">@seg.ItemName</span>
-                </span>
-                @if (showSource)
+        <div class="absolute inset-0 flex flex-col items-center justify-center gap-0.5 px-1 pointer-events-none overflow-hidden text-center @textClass">
+            <span class="flex items-center gap-1 max-w-full">
+                @if (!string.IsNullOrEmpty(seg.IconUrl))
                 {
-                    <span class="text-[8px] leading-none truncate max-w-full text-slate-200">@seg.SourceName</span>
+                    <img src="@seg.IconUrl" alt="" class="w-3 h-3 shrink-0" loading="lazy" onerror="this.style.display='none'" />
                 }
-                @if (showValue)
-                {
-                    <span class="text-[9px] font-semibold leading-none tabular-nums truncate max-w-full text-amber-200">@seg.ValueText</span>
-                }
+                <span class="text-[9px] font-semibold leading-none truncate">@seg.ItemName</span>
             </span>
+            @if (showSource)
+            {
+                <span class="text-[8px] leading-none truncate max-w-full opacity-75">@seg.SourceName</span>
+            }
+            @if (showValue)
+            {
+                <span class="text-[9px] font-semibold leading-none tabular-nums truncate max-w-full opacity-90">@seg.ValueText</span>
+            }
         </div>
     };
 }

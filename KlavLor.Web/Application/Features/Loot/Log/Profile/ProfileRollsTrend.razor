@@ -66,7 +66,7 @@
     else
     {
         <HistogramBars Bars="@_bars" FormatValue="@FormatCount"
-                       ChartHeightPx="@(Expanded ? 900 : 270)"
+                       ChartHeightPx="@(Expanded ? 900 : 405)"
                        ShowInlineLabels="true"
                        MinSegmentPx="@(Expanded ? 16 : 4)"
                        MaxSegmentFraction="@(Expanded ? (double?)0.35 : null)"
@@ -130,8 +130,8 @@
             .ToList();
 
         var top = StackPalette.Assign(perMonth, TopN, MinPerMonth);
-        var fillBySource = top.ToDictionary(t => t.Key, t => t.Fill, StringComparer.Ordinal);
-        _legend = top.Select(t => new LegendEntry(t.Key, t.Fill)).ToList();
+        var styleBySource = top.ToDictionary(t => t.Key, t => t.Style, StringComparer.Ordinal);
+        _legend = top.Select(t => new LegendEntry(t.Key, t.Style.Fill)).ToList();
 
         _bars = new List<HistogramBars.Bar>(Trend.Months.Count);
         int? lastYearLabelled = null;
@@ -153,18 +153,19 @@
                 var valueText = $"{seg.Rolls:N0} rolls";
                 var detail = $"{seg.SourceName} — {seg.Rolls:N0} rolls ({share:F1}%) for {GoldFormat.Format(seg.Gp)}";
 
-                if (fillBySource.TryGetValue(seg.SourceName, out var fill))
+                if (styleBySource.TryGetValue(seg.SourceName, out var style))
                 {
                     segments.Add(new HistogramBars.BarSegment(
                         Label: detail,
                         Value: seg.Rolls,
-                        FillClass: fill,
+                        FillClass: style.Fill,
                         // ItemName carries whatever names the block; here that's the source, and
                         // the icon endpoint switches to source-icon to match.
                         ItemName: seg.SourceName,
                         SourceName: GoldFormat.Format(seg.Gp) + " earned",
                         ValueText: valueText,
-                        IconUrl: "/api/images/source-icon?name=" + Uri.EscapeDataString(seg.SourceName)));
+                        IconUrl: "/api/images/source-icon?name=" + Uri.EscapeDataString(seg.SourceName),
+                        TextClass: style.Text));
                     namedTotal += seg.Rolls;
                 }
                 else
@@ -172,10 +173,11 @@
                     outsiders.Add(new HistogramBars.BarSegment(
                         Label: detail,
                         Value: seg.Rolls,
-                        FillClass: StackPalette.OtherFill,
+                        FillClass: StackPalette.Other.Fill,
                         ItemName: seg.SourceName,
                         SourceName: GoldFormat.Format(seg.Gp) + " earned",
-                        ValueText: valueText));
+                        ValueText: valueText,
+                        TextClass: StackPalette.Other.Text));
                 }
             }
 
@@ -185,11 +187,12 @@
                 segments.Add(new HistogramBars.BarSegment(
                     Label: $"Other — {other:N0} rolls",
                     Value: other,
-                    FillClass: StackPalette.OtherFill,
+                    FillClass: StackPalette.Other.Fill,
                     ItemName: "Other",
                     SourceName: "everything else this month",
                     ValueText: $"{other:N0} rolls",
-                    OverflowItems: outsiders.Count > 0 ? outsiders : null));
+                    OverflowItems: outsiders.Count > 0 ? outsiders : null,
+                    TextClass: StackPalette.Other.Text));
             }
 
             _bars.Add(new HistogramBars.Bar(
