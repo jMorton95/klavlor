@@ -787,11 +787,7 @@ internal sealed class LootFeedRepository(
 
                     factsByKey.TryGetValue(key, out var facts);
                     facts ??= new SessionFacts();
-                    if (bestVal > facts.BestValue)
-                    {
-                        facts.BestValue = bestVal;
-                        facts.BestName = name;
-                    }
+                    if (bestVal > facts.BestValue) facts.BestValue = bestVal;
                     if (firstTime && collectionLogCache.IsCollectionLogItem(itemId, name)) facts.ClogCount++;
                     factsByKey[key] = facts;
                 }
@@ -826,8 +822,6 @@ internal sealed class LootFeedRepository(
                     row.Rolls,
                     row.Gp,
                     facts.ClogCount,
-                    facts.BestName,
-                    facts.BestValue,
                     ILootFeedService.GetDropTier(facts.BestValue))));
             }
 
@@ -873,10 +867,11 @@ internal sealed class LootFeedRepository(
         int Rolls,
         long Gp);
 
+    // BestValue is kept only to classify the session's feed tier for the row's edge colour; the
+    // item's name isn't carried, because the panel doesn't name it.
     private sealed class SessionFacts
     {
         public long BestValue { get; set; }
-        public string? BestName { get; set; }
         public int ClogCount { get; set; }
     }
 

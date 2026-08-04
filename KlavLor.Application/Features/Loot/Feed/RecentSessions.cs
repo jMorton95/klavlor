@@ -36,19 +36,7 @@ public sealed record RecentSession(
     long Gp,
     // First-time collection-log receipts in this session — the thing most worth calling out.
     int ClogCount,
-    // The session's single biggest drop, and the feed tier it landed in (null when nothing in the
-    // session cleared the feed's floor). Lets the panel wear the same tier colours as the feed.
-    string? BestDropName,
-    long BestDropValue,
-    LootFeedTier? BestTier)
-{
-    /// <summary>Rolls per hour over the session's own span; 0 for an instantaneous single roll.</summary>
-    public int RollsPerHour
-    {
-        get
-        {
-            var hours = (EndedAt - StartedAt).TotalHours;
-            return hours <= 0.01 ? 0 : (int)Math.Round(Rolls / hours);
-        }
-    }
-}
+    // The feed tier of the session's biggest single drop, or null when nothing in it cleared the
+    // feed's floor. Carried as a tier rather than the drop itself because the panel only uses it
+    // for the row's edge colour, so it wears the same tier palette as the swimlanes.
+    LootFeedTier? BestTier);
