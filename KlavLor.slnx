@@ -3,5 +3,6 @@
   <Project Path="KlavLor.Domain/KlavLor.Domain.csproj" />
   <Project Path="KlavLor.Infrastructure/KlavLor.Infrastructure.csproj" />
   <Project Path="KlavLor.IntegrationTests/KlavLor.IntegrationTests.csproj" />
+  <Project Path="KlavLor.UnitTests/KlavLor.UnitTests.csproj" />
   <Project Path="KlavLor.Web/KlavLor.Web.csproj" />
 </Solution>
