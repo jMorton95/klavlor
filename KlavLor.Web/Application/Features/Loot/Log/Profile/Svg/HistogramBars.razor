@@ -11,10 +11,39 @@
     else foreach (var b in Bars) if (b.Value > peak) peak = b.Value;
     if (peak <= 0) peak = 1;
 
+    // Height of a bar as a fraction of the plot, for the active scale mode. Compressed is a
+    // power curve lifted off the floor: the smallest active bar still gets MinBarFraction of the
+    // height, and the gamma flattens the rest of the curve so a month worth 1% of the peak reads
+    // as roughly a quarter of the plot rather than a single pixel. Bars therefore differ in height
+    // — the thing Full throws away — without a 1.5B twisted bow reducing every other month to a
+    // line. Ordering is strictly preserved (the curve is monotonic) and each bar still prints its
+    // true total above itself, so nothing is misstated, only rescaled.
+    const double MinBarFraction = 0.18;
+    const double CompressionGamma = 0.6;
+
+    double BarFraction(double ratio) => Scale switch
+    {
+        BarScaleMode.Full => 1.0,
+        BarScaleMode.Compressed => MinBarFraction + (1 - MinBarFraction) * Math.Pow(Math.Clamp(ratio, 0, 1), CompressionGamma),
+        _ => Math.Clamp(ratio, 0, 1)
+    };
+
+    // The value a given height fraction represents — the inverse of BarFraction, so the Y axis
+    // still tells the truth about a non-linear scale instead of implying a linear one.
+    long ValueAtFraction(double fraction)
+    {
+        if (Scale == BarScaleMode.Full) return 0;
+        if (Scale == BarScaleMode.Linear) return (long)Math.Round(peak * Math.Clamp(fraction, 0, 1));
+        var lifted = (fraction - MinBarFraction) / (1 - MinBarFraction);
+        if (lifted <= 0) return 0;
+        return (long)Math.Round(peak * Math.Pow(Math.Clamp(lifted, 0, 1), 1.0 / CompressionGamma));
+    }
+
     var yTicks = new long[tickCount];
     for (var i = 0; i < tickCount; i++)
     {
-        yTicks[i] = peak - peak * i / (tickCount - 1);
+        // Ticks run top (i = 0) to bottom, so the fraction of plot height they sit at is 1 - i/n.
+        yTicks[i] = ValueAtFraction(1.0 - (double)i / (tickCount - 1));
     }
 
     string Format(long v) => (FormatValue ?? (n => n.ToString("N0")))(v);
@@ -101,7 +130,7 @@
         {
             var pos = valueLabelSpacePx + plotHeightPx * i / (tickCount - 1);
             <div class="absolute right-0 -translate-y-1/2 whitespace-nowrap" style="top: @(pos)px;">
-                @(Normalize ? $"{100 - 100 * i / (tickCount - 1)}%" : (yTicks[i] == 0 ? "0" : Format(yTicks[i])))
+                @(Scale == BarScaleMode.Full ? $"{100 - 100 * i / (tickCount - 1)}%" : (yTicks[i] == 0 ? "0" : Format(yTicks[i])))
             </div>
         }
     </div>
@@ -121,12 +150,8 @@
                     var bar = Bars[bi];
                     var tooltipAnchor = TooltipAnchor(bi, count);
                     var ratio = (double)bar.Value / peak;
-                    // Normalized: every active month fills the plot so its internal
-                    // breakdown is legible regardless of how it compares to a colossal
-                    // outlier month. Proportional: bar height tracks the month's total.
-                    // The true total is still printed above each bar either way.
                     var barPx = bar.Value > 0
-                        ? (Normalize ? plotHeightPx : Math.Max(2, (int)Math.Round(ratio * plotHeightPx)))
+                        ? Math.Max(2, (int)Math.Round(BarFraction(ratio) * plotHeightPx))
                         : 0;
                     var defaultFill = bar.FillClass ?? "bg-amber-500 dark:bg-amber-400";
 
@@ -276,11 +301,24 @@
     // Null (compact/standard view) leaves slices strictly proportional.
     [Parameter] public double? MaxSegmentFraction { get; set; }
 
-    // Normalize every active bar to the full plot height (a 100%-stacked view) instead
-    // of scaling bar height by the month's total. Used in the expanded view so a single
-    // outlier month can't dwarf the rest into an unreadable breakdown; the Y-axis then
-    // reads as a percentage and each bar still prints its true total above it.
-    [Parameter] public bool Normalize { get; set; }
+    public enum BarScaleMode
+    {
+        /// Bar height is strictly proportional to its value. Honest, but one outlier period
+        /// flattens everything else — fine for a compact overview where that IS the message.
+        Linear,
+
+        /// Every active bar fills the plot (a 100%-stacked view). Maximum room for the internal
+        /// breakdown, at the cost of losing all period-to-period comparison.
+        Full,
+
+        /// A power curve lifted off the floor: bars still differ in height and keep their order,
+        /// but the smallest active period stays legible next to the largest. The Y axis is
+        /// labelled with the (non-linear) values those heights represent.
+        Compressed
+    }
+
+    /// How bar height maps to value. See BarScaleMode.
+    [Parameter] public BarScaleMode Scale { get; set; } = BarScaleMode.Linear;
 
     // Height tiers for what fits inside a segment block without hovering. The icon
     // threshold sits below MinSegmentPx (the floored height) on purpose: when a short
@@ -292,8 +330,13 @@
     private const double InlineSourceMinPx = 48;  // + the source name
 
     // Icon + name (+ value + source, as height allows) centred inside a segment block.
-    // pointer-events-none keeps hover on the segment itself (tooltips keep working);
-    // white text with a dark shadow stays readable on every palette shade.
+    // pointer-events-none keeps hover on the segment itself (tooltips keep working).
+    //
+    // The text sits on its own near-opaque dark plate rather than directly on the fill. A
+    // text-shadow was not enough: the palette spans 500-level lime, yellow and amber, and white
+    // text on those is barely legible whatever shadow it carries. Rather than maintain a parallel
+    // table of per-colour text colours (which would have to be revisited every time a palette
+    // entry changes), the plate guarantees the same contrast on all of them, in both themes.
     private RenderFragment InlineLabel(BarSegment seg, double segPx) => __builder =>
     {
         if (!ShowInlineLabels || segPx < InlineIconMinPx || string.IsNullOrEmpty(seg.ItemName)) return;
@@ -301,22 +344,24 @@
         var showValue = segPx >= InlineValueMinPx && !string.IsNullOrEmpty(seg.ValueText);
         var showSource = segPx >= InlineSourceMinPx && !string.IsNullOrEmpty(seg.SourceName);
 
-        <div class="absolute inset-0 flex flex-col items-center justify-center gap-0.5 px-1 pointer-events-none overflow-hidden text-white text-center [text-shadow:0_1px_2px_rgba(0,0,0,0.6)]">
-            <span class="flex items-center gap-1 max-w-full">
-                @if (!string.IsNullOrEmpty(seg.IconUrl))
+        <div class="absolute inset-0 flex items-center justify-center px-0.5 pointer-events-none overflow-hidden">
+            <span class="flex flex-col items-center justify-center gap-0.5 max-w-full rounded bg-slate-950/70 px-1 py-px text-white text-center">
+                <span class="flex items-center gap-1 max-w-full">
+                    @if (!string.IsNullOrEmpty(seg.IconUrl))
+                    {
+                        <img src="@seg.IconUrl" alt="" class="w-3 h-3 shrink-0" loading="lazy" onerror="this.style.display='none'" />
+                    }
+                    <span class="text-[9px] font-semibold leading-none truncate">@seg.ItemName</span>
+                </span>
+                @if (showSource)
                 {
-                    <img src="@seg.IconUrl" alt="" class="w-3 h-3 shrink-0" loading="lazy" onerror="this.style.display='none'" />
+                    <span class="text-[8px] leading-none truncate max-w-full text-slate-200">@seg.SourceName</span>
                 }
-                <span class="text-[9px] font-medium leading-none truncate">@seg.ItemName</span>
+                @if (showValue)
+                {
+                    <span class="text-[9px] font-semibold leading-none tabular-nums truncate max-w-full text-amber-200">@seg.ValueText</span>
+                }
             </span>
-            @if (showSource)
-            {
-                <span class="text-[8px] leading-none truncate max-w-full opacity-80">@seg.SourceName</span>
-            }
-            @if (showValue)
-            {
-                <span class="text-[9px] font-semibold leading-none tabular-nums truncate max-w-full">@seg.ValueText</span>
-            }
         </div>
     };
 }

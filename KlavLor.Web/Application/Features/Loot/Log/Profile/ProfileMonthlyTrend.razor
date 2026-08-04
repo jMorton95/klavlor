@@ -33,7 +33,7 @@
                     hx-get="@GetTrendUrl(Trend.Range, !Expanded)"
                     hx-target="closest div.bg-slate-50"
                     hx-swap="outerHTML"
-                    title="@(Expanded ? "Collapse to the compact chart" : $"Expand: every month at equal height for a per-item breakdown, naming the top {ExpandedTopN} items")"
+                    title="@(Expanded ? "Collapse to the compact chart" : $"Expand: a taller chart on a compressed height scale, naming the top {ExpandedTopN} items overall plus the top {ExpandedMinPerMonth} in every month")"
                     class="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700 text-[11px] @(Expanded ? "bg-amber-500 text-white" : "bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300")">
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
                     @if (Expanded)
@@ -56,17 +56,32 @@
     }
     else
     {
-        <HistogramBars Bars="@_bars" FormatValue="@(v => GoldFormat.Format(v))" ChartHeightPx="@(Expanded ? 810 : 270)" ShowInlineLabels="true" MinSegmentPx="@(Expanded ? 16 : 4)" MaxSegmentFraction="@(Expanded ? (double?)0.25 : null)" Normalize="@Expanded" />
+        <HistogramBars Bars="@_bars" FormatValue="@(v => GoldFormat.Format(v))"
+                       ChartHeightPx="@(Expanded ? 900 : 270)"
+                       ShowInlineLabels="true"
+                       MinSegmentPx="@(Expanded ? 16 : 4)"
+                       MaxSegmentFraction="@(Expanded ? (double?)0.25 : null)"
+                       Scale="@(Expanded ? HistogramBars.BarScaleMode.Compressed : HistogramBars.BarScaleMode.Linear)" />
 
-        @if (_legend.Count > 0)
+        @if (Expanded)
         {
-            <div class="flex flex-wrap gap-x-3 gap-y-1 mt-4 text-[10px] text-slate-500 dark:text-white">
+            <p class="text-[10px] text-slate-500 dark:text-white mt-2">
+                Bar heights use a compressed scale so a quiet month is still readable next to a record one — the order is unchanged and every bar prints its true total above itself. Within a bar, no single item takes more than a quarter of the height; its real share is on the tooltip.
+            </p>
+        }
+
+        @* Legend in compact mode only. Expanded raises the minimum segment height precisely so every
+           block can name itself, which makes a legend of 60-odd entries pure noise — and at that
+           count the palette has started reusing shades anyway, so the swatches would mislead. *@
+        @if (!Expanded && _legend.Count > 0)
+        {
+            <div class="flex flex-wrap gap-x-3 gap-y-1 mt-3 text-[10px] text-slate-500 dark:text-white">
                 @foreach (var entry in _legend)
                 {
                     <span class="inline-flex items-center gap-1.5">
                         <span class="inline-block w-2.5 h-2.5 rounded-sm @entry.FillClass"></span>
                         <span class="text-slate-600 dark:text-slate-300">@entry.ItemName</span>
-                        <span class="text-slate-400 dark:text-white">· @entry.SourceName</span>
+                        <span class="text-slate-500 dark:text-slate-400">· @entry.SourceName</span>
                     </span>
                 }
             </div>
@@ -80,59 +95,20 @@
     [Parameter] public bool Expanded { get; set; }
 
     private const int CompactTopN = 10;
-    private const int ExpandedTopN = 34;
+    private const int ExpandedTopN = 40;
     private int TopN => Expanded ? ExpandedTopN : CompactTopN;
+
+    // Minimum named items per month, on top of the global top-N. Without this a month whose
+    // contributors all sat outside the overall top-N drew as a single grey "Other" block, so the
+    // expanded view could be almost entirely unnamed. Compact keeps this low — it's a glance view
+    // and its segments are too short to carry labels anyway.
+    private const int ExpandedMinPerMonth = 8;
+    private const int CompactMinPerMonth = 3;
+    private int MinPerMonth => Expanded ? ExpandedMinPerMonth : CompactMinPerMonth;
 
     private long TotalGp => Trend.Months.Sum(m => m.Gp);
 
     private string Title => Trend.Range == "all" ? "Monthly trend — all time" : "Monthly trend — last 12 months";
-
-    // Distinguishable Tailwind palette entries. Listed literally so Tailwind's
-    // content scanner emits the classes (computed names wouldn't be picked up).
-    // Order matters — earliest = top of legend = biggest globally-contributing item.
-    // Compact mode uses the first 10 (all distinct hues); expanded mode continues
-    // through the remaining hues, then darker shades of the same wheel. No pale
-    // (-200/-300) shades: they wash out against the panel background.
-    private static readonly string[] SegmentPalette =
-    {
-        "bg-amber-500 dark:bg-amber-400",
-        "bg-emerald-500 dark:bg-emerald-400",
-        "bg-cyan-500 dark:bg-cyan-400",
-        "bg-violet-500 dark:bg-violet-400",
-        "bg-rose-500 dark:bg-rose-400",
-        "bg-blue-500 dark:bg-blue-400",
-        "bg-orange-500 dark:bg-orange-400",
-        "bg-pink-500 dark:bg-pink-400",
-        "bg-teal-500 dark:bg-teal-400",
-        "bg-lime-500 dark:bg-lime-400",
-        "bg-red-500 dark:bg-red-400",
-        "bg-yellow-500 dark:bg-yellow-400",
-        "bg-green-500 dark:bg-green-400",
-        "bg-sky-500 dark:bg-sky-400",
-        "bg-indigo-500 dark:bg-indigo-400",
-        "bg-purple-500 dark:bg-purple-400",
-        "bg-fuchsia-500 dark:bg-fuchsia-400",
-        "bg-amber-700 dark:bg-amber-600",
-        "bg-emerald-700 dark:bg-emerald-600",
-        "bg-cyan-700 dark:bg-cyan-600",
-        "bg-violet-700 dark:bg-violet-600",
-        "bg-rose-700 dark:bg-rose-600",
-        "bg-blue-700 dark:bg-blue-600",
-        "bg-orange-700 dark:bg-orange-600",
-        "bg-pink-700 dark:bg-pink-600",
-        "bg-teal-700 dark:bg-teal-600",
-        "bg-lime-700 dark:bg-lime-600",
-        "bg-red-700 dark:bg-red-600",
-        "bg-yellow-700 dark:bg-yellow-600",
-        "bg-green-700 dark:bg-green-600",
-        "bg-sky-700 dark:bg-sky-600",
-        "bg-indigo-700 dark:bg-indigo-600",
-        "bg-purple-700 dark:bg-purple-600",
-        "bg-fuchsia-700 dark:bg-fuchsia-600",
-    };
-    // Mid-grey both ways: slate-600 on the slate-900 panel read as "background",
-    // making the (often large) Other block look like empty chart space.
-    private const string OtherFill = "bg-slate-400 dark:bg-slate-500";
 
     private List<HistogramBars.Bar> _bars = [];
     private List<LegendEntry> _legend = [];
@@ -141,30 +117,20 @@
 
     protected override void OnParametersSet()
     {
-        // Aggregate each (item, source) across visible months so we can pick a stable
-        // top-N for colouring. Anything outside the top-N collapses into "Other" within
-        // each bar — keeps the legend readable for multi-year all-time views.
-        var totals = new Dictionary<(string Item, string Source), long>();
-        foreach (var month in Trend.Months)
-        {
-            foreach (var seg in month.TopSegments)
-            {
-                var key = (seg.ItemName, seg.SourceName);
-                totals.TryGetValue(key, out var existing);
-                totals[key] = existing + seg.Value;
-            }
-        }
-
-        var top = totals
-            .OrderByDescending(kv => kv.Value)
-            .Take(Math.Min(TopN, SegmentPalette.Length))
-            .Select((kv, i) => (kv.Key, FillClass: SegmentPalette[i]))
+        // Which (item, source) pairs get their own colour: the biggest contributors overall, plus
+        // the top few in every individual month so no bar can come out entirely grey. See
+        // StackPalette.Assign.
+        var perMonth = Trend.Months
+            .Select(m => (IReadOnlyList<((string Item, string Source) Key, long Value)>)m.TopSegments
+                .Select(s => (((string, string))(s.ItemName, s.SourceName), s.Value))
+                .ToList())
             .ToList();
 
-        var fillByKey = top.ToDictionary(t => t.Key, t => t.FillClass);
+        var top = StackPalette.Assign(perMonth, TopN, MinPerMonth);
+        var fillByKey = top.ToDictionary(t => t.Key, t => t.Fill);
 
         _legend = top
-            .Select(t => new LegendEntry(t.Key.Item, t.Key.Source, t.FillClass))
+            .Select(t => new LegendEntry(t.Key.Item, t.Key.Source, t.Fill))
             .ToList();
 
         _bars = new List<HistogramBars.Bar>(Trend.Months.Count);
@@ -179,7 +145,7 @@
             lastYearLabelled = m.Year;
 
             // Stack: named segments first (descending value), "Other" at top to absorb
-            // everything not in the global top-N including non-top-10 long-tail items.
+            // everything unnamed, including the long tail the query didn't return.
             var segments = new List<HistogramBars.BarSegment>();
             var outsiders = new List<HistogramBars.BarSegment>();
             long namedTotal = 0;
@@ -202,7 +168,7 @@
                     outsiders.Add(new HistogramBars.BarSegment(
                         Label: $"{seg.ItemName} · {seg.SourceName} — {GoldFormat.Format(seg.Value)}",
                         Value: seg.Value,
-                        FillClass: OtherFill,
+                        FillClass: StackPalette.OtherFill,
                         ItemName: seg.ItemName,
                         SourceName: seg.SourceName,
                         ValueText: GoldFormat.Format(seg.Value)));
@@ -214,9 +180,9 @@
                 segments.Add(new HistogramBars.BarSegment(
                     Label: $"Other — {GoldFormat.Format(other)}",
                     Value: other,
-                    FillClass: OtherFill,
+                    FillClass: StackPalette.OtherFill,
                     ItemName: "Other",
-                    SourceName: $"items outside the top {TopN}",
+                    SourceName: "everything else this month",
                     ValueText: GoldFormat.Format(other),
                     OverflowItems: outsiders.Count > 0 ? outsiders : null));
             }
