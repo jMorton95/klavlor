@@ -65,7 +65,44 @@
         }
     }
     var baseline = (valueLabelSpacePx + plotHeightPx).ToString(inv);
-    var area = $"{XPct(0).ToString("0.###", inv)},{baseline} {line} {XPct(count - 1).ToString("0.###", inv)},{baseline}";
+
+    // The shaded area under the line stops where the first still-in-progress period's column
+    // begins, instead of running on to that column's centre where its data point sits. Otherwise
+    // the shading covered exactly the left half of the in-progress bar and left the right half
+    // bare, which read as a rendering fault rather than as a deliberate edge.
+    //
+    // A point sits at the centre of its column, so the boundary between two columns is exactly
+    // halfway between their x positions — and because the line is straight between them, the y
+    // there is simply the midpoint of the two y values. No interpolation maths needed.
+    //
+    // The LINE itself still runs all the way to the newest point; only the fill stops early.
+    var partialFrom = -1;
+    for (var i = 1; i < count; i++)
+    {
+        if (Points[i].IsPartial) { partialFrom = i; break; }
+    }
+
+    string area;
+    if (partialFrom > 0)
+    {
+        var boundaryX = (double)partialFrom / count * 100.0;
+        var boundaryY = (YPx(Points[partialFrom - 1].Value) + YPx(Points[partialFrom].Value)) / 2.0;
+
+        var filled = new System.Text.StringBuilder();
+        for (var i = 0; i < partialFrom; i++)
+        {
+            if (i > 0) filled.Append(' ');
+            filled.Append(XPct(i).ToString("0.###", inv)).Append(',').Append(YPx(Points[i].Value).ToString("0.##", inv));
+        }
+
+        area = $"{XPct(0).ToString("0.###", inv)},{baseline} {filled} "
+             + $"{boundaryX.ToString("0.###", inv)},{boundaryY.ToString("0.##", inv)} "
+             + $"{boundaryX.ToString("0.###", inv)},{baseline}";
+    }
+    else
+    {
+        area = $"{XPct(0).ToString("0.###", inv)},{baseline} {line} {XPct(count - 1).ToString("0.###", inv)},{baseline}";
+    }
 
     // Printing a number over every bar only works while they're far enough apart to not collide,
     // so it's gated on the point count. Past that the right-hand axis and the hover tooltip carry

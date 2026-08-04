@@ -148,9 +148,10 @@
                 ValueText: $"{cumulative:N0} total rolls",
                 Detail: kills > 0 ? $"{GoldFormat.Format(value)} gp that week" : null,
                 SecondaryValue: kills,
+                // "this week so far" for the week we're in, "that week" for a finished one.
                 SecondaryText: kills > 0
-                    ? $"+{kills:N0} rolls that week" + (isPartial ? " so far" : "")
-                    : "no rolls that week",
+                    ? isPartial ? $"+{kills:N0} rolls this week so far" : $"+{kills:N0} rolls that week"
+                    : isPartial ? "no rolls this week yet" : "no rolls that week",
                 IsPartial: isPartial));
         }
     }
