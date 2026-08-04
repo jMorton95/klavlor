@@ -69,9 +69,17 @@
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             Recent activity
         </button>
+        @* A definite width, NOT w-max. The character columns live in an overflow-auto scroller, and a
+           scroll container inside a max-content parent is a circular width dependency: the browser
+           breaks it by falling back to available space, which clipped the last column. With a real
+           width the columns flex to fill it when there are few and scroll sideways when there are
+           many.
+           The cap subtracts more than the page gutter because the panel opens from the second
+           button in the row, so its left edge already sits ~7rem in; using 100vw-2rem made the panel
+           itself push the whole page into a horizontal scroll on a narrow window. *@
         <div id="feed-sessions-panel"
              data-url="@sessionsUrl"
-             class="hidden absolute left-0 mt-1.5 w-[32rem] max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 p-3 z-50">
+             class="hidden absolute left-0 mt-1.5 w-[min(52rem,calc(100vw-11rem))] bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 p-3 z-50">
             <p class="text-[10px] font-semibold text-slate-500 dark:text-white uppercase tracking-wide mb-2">Sessions — last 48 hours</p>
             <div id="feed-sessions-body">
                 <div class="flex items-center justify-center py-6">

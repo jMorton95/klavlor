@@ -8,9 +8,15 @@
    compete with the swimlanes for attention. Rendered into the popover by its own HTMX request the
    first time it's opened, so the feed page carries none of this cost unless it's asked for. *@
 
-@* Tall enough to scroll through every character in one go rather than a few at a time, but capped
-   against the viewport so it can't run off the bottom of a short window. *@
-<div class="max-h-[min(42rem,72vh)] overflow-y-auto themed-scrollbar -mx-1 px-1">
+@* One column per character, side by side, separated by a vertical rule; a character's own sessions
+   still stack downward inside their column. Columns beat a single tall list here because the
+   characters are peers being compared, not one long feed — you can see who has been doing what
+   without scrolling past everyone above them.
+
+   Both axes scroll from one container: down when a character has a lot of sessions, across when
+   there are more characters than fit. The height cap is viewport-relative so the panel can't run
+   off the bottom of a short window. *@
+<div class="max-h-[min(42rem,72vh)] overflow-auto themed-scrollbar -mx-1 px-1">
     @if (Panel.Characters.Count == 0)
     {
         <p class="text-xs text-slate-500 dark:text-white py-3 text-center">
@@ -19,10 +25,13 @@
     }
     else
     {
-        <div class="space-y-3">
+        <div class="flex items-stretch divide-x divide-slate-200 dark:divide-slate-700">
             @foreach (var character in Panel.Characters)
             {
-                <div>
+                @* flex-1 between a min and a max: a handful of characters spread out to fill the
+                   panel with no dead space, while a crowd stops at the min width and overflows into
+                   the horizontal scroll instead of being squeezed to nothing. *@
+                <div class="flex-1 min-w-[13rem] max-w-[18rem] px-2.5 first:pl-0 last:pr-0">
                     <div class="flex items-baseline justify-between gap-2 mb-1">
                         <a hx-get="@AppRoutes.LootLogCharacter.WithId(character.CharacterId).FromApi()"
                            hx-target="#hx-page-container"
@@ -31,9 +40,9 @@
                            class="text-xs font-semibold text-slate-800 dark:text-slate-100 hover:text-amber-600 dark:hover:text-amber-400 cursor-pointer truncate">
                             @character.CharacterName
                         </a>
-                        <span class="text-[10px] text-slate-500 dark:text-white tabular-nums shrink-0">
-                            @character.TotalRolls.ToString("N0") rolls · @GoldFormat.Format(character.TotalGp)
-                        </span>
+                    </div>
+                    <div class="text-[10px] text-slate-500 dark:text-white tabular-nums mb-1.5 truncate">
+                        @character.TotalRolls.ToString("N0") rolls · @GoldFormat.Format(character.TotalGp)
                     </div>
 
                     <ul class="space-y-1">
