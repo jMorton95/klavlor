@@ -80,14 +80,9 @@
     }
 </div>
 
-<p class="mt-2 pt-2 border-t border-slate-200 dark:border-slate-700 text-[10px] text-slate-500 dark:text-white">
-    Last @Panel.WindowHours hours, busiest first. Each row is everything done at that source across
-    the whole window, not one sitting.
-    @if (Panel.FilteredOut > 0)
-    {
-        <span>@Panel.FilteredOut quieter @(Panel.FilteredOut == 1 ? "source" : "sources") hidden — a row needs @LootFeedGrouping.MinNotableRolls rolls and @GoldFormat.Format(LootFeedGrouping.MinOneOffSessionValue) of loot.</span>
-    }
-</p>
+@* No explanatory footer. The panel's own heading already says the window, and the rules behind
+   what appears here don't need restating every time it's opened. Panel.FilteredOut is still
+   populated on the model for anyone debugging why a source is absent. *@
 
 @code {
     [Parameter] public required RecentSessionsPanel Panel { get; set; }
