@@ -201,14 +201,18 @@ public sealed class LuckLeaderboardRefreshService(
             if (excludedItems.Contains(e.ItemName)) continue;
             var den = e.RarityDenominator ?? 0;   // 0 for depth-modelled sources (Doom) with no flat rate
 
-            // Depth-modelled sources are scored in DELVE LEVELS on both sides (see
-            // DoomLootStrategy.ExpectedCompletionsForRuns): the rates are per level, and one run can
-            // be four delves deep or twenty, so a run count can't be compared against them. The
-            // window stops at the drop itself, so a shallow grind isn't judged as if every run had
-            // been a deep delve, and the observed figure is the delves done up to that same point.
+            // RUNS on both sides. ExpectedCompletionsForRuns returns expected RUNS, so the observed
+            // side must be a run count too — this used to sum the window's depths, i.e. delves, and
+            // compare that against a run-denominated expectation. At depth 8 that reported every
+            // Doom drop as eight times drier than it was: an Eye of ayak at 293 runs against 148
+            // expected showed as 2,344 versus 148.
+            //
+            // The window still stops at the drop itself, so the expectation is built from the depths
+            // of the runs up to that point rather than from a whole history the player only reached
+            // later — a shallow grind isn't judged as if every run had been a deep delve.
             var window = DepthsUpTo(runs, e.FirstRecordId);
             var observed = window.Count > 0
-                ? window.Sum()
+                ? window.Count
                 : e.KillCount ?? e.KillOrdinal ?? 0; // prefer the real RuneLite KC, else logged ordinal
 
             var expected = sourceLoot.ExpectedCompletions(

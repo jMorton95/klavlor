@@ -97,6 +97,28 @@ public sealed class FeedCardDepthTests
     }
 
     [Fact]
+    public void SummingAWindowsDepths_overstatesDrynessByTheDepthFactor()
+    {
+        // The luck leaderboard's obtained-item branch used to compare the SUM of a window's depths
+        // (i.e. delves) against this run-denominated expectation, which reported every Doom drop as
+        // depth-times drier than it was — an Eye of ayak at 293 runs showed as "2,344 vs 148".
+        //
+        // Pinned as arithmetic on the facade so the two scales can't quietly drift apart again.
+        const int runCount = 293;
+        const int depth = 8;
+        var window = Enumerable.Repeat(depth, runCount).ToList();
+
+        var expected = Service().EffectiveRate(Doom, "Eye of ayak", null, null, 1, window)!.Value.ExpectedKc;
+
+        var correctRatio = runCount / expected;                 // runs vs runs
+        var brokenRatio = window.Sum() / expected;              // delves vs runs
+
+        Assert.InRange(correctRatio, 1.0, 4.0);
+        Assert.Equal(depth, brokenRatio / correctRatio, precision: 6);
+        Assert.True(brokenRatio > 10, $"the broken comparison should look absurdly dry, got {brokenRatio:0.#}");
+    }
+
+    [Fact]
     public void DeeperOverride_makesTheDropCheaperInRuns()
     {
         // A deeper average clears more levels per run, so each run has more chances at the item.
