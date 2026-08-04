@@ -313,10 +313,13 @@
                 g.Any(d => d.IsSpecial),
                 g.Select(d => d.ExpectedKc).FirstOrDefault(k => k is > 0),
                 g.Select(d => d.EffectiveRarity).FirstOrDefault(r => !string.IsNullOrEmpty(r)),
-                // The EARLIEST kill count this item landed on within the card. One chip can stand
-                // for several receipts, and the luck statement is about when it first arrived, not
-                // the last time it happened to drop.
-                g.Select(d => d.KillCount).Where(k => k is > 0).Min()))
+                // The EARLIEST roll this item landed on within the card. One chip can stand for
+                // several receipts, and the luck statement is about when it first arrived, not the
+                // last time it happened to drop. Both the reported count and the derived ordinal are
+                // carried, because a card can mix records that reported one with records that didn't.
+                g.Select(d => d.KillCount).Where(k => k is > 0).Min(),
+                g.Select(d => d.KillOrdinal).Where(k => k is > 0).Min(),
+                g.Select(d => d.OccurredAt).Where(t => t is not null).Min()))
             .OrderByDescending(d => (long)d.Quantity * d.Price)
             .ToList();
 
@@ -335,17 +338,20 @@
         if (drop.ExpectedKc is not > 0 || string.IsNullOrEmpty(drop.EffectiveRarity)) return null;
 
         var expected = drop.ExpectedKc.Value;
-        // THIS drop's own kill count — the KC it actually landed on. Not the card's: a card covers a
-        // whole play session and its Max climbs with every further kill, so a Venator fang that came
-        // on rate at kill 20 was being re-judged against kill 126 and reported as 6.7x dry. The card
-        // range is only a fallback for when RuneLite reported no kill count at all, and even then it
-        // uses the session's FIRST kill rather than its latest, so the figure can't drift upward as
-        // the session runs on.
+        // THIS drop's own roll number — the roll it actually landed on. Not the card's: a card
+        // covers a whole play session, so judging a drop against the card's numbers is wrong in both
+        // directions. Against the Max, a Venator fang that came on rate at roll 20 was re-judged
+        // against roll 126 and reported 6.7x dry. Against the Min, four Lunar Chest uniques spread
+        // across rolls 197-420 all claimed roll 197 and read as equally lucky.
+        //
+        // KillCount is RuneLite's figure; KillOrdinal is this record's own chronological position,
+        // used when RuneLite sent no count (routine for chest sources). The card range is only a
+        // last resort for a drop carrying neither.
         //
         // Runs, for every source including depth-modelled ones: ExpectedKc is expected RUNS (see
         // SourceLootService.EffectiveRate), so the two sides are already on the same scale and any
         // conversion here would skew the ratio. The character page compares the same pair.
-        var observed = drop.KillCount ?? Entry.MinKillCount ?? Entry.MinKillOrdinal;
+        var observed = drop.KillCount ?? drop.KillOrdinal ?? Entry.MinKillCount ?? Entry.MinKillOrdinal;
         var title = $"Effective rate {drop.EffectiveRarity} (~{Math.Round(expected):N0} expected), "
                     + "after this source's loot model and any admin rate adjustment";
 

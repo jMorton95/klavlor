@@ -299,6 +299,16 @@ public sealed class LootIngestHandler(
             : null;
         var runDepths = sourceLoot.RunDepthsForClaim(record.SourceName, record.EffectiveKills, overrideDepth);
 
+        // Chronological ordinal — the fallback roll number when RuneLite didn't supply a kill
+        // count, which chest-style sources routinely don't. Resolved BEFORE the drops are built so
+        // each one can carry it: falling back to the card's first ordinal instead made every drop
+        // on such a card claim the session's opening roll. One lookup per record, shared by all
+        // tiers.
+        int? ordinal = null;
+        if (character is not null && record.Id > 0)
+            ordinal = await lootRecordRepository.GetKillOrdinal(
+                character.Id, record.SourceName, record.OccurredAt, record.Id);
+
         var feedDrops = drops.Select(d =>
         {
             rates.TryGetValue(d.Name, out var rate);
@@ -309,20 +319,14 @@ public sealed class LootIngestHandler(
                 d.Name, d.Quantity, d.Price, d.IsFirstTime,
                 collectionLogCache.IsCollectionLogItem(d.ItemId, d.Name), d.IsSpecial,
                 effective?.ExpectedKc, effective?.Rarity,
-                // This record's own kill count, so the drop keeps the KC it landed on even after
-                // the card merges another hundred kills onto the same session.
-                KillCount: record.KillCount);
+                // This record's own numbers, so the drop keeps the roll it landed on even after
+                // the card merges another hundred rolls onto the same session.
+                KillCount: record.KillCount,
+                KillOrdinal: ordinal,
+                OccurredAt: record.OccurredAt);
         }).ToList();
         var dropsByTier = ILootFeedService.ClassifyDropsByTier(feedDrops);
         if (dropsByTier.Count == 0) return;
-
-        // Chronological ordinal — only needed as a fallback label when RuneLite
-        // didn't supply a KillCount. Compute once per record regardless of tier
-        // since all tiers share the same ordinal.
-        int? ordinal = null;
-        if (character is not null && record.Id > 0)
-            ordinal = await lootRecordRepository.GetKillOrdinal(
-                character.Id, record.SourceName, record.OccurredAt, record.Id);
 
         // Bounds of the play session this kill belongs to, so a card's KC range spans the whole
         // session rather than starting at its first tier-qualifying drop. Site-wide session

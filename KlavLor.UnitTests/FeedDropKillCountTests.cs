@@ -81,6 +81,42 @@ public sealed class FeedDropKillCountTests
     }
 
     [Fact]
+    public void DropsOnOneCard_keepTheirOwnOrdinalsWhenNoKillCountWasReported()
+    {
+        // The Lunar Chest case. RuneLite reports no kill count for chest sources, so every drop
+        // relied on the card's ordinal range — and four uniques spread across rolls 197 to 420 all
+        // claimed 197, the session's opening roll, making a drop at 420 look as lucky as one at 197.
+        // Each drop now carries its own resolved ordinal.
+        var early = new LootFeedDrop("Blood moon chestplate", 1, 5_000_000, IsCollectionLogItem: true, KillOrdinal: 201);
+        var late = new LootFeedDrop("Dual macuahuitl", 1, 8_000_000, IsCollectionLogItem: true, KillOrdinal: 415);
+
+        var card = Entry(At(10), killCount: 0, drops: [early, late]) with
+        {
+            MinKillCount = null,
+            MaxKillCount = null,
+            MinKillOrdinal = 197,
+            MaxKillOrdinal = 420
+        };
+
+        // What the display resolves for each drop.
+        int? Observed(LootFeedDrop d) => d.KillCount ?? d.KillOrdinal ?? card.MinKillCount ?? card.MinKillOrdinal;
+
+        Assert.Equal(201, Observed(card.Drops[0]));
+        Assert.Equal(415, Observed(card.Drops[1]));
+        // Specifically NOT the card's opening roll, which is what the old fallback produced.
+        Assert.NotEqual(card.MinKillOrdinal, Observed(card.Drops[1]));
+    }
+
+    [Fact]
+    public void AReportedKillCount_winsOverTheDerivedOrdinal()
+    {
+        // RuneLite's own number is authoritative when present; the ordinal is only a stand-in.
+        var drop = new LootFeedDrop(Fang, 1, 50_000, IsCollectionLogItem: true, KillCount: 20, KillOrdinal: 999);
+
+        Assert.Equal(20, drop.KillCount ?? drop.KillOrdinal);
+    }
+
+    [Fact]
     public void ADropWithNoReportedKillCount_leavesTheFigureToTheCardsFirstKill()
     {
         // RuneLite doesn't always report a KC. The fallback is deliberately the session's FIRST

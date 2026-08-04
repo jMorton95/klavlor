@@ -98,6 +98,7 @@ internal sealed class LootFeedRepository(
 
             var expandedEnds = await ExpandToSessionBounds(result);
             await FillSurvivorOrdinals(result, expandedEnds);
+            await FillDropOrdinals(result);
             return result;
         }
         catch (Exception ex)
@@ -263,6 +264,89 @@ internal sealed class LootFeedRepository(
     // history (1 = oldest). It's only rendered as a fallback when RuneLite didn't report an in-game
     // KillCount, so we compute it here — in one batched query, only for the surviving cards that
     // lack a KillCount — rather than per-candidate inside GetAllFeedTiers' over-fetch loop.
+    // Resolves the roll number of each INDIVIDUAL drop on a surviving card, for the records that
+    // carry no RuneLite kill count. Without this every drop on such a card fell back to the card's
+    // own first ordinal: a Lunar Chest card spanning rolls 197-420 reported all four of its uniques
+    // at roll 197, so a drop that actually came at 420 read as though it had come on the first roll
+    // and looked far luckier than it was.
+    //
+    // One batched query for the distinct (character, source, timestamp) triples across every drop
+    // that needs one, counting rows at-or-before that timestamp. Same counting rule as
+    // FillSurvivorOrdinals, including the admin baseline, so a drop's number is on the same scale as
+    // the range printed on its card. Deduplicated first, because a card usually has several drops
+    // from the same record.
+    private async Task FillDropOrdinals(Dictionary<LootFeedTier, List<LootFeedEntry>> result)
+    {
+        var needed = new Dictionary<(int Cid, string Src, DateTimeOffset At), int?>();
+
+        foreach (var (_, entries) in result)
+        {
+            foreach (var e in entries)
+            {
+                if (e.GameCharacterId is null) continue;
+                foreach (var d in e.Drops)
+                {
+                    // A reported kill count is already authoritative; only fill the gaps.
+                    if (d.KillCount is not null || d.OccurredAt is null) continue;
+                    needed[(e.GameCharacterId.Value, e.SourceName, d.OccurredAt.Value)] = null;
+                }
+            }
+        }
+
+        if (needed.Count == 0) return;
+
+        var triples = needed.Keys.ToList();
+        const string sql = """
+            SELECT t.idx,
+                   ((SELECT count(*) FROM "LootRecords" r
+                     WHERE r."GameCharacterId" = t.cid AND r."SourceName" = t.src AND r."OccurredAt" <= t.at)::int
+                    + COALESCE(bl."BaselineKc", 0)) AS ord
+            FROM unnest(@cids, @srcs, @ats) WITH ORDINALITY AS t(cid, src, at, idx)
+            LEFT JOIN "CharacterSourceBaselines" bl ON bl."GameCharacterId" = t.cid AND bl."SourceName" = t.src
+            """;
+
+        var connection = dataContext.Database.GetDbConnection();
+        if (connection.State != System.Data.ConnectionState.Open)
+            await connection.OpenAsync();
+
+        await using (var cmd = connection.CreateCommand())
+        {
+            cmd.CommandText = sql;
+            cmd.Parameters.Add(new NpgsqlParameter("@cids", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Integer) { Value = triples.Select(t => t.Cid).ToArray() });
+            cmd.Parameters.Add(new NpgsqlParameter("@srcs", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Text) { Value = triples.Select(t => t.Src).ToArray() });
+            cmd.Parameters.Add(new NpgsqlParameter("@ats", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.TimestampTz) { Value = triples.Select(t => t.At).ToArray() });
+
+            await using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                var idx = (int)reader.GetInt64(0) - 1;
+                needed[triples[idx]] = reader.GetInt32(1);
+            }
+        }
+
+        // Stamp the resolved numbers back onto the drops.
+        foreach (var (tier, entries) in result)
+        {
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var e = entries[i];
+                if (e.GameCharacterId is null) continue;
+                if (!e.Drops.Any(d => d.KillCount is null && d.OccurredAt is not null)) continue;
+
+                result[tier][i] = e with
+                {
+                    Drops = e.Drops.Select(d =>
+                    {
+                        if (d.KillCount is not null || d.OccurredAt is null) return d;
+                        return needed.TryGetValue((e.GameCharacterId.Value, e.SourceName, d.OccurredAt.Value), out var ord) && ord is not null
+                            ? d with { KillOrdinal = ord }
+                            : d;
+                    }).ToList()
+                };
+            }
+        }
+    }
+
     private async Task FillSurvivorOrdinals(
         Dictionary<LootFeedTier, List<LootFeedEntry>> result,
         Dictionary<(LootFeedTier Tier, int Index), DateTimeOffset>? expandedEnds = null)
@@ -365,7 +449,7 @@ internal sealed class LootFeedRepository(
                 })
                 // KillCount is this record's own, so a drop keeps the KC it landed on when adjacent
                 // kills collapse into one card — the card's own Max would climb with the session.
-                .Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId, d.Name), d.IsSpecial, KillCount: r.KillCount))
+                .Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId, d.Name), d.IsSpecial, KillCount: r.KillCount, OccurredAt: r.OccurredAt))
                 .ToList();
 
             if (tierDrops.Count == 0) continue;
@@ -506,7 +590,7 @@ internal sealed class LootFeedRepository(
             var allDrops = JsonSerializer.Deserialize<List<LootDrop>>(r.DropsJson) ?? [];
             var drops = allDrops
                 .Where(d => ILootFeedService.GetDropTier((long)d.Quantity * d.Price) is not null)
-                .Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId, d.Name), d.IsSpecial, KillCount: r.KillCount))
+                .Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId, d.Name), d.IsSpecial, KillCount: r.KillCount, OccurredAt: r.OccurredAt))
                 .ToList();
 
             if (drops.Count == 0) continue;

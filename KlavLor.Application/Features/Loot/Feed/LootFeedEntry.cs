@@ -61,11 +61,20 @@ public sealed record LootFeedDrop(
     // character page and the leaderboard.
     double? ExpectedKc = null,
     string? EffectiveRarity = null,
-    // The kill count this drop actually landed on. Held per drop, not per card, because a card
-    // covers a whole session: judging a drop against the card's LATEST kill count meant a Venator
-    // fang that came on rate at kill 20 drifted to "6.7x dry" purely because the player kept
-    // killing for another hundred. Null when RuneLite reported no kill count for that record.
-    int? KillCount = null);
+    // The roll this drop actually landed on, held per drop rather than per card because a card
+    // covers a whole session: judging a drop against the card's LATEST count meant a Venator fang
+    // that came on rate at roll 20 drifted to "6.7x dry" purely because the player kept going.
+    //
+    // KillCount is RuneLite's reported figure and is null when it didn't send one — which is the
+    // common case for chest-style sources. KillOrdinal is then this record's own chronological
+    // position, resolved per drop. Without it every drop on such a card fell back to the CARD's
+    // first ordinal, so four Lunar Chest uniques spread across rolls 197-420 all claimed roll 197
+    // and read as equally lucky.
+    int? KillCount = null,
+    int? KillOrdinal = null,
+    // When this specific drop happened — distinct from the card's OccurredAt, which is the whole
+    // group's latest. Drives the per-drop ordinal lookup for records with no reported count.
+    DateTimeOffset? OccurredAt = null);
 
 public sealed record LootFeedBroadcast(LootFeedEntry Entry, string? PreviousDomId, HighlightChange? HighlightChange = null);
 
