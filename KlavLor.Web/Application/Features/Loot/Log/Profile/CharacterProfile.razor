@@ -26,57 +26,58 @@
         <ProfileStatCards Windows="@Windows" />
     }
 
+    @* Everything below loads on its own HTMX request, staggered StaggerMs apart down the page
+       (see DeferredSection) so one page view doesn't fire six queries in the same instant. *@
+
     @* Latest collection logs (recent firsts) *@
-    <div hx-get="@(AppRoutes.LootLogCharacterRecentFirsts.WithId(CharacterId).FromApi())"
-         hx-trigger="load"
-         hx-swap="outerHTML">
-        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
-            <div class="h-60 animate-pulse bg-slate-100 dark:bg-slate-800 rounded"></div>
-        </div>
-    </div>
+    <DeferredSection Url="@(AppRoutes.LootLogCharacterRecentFirsts.WithId(CharacterId).FromApi())"
+                     DelayMs="@Delay(0)" HeightClass="h-60" />
 
     @* Activity heatmap — kept silently because it pairs naturally with the trend chart. *@
-    <div hx-get="@(AppRoutes.LootLogCharacterHeatmap.WithId(CharacterId).FromApi())"
-         hx-trigger="load"
-         hx-swap="outerHTML">
-        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
-            <div class="flex items-start justify-between mb-3 gap-2">
-                <div class="space-y-2">
-                    <div class="h-4 w-48 animate-pulse bg-slate-100 dark:bg-slate-800 rounded"></div>
-                    <div class="h-5 w-32 animate-pulse bg-slate-100 dark:bg-slate-800 rounded"></div>
-                </div>
-                <div class="h-7 w-28 animate-pulse bg-slate-100 dark:bg-slate-800 rounded"></div>
+    <DeferredSection Url="@(AppRoutes.LootLogCharacterHeatmap.WithId(CharacterId).FromApi())"
+                     DelayMs="@Delay(1)">
+        <div class="flex items-start justify-between mb-3 gap-2">
+            <div class="space-y-2">
+                <div class="h-4 w-48 bg-slate-100 dark:bg-slate-800/60 rounded"></div>
+                <div class="h-5 w-32 bg-slate-100 dark:bg-slate-800/60 rounded"></div>
             </div>
-            <div class="h-[11.75rem] animate-pulse bg-slate-100 dark:bg-slate-800 rounded"></div>
-            <div class="mt-3 h-[15px] w-72 animate-pulse bg-slate-100 dark:bg-slate-800 rounded"></div>
+            <div class="h-7 w-28 bg-slate-100 dark:bg-slate-800/60 rounded"></div>
         </div>
-    </div>
+        <div class="h-[11.75rem] bg-slate-100 dark:bg-slate-800/60 rounded"></div>
+        <div class="mt-3 h-[15px] w-72 bg-slate-100 dark:bg-slate-800/60 rounded"></div>
+    </DeferredSection>
 
     @* Monthly trend *@
-    <div hx-get="@(AppRoutes.LootLogCharacterMonthly.WithId(CharacterId).FromApi())"
-         hx-trigger="load"
-         hx-swap="outerHTML">
-        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
-            <div class="flex items-start justify-between mb-3 gap-2">
-                <div class="space-y-2">
-                    <div class="h-4 w-44 animate-pulse bg-slate-100 dark:bg-slate-800 rounded"></div>
-                    <div class="h-5 w-56 animate-pulse bg-slate-100 dark:bg-slate-800 rounded"></div>
-                </div>
-                <div class="h-7 w-36 animate-pulse bg-slate-100 dark:bg-slate-800 rounded"></div>
+    <DeferredSection Url="@(AppRoutes.LootLogCharacterMonthly.WithId(CharacterId).FromApi())"
+                     DelayMs="@Delay(2)">
+        <div class="flex items-start justify-between mb-3 gap-2">
+            <div class="space-y-2">
+                <div class="h-4 w-44 bg-slate-100 dark:bg-slate-800/60 rounded"></div>
+                <div class="h-5 w-56 bg-slate-100 dark:bg-slate-800/60 rounded"></div>
             </div>
-            <div class="h-72 animate-pulse bg-slate-100 dark:bg-slate-800 rounded"></div>
-            <div class="mt-4 h-8 animate-pulse bg-slate-100 dark:bg-slate-800 rounded"></div>
+            <div class="h-7 w-36 bg-slate-100 dark:bg-slate-800/60 rounded"></div>
         </div>
-    </div>
+        <div class="h-72 bg-slate-100 dark:bg-slate-800/60 rounded"></div>
+        <div class="mt-4 h-8 bg-slate-100 dark:bg-slate-800/60 rounded"></div>
+    </DeferredSection>
+
+    @* Rolls per month — how much the character actually rolled, next to how much it was worth *@
+    <DeferredSection Url="@(AppRoutes.LootLogCharacterRolls.WithId(CharacterId).FromApi())"
+                     DelayMs="@Delay(3)">
+        <div class="flex items-start justify-between mb-3 gap-2">
+            <div class="space-y-2">
+                <div class="h-4 w-40 bg-slate-100 dark:bg-slate-800/60 rounded"></div>
+                <div class="h-5 w-52 bg-slate-100 dark:bg-slate-800/60 rounded"></div>
+            </div>
+            <div class="h-7 w-36 bg-slate-100 dark:bg-slate-800/60 rounded"></div>
+        </div>
+        <div class="h-72 bg-slate-100 dark:bg-slate-800/60 rounded"></div>
+        <div class="mt-4 h-8 bg-slate-100 dark:bg-slate-800/60 rounded"></div>
+    </DeferredSection>
 
     @* Session history (lazy) — cross-source play sessions, newest first *@
-    <div hx-get="@(AppRoutes.LootLogCharacterSessions.WithId(CharacterId).FromApi())"
-         hx-trigger="load"
-         hx-swap="outerHTML">
-        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
-            <div class="h-[26rem] animate-pulse bg-slate-100 dark:bg-slate-800 rounded"></div>
-        </div>
-    </div>
+    <DeferredSection Url="@(AppRoutes.LootLogCharacterSessions.WithId(CharacterId).FromApi())"
+                     DelayMs="@Delay(4)" HeightClass="h-[26rem]" />
 
     @* Link to the full per-character sources database, directly beneath the session history. *@
     <div class="flex justify-center">
@@ -91,13 +92,8 @@
     </div>
 
     @* Lifetime item ranking *@
-    <div hx-get="@(AppRoutes.LootLogCharacterTopItems.WithId(CharacterId).FromApi())"
-         hx-trigger="load"
-         hx-swap="outerHTML">
-        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
-            <div class="h-[34rem] animate-pulse bg-slate-100 dark:bg-slate-800 rounded"></div>
-        </div>
-    </div>
+    <DeferredSection Url="@(AppRoutes.LootLogCharacterTopItems.WithId(CharacterId).FromApi())"
+                     DelayMs="@Delay(5)" HeightClass="h-[34rem]" />
 </div>
 
 @code {
@@ -105,4 +101,12 @@
     [Parameter] public ProfileHeader? Header { get; set; }
     [Parameter] public ProfileWindowStats? Windows { get; set; }
     [Parameter] public LootLogSearchResult? SearchResult { get; set; }
+
+    // Gap between consecutive panel fetches. Every panel is a separate handler and query, so
+    // loading them all on `load` meant six of them hitting the box at once for one page view.
+    // Spacing them keeps the peak at roughly one query in flight, and the panels are stacked
+    // vertically anyway — the later ones are below the fold while their turn comes round.
+    private const int StaggerMs = 500;
+
+    private static int Delay(int position) => (position + 1) * StaggerMs;
 }

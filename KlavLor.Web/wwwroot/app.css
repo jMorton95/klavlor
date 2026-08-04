@@ -27,6 +27,23 @@ body:not(.history-panel-open) #completion-history-panel {
     display: none;
 }
 
+/* Deferred panel spinner (DeferredSection.razor). Character-page panels are staggered
+   500ms apart, so each one has two distinct waiting states and they must look different:
+   while it's merely queued the placeholder sits flat and still, and only once htmx puts
+   htmx-request on the wrapper — i.e. its own fetch is genuinely in flight — does the
+   spinner fade in. Keyed off the real request rather than a timer so the two can't drift
+   apart. Not relying on htmx's own indicator styles: those are opacity-only defaults that
+   a future htmx.config change could switch off. */
+.defer-spinner {
+    opacity: 0;
+    transition: opacity 120ms linear;
+}
+
+.htmx-request > .defer-spinner,
+.htmx-request .defer-spinner {
+    opacity: 1;
+}
+
 /* Histogram-segment hover tooltip — show on hover of the segment row.
    Done in plain CSS so a new Tailwind variant doesn't need an ASP.NET static-asset
    restart to register. */

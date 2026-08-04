@@ -16,6 +16,9 @@ public sealed class LootCharacterProfileEndpoint : IEndpoint
         app.MapGet(AppRoutes.LootLogCharacterMonthly.FromApi(), GetMonthly)
             .AllowAnonymous();
 
+        app.MapGet(AppRoutes.LootLogCharacterRolls.FromApi(), GetMonthlyRolls)
+            .AllowAnonymous();
+
         app.MapGet(AppRoutes.LootLogCharacterRecords.FromApi(), GetRecords)
             .AllowAnonymous();
 
@@ -131,6 +134,23 @@ public sealed class LootCharacterProfileEndpoint : IEndpoint
         var result = await handler.HandleMonthlyTrend(id, normalised);
         if (!result.IsSuccess) return Results.NotFound();
         return IResultExtensions.Component<ProfileMonthlyTrend>(new
+        {
+            Trend = result.Value,
+            CharacterId = id,
+            Expanded = string.Equals(size, "expanded", StringComparison.OrdinalIgnoreCase)
+        });
+    }
+
+    private static async Task<IResult> GetMonthlyRolls(
+        int id,
+        [FromQuery] string? range,
+        [FromQuery] string? size,
+        LootCharacterProfileHandler handler)
+    {
+        var normalised = string.Equals(range, "all", StringComparison.OrdinalIgnoreCase) ? "all" : "12m";
+        var result = await handler.HandleMonthlyRolls(id, normalised);
+        if (!result.IsSuccess) return Results.NotFound();
+        return IResultExtensions.Component<ProfileRollsTrend>(new
         {
             Trend = result.Value,
             CharacterId = id,

@@ -1,0 +1,53 @@
+@* One lazily-loaded panel on a character/source page.
+
+   The character page has eight-odd independent panels, each with its own handler and its own
+   (sometimes expensive) query. With every one on hx-trigger="load" they all fired in the same
+   instant, so a single page view opened eight concurrent requests and the server did all of that
+   work at once. DelayMs staggers them instead: the caller spaces sections 500ms apart, so the
+   queries arrive in sequence and the box is never asked for everything simultaneously.
+
+   Two distinct waiting states, deliberately:
+     - Deferred (before this section's turn): a flat, unanimated block. No spinner and no pulse,
+       because nothing is happening yet and a spinner would claim otherwise.
+     - Loading (this section's request in flight): the spinner fades in. htmx puts htmx-request on
+       the requesting element for exactly that span, and app.css keys .defer-spinner off it — so
+       the state is driven by the real request, not a timer that could drift out of step with it.
+
+   hx-swap="outerHTML" replaces this whole wrapper with the loaded panel, so the placeholder's
+   frame and the panel's frame never both exist. *@
+<div hx-get="@Url"
+     hx-trigger="load delay:@(DelayMs)ms"
+     hx-swap="outerHTML"
+     class="relative bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+    @if (ChildContent is not null)
+    {
+        @ChildContent
+    }
+    else
+    {
+        <div class="rounded bg-slate-100 dark:bg-slate-800/60 @HeightClass"></div>
+    }
+
+    <div class="defer-spinner absolute inset-0 flex items-center justify-center pointer-events-none">
+        <svg class="w-7 h-7 animate-spin text-amber-500 dark:text-amber-400" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
+            <path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+        <span class="sr-only">Loading</span>
+    </div>
+</div>
+
+@code {
+    [Parameter] public required string Url { get; set; }
+
+    /// How long after page load this section fetches. Callers step this by 500ms down the page.
+    [Parameter] public int DelayMs { get; set; }
+
+    /// Height of the default placeholder block, sized to the panel it stands in for so the
+    /// page doesn't jump when the real content lands.
+    [Parameter] public string HeightClass { get; set; } = "h-60";
+
+    /// Optional bespoke placeholder (e.g. a header strip plus a chart area) when a single
+    /// block would misrepresent the panel's shape.
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

@@ -82,6 +82,7 @@ public static class AppRoutes
     // One route per swimlane: each tier fetches its own entries + SSE subscription, so no single
     // request carries the whole grid. {tier} is a TierStyle slug (standard/uncommon/rare/...).
     public const string LootFeedColumn = "/loot/feed/column/{tier}";
+    public const string LootFeedSessions = "/loot/feed/sessions";
     public const string LootFeedStreamStandard = "/loot/feed/stream/standard";
     public const string LootFeedStreamUncommon = "/loot/feed/stream/uncommon";
     public const string LootFeedStreamRare = "/loot/feed/stream/rare";
@@ -90,6 +91,7 @@ public static class AppRoutes
     public const string LootFeedLeagues = "/loot/feed/leagues";
     public const string LootFeedLeaguesGrid = "/loot/feed/leagues/grid";
     public const string LootFeedLeaguesColumn = "/loot/feed/leagues/column/{tier}";
+    public const string LootFeedLeaguesSessions = "/loot/feed/leagues/sessions";
     public const string LootFeedLeaguesStreamStandard = "/loot/feed/leagues/stream/standard";
     public const string LootFeedLeaguesStreamUncommon = "/loot/feed/leagues/stream/uncommon";
     public const string LootFeedLeaguesStreamRare = "/loot/feed/leagues/stream/rare";
@@ -104,6 +106,7 @@ public static class AppRoutes
 
     public const string LootLogCharacterHeatmap = "/loot/log/{id:int}/stats/heatmap";
     public const string LootLogCharacterMonthly = "/loot/log/{id:int}/stats/monthly";
+    public const string LootLogCharacterRolls = "/loot/log/{id:int}/stats/rolls";
     public const string LootLogCharacterRecords = "/loot/log/{id:int}/stats/records";
     public const string LootLogCharacterTopItems = "/loot/log/{id:int}/stats/top-items";
     public const string LootLogCharacterRecentFirsts = "/loot/log/{id:int}/stats/recent-firsts";
