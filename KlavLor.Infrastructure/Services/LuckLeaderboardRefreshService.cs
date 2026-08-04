@@ -100,7 +100,7 @@ public sealed class LuckLeaderboardRefreshService(
         try
         {
             using var scope = scopeFactory.CreateScope();
-            var lootLog = scope.ServiceProvider.GetRequiredService<ILootLogRepository>();
+            var lootLog = scope.ServiceProvider.GetRequiredService<ILootSourceDetailRepository>();
             var board = scope.ServiceProvider.GetRequiredService<ILuckLeaderboardRepository>();
             var sourceLoot = scope.ServiceProvider.GetRequiredService<SourceLootService>();
             var exclusions = scope.ServiceProvider.GetRequiredService<ILeaderboardSourceExclusionRepository>();

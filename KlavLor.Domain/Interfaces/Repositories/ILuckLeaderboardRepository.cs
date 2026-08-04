@@ -3,7 +3,7 @@ using KlavLor.Domain.Entities;
 namespace KlavLor.Domain.Interfaces.Repositories;
 
 // Persistence + enumeration for the precomputed luck leaderboard. The heavy per-source luck
-// facts are read through ILootLogRepository.GetSourceCollection; this repository only handles
+// facts are read through ILootSourceDetailRepository.GetSourceCollection; this repository only handles
 // the small enumeration and the generation-swap write path plus the served board query.
 public interface ILuckLeaderboardRepository
 {

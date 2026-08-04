@@ -5,9 +5,10 @@ using KlavLor.Application.Interfaces.Repositories;
 namespace KlavLor.Application.Features.Loot.Log;
 
 public sealed class LootLogHandler(
-    ILootLogRepository lootLogRepository,
+    ILootLogSearchRepository searchRepository,
+    ILootSourceDetailRepository sourceDetailRepository,
+    ILootSessionRepository sessionRepository,
     LootLogValidator validator,
-    ICurrentUser currentUser,
     CharacterAccessChecker accessChecker)
 {
     public async Task<Result<List<LootLogCharacterSummary>>> HandleCharacters()
@@ -15,7 +16,7 @@ public sealed class LootLogHandler(
         // Always respect the visibility flags on the public drop-log grid — admins
         // included. Hidden means hidden. Admins who need to reach a hidden character
         // can still get there via the admin user-management page or a direct URL.
-        var characters = await lootLogRepository.GetCharactersWithLoot(includeHidden: false);
+        var characters = await searchRepository.GetCharactersWithLoot(includeHidden: false);
         return Result<List<LootLogCharacterSummary>>.Success(characters);
     }
 
@@ -28,7 +29,7 @@ public sealed class LootLogHandler(
         if (!validationResult.IsValid)
             return Result<LootLogSearchResult>.Success(new LootLogSearchResult([], []));
 
-        var result = await lootLogRepository.SearchLootLog(characterId, query);
+        var result = await searchRepository.SearchLootLog(characterId, query);
         return Result<LootLogSearchResult>.Success(result);
     }
 
@@ -38,8 +39,8 @@ public sealed class LootLogHandler(
             return Result<LootSourceDetail>.Failure("Character not found.");
 
         var result = pageNumber > 1
-            ? await lootLogRepository.GetSourceDetailKillsPage(characterId, sourceName, pageNumber, pageSize)
-            : await lootLogRepository.GetSourceDetail(characterId, sourceName, pageNumber, pageSize);
+            ? await sourceDetailRepository.GetSourceDetailKillsPage(characterId, sourceName, pageNumber, pageSize)
+            : await sourceDetailRepository.GetSourceDetail(characterId, sourceName, pageNumber, pageSize);
         return Result<LootSourceDetail>.Success(result);
     }
 
@@ -48,7 +49,7 @@ public sealed class LootLogHandler(
         if (!await accessChecker.CanAccess(characterId))
             return Result<SourceTable>.Failure("Character not found.");
 
-        var result = await lootLogRepository.GetCharacterSourceTable(characterId, query);
+        var result = await searchRepository.GetCharacterSourceTable(characterId, query);
         return Result<SourceTable>.Success(result);
     }
 
@@ -59,7 +60,7 @@ public sealed class LootLogHandler(
         if (!await accessChecker.CanAccess(characterId))
             return Result<LootSourceSessions>.Failure("Character not found.");
 
-        var result = await lootLogRepository.GetSourceSessions(characterId, sourceName, pageNumber, SessionsPageSize);
+        var result = await sessionRepository.GetSourceSessions(characterId, sourceName, pageNumber, SessionsPageSize);
         return Result<LootSourceSessions>.Success(result);
     }
 
@@ -68,7 +69,7 @@ public sealed class LootLogHandler(
         if (!await accessChecker.CanAccess(characterId))
             return Result<List<LootKillEntry>>.Failure("Character not found.");
 
-        var result = await lootLogRepository.GetSessionKills(characterId, sourceName, sessionNo);
+        var result = await sessionRepository.GetSessionKills(characterId, sourceName, sessionNo);
         return Result<List<LootKillEntry>>.Success(result);
     }
 

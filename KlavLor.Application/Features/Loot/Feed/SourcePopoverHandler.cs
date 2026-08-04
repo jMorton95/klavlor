@@ -13,7 +13,7 @@ namespace KlavLor.Application.Features.Loot.Feed;
 /// the next time anyone hovers that character's cards.
 /// </summary>
 public sealed class SourcePopoverHandler(
-    ILootLogRepository lootLogRepository,
+    ILootSourceDetailRepository sourceDetailRepository,
     IMemoryCache memoryCache)
 {
     public async Task<Result<SourcePopoverData>> Handle(int characterId, string sourceName)
@@ -27,7 +27,7 @@ public sealed class SourcePopoverHandler(
         if (memoryCache.TryGetValue(key, out SourcePopoverData? cached) && cached is not null)
             return Result<SourcePopoverData>.Success(cached);
 
-        var data = await lootLogRepository.GetSourcePopover(characterId, sourceName);
+        var data = await sourceDetailRepository.GetSourcePopover(characterId, sourceName);
         memoryCache.Set(key, data, LootStatsCache.EntryTtl);
         return Result<SourcePopoverData>.Success(data);
     }

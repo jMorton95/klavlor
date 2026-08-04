@@ -61,6 +61,35 @@ public sealed record MonthSegment(
     string SourceName,
     long Value);
 
+/// <summary>
+/// Month-by-month roll counts, stacked by source — the companion to <see cref="MonthlyTrend"/>,
+/// which answers "what was it worth". A roll is one logged kill or claim, i.e. one turn of a
+/// source's drop table, so this reads as how much grinding actually happened and at what. Value
+/// and volume diverge sharply (a single 1B drop outweighs 40k Lizardman Shaman kills), so neither
+/// chart substitutes for the other.
+/// </summary>
+public sealed record MonthlyRollTrend(
+    DateOnly From,
+    DateOnly To,
+    string Range,
+    IReadOnlyList<RollMonthBucket> Months);
+
+/// <summary>
+/// One month's rolls. <see cref="Rolls"/> is the month's true total across every source; TopSources
+/// is capped, so its sum can be lower and the remainder belongs in an "Other" segment.
+/// </summary>
+public sealed record RollMonthBucket(
+    int Year,
+    int Month,
+    int Rolls,
+    long Gp,
+    IReadOnlyList<RollSourceSegment> TopSources);
+
+public sealed record RollSourceSegment(
+    string SourceName,
+    int Rolls,
+    long Gp);
+
 public sealed record PersonalRecords(
     LootKillEntry? BiggestKill,
     string? BiggestKillSource,

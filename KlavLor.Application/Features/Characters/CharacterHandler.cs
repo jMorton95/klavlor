@@ -7,7 +7,7 @@ namespace KlavLor.Application.Features.Characters;
 
 public sealed class CharacterHandler(
     IGameCharacterRepository characterRepository,
-    ILootLogRepository lootLogRepository,
+    ILootProfileRepository lootProfileRepository,
     ICurrentUser currentUser)
 {
     public async Task<Result<List<CharacterSummary>>> HandleList()
@@ -113,7 +113,7 @@ public sealed class CharacterHandler(
         if (character is null)
             return Result.Failure("Character not found.");
 
-        await lootLogRepository.DeleteAllForCharacter(characterId);
+        await lootProfileRepository.DeleteAllForCharacter(characterId);
         await characterRepository.Delete(character);
         return Result.Success();
     }
@@ -123,7 +123,7 @@ public sealed class CharacterHandler(
         if (!currentUser.IsAdmin)
             return Result.Failure("Not authorized.");
 
-        await lootLogRepository.DeleteAllForUser(userId);
+        await lootProfileRepository.DeleteAllForUser(userId);
         await characterRepository.DeleteAllForUser(userId);
         return Result.Success();
     }

@@ -6,7 +6,7 @@ using KlavLor.Domain.Shared;
 namespace KlavLor.Application.Features.Loot.Ingest.Audit;
 
 public sealed class IngestLogHandler(
-    ILootLogRepository lootLogRepository,
+    ILootLogSearchRepository lootLogSearchRepository,
     IngestLogValidator validator,
     ICurrentUser currentUser)
 {
@@ -21,7 +21,7 @@ public sealed class IngestLogHandler(
         if (!validationResult.IsValid)
             return Result<IngestLogResult>.ValidationFailure(validationResult.ToDictionary());
 
-        var result = await lootLogRepository.GetIngestLog(query);
+        var result = await lootLogSearchRepository.GetIngestLog(query);
         return Result<IngestLogResult>.Success(result);
     }
 }

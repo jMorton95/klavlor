@@ -75,7 +75,7 @@ public sealed class SearchDropsTopSourceTests(PostgresFixture fx)
         Seed.AddKill(ctx, userId, charId, "TP_Aberrant", at.AddHours(1), 1, [new(item, 9003, 1, 10_000)]);
         await ctx.SaveChangesAsync();
 
-        var repo = new LootLogRepository(ctx, NullLogger<LootLogRepository>.Instance, new FakeClogCache());
+        var repo = new LootProfileRepository(ctx, NullLogger<LootProfileRepository>.Instance);
         var top = await repo.GetTopItems(charId, 20);
 
         var row = Assert.Single(top.Items, r => r.ItemName == item);

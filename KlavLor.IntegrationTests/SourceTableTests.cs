@@ -28,7 +28,7 @@ public sealed class SourceTableTests(PostgresFixture fx)
         Seed.AddKill(ctx, userId, charId, "ST_Zulrah", t.AddMinutes(30), 1, [new("Scale", 3, 100, 10)]);
         await ctx.SaveChangesAsync();
 
-        var repo = new LootLogRepository(ctx, NullLogger<LootLogRepository>.Instance, new FakeClogCache(2));
+        var repo = new LootLogSearchRepository(ctx, NullLogger<LootLogSearchRepository>.Instance);
 
         // Default sort = value desc → Vorkath first (50M » 1K).
         var byValue = await repo.GetCharacterSourceTable(charId, new LootLogQuery(PageSize: 20, PageNumber: 1));
@@ -88,7 +88,7 @@ public sealed class SourceTableTests(PostgresFixture fx)
         Seed.AddKill(ctx, userId, charId, "OV_Cont", t.AddHours(14), 6, [drop]);  // 10:00 Jan2
         await ctx.SaveChangesAsync();
 
-        var repo = new LootLogRepository(ctx, NullLogger<LootLogRepository>.Instance, new FakeClogCache());
+        var repo = new LootLogSearchRepository(ctx, NullLogger<LootLogSearchRepository>.Instance);
         var table = await repo.GetCharacterSourceTable(charId, new LootLogQuery(PageSize: 20, PageNumber: 1));
 
         var split = table.Rows.Single(r => r.SourceName == "OV_Split");

@@ -132,6 +132,24 @@ public sealed class SourceLootService
         return result;
     }
 
+    // The depth profile for a SINGLE claim — one feed card. Same policy as NormaliseRuns (admin
+    // override wins, else the claim's own derived depth, else the strategy's assumption), expressed
+    // for the one-run case so a feed card and the character page can't disagree about a source's
+    // depth. Returns null for sources with no depth model, which is what the rate maths expects.
+    //
+    // This exists because the two feed paths were each resolving depth by hand: both read the
+    // record's stored EffectiveKills directly and neither applied the admin override, so an admin
+    // who set a character's average delve depth changed the character page and the leaderboard but
+    // not the feed card for the very same drop.
+    public IReadOnlyList<int>? RunDepthsForClaim(string sourceName, int? claimDepth, int? overrideDepth)
+    {
+        if (!HasDepthModel(sourceName)) return null;
+
+        var runs = new[] { new SourceRun(0, default, claimDepth ?? 0) };
+        var depths = NormaliseRuns(sourceName, runs, overrideDepth).Select(r => r.Depth).ToList();
+        return depths.Count > 0 ? depths : null;
+    }
+
     private static List<ClaimDrop> ParseClaim(string? dropsJson)
     {
         if (string.IsNullOrWhiteSpace(dropsJson)) return [];

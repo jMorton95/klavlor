@@ -26,7 +26,7 @@ public sealed class CharacterSessionsTests(PostgresFixture fx)
         await ctx.SaveChangesAsync();
 
         // FakeClogCache(2): only ItemId 2 (Visage) counts as a collection-log item.
-        var repo = new LootLogRepository(ctx, NullLogger<LootLogRepository>.Instance, new FakeClogCache(2));
+        var repo = new LootSessionRepository(ctx, NullLogger<LootSessionRepository>.Instance, new FakeClogCache(2));
         var history = await repo.GetCharacterSessions(charId, 1, 20);
 
         Assert.Equal(3, history.TotalSessions);

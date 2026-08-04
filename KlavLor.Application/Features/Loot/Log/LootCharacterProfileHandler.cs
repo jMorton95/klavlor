@@ -6,7 +6,10 @@ using KlavLor.Application.Interfaces.Repositories;
 namespace KlavLor.Application.Features.Loot.Log;
 
 public sealed class LootCharacterProfileHandler(
-    ILootLogRepository lootLogRepository,
+    ILootProfileRepository profileRepository,
+    ILootSessionRepository sessionRepository,
+    ILootSourceDetailRepository sourceDetailRepository,
+    ILootFeedRepository feedRepository,
     CharacterAccessChecker accessChecker,
     SourceLootService sourceLoot,
     ICharacterDelveDepthRepository delveDepths,
@@ -17,7 +20,7 @@ public sealed class LootCharacterProfileHandler(
         if (!await accessChecker.CanAccess(characterId))
             return Result<ProfileHeader>.Failure("Character not found.");
 
-        var header = await lootLogRepository.GetProfileHeader(characterId);
+        var header = await profileRepository.GetProfileHeader(characterId);
         return header is null
             ? Result<ProfileHeader>.Failure("Character not found.")
             : Result<ProfileHeader>.Success(header);
@@ -34,7 +37,7 @@ public sealed class LootCharacterProfileHandler(
         // the whole day-grouped list — day headers then stay correct across the page boundary. The
         // gap-islands CTE scans all the character's rows regardless, so the only added cost is
         // rendering the already-loaded cards again.
-        var result = await lootLogRepository.GetCharacterSessions(characterId, 1, pageNumber * SessionsPageSize);
+        var result = await sessionRepository.GetCharacterSessions(characterId, 1, pageNumber * SessionsPageSize);
         return Result<CharacterSessionHistory>.Success(result);
     }
 
@@ -45,9 +48,9 @@ public sealed class LootCharacterProfileHandler(
 
         // Sequential awaits — the scoped DbContext can only handle one query at a time.
         var now = DateTimeOffset.UtcNow;
-        var last7d = await lootLogRepository.GetWindowStats(characterId, now.AddDays(-7), null);
-        var last30d = await lootLogRepository.GetWindowStats(characterId, now.AddDays(-30), null);
-        var allTime = await lootLogRepository.GetWindowStats(characterId, null, null);
+        var last7d = await profileRepository.GetWindowStats(characterId, now.AddDays(-7), null);
+        var last30d = await profileRepository.GetWindowStats(characterId, now.AddDays(-30), null);
+        var allTime = await profileRepository.GetWindowStats(characterId, null, null);
 
         return Result<ProfileWindowStats>.Success(new ProfileWindowStats(last7d, last30d, allTime));
     }
@@ -69,9 +72,32 @@ public sealed class LootCharacterProfileHandler(
             DateTimeOffset? from = range == "all"
                 ? null
                 : new DateTimeOffset(new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc)).AddMonths(-11);
-            return await lootLogRepository.GetMonthlyTrend(characterId, from, to, range);
+            return await profileRepository.GetMonthlyTrend(characterId, from, to, range);
         });
         return Result<MonthlyTrend>.Success(trend!);
+    }
+
+    public async Task<Result<MonthlyRollTrend>> HandleMonthlyRolls(int characterId, string range)
+    {
+        if (!await accessChecker.CanAccess(characterId))
+            return Result<MonthlyRollTrend>.Failure("Character not found.");
+
+        var version = LootStatsCache.GetVersion(cache, characterId);
+        var key = LootStatsCache.EntryKey(characterId, version, nameof(HandleMonthlyRolls), range);
+        var trend = await cache.GetOrCreateAsync(key, async entry =>
+        {
+            entry.SlidingExpiration = LootStatsCache.EntryTtl;
+            // Same window arithmetic as HandleMonthlyTrend, deliberately duplicated rather than
+            // shared: the two charts sit one above the other and must always cover exactly the
+            // same months, so their bounds are defined identically at the same layer.
+            var now = DateTimeOffset.UtcNow;
+            var to = now.AddDays(1);
+            DateTimeOffset? from = range == "all"
+                ? null
+                : new DateTimeOffset(new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc)).AddMonths(-11);
+            return await profileRepository.GetMonthlyRolls(characterId, from, to, range);
+        });
+        return Result<MonthlyRollTrend>.Success(trend!);
     }
 
     public async Task<Result<HeatmapData>> HandleHeatmap(int characterId, HeatmapMode mode)
@@ -86,7 +112,7 @@ public sealed class LootCharacterProfileHandler(
             entry.SlidingExpiration = LootStatsCache.EntryTtl;
             var now = DateTimeOffset.UtcNow;
             var from = now.AddDays(-364); // 365 cells inclusive
-            var days = await lootLogRepository.GetActivityCalendar(characterId, from, now.AddDays(1));
+            var days = await profileRepository.GetActivityCalendar(characterId, from, now.AddDays(1));
             return new HeatmapData(
                 DateOnly.FromDateTime(from.UtcDateTime),
                 DateOnly.FromDateTime(now.UtcDateTime),
@@ -106,7 +132,7 @@ public sealed class LootCharacterProfileHandler(
         var records = await cache.GetOrCreateAsync(key, async entry =>
         {
             entry.SlidingExpiration = LootStatsCache.EntryTtl;
-            return await lootLogRepository.GetPersonalRecords(characterId);
+            return await profileRepository.GetPersonalRecords(characterId);
         });
         return Result<PersonalRecords>.Success(records!);
     }
@@ -116,7 +142,7 @@ public sealed class LootCharacterProfileHandler(
         if (!await accessChecker.CanAccess(characterId))
             return Result<SourceCollection>.Failure("Character not found.");
 
-        var collection = await lootLogRepository.GetSourceCollection(characterId, sourceName);
+        var collection = await sourceDetailRepository.GetSourceCollection(characterId, sourceName);
 
         // One shared normalisation for every consumer of Runs: empty for sources with no depth
         // model, the admin's average applied when one is configured, and otherwise the assumed
@@ -185,7 +211,7 @@ public sealed class LootCharacterProfileHandler(
         var trend = await cache.GetOrCreateAsync(key, async entry =>
         {
             entry.SlidingExpiration = LootStatsCache.EntryTtl;
-            return await lootLogRepository.GetSourceKillTrend(characterId, sourceName);
+            return await sourceDetailRepository.GetSourceKillTrend(characterId, sourceName);
         });
         return Result<SourceKillTrend>.Success(trend!);
     }
@@ -201,7 +227,7 @@ public sealed class LootCharacterProfileHandler(
         var feed = await cache.GetOrCreateAsync(key, async entry =>
         {
             entry.SlidingExpiration = LootStatsCache.EntryTtl;
-            return await lootLogRepository.GetFirstTimeFeed(characterId, before, pageSize);
+            return await feedRepository.GetFirstTimeFeed(characterId, before, pageSize);
         });
         return Result<FirstTimeFeed>.Success(feed!);
     }
@@ -216,7 +242,7 @@ public sealed class LootCharacterProfileHandler(
         var data = await cache.GetOrCreateAsync(key, async entry =>
         {
             entry.SlidingExpiration = LootStatsCache.EntryTtl;
-            return await lootLogRepository.GetTopItems(characterId, limit);
+            return await profileRepository.GetTopItems(characterId, limit);
         });
         return Result<TopItemsList>.Success(data!);
     }
@@ -226,7 +252,7 @@ public sealed class LootCharacterProfileHandler(
         if (!await accessChecker.CanAccess(characterId))
             return Result<CharacterDayFeed>.Failure("Character not found.");
 
-        var feed = await lootLogRepository.GetCharacterDayFeed(characterId, day);
+        var feed = await feedRepository.GetCharacterDayFeed(characterId, day);
         return Result<CharacterDayFeed>.Success(feed);
     }
 

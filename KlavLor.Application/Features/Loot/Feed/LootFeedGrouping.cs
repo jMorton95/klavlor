@@ -33,6 +33,30 @@ public static class LootFeedGrouping
     // Mirrors the feed's 10k interesting-drop floor (ILootFeedService.GetDropTier).
     public const long MinOneOffSessionValue = 10_000;
 
+    // Below this, a session is only kept if something else vouches for it (see IsNotableSession).
+    // Two kills of the same thing still reads as incidental; three starts to look intentional.
+    public const int MinNotableSessionRolls = 3;
+
+    /// <summary>
+    /// Whether a session is worth showing in the feed's recent-activity panel — i.e. whether it
+    /// represents something the player deliberately went and did, rather than kills they picked up
+    /// in passing.
+    ///
+    /// Volume and value are the obvious signals, but neither is sufficient on its own: a single raid
+    /// run that happens to drop nothing good is unmistakably a real session, while three Hill Giants
+    /// on the way somewhere is not. So the deciding factor for small, cheap sessions is whether the
+    /// source has a collection log behind it — if the player is rolling for uniques, one attempt
+    /// counts. That's what separates "one Chambers of Xeric with bad loot" from "one goblin".
+    ///
+    /// <paramref name="sourceHasClogItems"/> is derived from the drop-rate table joined to the
+    /// *effective* collection log, so admin-excluded items don't make a trash source look notable.
+    /// </summary>
+    public static bool IsNotableSession(int rolls, long gp, int clogDrops, bool sourceHasClogItems) =>
+        rolls >= MinNotableSessionRolls
+        || gp >= MinOneOffSessionValue
+        || clogDrops > 0
+        || sourceHasClogItems;
+
     public static bool CanMerge(LootFeedEntry head, LootFeedEntry next) =>
         TryGetMergeDelta(head, next) is not null;
 

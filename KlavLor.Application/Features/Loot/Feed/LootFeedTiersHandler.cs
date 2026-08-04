@@ -7,7 +7,7 @@ using KlavLor.Domain.Interfaces.Repositories;
 namespace KlavLor.Application.Features.Loot.Feed;
 
 public sealed class LootFeedTiersHandler(
-    ILootLogRepository lootLogRepository,
+    ILootFeedRepository lootFeedRepository,
     IDropRateRepository dropRateRepository,
     ICharacterDelveDepthRepository delveDepths,
     SourceLootService sourceLoot)
@@ -18,7 +18,7 @@ public sealed class LootFeedTiersHandler(
         LootFeedScope scope = LootFeedScope.Main,
         IReadOnlySet<LootFeedTier>? requestedTiers = null)
     {
-        var tiers = await lootLogRepository.GetAllFeedTiers(EntriesPerTier, scope, requestedTiers);
+        var tiers = await lootFeedRepository.GetAllFeedTiers(EntriesPerTier, scope, requestedTiers);
         return await AttachEffectiveRates(tiers);
     }
 
@@ -50,6 +50,21 @@ public sealed class LootFeedTiersHandler(
             ratesBySource[source] = await dropRateRepository.GetRates(source, items.ToList());
         }
 
+        // Admin per-character average delve depths, but only for the (character, source) pairs that
+        // actually have a depth model — in practice a handful of Doom cards, not one lookup per card.
+        // Without this the backfilled feed ignored an override the character page and leaderboard
+        // both honour, so the same drop showed two different rates.
+        var overrideDepths = new Dictionary<(int CharacterId, string Source), int?>();
+        foreach (var entry in tiers.Values.SelectMany(list => list))
+        {
+            if (entry.GameCharacterId is not { } characterId) continue;
+            if (!sourceLoot.HasDepthModel(entry.SourceName)) continue;
+
+            var key = (characterId, entry.SourceName);
+            if (overrideDepths.ContainsKey(key)) continue;
+            overrideDepths[key] = await delveDepths.GetAverageDepth(characterId, entry.SourceName);
+        }
+
         foreach (var entries in tiers.Values)
         {
             for (var i = 0; i < entries.Count; i++)
@@ -58,8 +73,14 @@ public sealed class LootFeedTiersHandler(
                 if (!ratesBySource.TryGetValue(entry.SourceName, out var rates)) continue;
 
                 // This card's own run depth, so a depth-modelled source is rated against the run
-                // that produced the drop rather than the character's deepest ever delve.
-                var runDepths = entry.RunDepth is > 0 ? new[] { entry.RunDepth.Value } : null;
+                // that produced the drop rather than the character's deepest ever delve. Resolved
+                // through SourceLootService so the admin override and the assumed default are
+                // applied by the same code the character page uses.
+                var overrideDepth = entry.GameCharacterId is { } cid
+                    && overrideDepths.TryGetValue((cid, entry.SourceName), out var od)
+                        ? od
+                        : null;
+                var runDepths = sourceLoot.RunDepthsForClaim(entry.SourceName, entry.RunDepth, overrideDepth);
 
                 entries[i] = entry with
                 {
