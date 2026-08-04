@@ -36,243 +36,377 @@
 
     <div class="flex-1 min-w-0 space-y-10">
 
-        <section id="sync" class="scroll-mt-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40 p-5">
-            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">Sync status</h2>
-            <div hx-get="@AppRoutes.AdminSyncStatus.FromApi()" hx-trigger="load" hx-swap="innerHTML">
-                <div class="h-24 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
-            </div>
-        </section>
-
-        <section id="jobs" class="scroll-mt-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40 p-5">
-            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Background jobs</h2>
-            <p class="text-sm text-slate-500 dark:text-white mb-3">
-                The most recent run of each background service — its outcome, how long it took and how many rows it processed. A red card is a failed or stuck job (still marked running long after it started). Expand any card for its recent run history.
-            </p>
-            <div hx-get="@AppRoutes.AdminJobHealth.FromApi()" hx-trigger="load" hx-swap="innerHTML">
-                <div class="h-24 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
-            </div>
-        </section>
-
-        <section id="management" class="scroll-mt-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40 p-5">
-            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">Management</h2>
-            <div class="flex flex-wrap gap-3 mb-5">
-                <a hx-get="@AppRoutes.UsersSearch.FromApi()" hx-target="#hx-page-container" hx-push-url="@AppRoutes.UsersSearch" hx-swap="innerHTML transition:true"
-                   class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 hover:border-amber-200 dark:hover:border-amber-700 text-slate-700 dark:text-slate-200 cursor-pointer transition-colors">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
-                    User Management
-                </a>
-                <a hx-get="@AppRoutes.SyncLog.FromApi()" hx-target="#hx-page-container" hx-push-url="@AppRoutes.SyncLog" hx-swap="innerHTML transition:true"
-                   class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 hover:border-amber-200 dark:hover:border-amber-700 text-slate-700 dark:text-slate-200 cursor-pointer transition-colors">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                    Sync Logs
-                </a>
-            </div>
-            <div class="pt-4 border-t border-slate-200 dark:border-slate-700">
-                <h3 class="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-2">Leagues</h3>
-                <AdminSettingsToggleLeagues IsLeaguesEnabled="@SystemSettingsCache.IsLeaguesEnabled" />
-            </div>
-        </section>
-
-        <section id="clog" class="scroll-mt-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40 p-5">
-            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Collection log blacklist</h2>
-            <p class="text-sm text-slate-500 dark:text-white mb-3">
-                Excluded items stop counting as collection-log drops everywhere — recent clogs, first-time feeds, activity counts and the live feed. Search to add; the list below shows what's currently excluded.
-            </p>
-            <div class="relative max-w-md mb-3">
-                <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                </svg>
-                <input type="search" name="searchTerm" placeholder="Search collection-log items to exclude…"
-                       autocomplete="off"
-                       hx-get="@AppRoutes.AdminClogSearch.FromApi()"
-                       hx-trigger="keyup changed delay:300ms, load"
-                       hx-target="#clog-results"
-                       hx-swap="innerHTML"
-                       class="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
-            </div>
-            <div id="clog-results">
-                <div class="h-20 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
-            </div>
-        </section>
-
-        <section id="drop-rates" class="scroll-mt-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40 p-5">
-            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Drop rates</h2>
-            <p class="text-sm text-slate-500 dark:text-white mb-3">
-                Manually fetch per-source drop rates from the wiki when some are missing. The list below shows sources with loot but no stored rates; search to re-fetch any source, or resync the whole backlog at once.
-            </p>
-
-            <div class="flex items-center gap-3 mb-3 flex-wrap">
-                <button type="button"
-                        hx-post="@AppRoutes.AdminDropRatesResyncStart.FromApi()"
-                        hx-target="#drate-resync"
-                        hx-swap="innerHTML"
-                        hx-include="#drate-resync-nodata"
-                        hx-disabled-elt="this"
-                        class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-amber-500 text-white hover:bg-amber-600 cursor-pointer disabled:opacity-50">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    Resync all missing sources
-                </button>
-                <label class="inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-white cursor-pointer">
-                    <input id="drate-resync-nodata" type="checkbox" name="includeNoData" value="true"
-                           class="rounded border-slate-300 dark:border-slate-600 text-amber-500 focus:ring-amber-500" />
-                    Also re-check sources previously marked “no wiki data”
-                </label>
-            </div>
-            <div id="drate-resync" class="mb-3"></div>
-            <div class="flex items-center gap-3 mb-3 flex-wrap">
-                <div class="relative flex-1 min-w-56 max-w-md">
-                    <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                    </svg>
-                    <input id="drate-search" type="search" name="searchTerm" placeholder="Search sources (blank = missing rates)…"
-                           autocomplete="off"
-                           hx-get="@AppRoutes.AdminDropRatesSearch.FromApi()"
-                           hx-trigger="keyup changed delay:300ms, load"
-                           hx-target="#drate-results"
-                           hx-swap="innerHTML"
-                           hx-include="#drate-nodata"
-                           class="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+        <section id="sync" class="scroll-mt-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40">
+            <details class="group">
+                <summary class="cursor-pointer list-none p-5 flex items-start justify-between gap-3 rounded-xl hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
+                    <span class="min-w-0">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Sync status</h2>
+                    </span>
+                    <svg class="w-4 h-4 shrink-0 text-slate-400 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </summary>
+                <div class="px-5 pb-5">
+                    <div hx-get="@AppRoutes.AdminSyncStatus.FromApi()" hx-trigger="toggle once from:closest details" hx-swap="innerHTML">
+                        <div class="h-24 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
+                    </div>
                 </div>
-                <label class="inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-white cursor-pointer whitespace-nowrap">
-                    <input id="drate-nodata" type="checkbox" name="showNoData" value="true"
-                           hx-get="@AppRoutes.AdminDropRatesSearch.FromApi()"
-                           hx-trigger="change"
-                           hx-target="#drate-results"
-                           hx-swap="innerHTML"
-                           hx-include="#drate-search"
-                           class="rounded border-slate-300 dark:border-slate-600 text-amber-500 focus:ring-amber-500" />
-                    Show sources with no wiki data
-                </label>
-            </div>
-            <div id="drate-results">
-                <div class="h-20 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
-            </div>
+            </details>
+        </section>
 
-            <div class="mt-4">
-                <h3 class="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-1">Collection-log items with no drop rate</h3>
-                <div id="drate-missing" hx-get="@AppRoutes.AdminDropRatesMismatches.FromApi()" hx-trigger="load" hx-swap="innerHTML">
-                    <div class="h-16 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
+        <section id="jobs" class="scroll-mt-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40">
+            <details class="group">
+                <summary class="cursor-pointer list-none p-5 flex items-start justify-between gap-3 rounded-xl hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
+                    <span class="min-w-0">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Background jobs</h2>
+        <p class="text-sm text-slate-500 dark:text-white mb-3">
+        The most recent run of each background service — its outcome, how long it took and how many rows it processed. A red card is a failed or stuck job (still marked running long after it started). Expand any card for its recent run history.
+        </p>
+                    </span>
+                    <svg class="w-4 h-4 shrink-0 text-slate-400 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </summary>
+                <div class="px-5 pb-5">
+                    <div hx-get="@AppRoutes.AdminJobHealth.FromApi()" hx-trigger="toggle once from:closest details" hx-swap="innerHTML">
+                        <div class="h-24 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
+                    </div>
                 </div>
-            </div>
+            </details>
         </section>
 
-        <section id="modifiers" class="scroll-mt-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40 p-5">
-            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Source rate modifiers</h2>
-            <p class="text-sm text-slate-500 dark:text-white mb-3">
-                Hand-correct a source whose stored wiki rates don't reflect real per-player odds (raids, Perilous Moons, and the like) by applying a multiplier to its expected kills-to-drop — for the whole source, or for a single item. This feeds both the character source page and the luck leaderboards.
-            </p>
-            <SourceRateModifierPanel />
-        </section>
-
-        <section id="special" class="scroll-mt-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40 p-5">
-            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Special loot</h2>
-            <p class="text-sm text-slate-500 dark:text-white mb-3">
-                Manually add an untradeable special drop — an Infernal Cape or Dizana's Quiver — that RuneLite never logs, to a character's log at a time you choose. It carries no monetary value, populates their collection log, and always renders as a giga drop with the distinct spinning feed effect.
-            </p>
-            <div hx-get="@AppRoutes.AdminSpecialLoot.FromApi()" hx-trigger="load" hx-swap="innerHTML">
-                <div class="h-24 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
-            </div>
-        </section>
-
-        <section id="baselines" class="scroll-mt-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40 p-5">
-            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Baseline kill counts</h2>
-            <p class="text-sm text-slate-500 dark:text-white mb-3">
-                Seed a character's kill count at a source for content they'd already ground before we had their data. It's added to counted kills, so once RuneLite starts logging them the count continues from the baseline.
-            </p>
-            <div hx-get="@AppRoutes.AdminBaseline.FromApi()" hx-trigger="load" hx-swap="innerHTML">
-                <div class="h-24 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
-            </div>
-        </section>
-
-        <section id="delve-depths" class="scroll-mt-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40 p-5">
-            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Average delve depth</h2>
-            <p class="text-sm text-slate-500 dark:text-white mb-3">
-                Doom of Mokhaiotl rolls its loot once per delve level, so luck has to be measured in delves rather than runs — but the loot itself never says how deep a run went. Set a character's real average here to make their Doom rates and luck accurate; anyone without an override is assumed to average @KlavLor.Application.Features.Loot.DelveDepth.CharacterDelveDepthAdminHandler.DefaultDepth delves per run.
-            </p>
-            <div hx-get="@AppRoutes.AdminDelveDepth.FromApi()" hx-trigger="load" hx-swap="innerHTML">
-                <div class="h-24 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
-            </div>
-        </section>
-
-        <section id="leaderboard" class="scroll-mt-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40 p-5">
-            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Leaderboard exclusions</h2>
-            <p class="text-sm text-slate-500 dark:text-white mb-3">
-                Hide a source from the luck leaderboards when its stored drop rates are wrong (e.g. shared rare-drop-table items). Excluded sources contribute no items to either the spoons or the dry-streak board. Takes effect on the next hourly rebuild.
-            </p>
-            <div class="relative max-w-md mb-3">
-                <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                </svg>
-                <input type="search" name="searchTerm" placeholder="Search sources (blank = currently excluded)…"
-                       autocomplete="off"
-                       hx-get="@AppRoutes.AdminLeaderboardExclusionSearch.FromApi()"
-                       hx-trigger="keyup changed delay:300ms, load"
-                       hx-target="#lbx-results"
-                       hx-swap="innerHTML"
-                       class="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
-            </div>
-            <div id="lbx-results">
-                <div class="h-20 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
-            </div>
-
-            <div class="mt-5 pt-4 border-t border-slate-200 dark:border-slate-700">
-                <h3 class="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-1">Excluded items</h3>
-                <p class="text-sm text-slate-500 dark:text-white mb-3">
-                    Hide a single item from the boards across every source — for shared rare-drop-table drops (dragon spear, and the like) that one source exclusion can't fully suppress. Search to add; the list below shows what's currently excluded.
-                </p>
-                <div class="relative max-w-md mb-3">
-                    <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                    </svg>
-                    <input type="search" name="searchTerm" placeholder="Search items (blank = currently excluded)…"
-                           autocomplete="off"
-                           hx-get="@AppRoutes.AdminLeaderboardItemExclusionSearch.FromApi()"
-                           hx-trigger="keyup changed delay:300ms, load"
-                           hx-target="#lbxi-results"
-                           hx-swap="innerHTML"
-                           class="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+        <section id="management" class="scroll-mt-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40">
+            <details class="group">
+                <summary class="cursor-pointer list-none p-5 flex items-start justify-between gap-3 rounded-xl hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
+                    <span class="min-w-0">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Management</h2>
+                    </span>
+                    <svg class="w-4 h-4 shrink-0 text-slate-400 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </summary>
+                <div class="px-5 pb-5">
+                    <div class="flex flex-wrap gap-3 mb-5">
+                        <a hx-get="@AppRoutes.UsersSearch.FromApi()" hx-target="#hx-page-container" hx-push-url="@AppRoutes.UsersSearch" hx-swap="innerHTML transition:true"
+                           class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 hover:border-amber-200 dark:hover:border-amber-700 text-slate-700 dark:text-slate-200 cursor-pointer transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                            User Management
+                        </a>
+                        <a hx-get="@AppRoutes.SyncLog.FromApi()" hx-target="#hx-page-container" hx-push-url="@AppRoutes.SyncLog" hx-swap="innerHTML transition:true"
+                           class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 hover:border-amber-200 dark:hover:border-amber-700 text-slate-700 dark:text-slate-200 cursor-pointer transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            Sync Logs
+                        </a>
+                    </div>
+                    <div class="pt-4 border-t border-slate-200 dark:border-slate-700">
+                        <h3 class="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-2">Leagues</h3>
+                        <AdminSettingsToggleLeagues IsLeaguesEnabled="@SystemSettingsCache.IsLeaguesEnabled" />
+                    </div>
                 </div>
-                <div id="lbxi-results">
-                    <div class="h-20 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
+            </details>
+        </section>
+
+        <section id="clog" class="scroll-mt-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40">
+            <details class="group">
+                <summary class="cursor-pointer list-none p-5 flex items-start justify-between gap-3 rounded-xl hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
+                    <span class="min-w-0">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Collection log blacklist</h2>
+        <p class="text-sm text-slate-500 dark:text-white mb-3">
+        Excluded items stop counting as collection-log drops everywhere — recent clogs, first-time feeds, activity counts and the live feed. Search to add; the list below shows what's currently excluded.
+        </p>
+                    </span>
+                    <svg class="w-4 h-4 shrink-0 text-slate-400 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </summary>
+                <div class="px-5 pb-5">
+                    <div class="relative max-w-md mb-3">
+                        <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        </svg>
+                        <input type="search" name="searchTerm" placeholder="Search collection-log items to exclude…"
+                               autocomplete="off"
+                               hx-get="@AppRoutes.AdminClogSearch.FromApi()"
+                               hx-trigger="keyup changed delay:300ms, toggle once from:closest details"
+                               hx-target="#clog-results"
+                               hx-swap="innerHTML"
+                               class="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+                    </div>
+                    <div id="clog-results">
+                        <div class="h-20 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
+                    </div>
                 </div>
-            </div>
+            </details>
         </section>
 
-        <section id="icons" class="scroll-mt-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40 p-5">
-            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Broken icons</h2>
-            <p class="text-sm text-slate-500 dark:text-white mb-3">
-                Item and source icons that gave up after repeated failed wiki lookups (so they show no image anywhere). Retry clears the failure and the backfill re-attempts within a couple of minutes.
-            </p>
-            <div id="icon-results" hx-get="@AppRoutes.AdminIcons.FromApi()" hx-trigger="load" hx-swap="innerHTML">
-                <div class="h-20 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
-            </div>
+        <section id="drop-rates" class="scroll-mt-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40">
+            <details class="group">
+                <summary class="cursor-pointer list-none p-5 flex items-start justify-between gap-3 rounded-xl hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
+                    <span class="min-w-0">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Drop rates</h2>
+        <p class="text-sm text-slate-500 dark:text-white mb-3">
+        Manually fetch per-source drop rates from the wiki when some are missing. The list below shows sources with loot but no stored rates; search to re-fetch any source, or resync the whole backlog at once.
+        </p>
+                    </span>
+                    <svg class="w-4 h-4 shrink-0 text-slate-400 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </summary>
+                <div class="px-5 pb-5">
+
+                    <div class="flex items-center gap-3 mb-3 flex-wrap">
+                        <button type="button"
+                                hx-post="@AppRoutes.AdminDropRatesResyncStart.FromApi()"
+                                hx-target="#drate-resync"
+                                hx-swap="innerHTML"
+                                hx-include="#drate-resync-nodata"
+                                hx-disabled-elt="this"
+                                class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-amber-500 text-white hover:bg-amber-600 cursor-pointer disabled:opacity-50">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            Resync all missing sources
+                        </button>
+                        <label class="inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-white cursor-pointer">
+                            <input id="drate-resync-nodata" type="checkbox" name="includeNoData" value="true"
+                                   class="rounded border-slate-300 dark:border-slate-600 text-amber-500 focus:ring-amber-500" />
+                            Also re-check sources previously marked “no wiki data”
+                        </label>
+                    </div>
+                    <div id="drate-resync" class="mb-3"></div>
+                    <div class="flex items-center gap-3 mb-3 flex-wrap">
+                        <div class="relative flex-1 min-w-56 max-w-md">
+                            <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                            </svg>
+                            <input id="drate-search" type="search" name="searchTerm" placeholder="Search sources (blank = missing rates)…"
+                                   autocomplete="off"
+                                   hx-get="@AppRoutes.AdminDropRatesSearch.FromApi()"
+                                   hx-trigger="keyup changed delay:300ms, toggle once from:closest details"
+                                   hx-target="#drate-results"
+                                   hx-swap="innerHTML"
+                                   hx-include="#drate-nodata"
+                                   class="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+                        </div>
+                        <label class="inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-white cursor-pointer whitespace-nowrap">
+                            <input id="drate-nodata" type="checkbox" name="showNoData" value="true"
+                                   hx-get="@AppRoutes.AdminDropRatesSearch.FromApi()"
+                                   hx-trigger="change"
+                                   hx-target="#drate-results"
+                                   hx-swap="innerHTML"
+                                   hx-include="#drate-search"
+                                   class="rounded border-slate-300 dark:border-slate-600 text-amber-500 focus:ring-amber-500" />
+                            Show sources with no wiki data
+                        </label>
+                    </div>
+                    <div id="drate-results">
+                        <div class="h-20 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
+                    </div>
+
+                    <div class="mt-4">
+                        <h3 class="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-1">Collection-log items with no drop rate</h3>
+                        <div id="drate-missing" hx-get="@AppRoutes.AdminDropRatesMismatches.FromApi()" hx-trigger="toggle once from:closest details" hx-swap="innerHTML">
+                            <div class="h-16 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
+                        </div>
+                    </div>
+                </div>
+            </details>
         </section>
 
-        <section id="sources" class="scroll-mt-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40 p-5">
-            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Source names</h2>
-            <p class="text-sm text-slate-500 dark:text-white mb-3">
-                Rename or merge inconsistent loot-source names (e.g. variants/typos). Editing a name to one that already exists merges them. This repoints all loot and re-derives drop rates and icons — it can't be undone.
-            </p>
-            <div class="relative max-w-md mb-3">
-                <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                </svg>
-                <input type="search" name="searchTerm" placeholder="Search source names…"
-                       autocomplete="off"
-                       hx-get="@AppRoutes.AdminSourceSearch.FromApi()"
-                       hx-trigger="keyup changed delay:300ms, load"
-                       hx-target="#source-results"
-                       hx-swap="innerHTML"
-                       class="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
-            </div>
-            <div id="source-results">
-                <div class="h-20 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
-            </div>
+        <section id="modifiers" class="scroll-mt-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40">
+            <details class="group">
+                <summary class="cursor-pointer list-none p-5 flex items-start justify-between gap-3 rounded-xl hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
+                    <span class="min-w-0">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Source rate modifiers</h2>
+        <p class="text-sm text-slate-500 dark:text-white mb-3">
+        Hand-correct a source whose stored wiki rates don't reflect real per-player odds (raids, Perilous Moons, and the like) by applying a multiplier to its expected kills-to-drop — for the whole source, or for a single item. This feeds both the character source page and the luck leaderboards.
+        </p>
+                    </span>
+                    <svg class="w-4 h-4 shrink-0 text-slate-400 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </summary>
+                <div class="px-5 pb-5">
+                    <SourceRateModifierPanel />
+                </div>
+            </details>
+        </section>
+
+        <section id="special" class="scroll-mt-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40">
+            <details class="group">
+                <summary class="cursor-pointer list-none p-5 flex items-start justify-between gap-3 rounded-xl hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
+                    <span class="min-w-0">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Special loot</h2>
+        <p class="text-sm text-slate-500 dark:text-white mb-3">
+        Manually add an untradeable special drop — an Infernal Cape or Dizana's Quiver — that RuneLite never logs, to a character's log at a time you choose. It carries no monetary value, populates their collection log, and always renders as a giga drop with the distinct spinning feed effect.
+        </p>
+                    </span>
+                    <svg class="w-4 h-4 shrink-0 text-slate-400 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </summary>
+                <div class="px-5 pb-5">
+                    <div hx-get="@AppRoutes.AdminSpecialLoot.FromApi()" hx-trigger="toggle once from:closest details" hx-swap="innerHTML">
+                        <div class="h-24 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
+                    </div>
+                </div>
+            </details>
+        </section>
+
+        <section id="baselines" class="scroll-mt-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40">
+            <details class="group">
+                <summary class="cursor-pointer list-none p-5 flex items-start justify-between gap-3 rounded-xl hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
+                    <span class="min-w-0">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Baseline kill counts</h2>
+        <p class="text-sm text-slate-500 dark:text-white mb-3">
+        Seed a character's kill count at a source for content they'd already ground before we had their data. It's added to counted kills, so once RuneLite starts logging them the count continues from the baseline.
+        </p>
+                    </span>
+                    <svg class="w-4 h-4 shrink-0 text-slate-400 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </summary>
+                <div class="px-5 pb-5">
+                    <div hx-get="@AppRoutes.AdminBaseline.FromApi()" hx-trigger="toggle once from:closest details" hx-swap="innerHTML">
+                        <div class="h-24 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
+                    </div>
+                </div>
+            </details>
+        </section>
+
+        <section id="delve-depths" class="scroll-mt-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40">
+            <details class="group">
+                <summary class="cursor-pointer list-none p-5 flex items-start justify-between gap-3 rounded-xl hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
+                    <span class="min-w-0">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Average delve depth</h2>
+        <p class="text-sm text-slate-500 dark:text-white mb-3">
+        Doom of Mokhaiotl rolls its loot once per delve level, so luck has to be measured in delves rather than runs — but the loot itself never says how deep a run went. Set a character's real average here to make their Doom rates and luck accurate; anyone without an override is assumed to average @KlavLor.Application.Features.Loot.DelveDepth.CharacterDelveDepthAdminHandler.DefaultDepth delves per run.
+        </p>
+                    </span>
+                    <svg class="w-4 h-4 shrink-0 text-slate-400 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </summary>
+                <div class="px-5 pb-5">
+                    <div hx-get="@AppRoutes.AdminDelveDepth.FromApi()" hx-trigger="toggle once from:closest details" hx-swap="innerHTML">
+                        <div class="h-24 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
+                    </div>
+                </div>
+            </details>
+        </section>
+
+        <section id="leaderboard" class="scroll-mt-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40">
+            <details class="group">
+                <summary class="cursor-pointer list-none p-5 flex items-start justify-between gap-3 rounded-xl hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
+                    <span class="min-w-0">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Leaderboard exclusions</h2>
+        <p class="text-sm text-slate-500 dark:text-white mb-3">
+        Hide a source from the luck leaderboards when its stored drop rates are wrong (e.g. shared rare-drop-table items). Excluded sources contribute no items to either the spoons or the dry-streak board. Takes effect on the next hourly rebuild.
+        </p>
+                    </span>
+                    <svg class="w-4 h-4 shrink-0 text-slate-400 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </summary>
+                <div class="px-5 pb-5">
+                    <div class="relative max-w-md mb-3">
+                        <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        </svg>
+                        <input type="search" name="searchTerm" placeholder="Search sources (blank = currently excluded)…"
+                               autocomplete="off"
+                               hx-get="@AppRoutes.AdminLeaderboardExclusionSearch.FromApi()"
+                               hx-trigger="keyup changed delay:300ms, toggle once from:closest details"
+                               hx-target="#lbx-results"
+                               hx-swap="innerHTML"
+                               class="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+                    </div>
+                    <div id="lbx-results">
+                        <div class="h-20 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
+                    </div>
+
+                    <div class="mt-5 pt-4 border-t border-slate-200 dark:border-slate-700">
+                        <h3 class="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-1">Excluded items</h3>
+                        <p class="text-sm text-slate-500 dark:text-white mb-3">
+                            Hide a single item from the boards across every source — for shared rare-drop-table drops (dragon spear, and the like) that one source exclusion can't fully suppress. Search to add; the list below shows what's currently excluded.
+                        </p>
+                        <div class="relative max-w-md mb-3">
+                            <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                            </svg>
+                            <input type="search" name="searchTerm" placeholder="Search items (blank = currently excluded)…"
+                                   autocomplete="off"
+                                   hx-get="@AppRoutes.AdminLeaderboardItemExclusionSearch.FromApi()"
+                                   hx-trigger="keyup changed delay:300ms, toggle once from:closest details"
+                                   hx-target="#lbxi-results"
+                                   hx-swap="innerHTML"
+                                   class="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+                        </div>
+                        <div id="lbxi-results">
+                            <div class="h-20 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
+                        </div>
+                    </div>
+                </div>
+            </details>
+        </section>
+
+        <section id="icons" class="scroll-mt-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40">
+            <details class="group">
+                <summary class="cursor-pointer list-none p-5 flex items-start justify-between gap-3 rounded-xl hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
+                    <span class="min-w-0">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Broken icons</h2>
+        <p class="text-sm text-slate-500 dark:text-white mb-3">
+        Item and source icons that gave up after repeated failed wiki lookups (so they show no image anywhere). Retry clears the failure and the backfill re-attempts within a couple of minutes.
+        </p>
+                    </span>
+                    <svg class="w-4 h-4 shrink-0 text-slate-400 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </summary>
+                <div class="px-5 pb-5">
+                    <div id="icon-results" hx-get="@AppRoutes.AdminIcons.FromApi()" hx-trigger="toggle once from:closest details" hx-swap="innerHTML">
+                        <div class="h-20 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
+                    </div>
+                </div>
+            </details>
+        </section>
+
+        <section id="sources" class="scroll-mt-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40">
+            <details class="group">
+                <summary class="cursor-pointer list-none p-5 flex items-start justify-between gap-3 rounded-xl hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
+                    <span class="min-w-0">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Source names</h2>
+        <p class="text-sm text-slate-500 dark:text-white mb-3">
+        Rename or merge inconsistent loot-source names (e.g. variants/typos). Editing a name to one that already exists merges them. This repoints all loot and re-derives drop rates and icons — it can't be undone.
+        </p>
+                    </span>
+                    <svg class="w-4 h-4 shrink-0 text-slate-400 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </summary>
+                <div class="px-5 pb-5">
+                    <div class="relative max-w-md mb-3">
+                        <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        </svg>
+                        <input type="search" name="searchTerm" placeholder="Search source names…"
+                               autocomplete="off"
+                               hx-get="@AppRoutes.AdminSourceSearch.FromApi()"
+                               hx-trigger="keyup changed delay:300ms, toggle once from:closest details"
+                               hx-target="#source-results"
+                               hx-swap="innerHTML"
+                               class="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+                    </div>
+                    <div id="source-results">
+                        <div class="h-20 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
+                    </div>
+                </div>
+            </details>
         </section>
     </div>
 </div>
+
+<script>
+    (() => {
+        // Every section starts collapsed, so a nav jump has to open its target as well as scroll to
+        // it — otherwise the click appears to do nothing. Browsers only auto-open <details> for a
+        // fragment when the anchor is inside it, which it isn't here (the id is on the <section>).
+        const openTarget = (hash) => {
+            if (!hash || hash.length < 2) return;
+            const section = document.getElementById(decodeURIComponent(hash.slice(1)));
+            const details = section?.querySelector('details');
+            if (details && !details.open) details.open = true;
+        };
+
+        document.addEventListener('click', (e) => {
+            const link = e.target.closest('a[href*="#"]');
+            if (!link) return;
+            const hash = link.getAttribute('href').split('#')[1];
+            if (hash) openTarget('#' + hash);
+        });
+
+        window.addEventListener('hashchange', () => openTarget(location.hash));
+        // Deep link straight into a section (e.g. a bookmarked /admin/settings#jobs).
+        openTarget(location.hash);
+    })();
+</script>
+
 
 @code {
     // True when served as an HTMX fragment (renders the OOB header); false when hosted inside
