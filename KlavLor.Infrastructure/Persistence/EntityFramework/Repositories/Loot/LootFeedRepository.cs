@@ -641,8 +641,8 @@ internal sealed class LootFeedRepository(
         }
     }
 
-    // Caps so the popover can't turn into an unbounded render for a very busy 48 hours.
-    private const int MaxSessionsPerCharacter = 12;
+    // Cap so the popover can't turn into an unbounded render for a very busy 48 hours.
+    private const int MaxSourcesPerCharacter = 12;
     private const int MaxCharacters = 30;
 
     public async Task<RecentSessionsPanel> GetRecentSessions(int windowHours, LootFeedScope scope)
@@ -650,132 +650,83 @@ internal sealed class LootFeedRepository(
         try
         {
             var isLeagues = scope == LootFeedScope.Leagues;
-            var now = DateTimeOffset.UtcNow;
-            var from = now.AddHours(-windowHours);
-
-            // Scan further back than the window itself. Gap-and-islands decides where a session
-            // starts by looking at the preceding kill, so a session that began before the window
-            // opened would otherwise be split at the boundary and reported as two — one of them
-            // fake. MaxGap is the furthest back a kill can still belong to the same session, so
-            // that's exactly how much extra history is needed, and no more.
-            var scanFrom = from - LootFeedGrouping.MaxGap;
+            var from = DateTimeOffset.UtcNow.AddHours(-windowHours);
 
             var connection = dataContext.Database.GetDbConnection();
             if (connection.State != System.Data.ConnectionState.Open) await connection.OpenAsync();
 
-            // Partitioned by (character, source), matching how the live feed and the character
-            // session history group: a source is its own activity, so playing two things in one
-            // evening is two sessions, not one interleaved mess.
-            var sessionsSql = $"""
-                WITH ordered AS (
-                    SELECT lr."Id", lr."GameCharacterId", lr."SourceName", lr."SourceType",
-                           lr."OccurredAt", lr."TotalValue",
-                           LAG(lr."OccurredAt") OVER (PARTITION BY lr."GameCharacterId", lr."SourceName"
-                                                      ORDER BY lr."OccurredAt", lr."Id") AS prev_at
-                    FROM "LootRecords" lr
-                    JOIN "GameCharacters" gc ON gc."Id" = lr."GameCharacterId"
-                    WHERE lr."OccurredAt" >= @scanFrom
-                      AND gc."IsVisible" AND NOT gc."IsAdminHidden" AND gc."IsLeagues" = @isLeagues
-                ),
-                {SessionSql.GapIslandsWithCap("\"GameCharacterId\", \"SourceName\"")},
-                summ AS (
-                    SELECT "GameCharacterId", "SourceName", MIN("SourceType"::text) AS source_type,
-                           session_no,
-                           MIN("OccurredAt") AS started, MAX("OccurredAt") AS ended,
-                           COUNT(*)::int AS rolls, SUM("TotalValue")::bigint AS gp
-                    FROM sessioned
-                    GROUP BY "GameCharacterId", "SourceName", session_no
-                )
-                -- Only sessions still live inside the window; the extra scan history exists purely
-                -- to get their boundaries right.
-                SELECT "GameCharacterId", "SourceName", source_type, session_no, started, ended, rolls, gp
-                FROM summ
-                WHERE ended >= @from
-                ORDER BY ended DESC
+            // One row per (character, source) for the whole window - deliberately NOT split into play
+            // sessions. The 16h gap rule could break one grind into two or three rows over two days
+            // depending on when the player slept, which made the same activity look like several
+            // unrelated entries. The question this panel answers is "what has this character been
+            // doing", and that is one row per thing however the sittings fell.
+            //
+            // Dropping sessions also drops the gap-and-islands CTEs and the extra 16h of scan-back
+            // they needed, so this is now a plain windowed aggregate.
+            const string sql = """
+                SELECT lr."GameCharacterId",
+                       lr."SourceName",
+                       MIN(lr."SourceType"::text) AS source_type,
+                       MIN(lr."OccurredAt") AS started,
+                       MAX(lr."OccurredAt") AS ended,
+                       COUNT(*)::int AS rolls,
+                       SUM(lr."TotalValue")::bigint AS gp
+                FROM "LootRecords" lr
+                JOIN "GameCharacters" gc ON gc."Id" = lr."GameCharacterId"
+                WHERE lr."OccurredAt" >= @from
+                  AND gc."IsVisible" AND NOT gc."IsAdminHidden" AND gc."IsLeagues" = @isLeagues
+                GROUP BY lr."GameCharacterId", lr."SourceName"
                 """;
 
-            var rows = new List<RecentSessionRow>();
+            var rows = new List<RecentSourceRow>();
             await using (var cmd = connection.CreateCommand())
             {
-                cmd.CommandText = sessionsSql;
-                cmd.Parameters.Add(new NpgsqlParameter("@scanFrom", scanFrom));
+                cmd.CommandText = sql;
                 cmd.Parameters.Add(new NpgsqlParameter("@from", from));
                 cmd.Parameters.Add(new NpgsqlParameter("@isLeagues", isLeagues));
-                cmd.Parameters.Add(new NpgsqlParameter("@gap", LootFeedGrouping.MaxGap));
-                cmd.Parameters.Add(new NpgsqlParameter("@breakGap", LootFeedGrouping.SessionBreakGap));
 
                 await using var reader = await cmd.ExecuteReaderAsync();
                 while (await reader.ReadAsync())
                 {
-                    rows.Add(new RecentSessionRow(
+                    rows.Add(new RecentSourceRow(
                         reader.GetInt32(0),
                         reader.GetString(1),
                         Enum.TryParse<LootSourceType>(reader.GetString(2), ignoreCase: true, out var st) ? st : LootSourceType.Unknown,
-                        reader.GetInt64(3),
+                        reader.GetFieldValue<DateTimeOffset>(3),
                         reader.GetFieldValue<DateTimeOffset>(4),
-                        reader.GetFieldValue<DateTimeOffset>(5),
-                        reader.GetInt32(6),
-                        reader.GetInt64(7)));
+                        reader.GetInt32(5),
+                        reader.GetInt64(6)));
                 }
             }
 
-            if (rows.Count == 0) return new RecentSessionsPanel(windowHours, [], 0);
+            // Filter before the drops query, so the per-item pass only covers rows that will render.
+            var filteredOut = rows.Count(r => !LootFeedGrouping.IsNotableActivity(r.Rolls, r.Gp));
+            var kept = rows.Where(r => LootFeedGrouping.IsNotableActivity(r.Rolls, r.Gp)).ToList();
+            if (kept.Count == 0) return new RecentSessionsPanel(windowHours, [], filteredOut);
 
-            // Which of these sources have a collection log behind them. This is what lets a single
-            // poor raid run count as a session while a single goblin doesn't. DropRates.ItemId is
-            // only populated for items in our clog reference set, and joining the *effective* view
-            // means an admin-excluded item can't make a trash source look notable.
-            var sourceNames = rows.Select(r => r.SourceName).Distinct(StringComparer.Ordinal).ToArray();
-            var clogSources = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            await using (var cmd = connection.CreateCommand())
-            {
-                cmd.CommandText = """
-                    SELECT DISTINCT dr."SourceName"
-                    FROM "DropRates" dr
-                    JOIN "EffectiveCollectionLogItems" cli ON cli."ItemId" = dr."ItemId"
-                    WHERE dr."SourceName" = ANY(@sources)
-                    """;
-                cmd.Parameters.Add(new NpgsqlParameter("@sources", sourceNames));
-                await using var reader = await cmd.ExecuteReaderAsync();
-                while (await reader.ReadAsync()) clogSources.Add(reader.GetString(0));
-            }
-
-            // Per-session drop facts: the biggest single drop (for the tier colour) and how many
-            // first-time receipts were collection-log items. Aggregated per (session, item) so the
-            // row count is bounded by distinct item names, not by kills — a 4,000-kill grind of one
-            // monster comes back as a handful of rows.
-            var keys = rows.Select(r => SessionKey(r.CharacterId, r.SourceName, r.SessionNo)).ToArray();
-            var factsSql = $"""
-                WITH ordered AS (
-                    SELECT lr."Id", lr."GameCharacterId", lr."SourceName", lr."OccurredAt",
-                           LAG(lr."OccurredAt") OVER (PARTITION BY lr."GameCharacterId", lr."SourceName"
-                                                      ORDER BY lr."OccurredAt", lr."Id") AS prev_at
-                    FROM "LootRecords" lr
-                    JOIN "GameCharacters" gc ON gc."Id" = lr."GameCharacterId"
-                    WHERE lr."OccurredAt" >= @scanFrom
-                      AND gc."IsVisible" AND NOT gc."IsAdminHidden" AND gc."IsLeagues" = @isLeagues
-                ),
-                {SessionSql.GapIslandsWithCap("\"GameCharacterId\", \"SourceName\"")}
-                SELECT s."GameCharacterId"::text || @sep || s."SourceName" || @sep || s.session_no::text AS skey,
+            // Per-(character, source) drop facts: the biggest single drop, for the row's tier colour,
+            // and how many first-time receipts were collection-log items. Grouped by item name so the
+            // row count is bounded by distinct items rather than by rolls.
+            var keys = kept.Select(r => SourceKey(r.CharacterId, r.SourceName)).ToArray();
+            const string factsSql = """
+                SELECT lr."GameCharacterId"::text || @sep || lr."SourceName" AS skey,
                        ld."Name" AS name,
                        MAX(ld."ItemId") AS item_id,
                        MAX(ld."Quantity"::bigint * ld."Price"::bigint) AS best_val,
                        bool_or(ld."IsFirstTime") AS first_time
-                FROM sessioned s
-                JOIN "LootDrops" ld ON ld."LootRecordId" = s."Id"
-                WHERE (s."GameCharacterId"::text || @sep || s."SourceName" || @sep || s.session_no::text) = ANY(@keys)
+                FROM "LootRecords" lr
+                JOIN "LootDrops" ld ON ld."LootRecordId" = lr."Id"
+                WHERE lr."OccurredAt" >= @from
+                  AND (lr."GameCharacterId"::text || @sep || lr."SourceName") = ANY(@keys)
                 GROUP BY skey, ld."Name"
                 """;
 
-            var factsByKey = new Dictionary<string, SessionFacts>(StringComparer.Ordinal);
+            var factsByKey = new Dictionary<string, SourceFacts>(StringComparer.Ordinal);
             await using (var cmd = connection.CreateCommand())
             {
                 cmd.CommandText = factsSql;
-                cmd.Parameters.Add(new NpgsqlParameter("@scanFrom", scanFrom));
-                cmd.Parameters.Add(new NpgsqlParameter("@isLeagues", isLeagues));
-                cmd.Parameters.Add(new NpgsqlParameter("@gap", LootFeedGrouping.MaxGap));
-                cmd.Parameters.Add(new NpgsqlParameter("@breakGap", LootFeedGrouping.SessionBreakGap));
-                cmd.Parameters.Add(new NpgsqlParameter("@sep", SessionKeySep.ToString()));
+                cmd.Parameters.Add(new NpgsqlParameter("@from", from));
+                cmd.Parameters.Add(new NpgsqlParameter("@sep", SourceKeySep.ToString()));
                 cmd.Parameters.Add(new NpgsqlParameter("@keys", keys));
 
                 await using var reader = await cmd.ExecuteReaderAsync();
@@ -788,58 +739,50 @@ internal sealed class LootFeedRepository(
                     var firstTime = reader.GetBoolean(4);
 
                     factsByKey.TryGetValue(key, out var facts);
-                    facts ??= new SessionFacts();
+                    facts ??= new SourceFacts();
                     if (bestVal > facts.BestValue) facts.BestValue = bestVal;
                     if (firstTime && collectionLogCache.IsCollectionLogItem(itemId, name)) facts.ClogCount++;
                     factsByKey[key] = facts;
                 }
             }
 
-            // Character display names for the sessions we're keeping.
-            var characterIds = rows.Select(r => r.CharacterId).Distinct().ToList();
+            var characterIds = kept.Select(r => r.CharacterId).Distinct().ToList();
             var names = await dataContext.GameCharacters
                 .Where(c => characterIds.Contains(c.Id))
                 .Select(c => new { c.Id, Name = c.DisplayName ?? c.User!.FirstName + " " + c.User.LastName })
                 .ToDictionaryAsync(x => x.Id, x => x.Name);
 
-            var filteredOut = 0;
-            var kept = new List<(RecentSessionRow Row, RecentSession Session)>();
-            foreach (var row in rows)
-            {
-                var facts = factsByKey.TryGetValue(SessionKey(row.CharacterId, row.SourceName, row.SessionNo), out var f)
-                    ? f
-                    : new SessionFacts();
-
-                if (!LootFeedGrouping.IsNotableSession(row.Rolls, row.Gp, facts.ClogCount, clogSources.Contains(row.SourceName)))
-                {
-                    filteredOut++;
-                    continue;
-                }
-
-                kept.Add((row, new RecentSession(
-                    row.SourceName,
-                    row.SourceType,
-                    row.Started,
-                    row.Ended,
-                    row.Rolls,
-                    row.Gp,
-                    facts.ClogCount,
-                    ILootFeedService.GetDropTier(facts.BestValue))));
-            }
-
+            // Ordered by rolls throughout - busiest character first, and within a character the
+            // source they ground hardest. Recency is still on every row as its own timestamp.
             var characters = kept
-                .GroupBy(k => k.Row.CharacterId)
+                .GroupBy(r => r.CharacterId)
                 .Select(g => new RecentSessionCharacter(
                     g.Key,
                     names.TryGetValue(g.Key, out var n) ? n : "Unknown",
-                    g.Sum(x => x.Session.Rolls),
-                    g.Sum(x => x.Session.Gp),
-                    g.Max(x => x.Session.EndedAt),
-                    g.OrderByDescending(x => x.Session.EndedAt)
-                        .Select(x => x.Session)
-                        .Take(MaxSessionsPerCharacter)
+                    g.Sum(r => r.Rolls),
+                    g.Sum(r => r.Gp),
+                    g.Max(r => r.Ended),
+                    g.OrderByDescending(r => r.Rolls)
+                        .ThenByDescending(r => r.Gp)
+                        .Take(MaxSourcesPerCharacter)
+                        .Select(r =>
+                        {
+                            var facts = factsByKey.TryGetValue(SourceKey(r.CharacterId, r.SourceName), out var f)
+                                ? f
+                                : new SourceFacts();
+                            return new RecentSession(
+                                r.SourceName,
+                                r.SourceType,
+                                r.Started,
+                                r.Ended,
+                                r.Rolls,
+                                r.Gp,
+                                facts.ClogCount,
+                                ILootFeedService.GetDropTier(facts.BestValue));
+                        })
                         .ToList()))
-                .OrderByDescending(c => c.LastActiveAt)
+                .OrderByDescending(c => c.TotalRolls)
+                .ThenByDescending(c => c.TotalGp)
                 .Take(MaxCharacters)
                 .ToList();
 
@@ -847,31 +790,30 @@ internal sealed class LootFeedRepository(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to get recent sessions for scope {Scope}", scope);
-            throw new RepositoryException("Failed to get recent sessions", ex);
+            logger.LogError(ex, "Failed to get recent activity for scope {Scope}", scope);
+            throw new RepositoryException("Failed to get recent activity", ex);
         }
     }
 
-    // Composite session identity as a single text value, so the facts query can filter with one
-    // ANY() instead of a three-column IN list.
-    private const char SessionKeySep = '\u0001';
+    // Composite (character, source) identity as one text value, so the drops query can filter with a
+    // single ANY() instead of a two-column IN list.
+    private const char SourceKeySep = '\u0001';
 
-    private static string SessionKey(int characterId, string sourceName, long sessionNo) =>
-        $"{characterId}{SessionKeySep}{sourceName}{SessionKeySep}{sessionNo}";
+    private static string SourceKey(int characterId, string sourceName) =>
+        $"{characterId}{SourceKeySep}{sourceName}";
 
-    private sealed record RecentSessionRow(
+    private sealed record RecentSourceRow(
         int CharacterId,
         string SourceName,
         LootSourceType SourceType,
-        long SessionNo,
         DateTimeOffset Started,
         DateTimeOffset Ended,
         int Rolls,
         long Gp);
 
-    // BestValue is kept only to classify the session's feed tier for the row's edge colour; the
-    // item's name isn't carried, because the panel doesn't name it.
-    private sealed class SessionFacts
+    // BestValue is kept only to classify the row's feed tier for its edge colour; the item's name
+    // isn't carried, because the panel doesn't name it.
+    private sealed class SourceFacts
     {
         public long BestValue { get; set; }
         public int ClogCount { get; set; }

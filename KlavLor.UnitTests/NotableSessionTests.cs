@@ -2,71 +2,65 @@ using KlavLor.Application.Features.Loot.Feed;
 
 namespace KlavLor.UnitTests;
 
-// The feed's recent-activity panel exists to show what people actually did, which means it has to
-// distinguish a real grind from kills picked up in passing. That judgement is a pure predicate, so
-// it's pinned here rather than being discoverable only by staring at a live popover.
+// The feed's recent-activity panel shows one row per source per character, covering everything they
+// did there over the whole window. IsNotableActivity decides which of those rows earn a slot, and
+// it's a pure predicate, so it's pinned here rather than being discoverable only by staring at a
+// live popover.
 public sealed class NotableSessionTests
 {
-    private const long Interesting = LootFeedGrouping.MinOneOffSessionValue;
+    private const int MinRolls = LootFeedGrouping.MinNotableRolls;
+    private const long MinValue = LootFeedGrouping.MinOneOffSessionValue;
 
     [Fact]
-    public void SingleCheapKillAtSourceWithoutClog_IsNotASession()
+    public void BothBarsMustClear_notEither()
     {
-        // The case the filter exists for: one Hill Giant on the way somewhere.
-        Assert.False(LootFeedGrouping.IsNotableSession(
-            rolls: 1, gp: 500, clogDrops: 0, sourceHasClogItems: false));
-    }
-
-    [Fact]
-    public void SingleRaidWithPoorLoot_IsStillASession()
-    {
-        // A raid nobody would do accidentally. Volume and value both say "ignore me"; the fact that
-        // the source has uniques behind it is the only thing that says otherwise, and it wins.
-        Assert.True(LootFeedGrouping.IsNotableSession(
-            rolls: 1, gp: 1_200, clogDrops: 0, sourceHasClogItems: true));
-    }
-
-    [Fact]
-    public void GrindWithNoValuableLoot_IsASession()
-    {
-        // 4,000 Lizardman Shamans that dropped nothing over the feed floor: invisible in the
-        // swimlanes, and precisely what this panel is for.
-        Assert.True(LootFeedGrouping.IsNotableSession(
-            rolls: 4_000, gp: 900, clogDrops: 0, sourceHasClogItems: false));
-    }
-
-    [Fact]
-    public void SingleValuableKill_IsASession()
-    {
-        Assert.True(LootFeedGrouping.IsNotableSession(
-            rolls: 1, gp: Interesting, clogDrops: 0, sourceHasClogItems: false));
-    }
-
-    [Fact]
-    public void FirstTimeClogDrop_IsASession()
-    {
-        // A clog first can come off a cheap item at a source whose drop table we have no rates for,
-        // so it has to qualify on its own rather than relying on sourceHasClogItems.
-        Assert.True(LootFeedGrouping.IsNotableSession(
-            rolls: 1, gp: 12, clogDrops: 1, sourceHasClogItems: false));
+        // The whole design: volume without value is a walk through a slayer task, and value without
+        // volume is a single lucky kill the swimlanes already show.
+        Assert.False(LootFeedGrouping.IsNotableActivity(rolls: 4_000, gp: MinValue - 1));
+        Assert.False(LootFeedGrouping.IsNotableActivity(rolls: MinRolls - 1, gp: 500_000_000));
+        Assert.True(LootFeedGrouping.IsNotableActivity(rolls: MinRolls, gp: MinValue));
     }
 
     [Theory]
+    [InlineData(0, false)]
     [InlineData(1, false)]
-    [InlineData(2, false)]
-    [InlineData(LootFeedGrouping.MinNotableSessionRolls, true)]
-    public void RollCountThreshold_IsInclusive(int rolls, bool expected)
+    [InlineData(MinRolls - 1, false)]
+    [InlineData(MinRolls, true)]
+    [InlineData(MinRolls + 1, true)]
+    public void RollThreshold_isInclusive(int rolls, bool expected)
     {
-        Assert.Equal(expected, LootFeedGrouping.IsNotableSession(
-            rolls, gp: 0, clogDrops: 0, sourceHasClogItems: false));
+        Assert.Equal(expected, LootFeedGrouping.IsNotableActivity(rolls, gp: MinValue));
     }
 
     [Fact]
-    public void ValueThreshold_IsInclusiveAndMatchesTheFeedFloor()
+    public void ValueThreshold_isInclusiveAndMatchesTheFeedFloor()
     {
-        // Deliberately the same 10k the feed uses to decide a drop is worth publishing, so a kill
-        // that made the swimlanes can never be filtered out of the activity panel as noise.
-        Assert.False(LootFeedGrouping.IsNotableSession(1, Interesting - 1, 0, false));
-        Assert.True(LootFeedGrouping.IsNotableSession(1, Interesting, 0, false));
+        // Deliberately the same 10k the feed uses to decide a drop is worth publishing, so the two
+        // surfaces agree on what counts as loot at all.
+        Assert.False(LootFeedGrouping.IsNotableActivity(MinRolls, MinValue - 1));
+        Assert.True(LootFeedGrouping.IsNotableActivity(MinRolls, MinValue));
+    }
+
+    [Fact]
+    public void AGrindWorthNothing_isHidden()
+    {
+        // 4,000 Lizardman Shamans that dropped nothing over the floor. Volume alone no longer earns
+        // a row — this is the case the tightened filter deliberately removes.
+        Assert.False(LootFeedGrouping.IsNotableActivity(rolls: 4_000, gp: 900));
+    }
+
+    [Fact]
+    public void ARealGrindThatPaidOut_isKept()
+    {
+        Assert.True(LootFeedGrouping.IsNotableActivity(rolls: 900, gp: 2_000_000));
+    }
+
+    [Fact]
+    public void ASingleRaid_isHidden()
+    {
+        // Worth stating outright, because an earlier version kept this on the grounds that the source
+        // has uniques behind it. Under the current rule one or two visits in two days does not earn a
+        // row however rare the drop table is.
+        Assert.False(LootFeedGrouping.IsNotableActivity(rolls: 1, gp: 1_200));
     }
 }
