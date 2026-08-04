@@ -1,0 +1,114 @@
+@using KlavLor.Application.Common
+@using KlavLor.Application.Features.Loot.Feed
+@using KlavLor.Application.Interfaces.Services
+@using KlavLor.Domain.Entities
+
+@* Contents of the "Recent activity" popover next to the feed filter. Deliberately a dense list
+   rather than cards: the point is to fit 48 hours of everyone's grinding into a panel that doesn't
+   compete with the swimlanes for attention. Rendered into the popover by its own HTMX request the
+   first time it's opened, so the feed page carries none of this cost unless it's asked for. *@
+
+<div class="max-h-[26rem] overflow-y-auto themed-scrollbar -mx-1 px-1">
+    @if (Panel.Characters.Count == 0)
+    {
+        <p class="text-xs text-slate-500 dark:text-white py-3 text-center">
+            No sessions in the last @Panel.WindowHours hours.
+        </p>
+    }
+    else
+    {
+        <div class="space-y-3">
+            @foreach (var character in Panel.Characters)
+            {
+                <div>
+                    <div class="flex items-baseline justify-between gap-2 mb-1">
+                        <a hx-get="@AppRoutes.LootLogCharacter.WithId(character.CharacterId).FromApi()"
+                           hx-target="#hx-page-container"
+                           hx-push-url="@AppRoutes.LootLogCharacter.WithId(character.CharacterId)"
+                           hx-swap="innerHTML transition:true"
+                           class="text-xs font-semibold text-slate-800 dark:text-slate-100 hover:text-amber-600 dark:hover:text-amber-400 cursor-pointer truncate">
+                            @character.CharacterName
+                        </a>
+                        <span class="text-[10px] text-slate-500 dark:text-white tabular-nums shrink-0">
+                            @character.TotalRolls.ToString("N0") rolls · @GoldFormat.Format(character.TotalGp)
+                        </span>
+                    </div>
+
+                    <ul class="space-y-1">
+                        @foreach (var session in character.Sessions)
+                        {
+                            <li class="border-l-2 @TierStyle.SessionAccentClass(session.BestTier) pl-2 py-0.5">
+                                <div class="flex items-baseline justify-between gap-2">
+                                    <span class="inline-flex items-center gap-1.5 min-w-0">
+                                        <img src="/api/images/source-icon?name=@Uri.EscapeDataString(session.SourceName)" alt=""
+                                             class="w-4 h-4 shrink-0 object-contain rounded" loading="lazy"
+                                             onerror="this.style.display='none'" />
+                                        <span class="text-[11px] font-medium text-slate-700 dark:text-slate-100 truncate">@session.SourceName</span>
+                                        @if (session.ClogCount > 0)
+                                        {
+                                            <span class="text-[9px] font-semibold px-1 rounded bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 shrink-0"
+                                                  title="@($"{session.ClogCount} first-time collection log {(session.ClogCount == 1 ? "item" : "items")} this session")">
+                                                @session.ClogCount clog@(session.ClogCount == 1 ? "" : "s")
+                                            </span>
+                                        }
+                                    </span>
+                                    <span class="text-[10px] tabular-nums text-slate-600 dark:text-slate-300 shrink-0">
+                                        @session.Rolls.ToString("N0") @Noun(session)
+                                    </span>
+                                </div>
+                                <div class="flex items-baseline justify-between gap-2 text-[10px] text-slate-500 dark:text-white">
+                                    <span class="truncate">
+                                        @RelativeTime(session.EndedAt)@(session.RollsPerHour > 0 ? $" · {session.RollsPerHour:N0}/hr" : "")
+                                        @if (!string.IsNullOrEmpty(session.BestDropName) && session.BestTier is not null)
+                                        {
+                                            <span> · best @session.BestDropName</span>
+                                        }
+                                    </span>
+                                    <span class="tabular-nums text-amber-600 dark:text-amber-400 font-medium shrink-0">@GoldFormat.Format(session.Gp)</span>
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<p class="mt-2 pt-2 border-t border-slate-200 dark:border-slate-700 text-[10px] text-slate-500 dark:text-white">
+    Last @Panel.WindowHours hours.
+    @if (Panel.FilteredOut > 0)
+    {
+        <span>@Panel.FilteredOut one-off @(Panel.FilteredOut == 1 ? "kill" : "kills") hidden as incidental — a session needs @LootFeedGrouping.MinNotableSessionRolls rolls, @GoldFormat.Format(LootFeedGrouping.MinOneOffSessionValue) of loot, or a source with a collection log.</span>
+    }
+    else
+    {
+        <span>Incidental one-off kills are hidden.</span>
+    }
+</p>
+
+@code {
+    [Parameter] public required RecentSessionsPanel Panel { get; set; }
+    [Parameter] public LootFeedScope Scope { get; set; } = LootFeedScope.Main;
+
+    // Events (clues, raids) are "rolls"; monsters are "kills". Singular matters here because a
+    // single raid run is a case the panel deliberately keeps, so "1 rolls" would be on screen often.
+    private static string Noun(RecentSession session) => (session.SourceType, session.Rolls) switch
+    {
+        (LootSourceType.Event, 1) => "roll",
+        (LootSourceType.Event, _) => "rolls",
+        (_, 1) => "kill",
+        _ => "kills"
+    };
+
+    // Rendered server-side, so this is "how long ago as of this response". The panel is cached for
+    // a minute and reopened on demand, so it never drifts far.
+    private static string RelativeTime(DateTimeOffset at)
+    {
+        var delta = DateTimeOffset.UtcNow - at;
+        if (delta < TimeSpan.FromMinutes(1)) return "just now";
+        if (delta < TimeSpan.FromHours(1)) return $"{(int)delta.TotalMinutes}m ago";
+        if (delta < TimeSpan.FromDays(1)) return $"{(int)delta.TotalHours}h ago";
+        return $"{(int)delta.TotalDays}d ago";
+    }
+}

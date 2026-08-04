@@ -299,12 +299,39 @@ window.initHistoryPanel = function() {
         }
     });
 
-    // Close filter panel when clicking outside
+    // Recent-activity popover. Its contents load on first open (hx-trigger="load" inside the panel
+    // body once revealed is not an option — the body is in the DOM from the start), so the toggle
+    // fires the fetch itself and only once. The feed page therefore pays nothing for this panel
+    // unless someone asks to see it.
+    window.toggleFeedSessions = function() {
+        const panel = document.getElementById('feed-sessions-panel');
+        if (!panel) return;
+        const wasHidden = panel.classList.contains('hidden');
+        panel.classList.toggle('hidden');
+        // Opening the activity panel closes the filter, and vice versa — they overlap.
+        const filter = document.getElementById('feed-filter-panel');
+        if (filter) filter.classList.add('hidden');
+
+        if (wasHidden && panel.dataset.loaded !== 'true') {
+            panel.dataset.loaded = 'true';
+            htmx.ajax('GET', panel.dataset.url, {
+                target: '#feed-sessions-body',
+                swap: 'innerHTML'
+            });
+        }
+    };
+
+    // Close either popover when clicking outside it.
     document.addEventListener('click', function(e) {
         const panel = document.getElementById('feed-filter-panel');
-        if (!panel) return;
-        if (!panel.classList.contains('hidden') && !e.target.closest('#feed-filter-panel') && !e.target.closest('[onclick="toggleFeedFilter()"]')) {
+        if (panel && !panel.classList.contains('hidden')
+            && !e.target.closest('#feed-filter-panel') && !e.target.closest('[onclick="toggleFeedFilter()"]')) {
             panel.classList.add('hidden');
+        }
+        const sessions = document.getElementById('feed-sessions-panel');
+        if (sessions && !sessions.classList.contains('hidden')
+            && !e.target.closest('#feed-sessions-panel') && !e.target.closest('[onclick="toggleFeedSessions()"]')) {
+            sessions.classList.add('hidden');
         }
     });
 

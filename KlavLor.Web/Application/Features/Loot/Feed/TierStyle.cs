@@ -58,4 +58,20 @@ public static class TierStyle
     public static string ColumnRoute(LootFeedTier tier, LootFeedScope scope) =>
         (scope == LootFeedScope.Leagues ? AppRoutes.LootFeedLeaguesColumn : AppRoutes.LootFeedColumn)
             .Replace("{tier}", For(tier).Slug);
+
+    /// <summary>The recent-activity endpoint for a scope.</summary>
+    public static string SessionsRoute(LootFeedScope scope) =>
+        scope == LootFeedScope.Leagues ? AppRoutes.LootFeedLeaguesSessions : AppRoutes.LootFeedSessions;
+
+    /// <summary>Left-edge accent for a session row, by the best drop's tier. Grey when nothing in
+    /// the session cleared the feed's floor — a real grind that simply didn't pay out.</summary>
+    public static string SessionAccentClass(LootFeedTier? tier) => tier switch
+    {
+        LootFeedTier.Legendary => "border-amber-400 dark:border-amber-500",
+        LootFeedTier.Epic => "border-purple-400 dark:border-purple-500",
+        LootFeedTier.Rare => "border-blue-400 dark:border-blue-500",
+        LootFeedTier.Uncommon => "border-green-400 dark:border-green-500",
+        LootFeedTier.Standard => "border-slate-300 dark:border-slate-600",
+        _ => "border-slate-200 dark:border-slate-700"
+    };
 }

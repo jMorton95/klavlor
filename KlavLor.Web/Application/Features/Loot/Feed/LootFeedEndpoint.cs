@@ -25,6 +25,13 @@ public sealed class LootFeedEndpoint : IEndpoint
             .AllowAnonymous()
             .RequireRateLimiting("anonymous");
 
+        // Recent activity: what everyone has actually been grinding, which drop cards can't show.
+        // Loaded on demand when the popover is first opened rather than with the feed.
+        app.MapGet(AppRoutes.LootFeedSessions.FromApi(), (RecentSessionsHandler handler) =>
+                GetRecentSessions(handler, LootFeedScope.Main))
+            .AllowAnonymous()
+            .RequireRateLimiting("anonymous");
+
         MapStream(app, AppRoutes.LootFeedStreamStandard, LootFeedScope.Main, LootFeedTier.Standard);
         MapStream(app, AppRoutes.LootFeedStreamUncommon, LootFeedScope.Main, LootFeedTier.Uncommon);
         MapStream(app, AppRoutes.LootFeedStreamRare, LootFeedScope.Main, LootFeedTier.Rare);
@@ -51,6 +58,14 @@ public sealed class LootFeedEndpoint : IEndpoint
             {
                 if (!settings.IsLeaguesEnabled) return TypedResults.NotFound();
                 return await GetColumn(handler, LootFeedScope.Leagues, tier, cols);
+            })
+            .AllowAnonymous()
+            .RequireRateLimiting("anonymous");
+
+        app.MapGet(AppRoutes.LootFeedLeaguesSessions.FromApi(), async (RecentSessionsHandler handler, ISystemSettingsCache settings) =>
+            {
+                if (!settings.IsLeaguesEnabled) return TypedResults.NotFound();
+                return await GetRecentSessions(handler, LootFeedScope.Leagues);
             })
             .AllowAnonymous()
             .RequireRateLimiting("anonymous");
@@ -127,6 +142,12 @@ public sealed class LootFeedEndpoint : IEndpoint
             ColumnClass = FeedColumnLayout.ColumnClass(
                 Math.Clamp(cols ?? ILootFeedService.AllTiers.Length, 1, ILootFeedService.AllTiers.Length))
         });
+    }
+
+    private static async Task<IResult> GetRecentSessions(RecentSessionsHandler handler, LootFeedScope scope)
+    {
+        var panel = await handler.Handle(scope);
+        return IResultExtensions.Component<RecentSessionsPopover>(new { Panel = panel, Scope = scope });
     }
 
     private static HashSet<LootFeedTier>? ParseTiers(string? tiers)
