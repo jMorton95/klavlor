@@ -363,7 +363,9 @@ internal sealed class LootFeedRepository(
                     var val = (long)d.Quantity * d.Price;
                     return val >= tierMin && (tierMax is null || val < tierMax.Value);
                 })
-                .Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId, d.Name), d.IsSpecial))
+                // KillCount is this record's own, so a drop keeps the KC it landed on when adjacent
+                // kills collapse into one card — the card's own Max would climb with the session.
+                .Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId, d.Name), d.IsSpecial, KillCount: r.KillCount))
                 .ToList();
 
             if (tierDrops.Count == 0) continue;
@@ -504,7 +506,7 @@ internal sealed class LootFeedRepository(
             var allDrops = JsonSerializer.Deserialize<List<LootDrop>>(r.DropsJson) ?? [];
             var drops = allDrops
                 .Where(d => ILootFeedService.GetDropTier((long)d.Quantity * d.Price) is not null)
-                .Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId, d.Name), d.IsSpecial))
+                .Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId, d.Name), d.IsSpecial, KillCount: r.KillCount))
                 .ToList();
 
             if (drops.Count == 0) continue;

@@ -60,7 +60,12 @@ public sealed record LootFeedDrop(
     // display so a feed card can state how lucky the drop was, using the same numbers as the
     // character page and the leaderboard.
     double? ExpectedKc = null,
-    string? EffectiveRarity = null);
+    string? EffectiveRarity = null,
+    // The kill count this drop actually landed on. Held per drop, not per card, because a card
+    // covers a whole session: judging a drop against the card's LATEST kill count meant a Venator
+    // fang that came on rate at kill 20 drifted to "6.7x dry" purely because the player kept
+    // killing for another hundred. Null when RuneLite reported no kill count for that record.
+    int? KillCount = null);
 
 public sealed record LootFeedBroadcast(LootFeedEntry Entry, string? PreviousDomId, HighlightChange? HighlightChange = null);
 

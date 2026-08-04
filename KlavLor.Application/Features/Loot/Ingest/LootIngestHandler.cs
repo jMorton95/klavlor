@@ -308,7 +308,10 @@ public sealed class LootIngestHandler(
             return new LootFeedDrop(
                 d.Name, d.Quantity, d.Price, d.IsFirstTime,
                 collectionLogCache.IsCollectionLogItem(d.ItemId, d.Name), d.IsSpecial,
-                effective?.ExpectedKc, effective?.Rarity);
+                effective?.ExpectedKc, effective?.Rarity,
+                // This record's own kill count, so the drop keeps the KC it landed on even after
+                // the card merges another hundred kills onto the same session.
+                KillCount: record.KillCount);
         }).ToList();
         var dropsByTier = ILootFeedService.ClassifyDropsByTier(feedDrops);
         if (dropsByTier.Count == 0) return;
