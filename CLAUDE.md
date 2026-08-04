@@ -22,6 +22,9 @@ npm run build:css
 
 # Run the integration tests (needs a working Docker daemon — Testcontainers starts its own Postgres)
 dotnet test KlavLor.IntegrationTests/KlavLor.IntegrationTests.csproj
+
+# Run the unit tests (no database, no Docker)
+dotnet test KlavLor.UnitTests/KlavLor.UnitTests.csproj
 ```
 
 **App URL:** https://localhost:7081
@@ -44,9 +47,35 @@ Clean Architecture with four layers. Dependencies flow inward: Web → Applicati
 
 - **KlavLor.Domain** — Entities, repository interfaces, domain services. No external dependencies.
 - **KlavLor.Application** — Feature handlers (CQRS-style), FluentValidation validators, the Result pattern. Handlers and validators are auto-registered via assembly scanning (classes ending in `*Handler` get scoped registration).
-- **KlavLor.Infrastructure** — EF Core DbContext (`DataContext`), repository implementations, OSRS Wiki API client, image caching. Repositories are auto-registered via reflection (scans for `IxxxRepository` implementations in Domain and `IxxxQueryRepository`/`IxxxLogRepository` in Application).
+- **KlavLor.Infrastructure** — EF Core DbContext (`DataContext`), repository implementations, OSRS Wiki API client, image caching. Repositories are auto-registered via reflection — see "Repository Auto-Registration" below.
 - **KlavLor.Web** — ASP.NET Core host, Razor components, HTMX endpoints, cookie auth + API key auth.
 - **KlavLor.IntegrationTests** — xUnit tests over a real PostgreSQL (Testcontainers, `postgres:16-alpine`) with the full migration set applied. See "Integration Tests" below.
+- **KlavLor.UnitTests** — xUnit tests over the pure loot maths plus the architecture rules. No database, no Docker. See "Unit Tests" below.
+
+### Repository Auto-Registration
+
+`AddDomainRepositories()` / `AddApplicationRepositories()` in `InfrastructureDependencyConfiguration` scan the Infrastructure assembly for every concrete class and register it against the **first** interface it implements from the Domain (resp. Application) assembly whose name **ends in `Repository`**. That is the whole predicate — the naming convention is just "`I…Repository`", not specifically `IxxxQueryRepository`/`IxxxLogRepository`.
+
+Two failure modes are silent, because nothing throws when the scan misses:
+
+- An interface the scan doesn't match simply has **no registration**, and the first request for it throws at runtime on whichever page needs it.
+- The scan takes `FirstOrDefault`, so a class implementing **two** repository interfaces from the same assembly gets exactly one of them registered — which one depends on reflection ordering.
+
+`KlavLor.UnitTests/RepositoryRegistrationTests.cs` enforces all of this: every implemented repository interface is registered, no class claims two per assembly, no interface has two implementations, and every repository actually resolves from a request scope (it builds the real container — no DB is touched, since Npgsql opens no connection until a query).
+
+### The Loot-Log Query Surface Is Five Repositories, Split By Consumer
+
+`ILootLogRepository` / `LootLogRepository` no longer exist. What was one 2,768-line class with 38 methods is now five, grouped by the consumer feature that reads them (matching the "organised by feature, not technical concern" rule above) — interfaces in `Application/Interfaces/Repositories/`, implementations in `Infrastructure/Persistence/EntityFramework/Repositories/Loot/`:
+
+- `ILootLogSearchRepository` — admin sync log, public character list, per-character log search, sources table. Read by `LootLogHandler` and `IngestLogHandler`.
+- `ILootSourceDetailRepository` — source detail + paged kills, hover popover, monthly kill trend, collection-log panel. Read by `LootLogHandler`, `SourcePopoverHandler`, `LootCharacterProfileHandler`, `LuckLeaderboardRefreshService`.
+- `ILootSessionRepository` — per-source sessions, one session's kills, cross-source session history.
+- `ILootFeedRepository` — the live feed's per-tier backfill, the character day feed, the first-time feed.
+- `ILootProfileRepository` — profile header, window stats, activity heatmap, monthly trend, personal records, top items, plus bulk deletion by character/user.
+
+`LootLogSharedQueries` holds the two private helpers used by more than one of them (`GetTopDropsForSource`, `NullableTimestampParam`), imported with `using static` so the call sites read unchanged. `SessionSql.GapIslandsWithCap` remains the shared gap-and-islands CTE.
+
+A handler that serves several surfaces injects several of these — that is intended, and is what the old single interface was hiding.
 
 ### Key Patterns
 
@@ -78,6 +107,13 @@ The rules:
 - **Layout components and shared/partial components must never query.** They must be parameter-driven, read claims via `ISessionStateManager`, read singleton caches, or fetch their data through their own HTMX request (`hx-trigger="load"` → endpoint → handler), which runs in its own request scope. Reference example: `SidebarAccountEndpoint` + the placeholder in `SidebarComponent.razor`.
 - **Components must never inject repositories** (`I*Repository`). When a page component loads its own data, it goes through a `*Handler`. There are no exceptions.
 - **Multiple loads inside one component must be awaited sequentially** — never `Task.WhenAll` over handler or repository calls.
+- **A page with several independently-loaded panels must stagger them.** Use `DeferredSection` (`Loot/Log/Profile/DeferredSection.razor`) rather than putting `hx-trigger="load"` on every panel: it takes a `DelayMs`, and callers step it by 500ms down the page so one page view doesn't open six concurrent queries. It also distinguishes *queued* (flat placeholder, no spinner) from *in flight* (spinner, driven by htmx's `htmx-request` class and the `.defer-spinner` rule in `app.css`). `CharacterProfile.razor` is the reference caller.
+
+**These rules are enforced by tests, not just documented.** `KlavLor.UnitTests/RazorComponentDataAccessTests.cs` holds three checks:
+
+- `No_razor_component_injects_a_repository` — reflects over the `KlavLor.Web` assembly for `ComponentBase` subclasses with an injected member (`[Inject]` property/field, or a constructor parameter) whose type is an `I*Repository`. This is the rule whose violation caused the outage.
+- `No_razor_file_injects_a_repository_type` — a supplementary text scan of the `.razor` files for `@inject` of a repository type, catching declarations the metadata check could miss.
+- `No_component_uses_Task_WhenAll` — flags **any** `Task.WhenAll` inside a component. Deliberately conservative: it does not try to classify the operands, because a false negative here is an outage while a false positive is one line of human review. If a flagged `Task.WhenAll` provably touches neither a handler nor the DB, that still needs a human decision — do not add a silent exemption to the test.
 
 ### The Loot Feed Loads Its Swimlanes After First Paint
 
@@ -154,7 +190,7 @@ Shared in both layers:
 - `Feed/` — Live SSE feed streams and cards (main + Leagues scopes)
 - `Log/` — Per-character loot log, source detail, kill sessions, collection progress
 - `Leaderboard/` — Luck leaderboard (spoons / dry streaks) and its source + item exclusion admin
-- `SourceModels/` (Application only) — Pluggable per-source drop maths behind `ISourceLootStrategy`: `DefaultSourceLootStrategy`, `DoomLootStrategy` (per-run delve depth), `RaidUniqueShareStrategy`, dispatched by `SourceLootService`, plus admin rate modifiers. **Strategies are matched by interface dispatch — a new strategy must be registered with `SourceLootService` or it silently never engages** (see commit `abf0996`).
+- `SourceModels/` (Application only) — Pluggable per-source drop maths behind `ISourceLootStrategy`: `DefaultSourceLootStrategy`, `DoomLootStrategy` (per-run delve depth), `RaidUniqueShareStrategy`, dispatched by `SourceLootService`, plus admin rate modifiers. **Strategies are matched by interface dispatch — a new strategy must be registered with `SourceLootService` or it silently never engages** (see commit `abf0996`). Enforced by `KlavLor.UnitTests/SourceLootStrategyRegistrationTests.cs`, which scans the Application assembly and fails if any `ISourceLootStrategy` implementation is unregistered or unreachable through the facade.
 - `Baseline/` (Application only) — Admin-entered pre-tracking kill counts, added to derived KC
 - `Special/` (Application only) — Special/one-off loot item configuration
 
@@ -218,7 +254,27 @@ Coverage is targeted at the loot-derivation maths and query surface, not the web
 dotnet test KlavLor.IntegrationTests/KlavLor.IntegrationTests.csproj
 ```
 
-There is no unit-test project and no coverage of Web endpoints/components. The top-level `tests/` directory holds manual testing-plan docs (Markdown), not runnable tests.
+The top-level `tests/` directory holds manual testing-plan docs (Markdown), not runnable tests.
+
+## Unit Tests
+
+`KlavLor.UnitTests` (xUnit) has **no database dependency and needs no Docker**. It references Application (the pure loot maths) and Web (so the architecture tests can reflect over its components). Run it on any machine:
+
+```bash
+dotnet test KlavLor.UnitTests/KlavLor.UnitTests.csproj
+```
+
+What it covers, and why each file exists:
+
+- `DoomLootStrategyTests` — `ProbabilityOverRun` / `ExpectedCompletionsForRuns` / `EstimateDepth`, including the two properties the strategy's own comments only *claimed*: that the per-run sum reduces to the flat per-run expectation at a uniform depth, and that mixed-depth runs do **not** score as if every run reached the deepest one (the bug that reported everyone as dry). Also pins the level-9 rate clamp for deep delves.
+- `SourceLootServiceTests` — that raid unique-table scaling **and** admin rate modifiers are both applied *inside* the facade, so a hand-rolled call site is provably wrong (see "Luck Maths: One Path Only").
+- `SourceLootStrategyRegistrationTests` — every `ISourceLootStrategy` in the Application assembly is registered and reachable through `SourceLootService` (commit `abf0996`).
+- `RaidAndDefaultStrategyTests`, `LootFeedGroupingTests` — raid share scaling vs. tertiary pass-through; `MaxGap` / `SessionBreakGap` / `PlayDayStart` session boundaries.
+- `LootFeedTierClassificationTests` — tiers are per drop, never per running total (500 cheap drops summing to millions must not read as legendary).
+- `RepositoryRegistrationTests` — the reflection-based repository registration; see "Repository Auto-Registration".
+- `RazorComponentDataAccessTests` — the SSR data-access rules; see "Razor Component Data-Access Rules".
+
+There is still no coverage of Web endpoints.
 
 ## Deployment
 
@@ -307,4 +363,7 @@ tools/klavlor-sync/
 
 ## Tests
 
-See "Integration Tests" above. `KlavLor.IntegrationTests` is the only test project.
+Two test projects. See "Integration Tests" and "Unit Tests" above.
+
+- `KlavLor.IntegrationTests` — the raw-ADO query surface, against a real Postgres via Testcontainers. **Needs Docker.**
+- `KlavLor.UnitTests` — the pure loot maths plus the architecture rules (repository registration, SSR data-access). **No database, no Docker.**
