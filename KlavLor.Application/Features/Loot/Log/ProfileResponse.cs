@@ -120,7 +120,13 @@ public sealed record SourceCollection(
     public bool IsDepthModelled => TotalDelves > 0;
 
     /// <summary>The figure luck is judged against: delves where we model depth, else kills.</summary>
-    public int LuckObserved => IsDepthModelled ? TotalDelves : CharacterKc;
+    /// <summary>
+    /// The figure luck is judged against: RUNS, always. Depth-modelled rates are expressed per run
+    /// (see DoomLootStrategy.ExpectedCompletionsForRuns), so no conversion is needed — and a
+    /// per-delve basis would need a different denominator for every item, since each unique becomes
+    /// eligible at a different level.
+    /// </summary>
+    public int LuckObserved => CharacterKc;
 
     /// <summary>
     /// Delves credited per run. Every run carries the same depth (the assumption, or the admin

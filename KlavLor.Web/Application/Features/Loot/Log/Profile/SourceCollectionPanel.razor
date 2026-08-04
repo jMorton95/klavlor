@@ -55,7 +55,7 @@
                        count cannot be compared against a per-level rate. *@
                     @if (Collection.IsDepthModelled)
                     {
-                        <text>@Collection.TotalDelves.ToString("N0") delves across @Collection.CharacterKc.ToString("N0") @(Collection.CharacterKc == 1 ? "run" : "runs")</text>
+                        <text>@Collection.CharacterKc.ToString("N0") @(Collection.CharacterKc == 1 ? "run" : "runs") @@ delve @Collection.DelvesPerRun (@Collection.TotalDelves.ToString("N0") delves)</text>
                     }
                     else
                     {

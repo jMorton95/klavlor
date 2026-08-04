@@ -44,33 +44,58 @@ public sealed class DoomLootStrategy() : SourceLootStrategy("Doom of Mokhaiotl")
     // Doom is the one source whose EffectiveKills is a delve depth rather than a roll count.
     public override bool HasDepthModel => true;
 
-    // Expected DELVES to a first drop, computed from the depth of every run the player actually did.
+    // Expected RUNS to a first drop, from the depth of every run the player actually did.
     //
-    // Doom's odds are per delve level, not per run: a single claim can be anywhere from one to
-    // twenty delves deep, so counting runs is the wrong unit to judge luck in — two players on
-    // "38 runs" have done wildly different amounts of rolling if one dives to level 8 and the other
-    // bails at level 3. Each run r has its own P(at least one) for its own depth, so the expected
-    // number of drops across the set is the sum of those probabilities, and:
+    // Runs, not delves: a run is what a player counts, and it needs no per-item denominator. A
+    // per-delve or per-roll basis would need one, because each unique becomes eligible at a
+    // different level (treads at 4, cloth at 2), so "delves done" is a different number for every
+    // item. ProbabilityOverRun already folds depth and eligibility in, so:
     //
-    //     expected delves per drop = (total delves done) / Σ P(item | depth_r)
+    //     expected runs per drop = runs / sum of P(item | depth_r)
     //
-    // Callers must therefore compare this against the player's total delve count, not their run
-    // count. It reduces to the flat per-level expectation when every run reaches the same depth,
-    // and never assumes a run went deeper than its own loot proves. Null when the item isn't a Doom
-    // unique or no run could have produced it, so the caller falls back to the flat rate.
+    // At a steady depth 8 that gives treads 1 in 160 runs; at depth 6, 1 in 305. Null when the item
+    // isn't a Doom unique or no run could have produced it, so the caller falls back to the flat rate.
     public override double? ExpectedCompletionsForRuns(string itemName, IReadOnlyList<int> runDepths)
     {
         if (RatesFor(itemName) is null || runDepths.Count == 0) return null;
 
         var expectedDrops = 0.0;
-        var totalDelves = 0;
+        foreach (var depth in runDepths)
+            expectedDrops += ProbabilityOverRun(itemName, depth);
+
+        return expectedDrops > 0 ? runDepths.Count / expectedDrops : null;
+    }
+
+    // The rate per ELIGIBLE ROLL — the figure directly comparable to the wiki's per-level band,
+    // because it divides by only the levels this item can actually drop at. At depth 8 treads work
+    // out at 1/801, which sits inside the wiki's 1/1,350-to-1/540 range; dividing by every delve
+    // instead gave 1/1,281, outside the band and looking wrong. Null when not modelled.
+    public double? RatePerEligibleRoll(string itemName, IReadOnlyList<int> runDepths)
+    {
+        if (RatesFor(itemName) is null || runDepths.Count == 0) return null;
+
+        var expectedDrops = 0.0;
+        var eligibleRolls = 0;
         foreach (var depth in runDepths)
         {
             expectedDrops += ProbabilityOverRun(itemName, depth);
-            totalDelves += depth;
+            eligibleRolls += EligibleRolls(itemName, depth);
         }
 
-        return expectedDrops > 0 && totalDelves > 0 ? totalDelves / expectedDrops : null;
+        return expectedDrops > 0 && eligibleRolls > 0 ? eligibleRolls / expectedDrops : null;
+    }
+
+    // How many times this item is rolled in a run to `depth` — the levels at or past its first
+    // eligible level. Levels beyond 9 keep rolling at the level-9 rate.
+    public int EligibleRolls(string itemName, int depth)
+    {
+        var rates = RatesFor(itemName);
+        if (rates is null || depth < 1) return 0;
+
+        var count = 0;
+        for (var level = 1; level <= depth; level++)
+            if (rates[Math.Min(level, MaxLevel)] > 0) count++;
+        return count;
     }
 
     // The delve depth we credit a run with: the stated assumption, raised when a claimed unique

@@ -47,15 +47,14 @@ public sealed class DoomDepthModelTests
     {
         var doom = new DoomLootStrategy();
 
-        // Every run at delve 2: cloth can only roll on level 2 at 1/2500, so P(run) = 1/2500.
-        // The result is denominated in DELVES, and a depth-2 run is 2 delves, so 2500 runs is
-        // 5000 delves — independent of how many runs were actually done.
+        // Every run at delve 2: cloth can only roll on level 2 at 1/2500, so P(run) = 1/2500 and the
+        // expectation is 2500 RUNS, independent of how many runs were actually done.
         foreach (var runCount in new[] { 1, 5, 50 })
         {
             var depths = Enumerable.Repeat(2, runCount).ToList();
             var expected = doom.ExpectedCompletionsForRuns(Cloth, depths);
             Assert.NotNull(expected);
-            Assert.Equal(5000, expected!.Value, 6);
+            Assert.Equal(2500, expected!.Value, 6);
         }
     }
 
@@ -93,8 +92,7 @@ public sealed class DoomDepthModelTests
     // chances (levels 2..9), not one. Expectation for a uniform depth-9 grind is therefore
     // 1 / P(at least one in a run), which is far better than the single level-9 rate of 1/540.
     private const double ClothDepth9ExpectedRuns = 111.4075330220773;
-    // ...and the delve-denominated figure the service returns: 9 delves per run.
-    private const double ClothDepth9ExpectedDelves = ClothDepth9ExpectedRuns * 9;
+
 
     [Fact]
     public void Depth_derived_rate_is_produced_even_with_no_stored_wiki_rate()
@@ -104,14 +102,15 @@ public sealed class DoomDepthModelTests
         var rate = Service().EffectiveRate(Doom, Cloth, numerator: null, denominator: null, rolls: 1, runDepths: [9, 9, 9]);
 
         Assert.NotNull(rate);
-        Assert.Equal(ClothDepth9ExpectedDelves, rate!.Value.ExpectedKc, 6);
-        Assert.Equal("1/1,003 delves", rate.Value.Rarity);
+        Assert.Equal(ClothDepth9ExpectedRuns, rate!.Value.ExpectedKc, 6);
+        // Headline rate is per ELIGIBLE ROLL — cloth rolls at levels 2..9, so 8 rolls per depth-9 run.
+        Assert.Equal("1/891", rate.Value.Rarity);
 
         // Sanity-check the model against the published per-level table rather than trusting the
         // constant: cloth rolls once per cleared level from 2 to 9, and the answer is in delves.
         int[] densByLevel = [2500, 2000, 1350, 810, 765, 720, 630, 540];
         var pNone = densByLevel.Aggregate(1.0, (acc, den) => acc * (1.0 - 1.0 / den));
-        Assert.Equal(9 * (1.0 / (1.0 - pNone)), rate.Value.ExpectedKc, 6);
+        Assert.Equal(1.0 / (1.0 - pNone), rate.Value.ExpectedKc, 6);
     }
 
     [Fact]
@@ -123,7 +122,7 @@ public sealed class DoomDepthModelTests
             .EffectiveRate(Doom, Cloth, null, null, 1, runDepths: [9, 9, 9]);
 
         Assert.NotNull(doubled);
-        Assert.Equal(ClothDepth9ExpectedDelves * 2, doubled!.Value.ExpectedKc, 6);
+        Assert.Equal(ClothDepth9ExpectedRuns * 2, doubled!.Value.ExpectedKc, 6);
     }
 
     [Fact]

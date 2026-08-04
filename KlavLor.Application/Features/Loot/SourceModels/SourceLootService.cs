@@ -85,15 +85,20 @@ public sealed class SourceLootService
     {
         var expected = ExpectedCompletions(sourceName, itemName, numerator ?? 1, denominator ?? 0, rolls, runDepths);
         if (expected is <= 0 or >= double.MaxValue || double.IsNaN(expected)) return null;
-        // Name the unit for depth-modelled sources. Doom's figure is expected DELVES, and it can sit
-        // well outside the wiki's per-level band (1/1,350 down to 1/540 for Avernic treads) because
-        // the average is taken over every delve including the shallow levels where the item cannot
-        // roll at all. A bare "1/2,269" printed beside a wiki rate of 1/1,350 reads as a bug; saying
-        // "delves" makes it a different, correct statistic rather than a mysterious one.
-        var label = HasDepthModel(sourceName)
-            ? $"1/{Math.Round(expected):N0} delves"
-            : $"1/{Math.Round(expected):N0}";
-        return (expected, label);
+        // Depth-modelled sources get the per-ELIGIBLE-ROLL rate as the headline, because that is the
+        // figure comparable to the wiki's per-level band: at depth 8, Avernic treads is 1/801, inside
+        // the wiki's 1/1,350-to-1/540 range. Dividing by every delve instead gave 1/1,281 — outside
+        // the band and reading like a bug. ExpectedKc stays in RUNS, which is what the observed side
+        // counts, so the luck ratio is unaffected either way.
+        if (runDepths is { Count: > 0 } && itemName is not null
+            && Resolve(sourceName) is DoomLootStrategy doom
+            && doom.RatePerEligibleRoll(itemName, runDepths) is { } perRoll && perRoll > 0)
+        {
+            var scaled = perRoll * _modifiers.GetMultiplier(sourceName, itemName);
+            return (expected, $"1/{Math.Round(scaled):N0}");
+        }
+
+        return (expected, $"1/{Math.Round(expected):N0}");
     }
 
     // Turns the raw run list the repository returns into the depth profile the luck maths needs.
