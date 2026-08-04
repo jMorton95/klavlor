@@ -35,10 +35,16 @@ public sealed class LuckLeaderboardRefreshService(
     // items keep MinMultiple — a drop that came in slightly late isn't worth a board slot.
     private const double MinMissingMultiple = 1.0;
 
-    // Rare "special curse" items (1/2000 or rarer): once a player has done at least the item's
+    // Rare "special curse" items (1/1000 or rarer): once a player has done at least the item's
     // own drop rate in kills, it's ranked by that rarity — denominator/1000 — so a 1/5000 grind
     // reads as 5x and a 1/3000 as 3x, never below the genuine dryness.
-    private const int RareGrindDenominator = 2000;
+    //
+    // Lowered from 2000 so the concept covers the 1/1000-to-1/2000 band too. Note this only
+    // changes which items are *eligible* for the rarity floor: at 1/1000 the floor works out at
+    // 0.99 and at 1/1500 at 1.49, both under the 2x board bar, so in that band the genuine
+    // multiple still decides. Making a mild streak on a rare item outrank a bigger streak on a
+    // common one is a scoring change, not a threshold change.
+    private const int RareGrindDenominator = 1000;
 
     // Bottom end: items more common than 1/100 that are also low value aren't interesting.
     private const int CommonDenominator = 100;
