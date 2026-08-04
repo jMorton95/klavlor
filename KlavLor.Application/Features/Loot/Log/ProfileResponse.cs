@@ -168,17 +168,23 @@ public sealed record SourceCollection(
 }
 
 /// <summary>
-/// Monthly kill activity for one character at one source — drives the character source
-/// page's kill-history charts (monthly bars + cumulative line). Months with no kills are
-/// not included; the panel densifies the timeline itself.
+/// Weekly kill activity for one character at one source — drives the character source page's
+/// kill-history chart (per-week bars + cumulative line). Weekly rather than monthly because a
+/// steady grind of ~1k kills a day is twelve near-identical monthly bars but a readable weekly
+/// shape. Weeks with no kills are not included; the panel densifies the timeline itself.
+///
+/// Deliberately unwindowed: every week the character has ever logged is returned, because the
+/// cumulative line has to start from the true lifetime total even when the panel is only
+/// showing the last quarter. Windowing is a display concern the panel applies after summing.
+/// One row per active week keeps that cheap regardless of how far back the log goes.
 /// </summary>
 public sealed record SourceKillTrend(
     string SourceName,
-    IReadOnlyList<SourceKillTrendMonth> Months);
+    IReadOnlyList<SourceKillTrendWeek> Weeks);
 
-public sealed record SourceKillTrendMonth(
-    int Year,
-    int Month,
+/// <summary>One ISO week (Monday-anchored, Europe/London) of kills at a source.</summary>
+public sealed record SourceKillTrendWeek(
+    DateOnly WeekStart,
     int Kills,
     long Value);
 

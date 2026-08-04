@@ -1,6 +1,14 @@
-@* Single-series line/area chart with per-point hover tooltips. X positions are percent-of-width
-   inside a preserveAspectRatio="none" SVG (strokes stay 2px via non-scaling-stroke); Y positions
-   are CSS pixels so the HTML hover dots line up with the SVG line exactly. *@
+@* Line/area chart with per-point hover tooltips and an optional second series. X positions are
+   percent-of-width inside a preserveAspectRatio="none" SVG (strokes stay 2px via non-scaling-stroke);
+   Y positions are CSS pixels so the HTML hover dots line up with the SVG line exactly.
+
+   The second series can share the primary's axis or take its own (SecondaryOwnAxis). Its own axis
+   exists because the two series routinely differ by orders of magnitude: a cumulative kill count
+   climbs without bound while the per-period count stays flat, so on one shared axis the cumulative
+   line sets the peak and every per-period value is crushed into the bottom pixel or two of the
+   plot. Given its own scale — drawn as bars, which read more clearly than a line at that density —
+   each period's height is comparable against its neighbours again, which is the whole point of the
+   series. The right-hand axis is labelled so the two scales can't be confused. *@
 @{
     var count = Points.Count;
     const int valueLabelSpacePx = 14;
@@ -8,44 +16,61 @@
     const int tickCount = 5;
     var inv = System.Globalization.CultureInfo.InvariantCulture;
 
-    long peak = 0;
     var hasSecondary = false;
+    long primaryPeak = 0;
+    long secondaryPeak = 0;
     foreach (var p in Points)
     {
-        if (p.Value > peak) peak = p.Value;
+        if (p.Value > primaryPeak) primaryPeak = p.Value;
         if (p.SecondaryValue is { } sv)
         {
             hasSecondary = true;
-            if (sv > peak) peak = sv;
+            if (sv > secondaryPeak) secondaryPeak = sv;
         }
     }
-    if (peak <= 0) peak = 1;
+
+    // Shared axis: one peak covering both series. Split axes: each keeps its own.
+    var splitAxis = hasSecondary && SecondaryOwnAxis;
+    if (!splitAxis && secondaryPeak > primaryPeak) primaryPeak = secondaryPeak;
+    if (primaryPeak <= 0) primaryPeak = 1;
+    if (secondaryPeak <= 0) secondaryPeak = 1;
 
     var yTicks = new long[tickCount];
+    var yTicks2 = new long[tickCount];
     for (var i = 0; i < tickCount; i++)
     {
-        yTicks[i] = peak - peak * i / (tickCount - 1);
+        yTicks[i] = primaryPeak - primaryPeak * i / (tickCount - 1);
+        yTicks2[i] = secondaryPeak - secondaryPeak * i / (tickCount - 1);
     }
 
     string Format(long v) => (FormatValue ?? (n => n.ToString("N0")))(v);
+    string FormatSecondary(long v) => (FormatSecondaryValue ?? FormatValue ?? (n => n.ToString("N0")))(v);
 
-    double YPx(long v) => valueLabelSpacePx + (1.0 - (double)v / peak) * plotHeightPx;
+    double YPx(long v) => valueLabelSpacePx + (1.0 - (double)v / primaryPeak) * plotHeightPx;
+    double SecondaryPx(long v) => (double)v / (splitAxis ? secondaryPeak : primaryPeak) * plotHeightPx;
     double XPct(int i) => count <= 1 ? 50.0 : (i + 0.5) / count * 100.0;
 
     var line = new System.Text.StringBuilder();
     var secondaryLine = new System.Text.StringBuilder();
+    var drawSecondaryLine = hasSecondary && !SecondaryAsBars;
     for (var i = 0; i < count; i++)
     {
         if (i > 0) line.Append(' ');
         line.Append(XPct(i).ToString("0.###", inv)).Append(',').Append(YPx(Points[i].Value).ToString("0.##", inv));
-        if (hasSecondary)
+        if (drawSecondaryLine)
         {
             if (i > 0) secondaryLine.Append(' ');
-            secondaryLine.Append(XPct(i).ToString("0.###", inv)).Append(',').Append(YPx(Points[i].SecondaryValue ?? 0).ToString("0.##", inv));
+            var sy = valueLabelSpacePx + plotHeightPx - SecondaryPx(Points[i].SecondaryValue ?? 0);
+            secondaryLine.Append(XPct(i).ToString("0.###", inv)).Append(',').Append(sy.ToString("0.##", inv));
         }
     }
     var baseline = (valueLabelSpacePx + plotHeightPx).ToString(inv);
     var area = $"{XPct(0).ToString("0.###", inv)},{baseline} {line} {XPct(count - 1).ToString("0.###", inv)},{baseline}";
+
+    // Printing a number over every bar only works while they're far enough apart to not collide,
+    // so it's gated on the point count. Past that the right-hand axis and the hover tooltip carry
+    // the exact figures instead — better than a row of overlapping digits.
+    var showSecondaryLabels = ShowSecondaryLabels && hasSecondary && count > 0 && count <= MaxLabelledPoints;
 
     // Same viewport-aware anchoring as HistogramBars: edge columns open inward.
     static string TooltipAnchor(int index, int total)
@@ -79,12 +104,38 @@
                      style="top: @(pos)px;"></div>
             }
 
+            @* Bars for the secondary series sit behind the line so the cumulative curve stays
+               readable across them. One column per point, matching the hover layer's geometry. *@
+            @if (hasSecondary && SecondaryAsBars)
+            {
+                <div class="absolute inset-0 flex items-end pointer-events-none"
+                     style="padding-bottom: 0;">
+                    @for (var i = 0; i < count; i++)
+                    {
+                        var sv = Points[i].SecondaryValue ?? 0;
+                        var h = SecondaryPx(sv);
+                        @* px-0.5 so consecutive weeks read as separate bars; without a gap a run of
+                           similar weeks merged into one solid block. *@
+                        <div class="flex-1 flex flex-col justify-end items-center h-full px-0.5">
+                            @if (showSecondaryLabels && sv > 0)
+                            {
+                                <span class="text-[9px] font-medium leading-none tabular-nums text-emerald-700 dark:text-emerald-300 mb-0.5 whitespace-nowrap">
+                                    @FormatSecondary(sv)
+                                </span>
+                            }
+                            <div class="w-full rounded-t bg-emerald-500/70 dark:bg-emerald-400/60"
+                                 style="height: @(Math.Max(sv > 0 ? 2 : 0, h).ToString("0.##", inv))px;"></div>
+                        </div>
+                    }
+                </div>
+            }
+
             <svg class="absolute inset-0 w-full h-full text-amber-500 dark:text-amber-400 pointer-events-none"
                  viewBox="0 0 100 @ChartHeightPx" preserveAspectRatio="none" aria-hidden="true">
                 <polygon points="@area" fill="currentColor" opacity="0.12" />
                 <polyline points="@(line.ToString())" fill="none" stroke="currentColor" stroke-width="2"
                           vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round" />
-                @if (hasSecondary)
+                @if (drawSecondaryLine)
                 {
                     <polyline class="text-emerald-500 dark:text-emerald-400" points="@(secondaryLine.ToString())"
                               fill="none" stroke="currentColor" stroke-width="2"
@@ -92,7 +143,7 @@
                 }
             </svg>
 
-            @* Hover layer: one full-height column per point with a guide line, permanent per-month
+            @* Hover layer: one full-height column per point with a guide line, permanent per-period
                data-point dots (HTML so the stretched SVG doesn't distort them), and the tooltip. *@
             <div class="absolute inset-0 flex">
                 @for (var i = 0; i < count; i++)
@@ -104,10 +155,11 @@
                         <div class="hidden group-hover:block absolute inset-y-0 left-1/2 w-px bg-slate-400/40 dark:bg-slate-500/40 pointer-events-none"></div>
                         <div class="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400 pointer-events-none"
                              style="top: @(y.ToString("0.##", inv))px;"></div>
-                        @if (p.SecondaryValue is { } sv)
+                        @if (p.SecondaryValue is { } sv && !SecondaryAsBars)
                         {
+                            var sy = valueLabelSpacePx + plotHeightPx - SecondaryPx(sv);
                             <div class="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 pointer-events-none"
-                                 style="top: @(YPx(sv).ToString("0.##", inv))px;"></div>
+                                 style="top: @(sy.ToString("0.##", inv))px;"></div>
                         }
                         <div class="hidden group-hover:block absolute left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-amber-500 dark:bg-amber-400 ring-2 ring-slate-50 dark:ring-slate-900 pointer-events-none"
                              style="top: @(y.ToString("0.##", inv))px;"></div>
@@ -143,19 +195,33 @@
                 {
                     <span class="inline-flex items-center gap-1.5">
                         <span class="inline-block w-2.5 h-2.5 rounded-sm bg-amber-500 dark:bg-amber-400"></span>
-                        <span class="text-slate-600 dark:text-slate-300">@PrimaryName</span>
+                        <span class="text-slate-600 dark:text-slate-300">@PrimaryName@(splitAxis ? " (left axis)" : "")</span>
                     </span>
                 }
                 @if (!string.IsNullOrEmpty(SecondaryName))
                 {
                     <span class="inline-flex items-center gap-1.5">
                         <span class="inline-block w-2.5 h-2.5 rounded-sm bg-emerald-500 dark:bg-emerald-400"></span>
-                        <span class="text-slate-600 dark:text-slate-300">@SecondaryName</span>
+                        <span class="text-slate-600 dark:text-slate-300">@SecondaryName@(splitAxis ? " (right axis)" : "")</span>
                     </span>
                 }
             </div>
         }
     </div>
+
+    @if (splitAxis)
+    {
+        <div class="shrink-0 relative text-[10px] text-emerald-700 dark:text-emerald-300 tabular-nums"
+             style="width: 3rem; height: @(ChartHeightPx)px;">
+            @for (var i = 0; i < tickCount; i++)
+            {
+                var pos = valueLabelSpacePx + plotHeightPx * i / (tickCount - 1);
+                <div class="absolute left-0 -translate-y-1/2 whitespace-nowrap" style="top: @(pos)px;">
+                    @(yTicks2[i] == 0 ? "0" : FormatSecondary(yTicks2[i]))
+                </div>
+            }
+        </div>
+    }
 </div>
 
 @code {
@@ -175,4 +241,22 @@
     // Legend names when a secondary series is present (two series always get a legend).
     [Parameter] public string? PrimaryName { get; set; }
     [Parameter] public string? SecondaryName { get; set; }
+
+    /// Draw the secondary series as bars rather than a line. Bars beat a line when the series is
+    /// a per-period count: neighbouring heights are directly comparable, and a zero period reads
+    /// as an absent bar rather than a dip to the floor that looks like part of a trend.
+    [Parameter] public bool SecondaryAsBars { get; set; }
+
+    /// Scale the secondary series to its own peak and label a right-hand axis for it, instead of
+    /// sharing the primary's axis.
+    [Parameter] public bool SecondaryOwnAxis { get; set; }
+
+    /// Print each point's secondary value above its bar. Silently skipped once there are more
+    /// than MaxLabelledPoints points, where the numbers would overlap.
+    [Parameter] public bool ShowSecondaryLabels { get; set; }
+
+    /// Separate formatter for the secondary axis/labels; falls back to FormatValue.
+    [Parameter] public Func<long, string>? FormatSecondaryValue { get; set; }
+
+    private const int MaxLabelledPoints = 32;
 }

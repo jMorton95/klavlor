@@ -4,72 +4,154 @@
 @using KlavLor.Web.Application.Features.Loot.Log.Profile.Svg
 
 @* Kill history for one character at one source: a cumulative kill line (long-term progression)
-   with a per-month kills series overlaid (short-term burstiness / grind density — flat stretches
-   are months the character didn't touch the source). Loaded via its own HTMX request. *@
-@if (_cumulative.Count >= 2 && _total > 0)
+   with per-week kill bars overlaid (short-term grind density — gaps are weeks the character didn't
+   touch the source). Loaded via its own HTMX request.
+
+   Weekly, not monthly: a steady 1k-a-day grind produces twelve indistinguishable monthly bars,
+   where weekly buckets show which weeks were actually played. The two series get separate axes
+   because they diverge without limit — a year of that grind puts the cumulative line near 400k
+   while a week is ~7k, and on one shared axis every weekly bar would be a couple of pixels tall.
+   Each week's bar also prints its own count when the range is short enough for the numbers to fit. *@
+@if (_points.Count >= 2 && _lifetimeTotal > 0)
 {
     <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
-        <div class="flex items-baseline justify-between gap-2 mb-4">
-            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Kill history</h2>
-            <span class="text-xs text-slate-400 dark:text-white">all time at this source</span>
+        <div class="flex items-start justify-between gap-2 mb-4 flex-wrap">
+            <div>
+                <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Kill history</h2>
+                <p class="text-xs text-slate-500 dark:text-white mt-0.5">
+                    @_lifetimeTotal.ToString("N0") logged kills all time · @_windowTotal.ToString("N0") in this window
+                    @if (_activeWeeks > 0)
+                    {
+                        <span> · @_perActiveWeek.ToString("N0") per active week</span>
+                    }
+                </p>
+            </div>
+            <div class="inline-flex rounded-md border border-slate-200 dark:border-slate-700 overflow-hidden text-[11px]">
+                @foreach (var (value, label) in Ranges)
+                {
+                    <button type="button"
+                            hx-get="@GetUrl(value)"
+                            hx-target="closest div.bg-slate-50"
+                            hx-swap="outerHTML"
+                            class="px-2 py-1 @(NormalisedRange == value ? "bg-amber-500 text-white" : "bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300")">
+                        @label
+                    </button>
+                }
+            </div>
         </div>
 
-        <TrendLineChart Points="@_cumulative" FormatValue="@FormatCount" ChartHeightPx="180"
-                        PrimaryName="Cumulative kills" SecondaryName="Kills that month" />
+        <TrendLineChart Points="@_points"
+                        FormatValue="@FormatCount"
+                        FormatSecondaryValue="@FormatCount"
+                        ChartHeightPx="220"
+                        PrimaryName="Cumulative kills"
+                        SecondaryName="Kills that week"
+                        SecondaryAsBars="true"
+                        SecondaryOwnAxis="true"
+                        ShowSecondaryLabels="true" />
 
-        <p class="text-xs text-slate-400 dark:text-white mt-3">
-            @_total.ToString("N0") logged kills over @_cumulative.Count months — the line tracks cumulative progress; the per-month series shows how bursty the grind is (flat stretches are idle months).
+        <p class="text-xs text-slate-500 dark:text-white mt-3">
+            The line is cumulative progress at this source and keeps its lifetime total even when the window starts later; the bars are that week's kills on their own scale, so a quiet week is still visibly different from a heavy one.
         </p>
     </div>
 }
 
 @code {
     [Parameter] public required SourceKillTrend Trend { get; set; }
+    [Parameter] public int CharacterId { get; set; }
+    [Parameter] public string? Range { get; set; }
 
-    private List<TrendLineChart.Point> _cumulative = [];
-    private long _total;
+    // 13 weeks is the default because it's the widest window where every bar can still carry its
+    // own printed number — the "how many am I doing per week" question the panel exists to answer.
+    // The longer ranges trade those labels for the shape of the cumulative climb.
+    private const string DefaultRange = "13w";
+
+    private static readonly (string Value, string Label)[] Ranges =
+    {
+        ("13w", "13 weeks"),
+        ("52w", "52 weeks"),
+        ("all", "All time")
+    };
+
+    private string NormalisedRange => Ranges.Any(r => r.Value == Range) ? Range! : DefaultRange;
+
+    private int? WindowWeeks => NormalisedRange switch
+    {
+        "13w" => 13,
+        "52w" => 52,
+        _ => null
+    };
+
+    private List<TrendLineChart.Point> _points = [];
+    private long _lifetimeTotal;
+    private long _windowTotal;
+    private int _activeWeeks;
+    private long _perActiveWeek;
 
     protected override void OnParametersSet()
     {
-        _cumulative = [];
-        _total = Trend.Months.Sum(m => (long)m.Kills);
-        if (Trend.Months.Count == 0 || _total == 0) return;
+        _points = [];
+        _lifetimeTotal = Trend.Weeks.Sum(w => (long)w.Kills);
+        _windowTotal = 0;
+        _activeWeeks = 0;
+        _perActiveWeek = 0;
+        if (Trend.Weeks.Count == 0 || _lifetimeTotal == 0) return;
 
-        // Densify: idle months render as flat line segments rather than being skipped.
-        var byMonth = Trend.Months.ToDictionary(m => (m.Year, m.Month));
-        var first = new DateOnly(Trend.Months[0].Year, Trend.Months[0].Month, 1);
-        var last = new DateOnly(Trend.Months[^1].Year, Trend.Months[^1].Month, 1);
-        var totalMonths = (last.Year - first.Year) * 12 + (last.Month - first.Month) + 1;
+        // Densify from the first logged week through the current one, so idle weeks are visible
+        // gaps rather than being skipped (which would silently compress a break into nothing).
+        var byWeek = Trend.Weeks.ToDictionary(w => w.WeekStart);
+        var first = Trend.Weeks[0].WeekStart;
+        var last = MondayOf(DateOnly.FromDateTime(IngestTimezone.ToZoneTime(DateTimeOffset.UtcNow).DateTime));
+        if (last < Trend.Weeks[^1].WeekStart) last = Trend.Weeks[^1].WeekStart;
 
+        // Walk every week accumulating the running total, then keep only the window's tail. The
+        // running total is carried across the cut, so a 13-week view still opens at the true
+        // lifetime figure instead of restarting from zero.
+        var all = new List<(DateOnly Week, int Kills, long Value, long Running)>();
         long running = 0;
-        int? lastYearLabelled = null;
-        var index = 0;
-        for (var cursor = first; cursor <= last; cursor = cursor.AddMonths(1))
+        for (var cursor = first; cursor <= last; cursor = cursor.AddDays(7))
         {
-            byMonth.TryGetValue((cursor.Year, cursor.Month), out var m);
-            var kills = m?.Kills ?? 0;
-            var value = m?.Value ?? 0;
-            running += kills;
+            byWeek.TryGetValue(cursor, out var w);
+            running += w?.Kills ?? 0;
+            all.Add((cursor, w?.Kills ?? 0, w?.Value ?? 0, running));
+        }
 
-            var monthShort = CultureInfo.InvariantCulture.DateTimeFormat.GetAbbreviatedMonthName(cursor.Month);
-            // With many months, label only the first point and year boundaries to avoid collisions.
-            var atYearMark = index == 0 || lastYearLabelled != cursor.Year;
-            var label = atYearMark
-                ? $"{monthShort} '{(cursor.Year % 100):D2}"
-                : totalMonths <= 14 ? monthShort : "";
-            lastYearLabelled = cursor.Year;
+        var window = WindowWeeks is { } n && all.Count > n
+            ? all.GetRange(all.Count - n, n)
+            : all;
 
-            _cumulative.Add(new TrendLineChart.Point(
+        _windowTotal = window.Sum(w => (long)w.Kills);
+        _activeWeeks = window.Count(w => w.Kills > 0);
+        _perActiveWeek = _activeWeeks > 0 ? _windowTotal / _activeWeeks : 0;
+
+        // Label density: every week when the window is short, otherwise monthly-ish marks, so the
+        // axis never becomes a smear of overlapping dates.
+        var labelEvery = window.Count <= 16 ? 1 : window.Count <= 40 ? 2 : 4;
+
+        for (var i = 0; i < window.Count; i++)
+        {
+            var (week, kills, value, cumulative) = window[i];
+            var monthShort = CultureInfo.InvariantCulture.DateTimeFormat.GetAbbreviatedMonthName(week.Month);
+            // Anchor the labelling on the newest week so the right-hand edge is always dated.
+            var fromEnd = window.Count - 1 - i;
+            var label = fromEnd % labelEvery == 0 ? $"{week.Day} {monthShort}" : "";
+
+            _points.Add(new TrendLineChart.Point(
                 Label: label,
-                Value: running,
-                Title: $"{monthShort} {cursor.Year}",
-                ValueText: $"{running:N0} total kills",
-                Detail: kills > 0 ? $"{GoldFormat.Format(value)} gp that month" : null,
+                Value: cumulative,
+                Title: $"Week of {week.Day} {monthShort} {week.Year}",
+                ValueText: $"{cumulative:N0} total kills",
+                Detail: kills > 0 ? $"{GoldFormat.Format(value)} gp that week" : null,
                 SecondaryValue: kills,
-                SecondaryText: kills > 0 ? $"+{kills:N0} kills that month" : "no kills that month"));
-            index++;
+                SecondaryText: kills > 0 ? $"+{kills:N0} kills that week" : "no kills that week"));
         }
     }
 
+    private static DateOnly MondayOf(DateOnly d) => d.AddDays(-(((int)d.DayOfWeek + 6) % 7));
+
     private static string FormatCount(long n) => n >= 1000 ? $"{n / 1000.0:0.#}k" : n.ToString("N0");
+
+    private string GetUrl(string range) =>
+        AppRoutes.LootLogSourceKillTrend.WithId(CharacterId).FromApi()
+        + $"?name={Uri.EscapeDataString(Trend.SourceName)}&range={range}";
 }

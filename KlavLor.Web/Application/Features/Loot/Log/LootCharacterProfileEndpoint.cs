@@ -225,13 +225,18 @@ public sealed class LootCharacterProfileEndpoint : IEndpoint
     private static async Task<IResult> GetSourceKillTrend(
         int id,
         [FromQuery] string name,
+        [FromQuery] string? range,
         LootCharacterProfileHandler handler)
     {
         var result = await handler.HandleSourceKillTrend(id, name);
         if (!result.IsSuccess) return Results.NotFound();
+        // The handler always returns every week; `range` only decides how much of that tail the
+        // panel draws, so switching range re-renders from the same cached result with no new query.
         return IResultExtensions.Component<SourceKillHistoryPanel>(new
         {
-            Trend = result.Value
+            Trend = result.Value,
+            CharacterId = id,
+            Range = range
         });
     }
 
