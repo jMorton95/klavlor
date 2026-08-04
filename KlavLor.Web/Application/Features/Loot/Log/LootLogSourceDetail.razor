@@ -36,7 +36,7 @@
                     </h2>
                     <div class="flex items-center gap-4 mt-1 text-sm text-slate-500 dark:text-white">
                         <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium @GetSourceTypeBadgeClasses()">@Detail.SourceType</span>
-                        <span>@Detail.TotalKills.ToString("N0") @(Detail.SourceType == LootSourceType.Event ? "rolls" : "kills")</span>
+                        <span>@Detail.TotalKills.ToString("N0") rolls</span>
                         <span class="font-medium text-amber-600 dark:text-amber-400">@GoldFormat.Format(Detail.TotalValue) gp total</span>
                     </div>
                 </div>
@@ -44,18 +44,23 @@
 
             @if (Detail.AllDrops.Count > 0)
             {
-                @* Two tiers of presentation. An item whose biggest SINGLE receipt reached a feed
-                   swimlane (Uncommon and up) gets a larger card wearing that lane's colours, so the
-                   page reads like the live feed; everything else collapses into a dense chip grid.
+                @* Two tiers of presentation. An item whose biggest SINGLE receipt reached the Rare
+                   swimlane or above is pulled to the front wearing that lane's colours; everything
+                   else follows in the dense chip grid.
                    Classification uses BestDropValue, never the running total — 500 cheap drops
                    summing to millions is not a legendary. Thresholds come from ILootFeedService so
-                   the two surfaces can never drift apart. *@
+                   the two surfaces can never drift apart.
+
+                   Rare and above only, and only marginally larger than a plain chip. Including
+                   Uncommon promoted almost everything on a well-farmed boss, and the old cards were
+                   roughly four times a chip's area, so the "special" treatment dominated the page
+                   rather than drawing the eye to the few genuinely notable drops. *@
                 var tiered = Detail.AllDrops
-                    .Where(d => ILootFeedService.GetDropTier(d.BestDropValue) is not null and not LootFeedTier.Standard)
+                    .Where(d => ILootFeedService.GetDropTier(d.BestDropValue) is LootFeedTier.Rare or LootFeedTier.Epic or LootFeedTier.Legendary)
                     .OrderByDescending(d => d.BestDropValue)
                     .ToList();
                 var plain = Detail.AllDrops
-                    .Where(d => ILootFeedService.GetDropTier(d.BestDropValue) is null or LootFeedTier.Standard)
+                    .Where(d => ILootFeedService.GetDropTier(d.BestDropValue) is null or LootFeedTier.Standard or LootFeedTier.Uncommon)
                     .OrderByDescending(d => d.TotalValue)
                     .ToList();
 
@@ -66,27 +71,26 @@
 
                 @if (tiered.Count > 0)
                 {
-                    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-2 mb-3">
+                    @* Same single-row chip shape and grid density as the plain drops below, so the
+                       only difference is the tier's border and a slightly heavier name. No tier
+                       word: the border colour already says which lane the item can headline, and
+                       the biggest single drop stays on hover. *@
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-1 mb-2">
                         @foreach (var drop in tiered)
                         {
                             var tier = ILootFeedService.GetDropTier(drop.BestDropValue)!.Value;
-                            <div class="rounded-lg shadow-sm border p-2 bg-slate-50 dark:bg-slate-900 @TierCardClasses(tier)">
-                                <div class="flex items-center gap-1.5 min-w-0">
-                                    <img src="/api/images/item-icon?name=@Uri.EscapeDataString(drop.Name)" alt="@drop.Name"
-                                         class="w-5 h-5 shrink-0 object-contain" loading="lazy" onerror="this.style.display='none'" />
-                                    <span class="text-xs font-medium text-slate-800 dark:text-slate-100 truncate">@drop.Name</span>
+                            <div class="flex items-center justify-between gap-1 text-[11px] rounded px-1.5 py-0.5 border @TierCardClasses(tier)"
+                                 title="@($"{drop.Name} — ×{drop.TotalQuantity:N0} for {GoldFormat.Format(drop.TotalValue)}. Biggest single drop: {GoldFormat.Format(drop.BestDropValue)}")">
+                                <span class="text-slate-800 dark:text-slate-100 truncate inline-flex items-center gap-1 min-w-0">
+                                    <img src="/api/images/item-icon?name=@Uri.EscapeDataString(drop.Name)" alt=""
+                                         class="w-4 h-4 shrink-0 object-contain" loading="lazy" onerror="this.style.display='none'" />
+                                    <span class="truncate font-medium">@drop.Name</span>
                                     @if (drop.TotalQuantity > 1)
                                     {
-                                        <span class="text-[10px] text-slate-500 dark:text-white shrink-0">×@drop.TotalQuantity.ToString("N0")</span>
+                                        <span class="text-slate-500 dark:text-white shrink-0">×@drop.TotalQuantity.ToString("N0")</span>
                                     }
-                                </div>
-                                @* No tier word: the border colour already says which lane this
-                                   item can headline, and spelling it out just adds noise. The
-                                   biggest single drop stays available on hover. *@
-                                <div class="flex items-center justify-end gap-2 mt-1"
-                                     title="@($"Biggest single drop: {GoldFormat.Format(drop.BestDropValue)}")">
-                                    <span class="text-xs font-medium text-amber-600 dark:text-amber-400 whitespace-nowrap">@GoldFormat.Format(drop.TotalValue)</span>
-                                </div>
+                                </span>
+                                <span class="text-amber-600 dark:text-amber-400 font-medium whitespace-nowrap">@GoldFormat.Format(drop.TotalValue)</span>
                             </div>
                         }
                     </div>
@@ -144,7 +148,7 @@
         }
         else if (Sessions is not null && Sessions.Sessions.Count > 0)
         {
-            @* Kill Sessions view — consecutive kills grouped into play sessions (same 16h gap
+            @* Roll Sessions view — consecutive rolls grouped into play sessions (same 16h gap
                rule as the live feed). Tabs live inside #source-tab-content so swap-on-click
                brings the active-state styling along with the content. *@
             <div id="source-tab-content">
@@ -164,7 +168,7 @@
                             hx-swap="outerHTML"
                             onclick="history.replaceState(history.state, '', '@GetKillPageUrl()')"
                             class="px-3 py-2 text-sm font-medium border-b-2 border-amber-500 text-amber-600 dark:text-amber-400">
-                        Kill Sessions
+                        Roll Sessions
                     </button>
                 </div>
                 <div id="session-list" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 items-start">
