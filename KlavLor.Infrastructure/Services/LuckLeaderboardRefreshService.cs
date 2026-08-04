@@ -26,13 +26,19 @@ public sealed class LuckLeaderboardRefreshService(
     private static readonly TimeSpan RunInterval = TimeSpan.FromHours(1);
     private static readonly TimeSpan PollInterval = TimeSpan.FromMinutes(1);
 
-    // Must be at least this many multiples off the expected kill count to make a board.
-    private const double MinMultiple = 2.0;
+    // Must be at least this many multiples off the expected roll count to make a board.
+    //
+    // 1.75 rather than 2.0. Once the Doom delve/run scale error was fixed, genuine streaks landed
+    // just under the old bar — an Eye of ayak at ~1.8x expected is 130-odd runs of waiting past the
+    // rate, which is a real streak, not a drop that arrived slightly late. The band this opens up is
+    // narrow (1.75 to 2.0), the bottom-end rarity filter still keeps cheap commons out, and GetBoard
+    // orders by tier so if the 200-row cap bites it trims these mildest entries first.
+    private const double MinMultiple = 1.75;
 
-    // Items the player has NOT obtained yet get a lower bar: they join the dry board the moment
-    // they pass the expected kill count once. A 1/100 item still missing at 101 kills is a real
-    // (if mild) dry streak and shows as 1x dry, rather than staying invisible until 2x. Obtained
-    // items keep MinMultiple — a drop that came in slightly late isn't worth a board slot.
+    // Items the player has NOT obtained yet get a lower bar still: they join the dry board the
+    // moment they pass the expected roll count once. A 1/100 item still missing at 101 rolls is a
+    // real (if mild) dry streak and shows as 1x dry, rather than staying invisible. Obtained items
+    // keep MinMultiple — a drop that came in only fractionally late isn't worth a board slot.
     private const double MinMissingMultiple = 1.0;
 
     // Rare "special curse" items (1/1000 or rarer): once a player has done at least the item's

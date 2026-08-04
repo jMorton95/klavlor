@@ -3,13 +3,30 @@ using KlavLor.Infrastructure.Services;
 namespace KlavLor.IntegrationTests;
 
 // The dry board used to hide every not-yet-obtained item until the player was 2x past its expected
-// kill count, so a mild but real streak was invisible. Items still being chased now join as soon as
-// the player has put in enough kills to have expected the drop once. Items already obtained keep
-// the 2x bar — a drop that came in slightly late isn't worth a board slot.
+// roll count, so a mild but real streak was invisible. Items still being chased now join as soon as
+// the player has put in enough rolls to have expected the drop once. Items already obtained need
+// 1.75x — a drop that came in only fractionally late isn't worth a board slot.
+//
+// These mirror the service's own private constants deliberately: passing the threshold in keeps the
+// rule under test independent of the numbers, and the numbers themselves are asserted below.
 public sealed class DryStreakEntryRulesTests
 {
-    private const double MinObtained = 2.0;
+    private const double MinObtained = 1.75;
     private const double MinMissing = 1.0;
+
+    [Fact]
+    public void An_obtained_item_just_under_two_times_still_makes_the_board()
+    {
+        // The case that went missing when the Doom delve/run scale error was fixed: correcting the
+        // maths dropped a real streak from ~15.8x to ~1.8x, which the old 2.0 bar then excluded.
+        // 148 expected, 267 actual = 1.8x — 119 rolls of waiting past the rate.
+        Assert.NotNull(LuckLeaderboardRefreshService.DryMultiple(
+            observed: 267, expected: 148, rarityDenominator: 0, MinObtained));
+
+        // Still excludes a drop that was only fractionally late.
+        Assert.Null(LuckLeaderboardRefreshService.DryMultiple(
+            observed: 160, expected: 148, rarityDenominator: 0, MinObtained));
+    }
 
     [Fact]
     public void A_missing_one_in_hundred_item_shows_at_one_times_dry_just_past_the_rate()
