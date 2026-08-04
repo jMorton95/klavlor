@@ -331,9 +331,10 @@
         if (drop.ExpectedKc is not > 0 || string.IsNullOrEmpty(drop.EffectiveRarity)) return null;
 
         var expected = drop.ExpectedKc.Value;
-        // Prefer the pre-converted figure: for a depth-modelled source the rate is per delve, so a
-        // run count here would overstate the luck by the depth factor.
-        var observed = Entry.LuckObserved ?? Entry.MaxKillCount ?? Entry.MaxKillOrdinal;
+        // Runs, for every source including depth-modelled ones: ExpectedKc is expected RUNS (see
+        // SourceLootService.EffectiveRate), so the two sides are already on the same scale and any
+        // conversion here would skew the ratio. The character page compares the same pair.
+        var observed = Entry.MaxKillCount ?? Entry.MaxKillOrdinal;
         var title = $"Effective rate {drop.EffectiveRarity} (~{Math.Round(expected):N0} expected), "
                     + "after this source's loot model and any admin rate adjustment";
 
@@ -341,15 +342,7 @@
         if (observed is not > 0)
             return new DropLuck(drop.EffectiveRarity!, null, "", title);
 
-        // "144 delves · 1/1,830" — the unit is stated once, on the observed side, so the rate
-        // drops its own suffix rather than reading "delves ... delves".
-        var isDelves = Entry.LuckObserved is not null;
-        var rarity = isDelves
-            ? drop.EffectiveRarity!.Replace(" delves", "")
-            : drop.EffectiveRarity;
-        var text = isDelves
-            ? $"{observed.Value:N0} delves · {rarity}"
-            : $"KC {observed.Value:N0} · {rarity}";
+        var text = $"KC {observed.Value:N0} · {drop.EffectiveRarity}";
         var ratio = observed.Value / expected;
         var (verdict, verdictClass) = ratio switch
         {

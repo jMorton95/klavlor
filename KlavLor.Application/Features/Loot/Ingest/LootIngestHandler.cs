@@ -290,7 +290,14 @@ public sealed class LootIngestHandler(
         // per record. The depth passed in is THIS record's own derived depth, so a depth-modelled
         // source (Doom) is rated against the run that actually produced the drop.
         var rates = await dropRateRepository.GetRates(record.SourceName, drops.Select(d => d.Name).ToList());
-        var runDepths = record.EffectiveKills is > 0 ? new[] { record.EffectiveKills.Value } : null;
+
+        // Depth for a depth-modelled source, resolved through the one shared policy so this card
+        // agrees with the character page and the leaderboard — including the admin's per-character
+        // average, which this path used to ignore.
+        int? overrideDepth = character is not null && sourceLoot.HasDepthModel(record.SourceName)
+            ? await delveDepthRepository.GetAverageDepth(character.Id, record.SourceName)
+            : null;
+        var runDepths = sourceLoot.RunDepthsForClaim(record.SourceName, record.EffectiveKills, overrideDepth);
 
         var feedDrops = drops.Select(d =>
         {
@@ -329,16 +336,13 @@ public sealed class LootIngestHandler(
         // Route to the matching feed scope. Characters without IsLeagues set default to Main.
         var scope = character?.IsLeagues == true ? LootFeedScope.Leagues : LootFeedScope.Main;
 
-        // Depth-modelled sources are rated per delve, so convert the card's observed figure from
-        // runs to delves — otherwise the luck multiple is out by the whole depth factor.
-        int? luckObserved = null;
-        if (sourceLoot.HasDepthModel(record.SourceName) && character is not null)
-        {
-            var depth = await delveDepthRepository.GetAverageDepth(character.Id, record.SourceName)
-                        ?? DoomLootStrategy.AssumedAverageDepth;
-            var runs = bounds?.MaxKillCount ?? record.KillCount ?? ordinal;
-            if (runs is > 0) luckObserved = runs.Value * depth;
-        }
+        // No depth conversion on the observed side. A depth-modelled rate is expressed per RUN
+        // (DoomLootStrategy.ExpectedCompletionsForRuns returns expected runs, and the character page
+        // judges it against the plain run count), so multiplying the observed figure by the delve
+        // depth — as this used to — inflated every Doom card's dryness by the whole depth factor,
+        // and only on live cards: the backfill path never set it, so the same drop read differently
+        // before and after a refresh. The kill-count fallback in LootFeedItem is already the run
+        // count, which is the correct basis for both paths.
 
         foreach (var (tier, tierDrops) in dropsByTier)
         {
@@ -363,8 +367,7 @@ public sealed class LootIngestHandler(
                 MaxKillCount: bounds?.MaxKillCount ?? record.KillCount,
                 MinKillOrdinal: bounds?.FirstOrdinal ?? ordinal,
                 MaxKillOrdinal: ordinal,
-                Scope: scope,
-                LuckObserved: luckObserved));
+                Scope: scope));
         }
     }
 
