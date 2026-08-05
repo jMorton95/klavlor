@@ -66,6 +66,28 @@ public sealed class LuckScoreTests
     }
 
     [Fact]
+    public void QuotingADepthSourceInDelves_leavesTheDrynessAloneButRaisesItsStanding()
+    {
+        // Doom is counted in delves rather than runs: an Eye of ayak at 293 runs of depth 8 is 2,344
+        // delves against 1,184 expected. Both sides scale by the same factor, so the dryness the user
+        // sees is untouched — which is what makes the change safe.
+        const double runsObserved = 293, runsExpected = 148, depth = 8;
+        var delvesObserved = runsObserved * depth;
+        var delvesExpected = runsExpected * depth;
+
+        Assert.Equal(runsObserved / runsExpected, delvesObserved / delvesExpected, precision: 9);
+
+        // What does change is the rarity weight: the same streak is now judged as a ~1,200-roll grind
+        // rather than a ~150-roll one, which is the whole point of the exercise.
+        var multiple = runsObserved / runsExpected;
+        var asRuns = S(multiple, runsExpected);
+        var asDelves = S(multiple, delvesExpected);
+
+        Assert.True(asDelves > asRuns * 2,
+            $"expected delve scaling to lift the score well clear, got {asRuns:0.#} -> {asDelves:0.#}");
+    }
+
+    [Fact]
     public void NonsenseInputsScoreZeroRatherThanThrowing()
     {
         // The refresh service filters these out before scoring, but a NaN leaking into an ORDER BY

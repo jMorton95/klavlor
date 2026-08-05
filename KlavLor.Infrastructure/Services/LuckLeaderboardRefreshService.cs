@@ -47,6 +47,22 @@ public sealed class LuckLeaderboardRefreshService(
     private static bool WorthABoardSlot(double expectedRolls, long perDropValue) =>
         expectedRolls >= LuckScore.MinExpectedRollsForBoard || perDropValue >= MinInterestingValue;
 
+    // Delves per run for a depth-modelled source; 1.0 for every ordinary source, so nothing else is
+    // affected. Both the observed and the expected figure get multiplied by this, which leaves the
+    // multiple mathematically identical — count/expectedRuns is the same as (count*d)/(expectedRuns*d).
+    //
+    // What it does change is the UNIT the board quotes and, through it, the rarity weight LuckScore
+    // applies. A delve is what Doom's rates are per, and it is the honest measure of the grind: an
+    // Eye of ayak at 293 runs of depth 8 is 2,344 delves against 1,184 expected, and weighting it as
+    // a ~1,200-roll item rather than a ~150-roll one is what finally gives Doom uniques the standing
+    // on the board that the size of the grind deserves.
+    private static double DelvesPerRun(IReadOnlyList<int> depths)
+    {
+        if (depths.Count == 0) return 1.0;
+        var total = depths.Sum();
+        return total > 0 ? total / (double)depths.Count : 1.0;
+    }
+
     // The multiple for a board entry, or null if it doesn't qualify. Plain arithmetic now: no floor,
     // no synthetic ranking value, so Multiple is always the honest ratio and LuckScore does the
     // ranking. internal so the entry rules can be pinned by tests without standing up the service.
@@ -199,13 +215,20 @@ public sealed class LuckLeaderboardRefreshService(
             // of the runs up to that point rather than from a whole history the player only reached
             // later — a shallow grind isn't judged as if every run had been a deep delve.
             var window = DepthsUpTo(runs, e.FirstRecordId);
-            var observed = window.Count > 0
+            var observedRuns = window.Count > 0
                 ? window.Count
                 : e.KillCount ?? e.KillOrdinal ?? 0; // prefer the real RuneLite KC, else logged ordinal
 
-            var expected = sourceLoot.ExpectedCompletions(
+            var expectedRuns = sourceLoot.ExpectedCompletions(
                 source, e.ItemName, e.RarityNumerator ?? 1, den, e.Rolls, window);
-            if (expected < 1 || expected >= double.MaxValue) continue; // no usable rate / guaranteed drop
+            if (expectedRuns < 1 || expectedRuns >= double.MaxValue) continue; // no usable rate / guaranteed drop
+
+            // Quote a depth-modelled source in delves. Ratio-preserving, so only the units and the
+            // rarity weight change.
+            var scale = DelvesPerRun(window);
+            var inDelves = scale > 1.0;
+            var observed = (int)Math.Round(observedRuns * scale);
+            var expected = expectedRuns * scale;
 
             var perDropValue = e.TotalDrops > 0 ? e.TotalValue / e.TotalDrops : 0;
             if (!WorthABoardSlot(expected, perDropValue)) continue;
@@ -217,12 +240,12 @@ public sealed class LuckLeaderboardRefreshService(
                 var multiple = expected / observed;
                 if (multiple > MinMultipleForBoard)
                     entries.Add(Row(gen, charId, charName, source, e.ItemName,
-                        LeaderboardBoard.Spoon, multiple, obtained: true, observed, expected, den));
+                        LeaderboardBoard.Spoon, multiple, obtained: true, observed, expected, den, inDelves));
             }
             else if (BoardMultiple(observed, expected) is { } dryMultiple)
             {
                 entries.Add(Row(gen, charId, charName, source, e.ItemName,
-                    LeaderboardBoard.DryStreak, dryMultiple, obtained: true, observed, expected, den));
+                    LeaderboardBoard.DryStreak, dryMultiple, obtained: true, observed, expected, den, inDelves));
             }
         }
 
@@ -233,16 +256,22 @@ public sealed class LuckLeaderboardRefreshService(
         {
             if (excludedItems.Contains(m.ItemName)) continue;
             var den = m.RarityDenominator ?? 0;   // 0 for depth-modelled sources (Doom)
-            var expected = sourceLoot.ExpectedCompletions(source, m.ItemName, m.RarityNumerator ?? 1, den, m.Rolls, allDepths);
-            if (expected < 1 || expected >= double.MaxValue) continue;
+            var expectedRuns = sourceLoot.ExpectedCompletions(source, m.ItemName, m.RarityNumerator ?? 1, den, m.Rolls, allDepths);
+            if (expectedRuns < 1 || expectedRuns >= double.MaxValue) continue;
+
+            // Same delve scaling as an obtained item, measured over every run so far.
+            var scale = DelvesPerRun(allDepths);
+            var inDelves = scale > 1.0;
+            var expected = expectedRuns * scale;
+
             // No received value to fall back on, so an ongoing streak must clear the rarity bar.
             if (!WorthABoardSlot(expected, 0)) continue;
-            var observed = collection.CharacterKc;
+            var observed = (int)Math.Round(collection.CharacterKc * scale);
             if (observed <= 0) continue;
 
             if (BoardMultiple(observed, expected) is { } dryMultiple)
                 entries.Add(Row(gen, charId, charName, source, m.ItemName,
-                    LeaderboardBoard.DryStreak, dryMultiple, obtained: false, observed, expected, den));
+                    LeaderboardBoard.DryStreak, dryMultiple, obtained: false, observed, expected, den, inDelves));
         }
 
         return entries;
@@ -263,7 +292,8 @@ public sealed class LuckLeaderboardRefreshService(
 
     private static LuckLeaderboardEntry Row(
         long gen, int charId, string charName, string source, string item,
-        LeaderboardBoard board, double multiple, bool obtained, int observedKc, double expectedKc, int rarityDen) =>
+        LeaderboardBoard board, double multiple, bool obtained, int observedKc, double expectedKc, int rarityDen,
+        bool scoredInDelves) =>
         new()
         {
             Generation = gen,
@@ -277,6 +307,7 @@ public sealed class LuckLeaderboardRefreshService(
             Obtained = obtained,
             ObservedKc = observedKc,
             ExpectedKc = expectedKc,
-            RarityDenominator = rarityDen
+            RarityDenominator = rarityDen,
+            ScoredInDelves = scoredInDelves
         };
 }

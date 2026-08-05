@@ -39,4 +39,13 @@ public sealed class LuckLeaderboardEntry : Entity
     // Informational: the item's stored wiki denominator, 0 for a depth-modelled source. Not the
     // rarity measure the score uses — that is ExpectedKc, which is populated for every source.
     public int RarityDenominator { get; set; }
+
+    /// <summary>
+    /// True when ObservedKc and ExpectedKc are counted in DELVES rather than runs, which is the case
+    /// for a depth-modelled source. Both sides are scaled by the same factor so Multiple is
+    /// identical either way; the scale exists because a delve is the unit the rates are actually per,
+    /// and because it is the honest measure of the grind for LuckScore to weight. Carried as a flag
+    /// so the view can label the figures without branching on source name.
+    /// </summary>
+    public bool ScoredInDelves { get; set; }
 }

@@ -40,8 +40,11 @@ else
                     <span class="block text-sm font-semibold tabular-nums @(isSpoon ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400")">
                         @shownMultiple.ToString("N1")× @(isSpoon ? "faster" : "dry")@(!isSpoon && !r.Obtained ? " (ongoing)" : "")
                     </span>
+                    @* A depth-modelled source is counted in delves, which is the unit its rates are
+                       per; everything else is counted in rolls. The flag comes off the entry so the
+                       view never has to know which sources those are. *@
                     <span class="block text-[11px] text-slate-400 dark:text-white tabular-nums">
-                        @r.ObservedKc.ToString("N0") KC vs @Math.Round(r.ExpectedKc).ToString("N0") expected
+                        @r.ObservedKc.ToString("N0") @(r.ScoredInDelves ? "delves" : "rolls") vs @Math.Round(r.ExpectedKc).ToString("N0") expected
                     </span>
                 </span>
             </li>
