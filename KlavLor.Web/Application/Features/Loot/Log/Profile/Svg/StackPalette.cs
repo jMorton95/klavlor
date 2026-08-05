@@ -88,27 +88,32 @@ public static class StackPalette
         new("bg-purple-600 dark:bg-purple-500", "text-white"),
         new("bg-fuchsia-600 dark:bg-fuchsia-500", "text-white"),
 
-        // Band 4 — light theme 800, dark theme 700. Added so the expanded view can name roughly
-        // twice as many items as the standard one; darkest band, so white text throughout. Colour is
-        // the weakest cue by this point, but neither view shows a legend and every named block
-        // carries its own icon and label, so the palette running deep costs nothing.
-        new("bg-amber-800 dark:bg-amber-700", "text-white"),
-        new("bg-emerald-800 dark:bg-emerald-700", "text-white"),
-        new("bg-cyan-800 dark:bg-cyan-700", "text-white"),
-        new("bg-violet-800 dark:bg-violet-700", "text-white"),
-        new("bg-rose-800 dark:bg-rose-700", "text-white"),
-        new("bg-blue-800 dark:bg-blue-700", "text-white"),
-        new("bg-orange-800 dark:bg-orange-700", "text-white"),
-        new("bg-pink-800 dark:bg-pink-700", "text-white"),
-        new("bg-teal-800 dark:bg-teal-700", "text-white"),
-        new("bg-lime-800 dark:bg-lime-700", "text-white"),
-        new("bg-red-800 dark:bg-red-700", "text-white"),
-        new("bg-yellow-800 dark:bg-yellow-700", "text-white"),
-        new("bg-green-800 dark:bg-green-700", "text-white"),
-        new("bg-sky-800 dark:bg-sky-700", "text-white"),
-        new("bg-indigo-800 dark:bg-indigo-700", "text-white"),
-        new("bg-purple-800 dark:bg-purple-700", "text-white"),
-        new("bg-fuchsia-800 dark:bg-fuchsia-700", "text-white")
+        // Band 4 — light theme 800, dark theme 300. Added so the expanded view can name roughly twice
+        // as many items as the standard one, which is the only view that reaches this deep.
+        //
+        // The dark side is 300, NOT 700. A 700-level fill against the dark panel (slate-900) is so
+        // close to the background that the block reads as empty space with text floating on it, which
+        // is exactly how this band first shipped and had to be fixed. The general "no pale shades"
+        // note above is about pale on the LIGHT panel, and band 4 never puts a pale shade there — it
+        // uses 800 in light mode — so a bright dark-mode fill is the right way to stay legible.
+        // See DarkFillLevelIsNeverDarkerThan600 in StackPaletteTests, which enforces this.
+        new("bg-amber-800 dark:bg-amber-300", "text-white dark:text-slate-900"),
+        new("bg-emerald-800 dark:bg-emerald-300", "text-white dark:text-slate-900"),
+        new("bg-cyan-800 dark:bg-cyan-300", "text-white dark:text-slate-900"),
+        new("bg-violet-800 dark:bg-violet-300", "text-white dark:text-slate-900"),
+        new("bg-rose-800 dark:bg-rose-300", "text-white dark:text-slate-900"),
+        new("bg-blue-800 dark:bg-blue-300", "text-white dark:text-slate-900"),
+        new("bg-orange-800 dark:bg-orange-300", "text-white dark:text-slate-900"),
+        new("bg-pink-800 dark:bg-pink-300", "text-white dark:text-slate-900"),
+        new("bg-teal-800 dark:bg-teal-300", "text-white dark:text-slate-900"),
+        new("bg-lime-800 dark:bg-lime-300", "text-white dark:text-slate-900"),
+        new("bg-red-800 dark:bg-red-300", "text-white dark:text-slate-900"),
+        new("bg-yellow-800 dark:bg-yellow-300", "text-white dark:text-slate-900"),
+        new("bg-green-800 dark:bg-green-300", "text-white dark:text-slate-900"),
+        new("bg-sky-800 dark:bg-sky-300", "text-white dark:text-slate-900"),
+        new("bg-indigo-800 dark:bg-indigo-300", "text-white dark:text-slate-900"),
+        new("bg-purple-800 dark:bg-purple-300", "text-white dark:text-slate-900"),
+        new("bg-fuchsia-800 dark:bg-fuchsia-300", "text-white dark:text-slate-900")
     };
 
     // Mid-grey both ways: slate-600 on the slate-900 panel read as "background", making the

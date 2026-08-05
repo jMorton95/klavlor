@@ -128,6 +128,37 @@ public sealed class StackPaletteTests
     }
 
     [Fact]
+    public void DarkFillLevelIsNeverDarkerThan600()
+    {
+        // The fourth band originally used 700-level fills in dark mode. Against the dark panel
+        // (slate-900) a 700 is so close to the background that the block reads as empty space with a
+        // label floating on it — it looked like the segment had failed to render. 600 is the darkest
+        // that still reads as a filled block, so anything beyond it is a bug rather than a taste call.
+        var offenders = StackPalette.Palette
+            .Select(e => new { e.Fill, Dark = DarkShade(e.Fill) })
+            .Where(x => x.Dark >= 700)
+            .Select(x => x.Fill)
+            .ToList();
+
+        Assert.True(offenders.Count == 0,
+            "these entries use a dark-mode fill too close to the panel background: " + string.Join(", ", offenders));
+    }
+
+    // Deliberately NOT asserting that light fills carry dark text and vice versa: whether white is
+    // legible on a 500-level fill depends on the hue, not the number — white works on violet-500 and
+    // fails on lime-500 — so a shade-based rule would give false failures. That pairing is a
+    // judgement made per entry in the palette and checked by eye. The rule above is different: it is
+    // about a fill's distance from the panel background, which the shade number does determine.
+
+    // "bg-amber-800 dark:bg-amber-300" -> 300, falling back to the light shade when there is no
+    // dark variant (such an entry uses the same fill in both themes).
+    private static int DarkShade(string fill)
+    {
+        var token = fill.Split(' ').FirstOrDefault(t => t.StartsWith("dark:bg-"));
+        return int.Parse((token ?? fill.Split(' ')[0]).Split('-')[^1]);
+    }
+
+    [Fact]
     public void PaletteFills_AreAllDistinct()
     {
         // Three bands of the same hues, so a copy-paste slip would silently give two entries the
