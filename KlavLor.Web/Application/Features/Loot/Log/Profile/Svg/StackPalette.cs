@@ -21,7 +21,7 @@ public static class StackPalette
     // classes (computed names wouldn't be picked up). Order matters: earliest = assigned to the
     // biggest overall contributor = top of the legend.
     //
-    // Three bands of the same 17 hues, so the palette runs to 51 before anything has to repeat.
+    // Four bands of the same 17 hues, so the palette runs to 68 before anything has to repeat.
     // The later bands are close relatives of the earlier ones, which is acceptable because a named
     // segment carries its item name inside the block — colour is the secondary cue here, not the
     // only one. No pale (-200/-300) shades: they wash out against the panel background.
@@ -86,7 +86,29 @@ public static class StackPalette
         new("bg-sky-600 dark:bg-sky-500", "text-white"),
         new("bg-indigo-600 dark:bg-indigo-500", "text-white"),
         new("bg-purple-600 dark:bg-purple-500", "text-white"),
-        new("bg-fuchsia-600 dark:bg-fuchsia-500", "text-white")
+        new("bg-fuchsia-600 dark:bg-fuchsia-500", "text-white"),
+
+        // Band 4 — light theme 800, dark theme 700. Added so the expanded view can name roughly
+        // twice as many items as the standard one; darkest band, so white text throughout. Colour is
+        // the weakest cue by this point, but neither view shows a legend and every named block
+        // carries its own icon and label, so the palette running deep costs nothing.
+        new("bg-amber-800 dark:bg-amber-700", "text-white"),
+        new("bg-emerald-800 dark:bg-emerald-700", "text-white"),
+        new("bg-cyan-800 dark:bg-cyan-700", "text-white"),
+        new("bg-violet-800 dark:bg-violet-700", "text-white"),
+        new("bg-rose-800 dark:bg-rose-700", "text-white"),
+        new("bg-blue-800 dark:bg-blue-700", "text-white"),
+        new("bg-orange-800 dark:bg-orange-700", "text-white"),
+        new("bg-pink-800 dark:bg-pink-700", "text-white"),
+        new("bg-teal-800 dark:bg-teal-700", "text-white"),
+        new("bg-lime-800 dark:bg-lime-700", "text-white"),
+        new("bg-red-800 dark:bg-red-700", "text-white"),
+        new("bg-yellow-800 dark:bg-yellow-700", "text-white"),
+        new("bg-green-800 dark:bg-green-700", "text-white"),
+        new("bg-sky-800 dark:bg-sky-700", "text-white"),
+        new("bg-indigo-800 dark:bg-indigo-700", "text-white"),
+        new("bg-purple-800 dark:bg-purple-700", "text-white"),
+        new("bg-fuchsia-800 dark:bg-fuchsia-700", "text-white")
     };
 
     // Mid-grey both ways: slate-600 on the slate-900 panel read as "background", making the
