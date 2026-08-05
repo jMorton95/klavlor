@@ -1,4 +1,5 @@
 using KlavLor.Application.Common;
+using KlavLor.Application.Features.Loot.Leaderboard;
 using KlavLor.Application.Features.Loot.Log;
 using KlavLor.Application.Features.Loot.SourceModels;
 using KlavLor.Application.Interfaces.Repositories;
@@ -26,53 +27,34 @@ public sealed class LuckLeaderboardRefreshService(
     private static readonly TimeSpan RunInterval = TimeSpan.FromHours(1);
     private static readonly TimeSpan PollInterval = TimeSpan.FromMinutes(1);
 
-    // Must be at least this many multiples off the expected roll count to make a board.
+    // A single entry bar for both boards, replacing the old split of 1.75x for items you already
+    // own and 1.0x for ones you're still chasing, plus the "rare grind" floor that lifted rare
+    // items up the board by overwriting their multiple with denominator/1000.
     //
-    // 1.75 rather than 2.0. Once the Doom delve/run scale error was fixed, genuine streaks landed
-    // just under the old bar — an Eye of ayak at ~1.8x expected is 130-odd runs of waiting past the
-    // rate, which is a real streak, not a drop that arrived slightly late. The band this opens up is
-    // narrow (1.75 to 2.0), the bottom-end rarity filter still keeps cheap commons out, and GetBoard
-    // orders by tier so if the 200-row cap bites it trims these mildest entries first.
-    private const double MinMultiple = 1.75;
+    // Anything past its expected roll count qualifies, provided the item is rare enough to be worth
+    // a slot. Rarity no longer needs to buy its way in through the multiple, because LuckScore ranks
+    // by rarity directly — so the floor's synthetic values, and the display code that had to undo
+    // them, are both gone.
+    private const double MinMultipleForBoard = 1.0;
 
-    // Items the player has NOT obtained yet get a lower bar still: they join the dry board the
-    // moment they pass the expected roll count once. A 1/100 item still missing at 101 rolls is a
-    // real (if mild) dry streak and shows as 1x dry, rather than staying invisible. Obtained items
-    // keep MinMultiple — a drop that came in only fractionally late isn't worth a board slot.
-    private const double MinMissingMultiple = 1.0;
-
-    // Rare "special curse" items (1/1000 or rarer): once a player has done at least the item's
-    // own drop rate in kills, it's ranked by that rarity — denominator/1000 — so a 1/5000 grind
-    // reads as 5x and a 1/3000 as 3x, never below the genuine dryness.
-    //
-    // Lowered from 2000 so the concept covers the 1/1000-to-1/2000 band too. Note this only
-    // changes which items are *eligible* for the rarity floor: at 1/1000 the floor works out at
-    // 0.99 and at 1/1500 at 1.49, both under the 2x board bar, so in that band the genuine
-    // multiple still decides. Making a mild streak on a rare item outrank a bigger streak on a
-    // common one is a scoring change, not a threshold change.
-    private const int RareGrindDenominator = 1000;
-
-    // Bottom end: items more common than 1/100 that are also low value aren't interesting.
-    private const int CommonDenominator = 100;
+    // Bottom end: a drop this common only earns a slot if a single receipt is worth real money.
     private const long MinInterestingValue = 100_000;
 
-    private static bool IsUninteresting(int rarityDenominator, long perDropValue) =>
-        rarityDenominator < CommonDenominator && perDropValue < MinInterestingValue;
+    // Whether an item is worth a board slot at all, judged on the rolls it actually takes rather
+    // than the stored wiki denominator — the latter is 0 for a depth-modelled source and ignores
+    // multi-roll tables. perDropValue is 0 for an item never received, which is correct: an ongoing
+    // streak has to earn its place on rarity alone.
+    private static bool WorthABoardSlot(double expectedRolls, long perDropValue) =>
+        expectedRolls >= LuckScore.MinExpectedRollsForBoard || perDropValue >= MinInterestingValue;
 
-    // Dry-board multiple for an item, or null if it doesn't qualify. A rare-grind item past its
-    // own drop rate in kills is ranked by denominator/1000; everything else must clear
-    // `minMultiple` — MinMultiple for items already obtained, MinMissingMultiple for ones the
-    // player is still chasing.
-    // internal so the dry-board entry rules can be pinned by tests without standing up the service.
-    internal static double? DryMultiple(double observed, double expected, int rarityDenominator, double minMultiple)
+    // The multiple for a board entry, or null if it doesn't qualify. Plain arithmetic now: no floor,
+    // no synthetic ranking value, so Multiple is always the honest ratio and LuckScore does the
+    // ranking. internal so the entry rules can be pinned by tests without standing up the service.
+    internal static double? BoardMultiple(double observed, double expected)
     {
         if (observed <= expected) return null;
         var actual = observed / expected;
-        if (rarityDenominator >= RareGrindDenominator && observed >= rarityDenominator)
-            // Rank just below its integer tier: shave 0.01 so a 1/3000 grind floors to tier 2 and
-            // sits under every natural 3.x streak rather than topping tier 3. Genuine dryness wins.
-            return Math.Max(rarityDenominator / 1000.0 - 0.01, actual);
-        return actual >= minMultiple ? actual : null;
+        return actual > MinMultipleForBoard ? actual : null;
     }
 
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -225,46 +207,40 @@ public sealed class LuckLeaderboardRefreshService(
                 source, e.ItemName, e.RarityNumerator ?? 1, den, e.Rolls, window);
             if (expected < 1 || expected >= double.MaxValue) continue; // no usable rate / guaranteed drop
 
-            // Rarity-based bottom-end filter only applies when there's a real denominator.
-            if (den > 0)
-            {
-                var perDropValue = e.TotalDrops > 0 ? e.TotalValue / e.TotalDrops : 0;
-                if (IsUninteresting(den, perDropValue)) continue;
-            }
+            var perDropValue = e.TotalDrops > 0 ? e.TotalValue / e.TotalDrops : 0;
+            if (!WorthABoardSlot(expected, perDropValue)) continue;
             if (observed <= 0) continue;
 
             if (observed <= expected)
             {
+                // Spoon: received faster than expected, so the multiple inverts and bigger is luckier.
                 var multiple = expected / observed;
-                if (multiple >= MinMultiple)
+                if (multiple > MinMultipleForBoard)
                     entries.Add(Row(gen, charId, charName, source, e.ItemName,
                         LeaderboardBoard.Spoon, multiple, obtained: true, observed, expected, den));
             }
-            else if (DryMultiple(observed, expected, den, MinMultiple) is { } dryMultiple)
+            else if (BoardMultiple(observed, expected) is { } dryMultiple)
             {
                 entries.Add(Row(gen, charId, charName, source, e.ItemName,
                     LeaderboardBoard.DryStreak, dryMultiple, obtained: true, observed, expected, den));
             }
         }
 
-        // Not-yet-received clog items → an ongoing dry streak measured at the current kill count.
-        // Every one of these joins the board as soon as the character has put in enough kills to
-        // have expected the drop once (MinMissingMultiple), not only at 2x: still missing a 1/100
-        // item at 101 kills is a genuine, if mild, streak and lands as 1x dry.
+        // Not-yet-received clog items → an ongoing dry streak measured at the current roll count.
+        // Same single bar as an obtained item: anything past the expected roll count qualifies, so
+        // still missing a 1/100 item at 101 rolls is a genuine, if mild, streak and lands as 1x dry.
         foreach (var m in collection.MissingItems)
         {
             if (excludedItems.Contains(m.ItemName)) continue;
             var den = m.RarityDenominator ?? 0;   // 0 for depth-modelled sources (Doom)
             var expected = sourceLoot.ExpectedCompletions(source, m.ItemName, m.RarityNumerator ?? 1, den, m.Rolls, allDepths);
             if (expected < 1 || expected >= double.MaxValue) continue;
-            // Missing items carry no received value, so the bottom-end filter still drops items
-            // more common than 1/100 — otherwise a 1x bar would flood the board with commons.
-            // Note 1/100 itself passes, matching the worked example above.
-            if (den > 0 && IsUninteresting(den, 0)) continue;
+            // No received value to fall back on, so an ongoing streak must clear the rarity bar.
+            if (!WorthABoardSlot(expected, 0)) continue;
             var observed = collection.CharacterKc;
             if (observed <= 0) continue;
 
-            if (DryMultiple(observed, expected, den, MinMissingMultiple) is { } dryMultiple)
+            if (BoardMultiple(observed, expected) is { } dryMultiple)
                 entries.Add(Row(gen, charId, charName, source, m.ItemName,
                     LeaderboardBoard.DryStreak, dryMultiple, obtained: false, observed, expected, den));
         }
@@ -296,7 +272,7 @@ public sealed class LuckLeaderboardRefreshService(
             SourceName = source,
             ItemName = item,
             Board = board,
-            Tier = (int)Math.Floor(multiple),
+            Score = LuckScore.For(multiple, expectedKc),
             Multiple = multiple,
             Obtained = obtained,
             ObservedKc = observedKc,

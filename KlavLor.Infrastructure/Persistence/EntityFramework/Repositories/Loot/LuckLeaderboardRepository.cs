@@ -69,14 +69,11 @@ internal sealed class LuckLeaderboardRepository(DataContext dataContext) : ILuck
 
         return await dataContext.LuckLeaderboardEntries.AsNoTracking()
             .Where(e => e.Generation == meta.CurrentGeneration && e.Board == board)
-            .OrderByDescending(e => e.Tier)
-            // Within a tier, the rarer grind wins. Keyed on ExpectedKc rather than
-            // RarityDenominator because a depth-modelled source (Doom) has no flat denominator and
-            // stores 0, which lost it every single tie-break and buried its entries at the bottom of
-            // their tier. ExpectedKc is populated for every source and equals the denominator for an
-            // ordinary single-roll drop, so flat-rate ordering is unchanged.
+            // One key: LuckScore already blends how far off the rate the drop was with how big a
+            // grind the item is, which the old tier-then-rarity-then-multiple chain could not — a
+            // coarse integer tier put every 1.x streak below every 2.x one regardless of rarity.
+            .OrderByDescending(e => e.Score)
             .ThenByDescending(e => e.ExpectedKc)
-            .ThenByDescending(e => e.Multiple)
             .Take(limit)
             .ToListAsync();
     }

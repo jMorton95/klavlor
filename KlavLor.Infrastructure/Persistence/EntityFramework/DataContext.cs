@@ -428,9 +428,9 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
             .Property(e => e.Board)
             .HasConversion<string>();
 
-        // Backs the board query: filter by (Generation, Board) then order by Tier desc.
+        // Backs the board query: filter by (Generation, Board) then order by Score desc.
         modelBuilder.Entity<LuckLeaderboardEntry>()
-            .HasIndex(e => new { e.Generation, e.Board, e.Tier });
+            .HasIndex(e => new { e.Generation, e.Board, e.Score });
 
         // Admin blacklist of sources excluded from the luck leaderboards (SourceName is the key).
         modelBuilder.Entity<LeaderboardSourceExclusion>()
