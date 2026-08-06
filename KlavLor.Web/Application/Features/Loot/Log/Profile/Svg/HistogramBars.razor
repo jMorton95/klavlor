@@ -61,66 +61,6 @@
         return "left-1/2 -translate-x-1/2";
     }
 
-    // Distribute segment pixel heights across the bar.
-    //
-    // maxFraction (expanded view only) caps how much of the bar a single slice may
-    // occupy: a colossal outlier drop — say a 1.3B twisted bow that is 95% of the
-    // month — is frozen at the cap and its excess height spread across the remaining
-    // slices by value, so ordinary entries stay visible instead of being crushed to
-    // a sliver. The slice's true value and % are unchanged and still shown in its
-    // label and tooltip, so the outlier's real impact is never hidden. Water-fill,
-    // because redistributing can push another slice over the cap. Skipped when the
-    // bar has too few slices to absorb the excess (n * cap < barPx → underfill).
-    //
-    // minSeg then floors tiny slices so their icon shows; if the floors overflow the
-    // bar (small bar + many slices) everything scales down to fit, keeping each
-    // visible but proportional.
-    static double[] LayoutSegments(IReadOnlyList<BarSegment> segs, long barValue, int barPx, double minSeg, double? maxFraction)
-    {
-        var n = segs.Count;
-        var px = new double[n];
-        if (n == 0 || barValue <= 0 || barPx <= 0) return px;
-
-        // Proportional heights.
-        for (var i = 0; i < n; i++)
-            px[i] = (double)segs[i].Value / barValue * barPx;
-
-        // Cap + redistribute.
-        if (maxFraction is > 0 and < 1 && n * maxFraction.Value >= 1)
-        {
-            var cap = maxFraction.Value * barPx;
-            var frozen = new bool[n];
-            while (true)
-            {
-                var j = -1;
-                var maxOver = cap;
-                for (var i = 0; i < n; i++)
-                    if (!frozen[i] && px[i] > maxOver) { maxOver = px[i]; j = i; }
-                if (j < 0) break;
-
-                var excess = px[j] - cap;
-                px[j] = cap;
-                frozen[j] = true;
-
-                var sumFree = 0d;
-                for (var i = 0; i < n; i++) if (!frozen[i]) sumFree += px[i];
-                if (sumFree <= 0) { px[j] += excess; break; }  // nothing left to absorb it
-                for (var i = 0; i < n; i++)
-                    if (!frozen[i]) px[i] += excess * (px[i] / sumFree);
-            }
-        }
-
-        // Floor tiny slices, then scale back to fit if the floors overflowed.
-        for (var i = 0; i < n; i++) px[i] = Math.Max(minSeg, px[i]);
-        var total = 0d;
-        for (var i = 0; i < n; i++) total += px[i];
-        if (total > barPx)
-        {
-            var scale = barPx / total;
-            for (var i = 0; i < n; i++) px[i] *= scale;
-        }
-        return px;
-    }
 }
 
 <div class="flex w-full gap-2">
@@ -153,6 +93,16 @@
                     var barPx = bar.Value > 0
                         ? Math.Max(2, (int)Math.Round(BarFraction(ratio) * plotHeightPx))
                         : 0;
+
+                    // If a slice is worth its own colour it is worth its own label, so a bar is
+                    // never shorter than the space its own named slices need. Without this, one
+                    // outlier month sets the peak and every other bar comes out too short to label
+                    // anything — the value scale wins and the breakdown, which is the entire point
+                    // of the stack, is lost. Bar heights are already presentational on the
+                    // compressed scale (see BarFraction), so a minimum driven by content is
+                    // consistent with it; the true total still prints above every bar.
+                    if (ShowInlineLabels && barPx > 0 && MinSegmentPx > 0 && bar.Segments is { Count: > 0 } labelled)
+                        barPx = Math.Min(plotHeightPx, Math.Max(barPx, SegmentLayout.HeightNeededFor(labelled.Count, MinSegmentPx)));
                     var defaultFill = bar.FillClass ?? "bg-amber-500 dark:bg-amber-400";
 
                     <div class="flex-1 flex flex-col items-center justify-end h-full">
@@ -164,7 +114,7 @@
                         }
                         @if (bar.Segments is { Count: > 0 })
                         {
-                            var px = LayoutSegments(bar.Segments, bar.Value, barPx, MinSegmentPx, MaxSegmentFraction);
+                            var px = SegmentLayout.Distribute(bar.Segments.Select(x => x.Value).ToList(), bar.Value, barPx, MinSegmentPx, MaxSegmentFraction);
                             @* No overflow-hidden on the stack: custom tooltips escape the bounds.
                                flex-col-reverse stacks bottom-up; rounded-t goes on the topmost. *@
                             <div class="w-full flex flex-col-reverse" style="height: @(barPx)px;">
@@ -323,11 +273,10 @@
     /// How bar height maps to value. See BarScaleMode.
     [Parameter] public BarScaleMode Scale { get; set; } = BarScaleMode.Linear;
 
-    // Height tiers for what fits inside a segment block without hovering. The icon
-    // threshold sits below MinSegmentPx (the floored height) on purpose: when a short
-    // bar's floors overflow and every slice is scaled down a touch, a floored slice
-    // dips just under its floor — a threshold equal to the floor would then wrongly
-    // hide its icon. 12px is the icon's own height, so anything floored still shows it.
+    // Height tiers for what fits inside a segment block without hovering. The icon threshold sits
+    // below MinSegmentPx (the floored height) as a safety margin: SegmentLayout now protects the
+    // floor rather than scaling it away, so a floored slice should never dip beneath it, but 12px is
+    // the icon's own height and leaves room for rounding either way.
     private const double InlineIconMinPx = 12;    // icon + item name
     private const double InlineValueMinPx = 32;   // + this record's value
     private const double InlineSourceMinPx = 48;  // + the source name
