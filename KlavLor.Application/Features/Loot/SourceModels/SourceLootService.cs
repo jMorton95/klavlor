@@ -150,6 +150,25 @@ public sealed class SourceLootService
         return depths.Count > 0 ? depths : null;
     }
 
+    /// <summary>
+    /// Average delves per RUN for a depth-modelled source — the admin's per-character average when
+    /// one is set, otherwise the strategy's stated assumption. Null when the source has no depth
+    /// model, which is what tells a caller to leave its figures in runs.
+    ///
+    /// For surfaces that count activity rather than judge luck, where one claim standing for a whole
+    /// descent understates the grind. Expressed through <see cref="RunDepthsForClaim"/> so it shares
+    /// the one depth precedence: a chart quoting delves cannot disagree with the luck maths, or with
+    /// a feed card, about how deep this character's runs are.
+    ///
+    /// Note this is emphatically NOT for either side of a luck ratio — those are runs against
+    /// expected runs, and multiplying one side by depth has been the bug twice.
+    /// </summary>
+    public int? AverageDepthPerRun(string sourceName, int? overrideDepth)
+    {
+        var depths = RunDepthsForClaim(sourceName, claimDepth: null, overrideDepth);
+        return depths is { Count: > 0 } ? depths[0] : null;
+    }
+
     private static List<ClaimDrop> ParseClaim(string? dropsJson)
     {
         if (string.IsNullOrWhiteSpace(dropsJson)) return [];

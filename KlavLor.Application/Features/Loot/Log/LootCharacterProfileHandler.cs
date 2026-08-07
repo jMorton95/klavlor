@@ -97,7 +97,74 @@ public sealed class LootCharacterProfileHandler(
                 : new DateTimeOffset(new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc)).AddMonths(-11);
             return await profileRepository.GetMonthlyRolls(characterId, from, to, range);
         });
-        return Result<MonthlyRollTrend>.Success(trend!);
+        return Result<MonthlyRollTrend>.Success(await CountDepthSourcesInDelves(characterId, trend!));
+    }
+
+    /// <summary>
+    /// Restates depth-modelled sources in this chart from claims into delves.
+    ///
+    /// The chart answers "how much grinding happened, and at what", and a claim is the wrong unit for
+    /// a source where one claim covers a whole descent: Doom logs one record per run however many
+    /// levels it cleared, so a heavy month showed as a few dozen rolls and the biggest grind on the
+    /// page rendered as one of the smallest slices. A delve is the thing the player actually did
+    /// repeatedly, and it is the unit Doom's rates are quoted in.
+    ///
+    /// Deliberately OUTSIDE the memory cache above. The multiplier is the admin's per-character
+    /// average delve depth, and setting that does not bump the character's loot-stats version — so a
+    /// cached scaled trend would keep serving the old depth for up to the cache TTL after an admin
+    /// corrected it. The cache holds the raw query; the units are applied per request, which is a
+    /// dictionary lookup and one small indexed read per depth-modelled source present.
+    /// </summary>
+    private async Task<MonthlyRollTrend> CountDepthSourcesInDelves(int characterId, MonthlyRollTrend trend)
+    {
+        var depthSources = trend.Months
+            .SelectMany(m => m.TopSources)
+            .Select(s => s.SourceName)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Where(sourceLoot.HasDepthModel)
+            .ToList();
+        if (depthSources.Count == 0) return trend;
+
+        var depthBySource = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var sourceName in depthSources)
+        {
+            // Sequential awaits — one scoped DbContext, one query at a time.
+            var overrideDepth = await delveDepths.GetAverageDepth(characterId, sourceName);
+            var depth = sourceLoot.AverageDepthPerRun(sourceName, overrideDepth);
+            if (depth is > 1) depthBySource[sourceName] = depth.Value;
+        }
+        if (depthBySource.Count == 0) return trend;
+
+        var months = new List<RollMonthBucket>(trend.Months.Count);
+        foreach (var m in trend.Months)
+        {
+            var added = 0;
+            var sources = new List<RollSourceSegment>(m.TopSources.Count);
+            foreach (var s in m.TopSources)
+            {
+                if (depthBySource.TryGetValue(s.SourceName, out var depth))
+                {
+                    var delves = s.Rolls * depth;
+                    added += delves - s.Rolls;
+                    sources.Add(s with { Rolls = delves, DelvesPerRun = depth });
+                }
+                else
+                {
+                    sources.Add(s);
+                }
+            }
+
+            // The month total takes the same delta, so the bar still matches the stack standing in it
+            // and the chart's "Other" remainder — total minus what was named — comes out unchanged.
+            //
+            // A depth-modelled source that fell outside the query's per-month source cap is not here
+            // to be restated, so its claims stay counted as claims inside Other. That only happens
+            // when it was one of a month's smallest contributors anyway, which is the case where the
+            // difference is invisible.
+            months.Add(m with { Rolls = m.Rolls + added, TopSources = sources });
+        }
+
+        return trend with { Months = months };
     }
 
     public async Task<Result<HeatmapData>> HandleHeatmap(int characterId, HeatmapMode mode)

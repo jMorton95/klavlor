@@ -76,6 +76,10 @@
 
         <p class="text-[10px] text-slate-500 dark:text-white mt-2">
             Bar heights use a compressed scale so a light month is still readable next to a heavy one — the order is unchanged and every bar prints its true total above itself.
+            @if (DelveSources.Count > 0)
+            {
+                @($" {string.Join(" and ", DelveSources)} counts delves rather than claims, since one claim covers every level a run cleared.")
+            }
         </p>
 
         @* No legend on either view — every named block carries its own icon and source name. *@
@@ -102,6 +106,16 @@
 
     private long TotalRolls => Trend.Months.Sum(m => (long)m.Rolls);
     private int ActiveMonths => Trend.Months.Count(m => m.Rolls > 0);
+
+    // Sources this chart is counting in delves instead of claims, named in the footnote so the
+    // blended total below the heading is explained rather than just being slightly surprising.
+    private List<string> DelveSources => Trend.Months
+        .SelectMany(m => m.TopSources)
+        .Where(s => s.DelvesPerRun is > 1)
+        .Select(s => s.SourceName)
+        .Distinct(StringComparer.Ordinal)
+        .OrderBy(n => n, StringComparer.Ordinal)
+        .ToList();
 
     private string Title => Trend.Range == "all" ? "Rolls per month — all time" : "Rolls per month — last 12 months";
 
@@ -136,8 +150,14 @@
             foreach (var seg in m.TopSources.OrderByDescending(s => s.Rolls).ThenBy(s => s.SourceName, StringComparer.Ordinal))
             {
                 var share = m.Rolls > 0 ? (double)seg.Rolls / m.Rolls * 100.0 : 0;
-                var valueText = $"{seg.Rolls:N0} rolls";
-                var detail = $"{seg.SourceName} — {seg.Rolls:N0} rolls ({share:F1}%) for {GoldFormat.Format(seg.Gp)}";
+                // A depth-modelled source is counted in delves, not claims — the handler has already
+                // scaled Rolls, and DelvesPerRun being set is what says so. Branching on that rather
+                // than on a source name keeps the view out of the depth model entirely.
+                var perRun = seg.DelvesPerRun is > 1 ? seg.DelvesPerRun.Value : 0;
+                var valueText = $"{seg.Rolls:N0} {(perRun > 0 ? "delves" : "rolls")}";
+                var detail = perRun > 0
+                    ? $"{seg.SourceName} — {seg.Rolls:N0} delves ({share:F1}%) across {seg.Rolls / perRun:N0} runs at an average depth of {perRun}, for {GoldFormat.Format(seg.Gp)}"
+                    : $"{seg.SourceName} — {seg.Rolls:N0} rolls ({share:F1}%) for {GoldFormat.Format(seg.Gp)}";
 
                 if (styleBySource.TryGetValue(seg.SourceName, out var style))
                 {

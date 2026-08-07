@@ -85,10 +85,23 @@ public sealed record RollMonthBucket(
     long Gp,
     IReadOnlyList<RollSourceSegment> TopSources);
 
+/// <summary>
+/// One source's contribution to a month.
+///
+/// <see cref="Rolls"/> is the figure the chart plots and is normally a claim count. For a
+/// depth-modelled source it is a count of DELVES instead: one Doom claim covers every level the run
+/// cleared, so counting claims showed a several-hundred-delve month as a few dozen rolls and made
+/// the biggest grind on the page look like the smallest.
+///
+/// <see cref="DelvesPerRun"/> is set only in that case, and is the average depth used — so
+/// Rolls / DelvesPerRun recovers the run count, and its presence is how a view knows to print
+/// "delves" rather than "rolls" without matching on a source name.
+/// </summary>
 public sealed record RollSourceSegment(
     string SourceName,
     int Rolls,
-    long Gp);
+    long Gp,
+    int? DelvesPerRun = null);
 
 public sealed record PersonalRecords(
     LootKillEntry? BiggestKill,

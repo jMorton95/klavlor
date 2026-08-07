@@ -293,6 +293,59 @@ public sealed class SourceLootServiceTests
         Assert.Equal([3, 9], svc.NormaliseRuns(Doom, runs, overrideDepth: null).Select(r => r.Depth));
     }
 
+    // ------------------------------------------------------------- AverageDepthPerRun
+
+    [Fact]
+    public void AverageDepthPerRun_prefers_the_admin_average_over_the_assumption()
+    {
+        // What the rolls-per-month chart multiplies a Doom claim count by. The admin's per-character
+        // average has to win: it is the only accurate figure available, since depth cannot be read
+        // from the loot payload. Getting this precedence backwards is the mistake that had the
+        // character page honouring an override while another surface quietly ignored it.
+        var svc = Service();
+
+        Assert.Equal(8, svc.AverageDepthPerRun(Doom, overrideDepth: 8));
+        Assert.Equal(DoomLootStrategy.AssumedAverageDepth, svc.AverageDepthPerRun(Doom, overrideDepth: null));
+        // Zero and negative clear the override rather than setting a depth of zero, which would
+        // collapse the whole source to nothing on the chart.
+        Assert.Equal(DoomLootStrategy.AssumedAverageDepth, svc.AverageDepthPerRun(Doom, overrideDepth: 0));
+        Assert.Equal(DoomLootStrategy.AssumedAverageDepth, svc.AverageDepthPerRun(Doom, overrideDepth: -3));
+    }
+
+    [Fact]
+    public void AverageDepthPerRun_is_null_for_a_source_with_no_depth_model()
+    {
+        // Null is the signal to leave a source's figures in runs. A raid stores an EffectiveKills of
+        // 1 per completion, which is a roll count and not a depth, so treating it as one would have
+        // Chambers of Xeric claiming delves it does not have.
+        var svc = Service();
+
+        Assert.Null(svc.AverageDepthPerRun(Cox, overrideDepth: null));
+        Assert.Null(svc.AverageDepthPerRun(OrdinarySource, overrideDepth: null));
+        // Not even an override invents a depth model for a source that has none.
+        Assert.Null(svc.AverageDepthPerRun(Cox, overrideDepth: 8));
+        Assert.Null(svc.AverageDepthPerRun(OrdinarySource, overrideDepth: 8));
+    }
+
+    [Fact]
+    public void AverageDepthPerRun_agrees_with_the_depth_the_luck_maths_would_use()
+    {
+        // The two must not be able to disagree: a chart quoting delves and the luck maths judging
+        // runs have to be working from the same depth for the same character, or the page contradicts
+        // itself. Both resolve through NormaliseRuns, and this is what pins that.
+        var svc = Service();
+        var oneRun = new List<KlavLor.Application.Features.Loot.Log.SourceRun>
+        {
+            new(1, DateTimeOffset.UnixEpoch, 0)
+        };
+
+        foreach (int? over in new int?[] { null, 0, 5, 11 })
+        {
+            var luckDepth = svc.NormaliseRuns(Doom, oneRun, over).Single().Depth;
+            Assert.Equal(luckDepth, svc.AverageDepthPerRun(Doom, over));
+        }
+    }
+
     [Fact]
     public void The_derivation_version_is_never_lowered()
     {
