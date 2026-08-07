@@ -14,111 +14,103 @@ public static class StackPalette
     /// a fill edited without its text colour is exactly how a label becomes unreadable. This
     /// replaces an earlier attempt that put a dark plate behind the text instead: that needed no
     /// per-colour bookkeeping but looked like a black box stamped over the chart.
+    ///
+    /// In practice <see cref="Text"/> is now always the same dark slate — see the palette note —
+    /// but it stays on the record so a future fill can't be added without stating what reads on it.
     /// </summary>
     public sealed record Entry(string Fill, string Text);
 
     // Distinguishable Tailwind fills, listed literally so Tailwind's content scanner emits the
     // classes (computed names wouldn't be picked up). Order matters: earliest = assigned to the
-    // biggest overall contributor = top of the legend.
+    // biggest overall contributor.
     //
-    // Four bands of the same 17 hues, so the palette runs to 68 before anything has to repeat.
-    // The later bands are close relatives of the earlier ones, which is acceptable because a named
-    // segment carries its item name inside the block — colour is the secondary cue here, not the
-    // only one. No pale (-200/-300) shades: they wash out against the panel background.
+    // EVERY fill here is bright enough to carry dark text, and every entry therefore uses the same
+    // dark slate label. That is the whole design constraint, and it is deliberate: white labels were
+    // the single worst thing to read on these charts, so the palette gave up the darker half of its
+    // range rather than keep them. There is no `dark:` fill variant either — a bright fill reads as a
+    // filled block against both the near-white and the slate-900 panel, so one fill serves both
+    // themes and a whole class of light/dark mismatch bugs disappears with it.
     //
-    // Text colour is per band AND per mode, because a hue's legibility flips between them: amber-500
-    // (light theme) takes dark text while amber-600 does not, and every 400-level dark-theme fill is
-    // lighter than its 500-level light-theme counterpart.
+    // The cost is variety: dropping the 600/700/800 levels leaves three usable bands of the same 17
+    // hues (51 entries) rather than four, and the third band has to reach down to -200 for the eight
+    // hues that are still too dark at -500 for dark text. Those pale blocks are the weakest link on
+    // the light theme — hence the ring on every segment in HistogramBars, which keeps a block defined
+    // when its fill sits close to the panel. Accepted knowingly: every named block also carries its
+    // item name, and neither chart draws a legend, so colour is the secondary cue here, not the only
+    // one.
     public static readonly Entry[] Palette =
     {
-        // Band 1 — light theme 500, dark theme 400. The warm/green half is light in both modes.
-        new("bg-amber-500 dark:bg-amber-400", "text-slate-900"),
-        new("bg-emerald-500 dark:bg-emerald-400", "text-slate-900"),
-        new("bg-cyan-500 dark:bg-cyan-400", "text-slate-900"),
-        new("bg-violet-500 dark:bg-violet-400", "text-white"),
-        new("bg-rose-500 dark:bg-rose-400", "text-white"),
-        new("bg-blue-500 dark:bg-blue-400", "text-white"),
-        new("bg-orange-500 dark:bg-orange-400", "text-slate-900"),
-        new("bg-pink-500 dark:bg-pink-400", "text-white"),
-        new("bg-teal-500 dark:bg-teal-400", "text-slate-900"),
-        new("bg-lime-500 dark:bg-lime-400", "text-slate-900"),
-        new("bg-red-500 dark:bg-red-400", "text-white"),
-        new("bg-yellow-500 dark:bg-yellow-400", "text-slate-900"),
-        new("bg-green-500 dark:bg-green-400", "text-slate-900"),
-        new("bg-sky-500 dark:bg-sky-400", "text-slate-900"),
-        new("bg-indigo-500 dark:bg-indigo-400", "text-white"),
-        new("bg-purple-500 dark:bg-purple-400", "text-white"),
-        new("bg-fuchsia-500 dark:bg-fuchsia-400", "text-white"),
+        // Band 1 — 400 across every hue. The most saturated level that still takes dark text, so it
+        // goes to the biggest contributors.
+        new("bg-amber-400", DarkText),
+        new("bg-emerald-400", DarkText),
+        new("bg-cyan-400", DarkText),
+        new("bg-violet-400", DarkText),
+        new("bg-rose-400", DarkText),
+        new("bg-blue-400", DarkText),
+        new("bg-orange-400", DarkText),
+        new("bg-pink-400", DarkText),
+        new("bg-teal-400", DarkText),
+        new("bg-lime-400", DarkText),
+        new("bg-red-400", DarkText),
+        new("bg-yellow-400", DarkText),
+        new("bg-green-400", DarkText),
+        new("bg-sky-400", DarkText),
+        new("bg-indigo-400", DarkText),
+        new("bg-purple-400", DarkText),
+        new("bg-fuchsia-400", DarkText),
 
-        // Band 2 — light theme 700, dark theme 600. Dark in both modes throughout.
-        new("bg-amber-700 dark:bg-amber-600", "text-white"),
-        new("bg-emerald-700 dark:bg-emerald-600", "text-white"),
-        new("bg-cyan-700 dark:bg-cyan-600", "text-white"),
-        new("bg-violet-700 dark:bg-violet-600", "text-white"),
-        new("bg-rose-700 dark:bg-rose-600", "text-white"),
-        new("bg-blue-700 dark:bg-blue-600", "text-white"),
-        new("bg-orange-700 dark:bg-orange-600", "text-white"),
-        new("bg-pink-700 dark:bg-pink-600", "text-white"),
-        new("bg-teal-700 dark:bg-teal-600", "text-white"),
-        new("bg-lime-700 dark:bg-lime-600", "text-white"),
-        new("bg-red-700 dark:bg-red-600", "text-white"),
-        new("bg-yellow-700 dark:bg-yellow-600", "text-white"),
-        new("bg-green-700 dark:bg-green-600", "text-white"),
-        new("bg-sky-700 dark:bg-sky-600", "text-white"),
-        new("bg-indigo-700 dark:bg-indigo-600", "text-white"),
-        new("bg-purple-700 dark:bg-purple-600", "text-white"),
-        new("bg-fuchsia-700 dark:bg-fuchsia-600", "text-white"),
+        // Band 2 — 300 across every hue. Lighter than band 1 but the same hue sequence, so a segment's
+        // family is still recognisable when the chart reaches this deep.
+        new("bg-amber-300", DarkText),
+        new("bg-emerald-300", DarkText),
+        new("bg-cyan-300", DarkText),
+        new("bg-violet-300", DarkText),
+        new("bg-rose-300", DarkText),
+        new("bg-blue-300", DarkText),
+        new("bg-orange-300", DarkText),
+        new("bg-pink-300", DarkText),
+        new("bg-teal-300", DarkText),
+        new("bg-lime-300", DarkText),
+        new("bg-red-300", DarkText),
+        new("bg-yellow-300", DarkText),
+        new("bg-green-300", DarkText),
+        new("bg-sky-300", DarkText),
+        new("bg-indigo-300", DarkText),
+        new("bg-purple-300", DarkText),
+        new("bg-fuchsia-300", DarkText),
 
-        // Band 3 — light theme 600, dark theme 500. The three brightest hues flip between modes.
-        new("bg-amber-600 dark:bg-amber-500", "text-white dark:text-slate-900"),
-        new("bg-emerald-600 dark:bg-emerald-500", "text-white"),
-        new("bg-cyan-600 dark:bg-cyan-500", "text-white"),
-        new("bg-violet-600 dark:bg-violet-500", "text-white"),
-        new("bg-rose-600 dark:bg-rose-500", "text-white"),
-        new("bg-blue-600 dark:bg-blue-500", "text-white"),
-        new("bg-orange-600 dark:bg-orange-500", "text-white"),
-        new("bg-pink-600 dark:bg-pink-500", "text-white"),
-        new("bg-teal-600 dark:bg-teal-500", "text-white"),
-        new("bg-lime-600 dark:bg-lime-500", "text-white dark:text-slate-900"),
-        new("bg-red-600 dark:bg-red-500", "text-white"),
-        new("bg-yellow-600 dark:bg-yellow-500", "text-white dark:text-slate-900"),
-        new("bg-green-600 dark:bg-green-500", "text-white"),
-        new("bg-sky-600 dark:bg-sky-500", "text-white"),
-        new("bg-indigo-600 dark:bg-indigo-500", "text-white"),
-        new("bg-purple-600 dark:bg-purple-500", "text-white"),
-        new("bg-fuchsia-600 dark:bg-fuchsia-500", "text-white"),
-
-        // Band 4 — light theme 800, dark theme 300. Added so the expanded view can name roughly twice
-        // as many items as the standard one, which is the only view that reaches this deep.
-        //
-        // The dark side is 300, NOT 700. A 700-level fill against the dark panel (slate-900) is so
-        // close to the background that the block reads as empty space with text floating on it, which
-        // is exactly how this band first shipped and had to be fixed. The general "no pale shades"
-        // note above is about pale on the LIGHT panel, and band 4 never puts a pale shade there — it
-        // uses 800 in light mode — so a bright dark-mode fill is the right way to stay legible.
-        // See DarkFillLevelIsNeverDarkerThan600 in StackPaletteTests, which enforces this.
-        new("bg-amber-800 dark:bg-amber-300", "text-white dark:text-slate-900"),
-        new("bg-emerald-800 dark:bg-emerald-300", "text-white dark:text-slate-900"),
-        new("bg-cyan-800 dark:bg-cyan-300", "text-white dark:text-slate-900"),
-        new("bg-violet-800 dark:bg-violet-300", "text-white dark:text-slate-900"),
-        new("bg-rose-800 dark:bg-rose-300", "text-white dark:text-slate-900"),
-        new("bg-blue-800 dark:bg-blue-300", "text-white dark:text-slate-900"),
-        new("bg-orange-800 dark:bg-orange-300", "text-white dark:text-slate-900"),
-        new("bg-pink-800 dark:bg-pink-300", "text-white dark:text-slate-900"),
-        new("bg-teal-800 dark:bg-teal-300", "text-white dark:text-slate-900"),
-        new("bg-lime-800 dark:bg-lime-300", "text-white dark:text-slate-900"),
-        new("bg-red-800 dark:bg-red-300", "text-white dark:text-slate-900"),
-        new("bg-yellow-800 dark:bg-yellow-300", "text-white dark:text-slate-900"),
-        new("bg-green-800 dark:bg-green-300", "text-white dark:text-slate-900"),
-        new("bg-sky-800 dark:bg-sky-300", "text-white dark:text-slate-900"),
-        new("bg-indigo-800 dark:bg-indigo-300", "text-white dark:text-slate-900"),
-        new("bg-purple-800 dark:bg-purple-300", "text-white dark:text-slate-900"),
-        new("bg-fuchsia-800 dark:bg-fuchsia-300", "text-white dark:text-slate-900")
+        // Band 3 — split by hue, because 500 is where legibility stops being about the number.
+        // The warm and green half is still light enough at 500 for dark text; the blue/purple/red half
+        // is not, so those eight drop to 200 instead. Both directions move AWAY from band 1, which is
+        // what keeps this band distinguishable from it.
+        new("bg-amber-500", DarkText),
+        new("bg-emerald-500", DarkText),
+        new("bg-cyan-500", DarkText),
+        new("bg-violet-200", DarkText),
+        new("bg-rose-200", DarkText),
+        new("bg-blue-200", DarkText),
+        new("bg-orange-500", DarkText),
+        new("bg-pink-200", DarkText),
+        new("bg-teal-500", DarkText),
+        new("bg-lime-500", DarkText),
+        new("bg-red-200", DarkText),
+        new("bg-yellow-500", DarkText),
+        new("bg-green-500", DarkText),
+        new("bg-sky-500", DarkText),
+        new("bg-indigo-200", DarkText),
+        new("bg-purple-200", DarkText),
+        new("bg-fuchsia-200", DarkText)
     };
 
+    // The label colour every entry uses. Named rather than repeated so "all dark text" is a single
+    // fact in one place instead of 51 copies that could drift apart.
+    private const string DarkText = "text-slate-900";
+
     // Mid-grey both ways: slate-600 on the slate-900 panel read as "background", making the
-    // (often large) Other block look like empty chart space.
-    public static readonly Entry Other = new("bg-slate-400 dark:bg-slate-500", "text-slate-900 dark:text-white");
+    // (often large) Other block look like empty chart space. slate-400 is bright enough for the same
+    // dark label as everything else, so Other needs no special case either.
+    public static readonly Entry Other = new("bg-slate-400", DarkText);
 
     /// <summary>
     /// Chooses the keys to name, in colour-assignment order.
@@ -191,9 +183,14 @@ public static class StackPalette
             }
         }
 
+        // Past the end of the palette the colours repeat rather than the keys being dropped into
+        // "Other". Restricting the palette to bright, dark-text fills cost it a whole band, and the
+        // expanded view names more items than the remaining 51 — so the choice is a repeated colour or
+        // a grey block, and a repeat is much the lesser harm: every named segment is labelled with its
+        // own item name and neither chart draws a legend, so nothing is identified by colour alone.
+        // Repeats land 51 apart in overall-size order, which puts them in different bars in practice.
         return ordered
-            .Take(Palette.Length)
-            .Select((key, i) => (key, Palette[i]))
+            .Select((key, i) => (key, Palette[i % Palette.Length]))
             .ToList();
     }
 }

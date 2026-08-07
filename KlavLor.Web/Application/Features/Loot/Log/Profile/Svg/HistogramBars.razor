@@ -233,7 +233,8 @@
         IReadOnlyList<BarSegment>? OverflowItems = null,
         string? IconUrl = null,
         // Text colour legible on FillClass — supplied together with it by StackPalette, since the
-        // two are only correct as a pair. Defaults to white when a caller doesn't set it.
+        // two are only correct as a pair. Every StackPalette fill is bright, so this is dark slate
+        // throughout; it stays a parameter so a caller with its own fills still has to say.
         string? TextClass = null);
 
     [Parameter] public required IReadOnlyList<Bar> Bars { get; set; }
@@ -285,7 +286,7 @@
     // through and the block reads as empty space with a label floating on it, which is precisely how
     // the fourth palette band first shipped. Never silently transparent.
     private static string SegmentFill(BarSegment seg) =>
-        string.IsNullOrWhiteSpace(seg.FillClass) ? "bg-slate-400 dark:bg-slate-500" : seg.FillClass;
+        string.IsNullOrWhiteSpace(seg.FillClass) ? "bg-slate-400" : seg.FillClass;
 
     // Icon + name (+ value + source, as height allows) centred inside a segment block.
     // pointer-events-none keeps hover on the segment itself (tooltips keep working).
@@ -302,11 +303,11 @@
         var showValue = segPx >= InlineValueMinPx && !string.IsNullOrEmpty(seg.ValueText);
         var showSource = segPx >= InlineSourceMinPx && !string.IsNullOrEmpty(seg.SourceName);
 
-        // Falls back to a colour that is legible in BOTH themes, never to plain white. A white
-        // default is invisible the moment a segment's fill is missing or lighter than expected, and
-        // the failure is silent — the label is simply not there. This way the worst case is a label
-        // that clashes slightly, which someone can see and report.
-        var textClass = string.IsNullOrWhiteSpace(seg.TextClass) ? "text-slate-900 dark:text-white" : seg.TextClass;
+        // Dark slate, never white, and the same in both themes — because SegmentFill guarantees the
+        // block behind it has a bright background either way. A white default was invisible the moment
+        // a fill was missing or lighter than expected, and it failed silently: the label was simply
+        // not there. The worst case here is a label that clashes slightly, which someone can report.
+        var textClass = string.IsNullOrWhiteSpace(seg.TextClass) ? "text-slate-900" : seg.TextClass;
 
         <div class="absolute inset-0 flex flex-col items-center justify-center gap-0.5 px-1 pointer-events-none overflow-hidden text-center @textClass">
             <span class="flex items-center gap-1 max-w-full">
@@ -314,7 +315,9 @@
                 {
                     <img src="@seg.IconUrl" alt="" class="w-3 h-3 shrink-0" loading="lazy" onerror="this.style.display='none'" />
                 }
-                <span class="text-[9px] font-semibold leading-none truncate">@seg.ItemName</span>
+                @* Bolder than the value and source lines below it on purpose: at 9px on a saturated
+                   fill, weight is what separates the item's name from its supporting detail. *@
+                <span class="text-[9px] font-bold leading-none truncate">@seg.ItemName</span>
             </span>
             @if (showSource)
             {

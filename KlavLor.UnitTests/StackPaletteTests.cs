@@ -78,18 +78,25 @@ public sealed class StackPaletteTests
     }
 
     [Fact]
-    public void SelectionNeverExceedsThePalette()
+    public void SelectionOutgrowingThePaletteCyclesItRatherThanDroppingKeysOrThrowing()
     {
-        // 200 distinct keys, each the sole occupant of its own bar, so the per-bar floor wants to
-        // name all of them. It must still stop at the palette rather than indexing past the end.
+        // 200 distinct keys, each the sole occupant of its own bar, so the per-bar floor wants to name
+        // all of them — far more than the 51 colours available. Keeping them named and repeating a
+        // colour beats folding them into a grey "Other" block, since every named segment is labelled
+        // with its item name. The part that must not happen is indexing past the end of the palette.
         var bars = Enumerable.Range(0, 200)
             .Select(i => Bar(($"item{i}", 1)))
             .ToList();
 
         var assigned = StackPalette.Assign(bars, globalTopN: 40, minPerBar: 4);
 
-        Assert.Equal(StackPalette.Palette.Length, assigned.Count);
-        Assert.Equal(assigned.Count, assigned.Select(x => x.Style.Fill).Distinct().Count());
+        Assert.Equal(200, assigned.Count);
+        Assert.All(assigned, x => Assert.Contains(x.Style, StackPalette.Palette));
+        // The first full turn of the palette is still collision-free, which is what keeps the common
+        // case (a chart naming fewer items than there are colours) unambiguous.
+        Assert.Equal(
+            StackPalette.Palette.Length,
+            assigned.Take(StackPalette.Palette.Length).Select(x => x.Style.Fill).Distinct().Count());
     }
 
     [Fact]
@@ -128,41 +135,77 @@ public sealed class StackPaletteTests
     }
 
     [Fact]
-    public void DarkFillLevelIsNeverDarkerThan600()
+    public void NoPaletteEntryUsesWhiteLabelText()
     {
-        // The fourth band originally used 700-level fills in dark mode. Against the dark panel
-        // (slate-900) a 700 is so close to the background that the block reads as empty space with a
-        // label floating on it — it looked like the segment had failed to render. 600 is the darkest
-        // that still reads as a filled block, so anything beyond it is a bug rather than a taste call.
+        // White labels were the reported problem: on these charts they were consistently the hardest
+        // segments to read, whichever fill they sat on. The palette's answer was to give up its darker
+        // half entirely so that dark text always works — so a re-introduced white label is not a taste
+        // call to re-litigate, it is that decision being undone.
         var offenders = StackPalette.Palette
-            .Select(e => new { e.Fill, Dark = DarkShade(e.Fill) })
-            .Where(x => x.Dark >= 700)
-            .Select(x => x.Fill)
+            .Concat([StackPalette.Other])
+            .Where(e => e.Text.Contains("text-white", StringComparison.Ordinal))
+            .Select(e => e.Fill)
             .ToList();
 
         Assert.True(offenders.Count == 0,
-            "these entries use a dark-mode fill too close to the panel background: " + string.Join(", ", offenders));
+            "these entries label with white text: " + string.Join(", ", offenders));
     }
 
-    // Deliberately NOT asserting that light fills carry dark text and vice versa: whether white is
-    // legible on a 500-level fill depends on the hue, not the number — white works on violet-500 and
-    // fails on lime-500 — so a shade-based rule would give false failures. That pairing is a
-    // judgement made per entry in the palette and checked by eye. The rule above is different: it is
-    // about a fill's distance from the panel background, which the shade number does determine.
-
-    // "bg-amber-800 dark:bg-amber-300" -> 300, falling back to the light shade when there is no
-    // dark variant (such an entry uses the same fill in both themes).
-    private static int DarkShade(string fill)
+    [Fact]
+    public void EveryFillIsBrightEnoughToCarryDarkText()
     {
-        var token = fill.Split(' ').FirstOrDefault(t => t.StartsWith("dark:bg-"));
-        return int.Parse((token ?? fill.Split(' ')[0]).Split('-')[^1]);
+        // The other half of the same rule. Dark text only works because every fill is a light shade,
+        // so the palette may not reach past 500 — and the eight hues that are already too dark for
+        // dark text AT 500 (the blue/purple/red side) are held to 200 in the band that would have
+        // used it. Shade number is a sound proxy here in a way it wasn't for white text: white's
+        // legibility flips by hue at a given shade, whereas "is this light" tracks the number.
+        var tooDarkForAnyHue = StackPalette.Palette
+            .Concat([StackPalette.Other])
+            .Where(e => Shade(e.Fill) > 500)
+            .Select(e => e.Fill)
+            .ToList();
+
+        Assert.True(tooDarkForAnyHue.Count == 0,
+            "these fills are too dark for a dark label: " + string.Join(", ", tooDarkForAnyHue));
+
+        var darkHues = new[] { "blue", "indigo", "violet", "purple", "fuchsia", "pink", "rose", "red" };
+        var borderline = StackPalette.Palette
+            .Where(e => Shade(e.Fill) >= 500 && darkHues.Any(h => e.Fill.Contains($"-{h}-", StringComparison.Ordinal)))
+            .Select(e => e.Fill)
+            .ToList();
+
+        Assert.True(borderline.Count == 0,
+            "these hues are too dark at 500 to take a dark label: " + string.Join(", ", borderline));
     }
+
+    [Fact]
+    public void NoEntryVariesItsFillByTheme()
+    {
+        // A bright fill reads as a filled block against the near-white panel and the slate-900 one
+        // alike, so one fill serves both themes. Every legibility bug this palette has had came from a
+        // light/dark pair drifting apart — a 700 dark-mode fill that vanished into the panel, a hue
+        // whose text colour needed to flip between modes — and a single fill makes that unexpressible.
+        var themed = StackPalette.Palette
+            .Concat([StackPalette.Other])
+            .Where(e => e.Fill.Contains("dark:", StringComparison.Ordinal)
+                     || e.Text.Contains("dark:", StringComparison.Ordinal))
+            .Select(e => e.Fill)
+            .ToList();
+
+        Assert.True(themed.Count == 0,
+            "these entries still branch on theme: " + string.Join(", ", themed));
+    }
+
+    // "bg-amber-400" -> 400.
+    private static int Shade(string fill) => int.Parse(fill.Split(' ')[0].Split('-')[^1]);
 
     [Fact]
     public void PaletteFills_AreAllDistinct()
     {
-        // Three bands of the same hues, so a copy-paste slip would silently give two entries the
-        // same colour and make the legend ambiguous.
+        // Three bands of the same 17 hues, so a copy-paste slip would silently give two entries the
+        // same colour. Assign deliberately repeats colours once it runs past the end of the palette;
+        // a duplicate WITHIN the palette is different — it wastes a slot and brings the first
+        // collision forward.
         Assert.Equal(
             StackPalette.Palette.Length,
             StackPalette.Palette.Select(e => e.Fill).Distinct().Count());

@@ -4,6 +4,15 @@
 @source "../**/*.html";
 @source "../**/*.cshtml";
 
+/* The stacked-chart palette is 51 fill classes that exist ONLY as string literals in this one C# file
+   — no .razor file names them. Tailwind's automatic detection does find them, but named here as well
+   because the failure mode if it ever stopped is silent and severe: the class is never emitted, the
+   segment renders with no background, and the block reads as empty chart space with a label floating
+   on it. That exact bug has already shipped twice. Named as one file rather than a *.cs wildcard on
+   purpose: an explicit @source glob does not honour .gitignore, so a wildcard drags bin/ and obj/ in.
+   (Keep quote characters out of this comment — Tailwind parses them even in here.) */
+@source "../Application/Features/Loot/Log/Profile/Svg/StackPalette.cs";
+
 /* Use class-based dark mode instead of prefers-color-scheme */
 @variant dark (&:where(.dark, .dark *));
 
@@ -74,6 +83,17 @@ body:not(.history-panel-open) #completion-history-panel {
 .hist-segment-group .hist-tooltip-large { display: none; }
 .hist-segment-group:hover .hist-tooltip-large { display: block; }
 .hist-segment-group:hover { z-index: 50; }
+
+/* Faint inner edge on every stacked block. StackPalette is now entirely bright fills — that is what
+   lets every label be dark text instead of white — but the palest of them sit close to the light
+   theme's panel, and adjacent blocks of a similar shade can run together. A 1px inset line separates
+   them without adding a colour, and it works in both themes because it is the fill it darkens, not
+   the page. Inset box-shadow rather than a border so it costs no layout height: the label floor
+   arithmetic in SegmentLayout budgets in exact pixels. */
+.hist-segment,
+.hist-segment-group {
+    box-shadow: inset 0 0 0 1px rgb(15 23 42 / 0.18);
+}
 
 
 /* Legendary card animation: applied to any loot-feed card whose total drop
