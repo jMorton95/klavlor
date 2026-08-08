@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Npgsql;
@@ -18,7 +18,8 @@ namespace KlavLor.Infrastructure.Persistence.EntityFramework.Repositories.Loot;
 // monthly kill trend, and the collection-log progress panel. Split out of LootLogRepository by
 // consumer feature; the queries are unchanged.
 internal sealed class LootSourceDetailRepository(
-    DataContext dataContext, ILogger<LootSourceDetailRepository> logger, ICollectionLogCache collectionLogCache)
+    DataContext dataContext, ILogger<LootSourceDetailRepository> logger, ICollectionLogCache collectionLogCache,
+    IItemValueOverrideCache itemValues)
     : ILootSourceDetailRepository
 {
     public async Task<LootSourceDetail> GetSourceDetail(int characterId, string sourceName, int pageNumber, int pageSize)
@@ -73,7 +74,9 @@ internal sealed class LootSourceDetailRepository(
                 .Where(k => k.TotalValue > 0)
                 .Select(k =>
                 {
-                    var drops = JsonSerializer.Deserialize<List<LootDrop>>(k.DropsJson) ?? [];
+                    // DropsJson holds the raw RuneLite price; re-price through the admin overrides.
+                    var drops = itemValues.WithEffectivePrices(
+                        JsonSerializer.Deserialize<List<LootDrop>>(k.DropsJson) ?? []);
                     return new LootKillEntry(
                         k.OccurredAt,
                         k.KillCount,
@@ -96,7 +99,9 @@ internal sealed class LootSourceDetailRepository(
             var hasMore = kills.Count > pageSize;
             var killEntries = kills.Take(pageSize).Select((k, i) =>
             {
-                var drops = JsonSerializer.Deserialize<List<LootDrop>>(k.DropsJson) ?? [];
+                // DropsJson holds the raw RuneLite price; re-price through the admin overrides.
+                var drops = itemValues.WithEffectivePrices(
+                    JsonSerializer.Deserialize<List<LootDrop>>(k.DropsJson) ?? []);
                 var ordinal = summary.TotalKills - skip - i;
                 return new LootKillEntry(
                     k.OccurredAt,
@@ -147,7 +152,9 @@ internal sealed class LootSourceDetailRepository(
             var hasMore = kills.Count > pageSize;
             var killEntries = kills.Take(pageSize).Select((k, i) =>
             {
-                var drops = JsonSerializer.Deserialize<List<LootDrop>>(k.DropsJson) ?? [];
+                // DropsJson holds the raw RuneLite price; re-price through the admin overrides.
+                var drops = itemValues.WithEffectivePrices(
+                    JsonSerializer.Deserialize<List<LootDrop>>(k.DropsJson) ?? []);
                 var ordinal = totalKills - skip - i;
                 return new LootKillEntry(
                     k.OccurredAt,

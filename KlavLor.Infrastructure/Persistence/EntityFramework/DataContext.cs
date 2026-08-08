@@ -36,6 +36,7 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
     public virtual DbSet<LeaderboardSourceExclusion> LeaderboardSourceExclusions => Set<LeaderboardSourceExclusion>();
     public virtual DbSet<LeaderboardItemExclusion> LeaderboardItemExclusions => Set<LeaderboardItemExclusion>();
     public virtual DbSet<SourceRateModifier> SourceRateModifiers => Set<SourceRateModifier>();
+    public virtual DbSet<ItemValueOverride> ItemValueOverrides => Set<ItemValueOverride>();
     public virtual DbSet<JobRun> JobRuns => Set<JobRun>();
     public virtual DbSet<JobSchedule> JobSchedules => Set<JobSchedule>();
     public virtual DbSet<CharacterSourceBaseline> CharacterSourceBaselines => Set<CharacterSourceBaseline>();
@@ -445,6 +446,11 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
         // Admin rate multipliers, keyed by (source, item); empty item = source-wide.
         modelBuilder.Entity<SourceRateModifier>()
             .HasIndex(e => new { e.SourceName, e.ItemName })
+            .IsUnique();
+
+        // Admin intrinsic item values, one row per item (see ItemValueOverride).
+        modelBuilder.Entity<ItemValueOverride>()
+            .HasIndex(e => e.ItemId)
             .IsUnique();
 
         // Background-job run log (append-only operational history; not an Entity, no audit stamp).

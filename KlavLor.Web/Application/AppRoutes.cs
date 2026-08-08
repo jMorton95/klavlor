@@ -187,6 +187,11 @@ public static class AppRoutes
     public const string AdminDelveDepth = "/admin/settings/delve-depths";
     public const string AdminDelveDepthSet = "/admin/settings/delve-depths/set";
     public const string AdminDelveDepthRemove = "/admin/settings/delve-depths/remove";
+    // Admin-set intrinsic GP values for items RuneLite prices at 0 (untradeable components).
+    public const string AdminItemValues = "/admin/settings/item-values";
+    public const string AdminItemValueSearch = "/admin/settings/item-values/search";
+    public const string AdminItemValueSet = "/admin/settings/item-values/set";
+    public const string AdminItemValueRemove = "/admin/settings/item-values/remove";
     public const string AdminSpecialLoot = "/admin/settings/special-loot";
     public const string AdminSpecialLootItemSearch = "/admin/settings/special-loot/item-search";
     public const string AdminSpecialLootInject = "/admin/settings/special-loot/inject";

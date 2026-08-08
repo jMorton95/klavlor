@@ -26,6 +26,7 @@ public sealed class LootIngestHandler(
     IMemoryCache memoryCache,
     IDropRateRepository dropRateRepository,
     ICharacterDelveDepthRepository delveDepthRepository,
+    IItemValueOverrideCache itemValues,
     SourceLootService sourceLoot)
 {
     private static readonly string[] DateFormats =
@@ -250,7 +251,7 @@ public sealed class LootIngestHandler(
         return await gameCharacterRepository.Save(newCharacter);
     }
 
-    private static bool ShouldPublishToFeed(LootRecord record, GameCharacter? character)
+    private bool ShouldPublishToFeed(LootRecord record, GameCharacter? character)
     {
         if (!IsCharacterVisible(character))
             return false;
@@ -258,7 +259,10 @@ public sealed class LootIngestHandler(
         // Imported records only publish if any single drop qualifies for Rare+ (1M+) to avoid flooding.
         if (record.IsImported)
         {
-            var drops = JsonSerializer.Deserialize<List<LootDrop>>(record.DropsJson) ?? [];
+            // Re-priced through the override cache: DropsJson holds the raw price, so an item whose
+            // real worth is admin-set would otherwise be judged at 0 and silently never publish.
+            var drops = itemValues.WithEffectivePrices(
+                JsonSerializer.Deserialize<List<LootDrop>>(record.DropsJson) ?? []);
             return drops.Any(d => (long)d.Quantity * d.Price >= 1_000_000);
         }
 
@@ -283,7 +287,12 @@ public sealed class LootIngestHandler(
 
     private async Task PublishRecordToFeed(string userName, LootRecord record, GameCharacter? character)
     {
-        var drops = JsonSerializer.Deserialize<List<LootDrop>>(record.DropsJson) ?? [];
+        // Re-priced through the override cache before anything looks at a value: this is the live
+        // path, and it must agree with the backfill path (which reads the already-effective
+        // LootDrops projection) or the same drop would land in a different swimlane before and
+        // after a refresh.
+        var drops = itemValues.WithEffectivePrices(
+            JsonSerializer.Deserialize<List<LootDrop>>(record.DropsJson) ?? []);
 
         // Attach the effective rate to every drop so a feed card can say how lucky it was using
         // exactly the same numbers as the character page and the leaderboard. One batched lookup
@@ -396,6 +405,8 @@ public sealed class LootIngestHandler(
         }
 
         var drops = command.Drops.Select(d => new LootDrop(d.Name, d.Id, d.Quantity, d.Price)).ToList();
+        // Provisional: the raw total. FinalizeDrops recomputes it from the effective prices once the
+        // item value overrides have been applied.
         var totalValue = drops.Sum(d => (long)d.Quantity * d.Price);
 
         var record = new LootRecord
@@ -432,20 +443,32 @@ public sealed class LootIngestHandler(
 
     private sealed record ParsedRecord(LootRecord Record, List<LootDrop> Drops);
 
-    private static void FinalizeDrops(LootRecord record, List<LootDrop> drops)
+    private void FinalizeDrops(LootRecord record, List<LootDrop> drops)
     {
-        // DropsJson stays the canonical record; the normalised LootDrop rows are written
-        // from the same finalised list so both representations agree. EF inserts the child
-        // rows when the LootRecord is added (single- or batch-ingest both funnel here).
+        // DropsJson stays the canonical record and keeps the RAW price RuneLite reported, exactly
+        // as it arrived. The normalised LootDrop rows and TotalValue are the DERIVED projection and
+        // carry the EFFECTIVE price — the admin's intrinsic value override applied on top of the raw
+        // one. Keeping the raw figure in the JSON is what makes an override reversible: removing it
+        // re-derives straight back from here (see ItemValueOverrideRepository.RebuildForItem).
+        //
+        // Both representations are written from the same list in the same order, so index alignment
+        // between them holds; the rebuild pass relies on it.
         record.DropsJson = JsonSerializer.Serialize(drops);
-        record.ReplaceDropRows(drops.Select(d => new LootDropRow
+
+        var rows = drops.Select(d => new LootDropRow
         {
             ItemId = d.ItemId,
             Name = d.Name,
             Quantity = d.Quantity,
-            Price = d.Price,
+            Price = itemValues.GetPrice(d.ItemId, d.Price),
             IsFirstTime = d.IsFirstTime,
             IsSpecial = d.IsSpecial
-        }));
+        }).ToList();
+
+        record.ReplaceDropRows(rows);
+        // Recomputed here rather than in MapToLootRecord so it agrees with the rows above — an
+        // overridden item has to raise the kill's total, or the feed's tier pre-filter and every GP
+        // aggregate would still be reading the pre-override figure.
+        record.TotalValue = rows.Sum(r => (long)r.Quantity * r.Price);
     }
 }

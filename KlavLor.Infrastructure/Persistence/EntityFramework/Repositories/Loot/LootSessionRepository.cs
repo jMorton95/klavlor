@@ -17,7 +17,8 @@ namespace KlavLor.Infrastructure.Persistence.EntityFramework.Repositories.Loot;
 // (SessionSql / LootFeedGrouping), per source and across every source. Split out of
 // LootLogRepository by consumer feature; the queries are unchanged.
 internal sealed class LootSessionRepository(
-    DataContext dataContext, ILogger<LootSessionRepository> logger, ICollectionLogCache collectionLogCache)
+    DataContext dataContext, ILogger<LootSessionRepository> logger, ICollectionLogCache collectionLogCache,
+    IItemValueOverrideCache itemValues)
     : ILootSessionRepository
 {
     // Groups a character's kills at one source into play "sessions" (same rule as the live feed,
@@ -249,7 +250,9 @@ internal sealed class LootSessionRepository(
             while (await reader.ReadAsync())
             {
                 var json = reader.GetString(3);
-                var drops = JsonSerializer.Deserialize<List<LootDrop>>(json) ?? [];
+                // DropsJson holds the raw RuneLite price; re-price through the admin overrides.
+                var drops = itemValues.WithEffectivePrices(
+                    JsonSerializer.Deserialize<List<LootDrop>>(json) ?? []);
                 entries.Add(new LootKillEntry(
                     reader.GetFieldValue<DateTimeOffset>(0),
                     reader.IsDBNull(1) ? null : reader.GetInt32(1),

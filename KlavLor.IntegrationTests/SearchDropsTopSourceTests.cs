@@ -1,4 +1,4 @@
-using KlavLor.Domain.Entities;
+﻿using KlavLor.Domain.Entities;
 using KlavLor.Infrastructure.Persistence.EntityFramework.Repositories.Loot;
 using KlavLor.Infrastructure.Persistence.EntityFramework.Repositories.Search;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -75,7 +75,7 @@ public sealed class SearchDropsTopSourceTests(PostgresFixture fx)
         Seed.AddKill(ctx, userId, charId, "TP_Aberrant", at.AddHours(1), 1, [new(item, 9003, 1, 10_000)]);
         await ctx.SaveChangesAsync();
 
-        var repo = new LootProfileRepository(ctx, NullLogger<LootProfileRepository>.Instance);
+        var repo = new LootProfileRepository(ctx, NullLogger<LootProfileRepository>.Instance, new FakeItemValueCache());
         var top = await repo.GetTopItems(charId, 20);
 
         var row = Assert.Single(top.Items, r => r.ItemName == item);

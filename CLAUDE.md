@@ -145,6 +145,21 @@ There is deliberately no synthetic ranking multiple any more. The old "rare grin
 
 **Feed tiers are per drop, everywhere.** Anything that classifies an item into a swimlane must use the value of a single receipt, never a running total — `LootDropSummary.BestDropValue` exists for exactly this, so 500 cheap drops summing to millions can't read as a legendary. Always classify via `ILootFeedService.GetDropTier` rather than re-hardcoding thresholds; the character/source page's drop grid and the live feed cards share it.
 
+### Item Values: DropsJson Is Raw, The Projection Is Effective
+
+Some genuinely valuable drops are untradeable and so have no Grand Exchange price — the Noxious halberd's three components are worth ~10m each and RuneLite reports every one of them at 0 GP. `ItemValueOverride` lets an admin set a flat intrinsic value per item id, applied through `IItemValueOverrideCache` (singleton, immutable-snapshot swap, primed in Program.cs before the feed seeder — same shape as `ISourceRateModifierCache`).
+
+It is a **global, timeless** override, deliberately not a price history: setting one re-values every past and future receipt of that item. It carries no special-casing downstream, so it flows through ordinary tier classification — 10m lands the drop in Epic, 100k in Uncommon. This is **not** the same thing as `LootDrop.IsSpecial`, which stays what it is: the zero-value admin-injected giga drop for genuine one-offs. The two compose (a special-injected item with a value gets that value) but `IsSpecial` still owns the Legendary lane.
+
+The invariant that makes it consistent:
+
+- **`DropsJson` keeps the RAW RuneLite price and is never rewritten.** It is the canonical record, and it is what makes an override reversible — removal re-derives straight back from it.
+- **`LootDrops.Price` and `LootRecords.TotalValue` are the DERIVED projection and hold the EFFECTIVE price.** Every SQL read site therefore needs no change at all, which is why this design was chosen over materialising a parallel `EffectivePrice` column across ~40 query sites.
+- **Every site that deserialises `DropsJson` and then looks at a price must call `IItemValueOverrideCache.WithEffectivePrices`.** That is `LootIngestHandler` (both the publish check and the live card), `LootFeedRepository` (`CollapseProjections`, `CollapseDay`), `LootProfileRepository` (biggest kill), `LootSessionRepository` (session kills) and `LootSourceDetailRepository` (notable drops, paged kills, source-session kills). Miss one and the same drop reads one way live and another way after a refresh — the bug class already called out for Doom's depth maths. Sites that only read names and quantities (`LootLogSearchRepository`, `SourceLootService.ParseClaim`, `LootDerivationBackfillService`) correctly do not.
+- **Every write re-primes the cache, then re-derives.** `ItemValueOverrideAdminHandler` persists, calls `cache.Replace`, then `RebuildForItem`, which re-prices `LootDrops` from `DropsJson` in bounded batches and rolls `LootRecords.TotalValue` back up with a set-based raw UPDATE (no audit or RowVersion churn — `TotalValue` is derived, not a user edit). Set, change and remove all run the same pass, so it is symmetric and idempotent. It then invalidates `LootStatsCache`, `GlobalSourceCache` and `GlobalDropCache` for exactly what the rebuild touched.
+
+`KlavLor.UnitTests/ItemValueOverrideTests.cs` pins the cache and the tier consequence; `KlavLor.IntegrationTests/ItemValueOverrideRebuildTests.cs` pins the rebuild and the restore-on-removal against real SQL.
+
 ### Progression Completion Is Manual Only
 
 Template-node completion happens **only** when a user clicks a node in the viewer. There is deliberately no drop-driven auto-completion and no generated completion notes — that feature was removed, along with `Features/Progression/` and the `GetAutoCompletableNodes`/`AddCompletions` repository methods. Loot ingest must never write to `UserNodeCompletions`.
@@ -186,7 +201,7 @@ Shared in both layers:
 - `Login/` — Authentication (Web also has `Logout/` and `Home/`, which just redirects to the loot feed)
 - `Loot/` — the largest area, see breakdown below
 - `Search/` — Global search across characters, sources and drops
-- `Settings/` — Admin settings hub. One page with many independently-loading HTMX panels: leagues toggle, character baselines, collection-log blacklist, drop-rate resync, failed icons, job health/run history, leaderboard source + item exclusions, source renames, source rate modifiers, special loot
+- `Settings/` — Admin settings hub. One page with many independently-loading HTMX panels: leagues toggle, character baselines, collection-log blacklist, drop-rate resync, failed icons, job health/run history, leaderboard source + item exclusions, item values, source renames, source rate modifiers, special loot
 - `Source/` — Global source (boss/monster) detail across all characters, with `GlobalSourceCache`
 - `Templates/` — Template CRUD (`Commands/`, `Queries/`) and the visual canvas builder (`Builder/` — nodes, edges, groups, annotations, regions, layouts). There is deliberately no export, import or duplicate feature: the endpoints existed but were never registered or linked from the UI, and were removed rather than finished.
 - `Users/` — Admin user management, API key generation/revocation, character assignment
@@ -201,6 +216,7 @@ Shared in both layers:
 - `SourceModels/` (Application only) — Pluggable per-source drop maths behind `ISourceLootStrategy`: `DefaultSourceLootStrategy`, `DoomLootStrategy` (per-run delve depth), `RaidUniqueShareStrategy`, dispatched by `SourceLootService`, plus admin rate modifiers. **Strategies are matched by interface dispatch — a new strategy must be registered with `SourceLootService` or it silently never engages** (see commit `abf0996`). Enforced by `KlavLor.UnitTests/SourceLootStrategyRegistrationTests.cs`, which scans the Application assembly and fails if any `ISourceLootStrategy` implementation is unregistered or unreachable through the facade.
 - `Baseline/` (Application only) — Admin-entered pre-tracking kill counts, added to derived KC
 - `Special/` (Application only) — Special/one-off loot item configuration
+- `ItemValues/` (Application only) — Admin intrinsic GP values for untradeable drops (see "Item Values" above)
 
 Application-only:
 
@@ -256,7 +272,7 @@ These are the only places where manual DI scopes are acceptable (via `IServiceSc
 
 `KlavLor.IntegrationTests` (xUnit) runs against a real PostgreSQL started by Testcontainers (`postgres:16-alpine`) with the full EF migration set applied, so tests exercise real SQL — including the raw-ADO repositories and the `LootDrop` projection — rather than an in-memory fake. **Docker must be running.** The container is shared via `PostgresFixture` / the `"postgres"` collection, so tests in that collection must not assume an empty database; seed and scope your own rows.
 
-Coverage is targeted at the loot-derivation maths and query surface, not the web layer: character sessions, drop-rate bucket client and sync, feed ordinals and one-off drops, loot-drop projection, source rename, source tables, and golden-file assertions for drop search.
+Coverage is targeted at the loot-derivation maths and query surface, not the web layer: character sessions, drop-rate bucket client and sync, feed ordinals and one-off drops, loot-drop projection, item-value override rebuild and restore, source rename, source tables, and golden-file assertions for drop search.
 
 ```bash
 dotnet test KlavLor.IntegrationTests/KlavLor.IntegrationTests.csproj
@@ -281,6 +297,7 @@ What it covers, and why each file exists:
 - `LootFeedTierClassificationTests` — tiers are per drop, never per running total (500 cheap drops summing to millions must not read as legendary).
 - `RepositoryRegistrationTests` — the reflection-based repository registration; see "Repository Auto-Registration".
 - `RazorComponentDataAccessTests` — the SSR data-access rules; see "Razor Component Data-Access Rules".
+- `ItemValueOverrideTests` — the intrinsic item-value cache and the tier consequence; see "Item Values".
 
 There is still no coverage of Web endpoints.
 

@@ -1,4 +1,4 @@
-using KlavLor.Application.Interfaces.Services;
+﻿using KlavLor.Application.Interfaces.Services;
 using KlavLor.Domain.Entities;
 using KlavLor.Infrastructure.ExternalServices.OsrsWiki;
 using KlavLor.Infrastructure.Persistence.EntityFramework.Repositories.Loot;
@@ -49,7 +49,7 @@ public sealed class DropRateSyncTests(PostgresFixture fx)
         Assert.Equal(324, stored.RarityDenominator);
 
         // ...and it now shows a rarity on the character source page's collection panel.
-        var log = new LootSourceDetailRepository(ctx, NullLogger<LootSourceDetailRepository>.Instance, new FakeClogCache(ranarrId));
+        var log = new LootSourceDetailRepository(ctx, NullLogger<LootSourceDetailRepository>.Instance, new FakeClogCache(ranarrId), new FakeItemValueCache());
         var collection = await log.GetSourceCollection(charId, src);
         var entry = collection.Entries.Single(e => e.ItemName == "Grimy ranarr weed");
         Assert.Equal("1/32.4", entry.Rarity);

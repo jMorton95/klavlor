@@ -29,6 +29,7 @@ public sealed class SpecialLootHandler(
     ILootFeedService lootFeedService,
     ICollectionLogCache collectionLogCache,
     CollectionLogAdminHandler clogAdmin,
+    IItemValueOverrideCache itemValues,
     IMemoryCache memoryCache)
 {
     public async Task<List<SpecialLootCharacterOption>> GetCharacters()
@@ -74,13 +75,19 @@ public sealed class SpecialLootHandler(
 
         var drop = new LootDrop(item.Name, item.ItemId, Quantity: 1, Price: 0, IsFirstTime: isFirstTime, IsSpecial: true);
 
+        // A special drop is priced at 0 by definition, but the two features compose: if an admin has
+        // also given this item an intrinsic value, the stored projection carries it so GP totals and
+        // the item's global page agree with everywhere else. The forced Legendary tier below is
+        // unaffected — IsSpecial still owns the swimlane and the giga effect.
+        var effectivePrice = itemValues.GetPrice(drop.ItemId, drop.Price);
+
         var record = new LootRecord
         {
             UserId = ownerUserId,
             SourceName = sourceName,
             SourceType = LootSourceType.Npc,
             KillCount = null,
-            TotalValue = 0,
+            TotalValue = effectivePrice,
             OccurredAt = occurredAt,
             ContentHash = contentHash,
             IsImported = false,
@@ -94,7 +101,7 @@ public sealed class SpecialLootHandler(
                 ItemId = drop.ItemId,
                 Name = drop.Name,
                 Quantity = 1,
-                Price = 0,
+                Price = effectivePrice,
                 IsFirstTime = isFirstTime,
                 IsSpecial = true
             }
@@ -115,7 +122,7 @@ public sealed class SpecialLootHandler(
             var owner = await userRepository.GetById(ownerUserId);
             var ownerName = owner is not null ? $"{owner.FirstName} {owner.LastName}" : "Unknown";
             var scope = character.IsLeagues ? LootFeedScope.Leagues : LootFeedScope.Main;
-            var feedDrop = new LootFeedDrop(drop.Name, 1, 0, isFirstTime,
+            var feedDrop = new LootFeedDrop(drop.Name, 1, effectivePrice, isFirstTime,
                 collectionLogCache.IsCollectionLogItem(drop.ItemId, drop.Name), IsSpecial: true);
 
             lootFeedService.Publish(new LootFeedEntry(
@@ -123,7 +130,7 @@ public sealed class SpecialLootHandler(
                 ownerUserId,
                 record.SourceName,
                 record.SourceType,
-                0,
+                effectivePrice,
                 [feedDrop],
                 occurredAt,
                 LootFeedTier.Legendary,

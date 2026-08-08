@@ -5,6 +5,7 @@ using KlavLor.Application.Features.DropRates;
 using KlavLor.Application.Common;
 using KlavLor.Application.Features.Loot.Baseline;
 using KlavLor.Application.Features.Loot.DelveDepth;
+using KlavLor.Application.Features.Loot.ItemValues;
 using KlavLor.Application.Features.Loot.Leaderboard;
 using KlavLor.Application.Features.Loot.Special;
 using KlavLor.Application.Features.Loot.SourceModels;
@@ -121,6 +122,23 @@ public sealed class AdminSettingsEndpoint : IEndpoint
             .RequireAuthorization(nameof(RoleName.Admin))
             .RequireRateLimiting("mutation")
             .DisableAntiforgery();
+
+        app.MapGet(AppRoutes.AdminItemValues.FromApi(), GetItemValues)
+            .RequireAuthorization(nameof(RoleName.Admin));
+
+        app.MapGet(AppRoutes.AdminItemValueSearch.FromApi(), SearchItemValues)
+            .RequireAuthorization(nameof(RoleName.Admin));
+
+        // Reads item id / name / value from form fields (dynamic), so antiforgery is disabled —
+        // admin-gated, rate-limited, SameSite=Strict cookie (same as the other form-field posts).
+        app.MapPost(AppRoutes.AdminItemValueSet.FromApi(), SetItemValue)
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("mutation")
+            .DisableAntiforgery();
+
+        app.MapPost(AppRoutes.AdminItemValueRemove.FromApi(), RemoveItemValue)
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("mutation");
 
         app.MapGet(AppRoutes.AdminSpecialLoot.FromApi(), GetSpecialLoot)
             .RequireAuthorization(nameof(RoleName.Admin));
@@ -428,6 +446,42 @@ public sealed class AdminSettingsEndpoint : IEndpoint
     {
         var rows = await handler.Set(characterId, sourceName, baselineKc);
         return IResultExtensions.Component<CharacterBaselineResults>(new { Rows = rows });
+    }
+
+    private static async Task<RazorComponentResult> GetItemValues(ItemValueOverrideAdminHandler handler)
+    {
+        var rows = await handler.List();
+        return IResultExtensions.Component<ItemValuePanel>(new { Rows = rows });
+    }
+
+    private static async Task<RazorComponentResult> SearchItemValues(
+        [FromQuery] string? searchTerm,
+        ItemValueOverrideAdminHandler handler)
+    {
+        var items = await handler.SearchItems(searchTerm);
+        return IResultExtensions.Component<ItemValueCandidates>(new { Items = items, SearchTerm = searchTerm });
+    }
+
+    private static async Task<RazorComponentResult> SetItemValue(
+        [FromForm] int itemId,
+        [FromForm] string itemName,
+        [FromForm] int value,
+        ItemValueOverrideAdminHandler handler)
+    {
+        var result = await handler.Set(itemId, itemName, value);
+        return IResultExtensions.Component<ItemValueResults>(new
+        {
+            Rows = result.IsSuccess ? result.Value : [],
+            ErrorMessage = result.IsSuccess ? null : result.ErrorMessage
+        });
+    }
+
+    private static async Task<RazorComponentResult> RemoveItemValue(
+        [FromQuery] int itemId,
+        ItemValueOverrideAdminHandler handler)
+    {
+        var rows = await handler.Remove(itemId);
+        return IResultExtensions.Component<ItemValueResults>(new { Rows = rows });
     }
 
     private static async Task<RazorComponentResult> GetSpecialLoot(SpecialLootHandler handler)

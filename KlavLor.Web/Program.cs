@@ -136,6 +136,13 @@ var sourceRateModifierCache = scope.ServiceProvider.GetRequiredService<KlavLor.A
 var sourceRateModifierRepository = scope.ServiceProvider.GetRequiredService<KlavLor.Application.Interfaces.Repositories.ISourceRateModifierRepository>();
 sourceRateModifierCache.Replace(await sourceRateModifierRepository.GetAll());
 
+// Prime the intrinsic item-value cache before the feed seeder runs: it re-prices drops read back
+// out of DropsJson, so an empty cache would classify an overridden item at its raw 0 GP and drop it
+// out of the feed entirely.
+var itemValueOverrideCache = scope.ServiceProvider.GetRequiredService<KlavLor.Application.Interfaces.Services.IItemValueOverrideCache>();
+var itemValueOverrideRepository = scope.ServiceProvider.GetRequiredService<KlavLor.Application.Interfaces.Repositories.IItemValueOverrideRepository>();
+itemValueOverrideCache.Replace(await itemValueOverrideRepository.GetAll());
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);

@@ -1,0 +1,42 @@
+@using KlavLor.Application.Features.Loot.ItemValues
+
+@if (!string.IsNullOrEmpty(ErrorMessage))
+{
+    <p class="text-sm text-red-600 dark:text-red-400 py-2">@ErrorMessage</p>
+}
+else if (Rows.Count == 0)
+{
+    <p class="text-sm text-slate-400 dark:text-white py-2">No item values configured yet.</p>
+}
+else
+{
+    <div class="space-y-1">
+        @foreach (var row in Rows)
+        {
+            <div class="flex items-center justify-between gap-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2">
+                <span class="inline-flex items-center gap-2 min-w-0">
+                    <img src="/api/images/item-icon?name=@Uri.EscapeDataString(row.ItemName)" alt="@row.ItemName"
+                         class="w-5 h-5 object-contain shrink-0" loading="lazy" onerror="this.style.display='none'" />
+                    <span class="text-sm text-slate-700 dark:text-slate-100 truncate">@row.ItemName</span>
+                    <span class="text-[10px] text-slate-400 dark:text-white shrink-0">· id @row.ItemId · @row.RecordCount.ToString("N0") drop@(row.RecordCount == 1 ? "" : "s")</span>
+                </span>
+                <span class="inline-flex items-center gap-2 shrink-0">
+                    <span class="text-xs font-mono text-amber-600 dark:text-amber-400">@row.Value.ToString("N0") gp</span>
+                    <button hx-post="@RemoveUrl(row)" hx-target="#ivp-results" hx-swap="innerHTML"
+                            class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-red-100 dark:hover:bg-red-900/50 hover:text-red-700 dark:hover:text-red-300 cursor-pointer"
+                            title="Remove this override and restore the raw price">
+                        Remove
+                    </button>
+                </span>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public List<ItemValueOverrideRow> Rows { get; set; } = [];
+    [Parameter] public string? ErrorMessage { get; set; }
+
+    private static string RemoveUrl(ItemValueOverrideRow row) =>
+        $"{AppRoutes.AdminItemValueRemove.FromApi()}?itemId={row.ItemId}";
+}

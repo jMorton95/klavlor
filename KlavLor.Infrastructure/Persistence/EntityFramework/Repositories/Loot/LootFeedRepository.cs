@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Npgsql;
@@ -18,7 +18,8 @@ namespace KlavLor.Infrastructure.Persistence.EntityFramework.Repositories.Loot;
 // character day feed, and the first-time (collection-log) feed. Split out of LootLogRepository by
 // consumer feature; the queries and the collapse/expand passes are unchanged.
 internal sealed class LootFeedRepository(
-    DataContext dataContext, ILogger<LootFeedRepository> logger, ICollectionLogCache collectionLogCache)
+    DataContext dataContext, ILogger<LootFeedRepository> logger, ICollectionLogCache collectionLogCache,
+    IItemValueOverrideCache itemValues)
     : ILootFeedRepository
 {
     public async Task<Dictionary<LootFeedTier, List<LootFeedEntry>>> GetAllFeedTiers(
@@ -84,7 +85,7 @@ internal sealed class LootFeedRepository(
                         })
                         .ToListAsync();
 
-                    var groups = CollapseProjections(candidates, tier, tierMin, tierMax, countPerTier, collectionLogCache, scope);
+                    var groups = CollapseProjections(candidates, tier, tierMin, tierMax, countPerTier, collectionLogCache, itemValues, scope);
 
                     if (groups.Count >= countPerTier || candidates.Count < take || take >= hardCap)
                     {
@@ -428,6 +429,7 @@ internal sealed class LootFeedRepository(
         long? tierMax,
         int targetGroups,
         ICollectionLogCache collectionLogCache,
+        IItemValueOverrideCache itemValues,
         LootFeedScope scope)
     {
         var groups = new List<LootFeedEntry>();
@@ -438,7 +440,10 @@ internal sealed class LootFeedRepository(
 
         foreach (var r in candidates)
         {
-            var allDrops = JsonSerializer.Deserialize<List<LootDrop>>(r.DropsJson) ?? [];
+            // DropsJson holds the raw RuneLite price; re-price through the admin overrides so a
+            // rebuilt card classifies into the same swimlane the live publish put it in.
+            var allDrops = itemValues.WithEffectivePrices(
+                JsonSerializer.Deserialize<List<LootDrop>>(r.DropsJson) ?? []);
             var tierDrops = allDrops
                 .Where(d =>
                 {
@@ -560,7 +565,7 @@ internal sealed class LootFeedRepository(
                 })
                 .ToListAsync();
 
-            var entries = CollapseDay(candidates, collectionLogCache);
+            var entries = CollapseDay(candidates, collectionLogCache, itemValues);
 
             return new CharacterDayFeed(
                 day,
@@ -580,14 +585,18 @@ internal sealed class LootFeedRepository(
     // splitting per tier, and has no group cap — a whole day's valued kills, merged into runs.
     private static List<LootFeedEntry> CollapseDay(
         List<FeedTierProjection> candidates,
-        ICollectionLogCache collectionLogCache)
+        ICollectionLogCache collectionLogCache,
+        IItemValueOverrideCache itemValues)
     {
         var groups = new List<LootFeedEntry>();
         var indexByKey = new Dictionary<string, List<int>>();
 
         foreach (var r in candidates)
         {
-            var allDrops = JsonSerializer.Deserialize<List<LootDrop>>(r.DropsJson) ?? [];
+            // DropsJson holds the raw RuneLite price; re-price through the admin overrides so a
+            // rebuilt card classifies into the same swimlane the live publish put it in.
+            var allDrops = itemValues.WithEffectivePrices(
+                JsonSerializer.Deserialize<List<LootDrop>>(r.DropsJson) ?? []);
             var drops = allDrops
                 .Where(d => ILootFeedService.GetDropTier((long)d.Quantity * d.Price) is not null)
                 .Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId, d.Name), d.IsSpecial, KillCount: r.KillCount, OccurredAt: r.OccurredAt))

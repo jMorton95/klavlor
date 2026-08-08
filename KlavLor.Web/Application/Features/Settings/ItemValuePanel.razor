@@ -1,0 +1,55 @@
+@using KlavLor.Application.Features.Loot.ItemValues
+
+@* Admin intrinsic item values. Search picks an item (which fills the hidden id — the override is
+   keyed on item id, never on name), then a GP figure is applied globally to every past and future
+   receipt of it. Wired the same way as the source rate modifier panel. *@
+
+<p class="text-xs text-slate-400 dark:text-white mb-3">
+    Some genuinely valuable drops are untradeable, so RuneLite reports them at 0 GP — the three Noxious halberd components, for instance, are worth about 10 million each but never register. Give one a value here and that value becomes the truth everywhere: the live feed (a 10m value lands it in Epic, 100k in Uncommon), the character and source pages, the monthly and daily graphs, top items and the luck leaderboard's value floor. It is a flat global figure with no point-in-time pricing — past drops are re-valued too. Setting a value of 0 removes the override and restores the raw price.
+</p>
+
+<div class="relative max-w-md mb-3">
+    <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+    </svg>
+    <input type="search" name="searchTerm" placeholder="Search dropped items by name…"
+           autocomplete="off"
+           hx-get="@AppRoutes.AdminItemValueSearch.FromApi()"
+           hx-trigger="keyup changed delay:300ms"
+           hx-target="#ivp-candidates"
+           hx-swap="innerHTML"
+           class="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+</div>
+<div id="ivp-candidates" class="mb-4"></div>
+
+<div class="flex flex-wrap items-end gap-3 mb-4">
+    <div>
+        <label class="block text-[10px] uppercase tracking-wider text-slate-500 dark:text-white mb-1">Selected item</label>
+        <input id="ivp-item-name" name="itemName" type="text" readonly placeholder="pick one from the search above"
+               class="w-64 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg outline-none" />
+        <input id="ivp-item-id" name="itemId" type="hidden" value="0" />
+    </div>
+    <div>
+        <label class="block text-[10px] uppercase tracking-wider text-slate-500 dark:text-white mb-1">Value (GP)</label>
+        <input id="ivp-value" name="value" type="number" step="1" min="0" value="0" placeholder="10000000"
+               class="w-40 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+    </div>
+    <button type="button"
+            hx-post="@AppRoutes.AdminItemValueSet.FromApi()"
+            hx-include="#ivp-item-id, #ivp-item-name, #ivp-value"
+            hx-target="#ivp-results"
+            hx-swap="innerHTML"
+            hx-disabled-elt="this"
+            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-amber-500 text-white hover:bg-amber-600 cursor-pointer disabled:opacity-50">
+        Apply value
+    </button>
+</div>
+
+<h3 class="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-2">Configured item values</h3>
+<div id="ivp-results">
+    <ItemValueResults Rows="Rows" />
+</div>
+
+@code {
+    [Parameter] public List<ItemValueOverrideRow> Rows { get; set; } = [];
+}

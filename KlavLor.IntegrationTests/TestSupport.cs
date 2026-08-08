@@ -6,6 +6,28 @@ using Microsoft.EntityFrameworkCore;
 
 namespace KlavLor.IntegrationTests;
 
+// Minimal IItemValueOverrideCache stand-in. Constructed empty by default, so a repository under
+// test behaves exactly as it did before intrinsic item values existed; pass pairs to exercise them.
+internal sealed class FakeItemValueCache : IItemValueOverrideCache
+{
+    private readonly Dictionary<int, int> _map = [];
+
+    public FakeItemValueCache(params (int ItemId, int Value)[] overrides)
+    {
+        foreach (var (itemId, value) in overrides) _map[itemId] = value;
+    }
+
+    public bool HasAny => _map.Count > 0;
+
+    public int GetPrice(int itemId, int rawPrice) => _map.TryGetValue(itemId, out var v) ? v : rawPrice;
+
+    public void Replace(IEnumerable<ItemValueOverrideValue> overrides)
+    {
+        _map.Clear();
+        foreach (var o in overrides) _map[o.ItemId] = o.Value;
+    }
+}
+
 // Minimal ICollectionLogCache stand-in: fixed sets of "is a collection-log item" ids and names.
 // Matches on either, like the real cache, because the two don't always agree for the same item.
 internal sealed class FakeClogCache(params int[] ids) : ICollectionLogCache

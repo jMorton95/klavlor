@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Npgsql;
@@ -18,7 +18,7 @@ namespace KlavLor.Infrastructure.Persistence.EntityFramework.Repositories.Loot;
 // trend, personal records, top items - plus bulk deletion of a character's or user's records.
 // Split out of LootLogRepository by consumer feature; the queries are unchanged.
 internal sealed class LootProfileRepository(
-    DataContext dataContext, ILogger<LootProfileRepository> logger)
+    DataContext dataContext, ILogger<LootProfileRepository> logger, IItemValueOverrideCache itemValues)
     : ILootProfileRepository
 {
     public async Task<ProfileHeader?> GetProfileHeader(int characterId)
@@ -533,7 +533,9 @@ internal sealed class LootProfileRepository(
             string? biggestKillSource = null;
             if (topKillRaw is not null)
             {
-                var drops = JsonSerializer.Deserialize<List<LootDrop>>(topKillRaw.DropsJson) ?? [];
+                // DropsJson holds the raw RuneLite price; re-price through the admin overrides.
+                var drops = itemValues.WithEffectivePrices(
+                    JsonSerializer.Deserialize<List<LootDrop>>(topKillRaw.DropsJson) ?? []);
                 biggestKill = new LootKillEntry(
                     topKillRaw.OccurredAt,
                     topKillRaw.KillCount,

@@ -7,6 +7,9 @@
     </PropertyGroup>
     <ItemGroup>
         <InternalsVisibleTo Include="KlavLor.IntegrationTests" />
+        <!-- ItemValueOverrideCache is a pure in-memory map with no database or network dependency,
+             so it is unit-testable directly; the grant buys the unit tests nothing else. -->
+        <InternalsVisibleTo Include="KlavLor.UnitTests" />
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\KlavLor.Domain\KlavLor.Domain.csproj" />
