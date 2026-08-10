@@ -1,10 +1,14 @@
-@using KlavLor.Application.Common
+﻿@using KlavLor.Application.Common
 @using KlavLor.Application.Features.Drop
 
 <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40">
     <td class="px-3 py-1.5">
-        <a hx-get="@CharacterUrl.FromApi()" hx-target="#hx-page-container" hx-push-url="@CharacterUrl" hx-swap="innerHTML transition:true"
-           class="inline-flex items-center gap-1.5 text-amber-600 dark:text-amber-400 hover:underline cursor-pointer max-w-[14rem]">
+        @* Goes to this character's page FOR THIS ITEM, not their whole profile — from an item page
+           the useful next step is the same data scoped to them, and their profile drops the item
+           context entirely. Their profile is still one click on from there. *@
+        <a hx-get="@SourcesUrl.FromApi()" hx-target="#hx-page-container" hx-push-url="@SourcesUrl" hx-swap="innerHTML transition:true"
+           class="inline-flex items-center gap-1.5 text-amber-600 dark:text-amber-400 hover:underline cursor-pointer max-w-[14rem]"
+           title="@($"{Row.CharacterName}'s {ItemName} drops")">
             <span class="truncate">@Row.CharacterName</span>
         </a>
     </td>
@@ -15,25 +19,11 @@
     <td class="px-3 py-1.5 text-right tabular-nums text-slate-500 dark:text-white">@Row.DistinctSources.ToString("N0")</td>
     <td class="px-3 py-1.5 text-right text-xs text-slate-400 dark:text-white tabular-nums whitespace-nowrap" title="@LocalDate(Row.FirstSeen)">@Ago(Row.FirstSeen)</td>
     <td class="px-3 py-1.5 text-right text-xs text-slate-400 dark:text-white tabular-nums whitespace-nowrap" title="@LocalDate(Row.LastSeen)">@Ago(Row.LastSeen)</td>
-    <td class="px-3 py-1.5 text-right">
-        @* The character link above goes to their whole profile, which drops the item context. This
-           keeps it: which sources gave THIS character THIS item. *@
-        <a hx-get="@SourcesUrl.FromApi()" hx-target="#hx-page-container" hx-push-url="@SourcesUrl" hx-swap="innerHTML transition:true"
-           class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 hover:text-amber-700 dark:hover:text-amber-300 cursor-pointer whitespace-nowrap transition-colors"
-           title="@($"See which sources gave {Row.CharacterName} this item")">
-            Drops
-            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-            </svg>
-        </a>
-    </td>
 </tr>
 
 @code {
     [Parameter] public required DropCharacterRow Row { get; set; }
     [Parameter] public string ItemName { get; set; } = "";
-
-    private string CharacterUrl => AppRoutes.LootLogCharacter.WithId(Row.GameCharacterId);
 
     private string SourcesUrl =>
         $"{AppRoutes.DropCharacterSources}?name={Uri.EscapeDataString(ItemName)}&characterId={Row.GameCharacterId}";

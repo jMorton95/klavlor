@@ -1,4 +1,4 @@
-using KlavLor.Application.Features.Loot.SourceModels;
+﻿using KlavLor.Application.Features.Loot.SourceModels;
 using KlavLor.Application.Interfaces.Repositories;
 using KlavLor.Application.Interfaces.Services;
 using KlavLor.Domain.Entities;
@@ -11,7 +11,6 @@ public sealed class LootFeedTiersHandler(
     IDropRateRepository dropRateRepository,
     ICharacterDelveDepthRepository delveDepths,
     ILootRecordRepository lootRecordRepository,
-    ICollectionLogCache collectionLogCache,
     SourceLootService sourceLoot)
 {
     public const int EntriesPerTier = 50;

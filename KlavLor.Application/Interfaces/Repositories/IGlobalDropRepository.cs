@@ -1,4 +1,4 @@
-using KlavLor.Application.Common;
+﻿using KlavLor.Application.Common;
 using KlavLor.Application.Features.Drop;
 
 namespace KlavLor.Application.Interfaces.Repositories;
@@ -17,6 +17,7 @@ public interface IGlobalDropRepository
     /// has never received it (or isn't visible).
     /// </summary>
     Task<DropCharacterSources?> GetCharacterSources(string itemName, int gameCharacterId);
-    Task<List<DropTrendPoint>> GetMonthlyTrend(string itemName);
-    Task<List<DropSessionRow>> GetRecentSessions(string itemName, int limit);
+    /// <summary>gameCharacterId scopes to one character; null is the all-players view.</summary>
+    Task<List<DropTrendPoint>> GetMonthlyTrend(string itemName, int? gameCharacterId = null);
+    Task<List<DropSessionRow>> GetRecentSessions(string itemName, int limit, int? gameCharacterId = null);
 }

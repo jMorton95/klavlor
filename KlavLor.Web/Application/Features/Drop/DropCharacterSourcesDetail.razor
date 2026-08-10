@@ -1,15 +1,19 @@
-﻿@using KlavLor.Application.Common
+@using KlavLor.Application.Common
 @using KlavLor.Application.Features.Drop
 @using KlavLor.Web.Components.Layout
 
-@* One character's sources for one item — the gap the drop page's character table left. That table
-   could tell you a character had six of something across three sources, then sent you to their
-   whole profile with no way to find out which three. *@
+@* The drop page, scoped to one character. Same summary strip, same panels, same order — only the
+   Characters table is gone, because there is exactly one and it is named in the header.
+
+   The trend and sessions panels are the SAME endpoints and components the global page uses, just
+   with a characterId on the query, so the two pages can't drift apart in what they show or how they
+   render it. Only the sources grid is bespoke, because a character's own roll count at each source
+   is the number that makes their haul mean anything. *@
 
 <TopBarMetaData PageTitle="@($"KlavLor - {ItemName}")" Title="@ItemName"
-                Description="@(Data is null ? "No drops recorded" : $"{Data.CharacterName}'s sources")" />
+                Description="@(Data is null ? "No drops recorded" : $"{Data.CharacterName}'s drops")" />
 
-<div class="space-y-5 pb-64">
+<div class="space-y-6 pb-64">
     <a onclick="history.back()"
        class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-amber-600 dark:text-white dark:hover:text-amber-400 cursor-pointer transition-colors">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -34,6 +38,7 @@
                          class="w-7 h-7 shrink-0" loading="lazy" onerror="this.style.display='none'" />
                     <h1 class="text-lg font-bold text-slate-900 dark:text-slate-100 truncate">@ItemName</h1>
                     <span class="text-sm text-slate-400 dark:text-white">for</span>
+                    @* Through to the character's own profile — the one thing this page can't cover. *@
                     <a hx-get="@CharacterUrl.FromApi()" hx-target="#hx-page-container" hx-push-url="@CharacterUrl" hx-swap="innerHTML transition:true"
                        class="text-lg font-bold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer truncate">@Data.CharacterName</a>
                 </div>
@@ -47,6 +52,19 @@
                         @(Data.FirstSeen?.ToString("d MMM yyyy") ?? "—") – @(Data.LastSeen?.ToString("d MMM yyyy") ?? "—")
                     </span>
                 </div>
+            </div>
+        </div>
+
+        @* Staggered like the global page so one view never opens two queries at once. *@
+        <div hx-get="@Url(AppRoutes.DropTrend)" hx-trigger="load" hx-swap="outerHTML">
+            <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+                <div class="h-32 animate-pulse bg-slate-100 dark:bg-slate-800 rounded"></div>
+            </div>
+        </div>
+
+        <div hx-get="@Url(AppRoutes.DropSessions)" hx-trigger="load delay:400ms" hx-swap="outerHTML">
+            <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+                <div class="h-40 animate-pulse bg-slate-100 dark:bg-slate-800 rounded"></div>
             </div>
         </div>
 
@@ -76,9 +94,8 @@
                             <span class="text-xs font-medium text-amber-600 dark:text-amber-400 tabular-nums whitespace-nowrap">@GoldFormat.Format(row.TotalValue)</span>
                         </div>
                         <div class="text-[10px] text-slate-400 dark:text-slate-300 tabular-nums whitespace-nowrap">
-                            @* This character's own rolls at the source, which is the number that makes
-                               their haul mean something — 3 from 40 kills reads very differently to 3
-                               from 4,000. *@
+                            @* This character's own rolls at the source — 3 from 40 kills reads very
+                               differently to 3 from 4,000. *@
                             @if (row.Kills > 0)
                             {
                                 <span>from @row.Kills.ToString("N0") roll@(row.Kills == 1 ? "" : "s") · </span>
@@ -100,4 +117,7 @@
 
     private string SourceUrl(string sourceName) =>
         AppRoutes.LootLogSource.WithId(Data!.GameCharacterId) + "?name=" + Uri.EscapeDataString(sourceName);
+
+    private string Url(string route) =>
+        $"{route.FromApi()}?name={Uri.EscapeDataString(ItemName)}&characterId={Data!.GameCharacterId}";
 }

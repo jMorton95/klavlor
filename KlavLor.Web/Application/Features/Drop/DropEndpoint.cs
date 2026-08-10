@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using KlavLor.Application.Common;
 using KlavLor.Application.Features.Drop;
 using KlavLor.Domain.Shared;
@@ -76,9 +76,14 @@ public sealed class DropEndpoint : IEndpoint
         return IResultExtensions.Component<DropCharactersSection>(new { ItemName = name, Table = table });
     }
 
-    private static async Task<RazorComponentResult> GetTrend([FromQuery] string name, GlobalDropHandler handler)
+    // characterId scopes the panel to one character for the per-character page; absent is the
+    // all-players view. Same endpoint and same component either way, so the two pages can't drift.
+    private static async Task<RazorComponentResult> GetTrend(
+        [FromQuery] string name,
+        [FromQuery] int? characterId,
+        GlobalDropHandler handler)
     {
-        var points = await handler.GetMonthlyTrend(name);
+        var points = await handler.GetMonthlyTrend(name, characterId);
         return IResultExtensions.Component<DropTrendPanel>(new { Points = points });
     }
 
@@ -95,9 +100,12 @@ public sealed class DropEndpoint : IEndpoint
         });
     }
 
-    private static async Task<RazorComponentResult> GetSessions([FromQuery] string name, GlobalDropHandler handler)
+    private static async Task<RazorComponentResult> GetSessions(
+        [FromQuery] string name,
+        [FromQuery] int? characterId,
+        GlobalDropHandler handler)
     {
-        var sessions = await handler.GetRecentSessions(name);
+        var sessions = await handler.GetRecentSessions(name, characterId);
         return IResultExtensions.Component<DropSessionsPanel>(new { Sessions = sessions });
     }
 }

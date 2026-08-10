@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Caching.Memory;
+﻿using Microsoft.Extensions.Caching.Memory;
 using KlavLor.Application.Common;
 using KlavLor.Application.Features.Loot.SourceModels;
 using KlavLor.Application.Interfaces.Repositories;
@@ -64,11 +64,17 @@ public sealed class GlobalDropHandler(
             : repository.GetCharacters(itemName, sort, dir, Normalize(term));
     }
 
-    public Task<List<DropTrendPoint>> GetMonthlyTrend(string itemName)
-        => Cached("trend", itemName, () => repository.GetMonthlyTrend(itemName));
+    // characterId scopes the panel to one character (the per-character drop page) and is part of
+    // the cache key, so the scoped and unscoped views never share an entry.
+    public Task<List<DropTrendPoint>> GetMonthlyTrend(string itemName, int? characterId = null)
+        => Cached(Method("trend", characterId), itemName, () => repository.GetMonthlyTrend(itemName, characterId));
 
-    public Task<List<DropSessionRow>> GetRecentSessions(string itemName)
-        => Cached("sessions", itemName, () => repository.GetRecentSessions(itemName, SessionsLimit));
+    public Task<List<DropSessionRow>> GetRecentSessions(string itemName, int? characterId = null)
+        => Cached(Method("sessions", characterId), itemName,
+            () => repository.GetRecentSessions(itemName, SessionsLimit, characterId));
+
+    private static string Method(string name, int? characterId)
+        => characterId is { } id ? $"{name}:{id}" : name;
 
     private static bool IsDefaultView(string sort, SortDirection dir, string? term, string defaultSort)
         => string.IsNullOrWhiteSpace(term)

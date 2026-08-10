@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 using KlavLor.Application.Common;
@@ -19,6 +19,12 @@ internal sealed class GlobalDropRepository(DataContext dataContext, ILogger<Glob
     // Only visible, non-admin-hidden, non-Leagues characters contribute — identical to the
     // global source page (a main-game view; seasonal Leagues loot lives in its own scope).
     private const string VisibilityFilter = """gc."IsVisible" = true AND gc."IsAdminHidden" = false AND gc."IsLeagues" = false""";
+
+    // Optional single-character scope. Inlined rather than parameterised because it has to vanish
+    // entirely (not become "AND x IS NULL") when absent; the value is an int the caller already
+    // holds, so there is nothing here for a caller to inject.
+    private static string CharacterFilter(int? gameCharacterId, string alias = "lr") =>
+        gameCharacterId is { } id ? $"""AND {alias}."GameCharacterId" = {id}""" : "";
 
     public async Task<GlobalDropOverview?> GetOverview(string itemName)
     {
@@ -357,7 +363,10 @@ internal sealed class GlobalDropRepository(DataContext dataContext, ILogger<Glob
         }
     }
 
-    public async Task<List<DropTrendPoint>> GetMonthlyTrend(string itemName)
+    // gameCharacterId scopes every query below to one character, which is what the per-character
+    // drop page needs; null keeps the all-players view. One filter fragment, applied to both the
+    // totals and the breakdown, so the stacked bars can never disagree with their own hover detail.
+    public async Task<List<DropTrendPoint>> GetMonthlyTrend(string itemName, int? gameCharacterId = null)
     {
         try
         {
@@ -373,7 +382,7 @@ internal sealed class GlobalDropRepository(DataContext dataContext, ILogger<Glob
                 FROM "LootDrops" ld
                 JOIN "LootRecords" lr ON lr."Id" = ld."LootRecordId"
                 JOIN "GameCharacters" gc ON gc."Id" = lr."GameCharacterId"
-                WHERE ld."Name" = @item AND {VisibilityFilter}
+                WHERE ld."Name" = @item AND {VisibilityFilter} {CharacterFilter(gameCharacterId)}
                 GROUP BY 1, 2
                 ORDER BY y, m
                 """;
@@ -403,7 +412,7 @@ internal sealed class GlobalDropRepository(DataContext dataContext, ILogger<Glob
                 JOIN "LootRecords" lr ON lr."Id" = ld."LootRecordId"
                 JOIN "GameCharacters" gc ON gc."Id" = lr."GameCharacterId"
                 JOIN "Users" u ON u."Id" = gc."UserId"
-                WHERE ld."Name" = @item AND {VisibilityFilter}
+                WHERE ld."Name" = @item AND {VisibilityFilter} {CharacterFilter(gameCharacterId)}
                 GROUP BY 1, 2, 3, 4
                 ORDER BY y, m, drops DESC
                 """;
@@ -456,7 +465,7 @@ internal sealed class GlobalDropRepository(DataContext dataContext, ILogger<Glob
         }
     }
 
-    public async Task<List<DropSessionRow>> GetRecentSessions(string itemName, int limit)
+    public async Task<List<DropSessionRow>> GetRecentSessions(string itemName, int limit, int? gameCharacterId = null)
     {
         try
         {
@@ -474,7 +483,7 @@ internal sealed class GlobalDropRepository(DataContext dataContext, ILogger<Glob
                            ROW_NUMBER() OVER (PARTITION BY lr."GameCharacterId", lr."SourceName" ORDER BY lr."OccurredAt", lr."Id") AS kill_ord
                     FROM "LootRecords" lr
                     JOIN "GameCharacters" gc ON gc."Id" = lr."GameCharacterId"
-                    WHERE {VisibilityFilter}
+                    WHERE {VisibilityFilter} {CharacterFilter(gameCharacterId, "lr")}
                 ),
                 {SessionSql.GapIslandsWithCap("\"GameCharacterId\", \"SourceName\"")},
                 item_agg AS (
