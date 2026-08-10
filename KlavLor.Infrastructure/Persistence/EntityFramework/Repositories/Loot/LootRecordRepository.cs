@@ -316,6 +316,76 @@ internal sealed class LootRecordRepository(DataContext dataContext, ILogger<Loot
         }
     }
 
+    public async Task<IReadOnlyDictionary<ItemReceipt, int>> GetRollsSincePreviousReceipt(
+        IReadOnlyList<ItemReceipt> receipts)
+    {
+        var result = new Dictionary<ItemReceipt, int>();
+        if (receipts.Count == 0) return result;
+
+        // One query for every requested receipt: unnest the tuples into a targets set, LATERAL-join
+        // each one's immediately-preceding receipt of the same item, then count the rolls strictly
+        // after that one up to and including this one. No baseline term — a baseline shifts both
+        // ends of the gap equally, so it cancels.
+        //
+        // A receipt with no earlier one drops out (the LATERAL yields no row) and is simply absent
+        // from the result, which is what tells the caller to fall back to the absolute kill count.
+        const string sql = """
+            WITH targets AS (
+                SELECT DISTINCT * FROM unnest(@cids, @sources, @items, @ats) AS t(cid, src, item, at)
+            )
+            SELECT t.cid, t.src, t.item, t.at,
+                   (SELECT COUNT(*)::int
+                    FROM "LootRecords" o
+                    WHERE o."GameCharacterId" = t.cid
+                      AND o."SourceName" = t.src
+                      AND (o."OccurredAt" > prev.occurred_at
+                           OR (o."OccurredAt" = prev.occurred_at AND o."Id" > prev.record_id))
+                      AND o."OccurredAt" <= t.at) AS rolls_since
+            FROM targets t
+            CROSS JOIN LATERAL (
+                SELECT lr."OccurredAt" AS occurred_at, lr."Id" AS record_id
+                FROM "LootRecords" lr
+                JOIN "LootDrops" ld ON ld."LootRecordId" = lr."Id"
+                WHERE lr."GameCharacterId" = t.cid
+                  AND lr."SourceName" = t.src
+                  AND ld."Name" = t.item
+                  AND lr."OccurredAt" < t.at
+                ORDER BY lr."OccurredAt" DESC, lr."Id" DESC
+                LIMIT 1
+            ) prev
+            """;
+
+        try
+        {
+            var connection = dataContext.Database.GetDbConnection();
+            if (connection.State != System.Data.ConnectionState.Open)
+                await connection.OpenAsync();
+
+            await using var cmd = connection.CreateCommand();
+            cmd.CommandText = sql;
+            cmd.Parameters.Add(new NpgsqlParameter("@cids", receipts.Select(r => r.GameCharacterId).ToArray()));
+            cmd.Parameters.Add(new NpgsqlParameter("@sources", receipts.Select(r => r.SourceName).ToArray()));
+            cmd.Parameters.Add(new NpgsqlParameter("@items", receipts.Select(r => r.ItemName).ToArray()));
+            cmd.Parameters.Add(new NpgsqlParameter("@ats", receipts.Select(r => r.OccurredAt).ToArray()));
+
+            await using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                var key = new ItemReceipt(
+                    reader.GetInt32(0), reader.GetString(1), reader.GetString(2),
+                    reader.GetFieldValue<DateTimeOffset>(3));
+                result[key] = reader.GetInt32(4);
+            }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to resolve rolls since previous receipt for {Count} receipt(s)", receipts.Count);
+            throw new RepositoryException("Failed to resolve rolls since previous receipt", ex);
+        }
+    }
+
     private static bool IsUniqueConstraintViolation(DbUpdateException ex)
     {
         return ex.InnerException?.Message.Contains("duplicate key value violates unique constraint") == true

@@ -74,7 +74,32 @@ public sealed record LootFeedDrop(
     int? KillOrdinal = null,
     // When this specific drop happened — distinct from the card's OccurredAt, which is the whole
     // group's latest. Drives the per-drop ordinal lookup for records with no reported count.
-    DateTimeOffset? OccurredAt = null);
+    DateTimeOffset? OccurredAt = null,
+    // Rolls done at this source since the character's PREVIOUS receipt of this same item. Null on a
+    // first-ever receipt, where the absolute kill count already is the right basis.
+    //
+    // This is the only honest denominator for a repeat drop. Judging one against its absolute roll
+    // number said a second 1/100 item at kill 200 was "2x dry" when the player had actually gone 150
+    // rolls since the last one, and made every guaranteed drop absurd — an Atlatl dart (1/1) from
+    // the 300th Lunar Chest read as 300x dry.
+    int? RollsSincePrevious = null);
+
+public static class FeedLuckRules
+{
+    // A drop only gets a lucky/dry verdict when it is rare enough for one to mean anything: 1 in 6
+    // or rarer. Below that, normal variance reads as a dramatic multiple and a guaranteed 1/1 drop
+    // reports its whole kill count as dryness.
+    //
+    // Measured as EXPECTED ROLLS from SourceLootService, never as the raw stored denominator. That
+    // distinction is what keeps raid uniques on the board: Chambers of Xeric lists a prayer scroll
+    // as 20/69, which looks like 1 in 3.45 and would be filtered out, but the stored figure is a
+    // share of the unique table — its real expectation is ~110 raids. RaidUniqueShareStrategy has
+    // already applied that scaling by the time we see ExpectedKc, so the three raids need no
+    // special case here.
+    public const double MinExpectedRolls = 6.0;
+
+    public static bool WorthRating(double? expectedKc) => expectedKc is { } kc && kc >= MinExpectedRolls;
+}
 
 public sealed record LootFeedBroadcast(LootFeedEntry Entry, string? PreviousDomId, HighlightChange? HighlightChange = null);
 
