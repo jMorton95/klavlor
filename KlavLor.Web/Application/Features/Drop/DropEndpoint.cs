@@ -24,8 +24,14 @@ public sealed class DropEndpoint : IEndpoint
         app.MapGet(AppRoutes.DropTrend.FromApi(), GetTrend)
             .RequireAuthorization(nameof(RoleName.User));
 
-        return app.MapGet(AppRoutes.DropSessions.FromApi(), GetSessions)
+        app.MapGet(AppRoutes.DropSessions.FromApi(), GetSessions)
             .RequireAuthorization(nameof(RoleName.User));
+
+        // One character's sources for this item. A full page rather than a panel, so it pushes a
+        // URL like the drop page itself does.
+        return app.MapGet(AppRoutes.DropCharacterSources.FromApi(), GetCharacterSources)
+            .RequireAuthorization(nameof(RoleName.User))
+            .AddEndpointFilter<HtmxNavigationFilter>();
     }
 
     private static async Task<RazorComponentResult> GetDrop([FromQuery] string name, GlobalDropHandler handler)
@@ -74,6 +80,19 @@ public sealed class DropEndpoint : IEndpoint
     {
         var points = await handler.GetMonthlyTrend(name);
         return IResultExtensions.Component<DropTrendPanel>(new { Points = points });
+    }
+
+    private static async Task<RazorComponentResult> GetCharacterSources(
+        [FromQuery] string name,
+        [FromQuery] int characterId,
+        GlobalDropHandler handler)
+    {
+        var data = await handler.GetCharacterSources(name, characterId);
+        return IResultExtensions.Component<DropCharacterSourcesDetail>(new
+        {
+            ItemName = name,
+            Data = data
+        });
     }
 
     private static async Task<RazorComponentResult> GetSessions([FromQuery] string name, GlobalDropHandler handler)

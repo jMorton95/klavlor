@@ -74,6 +74,33 @@ public sealed record DropCharacterTable(
     string SortBy,
     SortDirection SortDirection);
 
+// One source that gave ONE character this item — the per-character breakdown the drop page's
+// character table links into. Deliberately not DropSourceRow: there is no rate here, because a
+// single character's handful of receipts at a source says nothing about the drop rate, and putting
+// an "observed rate" column on three drops would invite exactly that reading.
+public sealed record DropCharacterSourceRow(
+    string SourceName,
+    LootSourceType SourceType,
+    long Drops,
+    long Kills,
+    long TotalQuantity,
+    long TotalValue,
+    DateTimeOffset FirstSeen,
+    DateTimeOffset LastSeen);
+
+// Everything the per-character drop page needs: who, which item, and the sources that gave it.
+public sealed record DropCharacterSources(
+    int GameCharacterId,
+    string CharacterName,
+    string UserName,
+    string ItemName,
+    IReadOnlyList<DropCharacterSourceRow> Rows,
+    long TotalDrops,
+    long TotalQuantity,
+    long TotalValue,
+    DateTimeOffset? FirstSeen,
+    DateTimeOffset? LastSeen);
+
 // One month of this item's activity across all visible players: total drops + gp value, plus
 // a per-character breakdown where each character further breaks down into the sources that
 // produced its drops that month (drives the trend chart's hover detail).

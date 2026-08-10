@@ -11,6 +11,12 @@ public interface IGlobalDropRepository
     Task<GlobalDropOverview?> GetOverview(string itemName);
     Task<DropSourceTable> GetSources(string itemName, string sortBy, SortDirection direction, string? term);
     Task<DropCharacterTable> GetCharacters(string itemName, string sortBy, SortDirection direction, string? term);
+
+    /// <summary>
+    /// Every source that gave one character this item, most drops first. Null when that character
+    /// has never received it (or isn't visible).
+    /// </summary>
+    Task<DropCharacterSources?> GetCharacterSources(string itemName, int gameCharacterId);
     Task<List<DropTrendPoint>> GetMonthlyTrend(string itemName);
     Task<List<DropSessionRow>> GetRecentSessions(string itemName, int limit);
 }

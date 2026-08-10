@@ -142,6 +142,8 @@ public static class AppRoutes
     public const string DropCharacters = "/drop/characters";
     public const string DropTrend = "/drop/trend";
     public const string DropSessions = "/drop/sessions";
+    // One character's sources for one item — reached from the drop page's character table.
+    public const string DropCharacterSources = "/drop/character";
 
     public const string Characters = "/characters";
     public const string CharacterUpdateName = "/characters/{id:int}/name";

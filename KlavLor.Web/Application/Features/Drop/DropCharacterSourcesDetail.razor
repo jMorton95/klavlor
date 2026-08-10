@@ -1,0 +1,103 @@
+﻿@using KlavLor.Application.Common
+@using KlavLor.Application.Features.Drop
+@using KlavLor.Web.Components.Layout
+
+@* One character's sources for one item — the gap the drop page's character table left. That table
+   could tell you a character had six of something across three sources, then sent you to their
+   whole profile with no way to find out which three. *@
+
+<TopBarMetaData PageTitle="@($"KlavLor - {ItemName}")" Title="@ItemName"
+                Description="@(Data is null ? "No drops recorded" : $"{Data.CharacterName}'s sources")" />
+
+<div class="space-y-5 pb-64">
+    <a onclick="history.back()"
+       class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-amber-600 dark:text-white dark:hover:text-amber-400 cursor-pointer transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+        Back
+    </a>
+
+    @if (Data is null)
+    {
+        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-12 text-center">
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">No drops recorded</h3>
+            <p class="text-sm text-slate-500 dark:text-white">This character has no recorded &ldquo;@ItemName&rdquo; drops.</p>
+        </div>
+    }
+    else
+    {
+        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 px-4 py-3">
+            <div class="flex items-center gap-3 flex-wrap">
+                <div class="flex items-center gap-2 min-w-0 mr-1">
+                    <img src="/api/images/item-icon?name=@Uri.EscapeDataString(ItemName)" alt=""
+                         class="w-7 h-7 shrink-0" loading="lazy" onerror="this.style.display='none'" />
+                    <h1 class="text-lg font-bold text-slate-900 dark:text-slate-100 truncate">@ItemName</h1>
+                    <span class="text-sm text-slate-400 dark:text-white">for</span>
+                    <a hx-get="@CharacterUrl.FromApi()" hx-target="#hx-page-container" hx-push-url="@CharacterUrl" hx-swap="innerHTML transition:true"
+                       class="text-lg font-bold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer truncate">@Data.CharacterName</a>
+                </div>
+
+                <div class="flex items-center gap-x-4 gap-y-1 flex-wrap text-sm">
+                    <Fact Label="drops" Value="@Data.TotalDrops.ToString("N0")" />
+                    <Fact Label="qty" Value="@Data.TotalQuantity.ToString("N0")" />
+                    <Fact Label="value" Value="@($"{GoldFormat.Format(Data.TotalValue)} gp")" Accent="true" />
+                    <Fact Label="sources" Value="@Data.Rows.Count.ToString("N0")" />
+                    <span class="text-xs text-slate-400 dark:text-white whitespace-nowrap">
+                        @(Data.FirstSeen?.ToString("d MMM yyyy") ?? "—") – @(Data.LastSeen?.ToString("d MMM yyyy") ?? "—")
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">Sources</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
+                @foreach (var row in Data.Rows)
+                {
+                    @* Links to this character's own page for that source, not the global source page:
+                       from here the useful next step is their kill log at it. *@
+                    <a hx-get="@SourceUrl(row.SourceName).FromApi()" hx-target="#hx-page-container"
+                       hx-push-url="@SourceUrl(row.SourceName)" hx-swap="innerHTML transition:true"
+                       class="group flex flex-col gap-1.5 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2.5 hover:border-amber-300 dark:hover:border-amber-600 cursor-pointer transition-colors">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <img src="/api/images/source-icon?name=@Uri.EscapeDataString(row.SourceName)" alt=""
+                                 class="w-5 h-5 rounded shrink-0" loading="lazy" onerror="this.style.display='none'" />
+                            <span class="text-sm font-medium text-slate-800 dark:text-slate-100 truncate group-hover:text-amber-600 dark:group-hover:text-amber-400">@row.SourceName</span>
+                        </div>
+                        <div class="flex items-baseline justify-between gap-2">
+                            <span class="text-xs text-slate-500 dark:text-white tabular-nums whitespace-nowrap">
+                                @row.Drops.ToString("N0") drop@(row.Drops == 1 ? "" : "s")
+                                @if (row.TotalQuantity != row.Drops)
+                                {
+                                    <span class="text-slate-400 dark:text-slate-300"> · @row.TotalQuantity.ToString("N0") qty</span>
+                                }
+                            </span>
+                            <span class="text-xs font-medium text-amber-600 dark:text-amber-400 tabular-nums whitespace-nowrap">@GoldFormat.Format(row.TotalValue)</span>
+                        </div>
+                        <div class="text-[10px] text-slate-400 dark:text-slate-300 tabular-nums whitespace-nowrap">
+                            @* This character's own rolls at the source, which is the number that makes
+                               their haul mean something — 3 from 40 kills reads very differently to 3
+                               from 4,000. *@
+                            @if (row.Kills > 0)
+                            {
+                                <span>from @row.Kills.ToString("N0") roll@(row.Kills == 1 ? "" : "s") · </span>
+                            }
+                            @row.FirstSeen.ToString("d MMM yy") – @row.LastSeen.ToString("d MMM yy")
+                        </div>
+                    </a>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string ItemName { get; set; } = "";
+    [Parameter] public DropCharacterSources? Data { get; set; }
+
+    private string CharacterUrl => AppRoutes.LootLogCharacter.WithId(Data!.GameCharacterId);
+
+    private string SourceUrl(string sourceName) =>
+        AppRoutes.LootLogSource.WithId(Data!.GameCharacterId) + "?name=" + Uri.EscapeDataString(sourceName);
+}

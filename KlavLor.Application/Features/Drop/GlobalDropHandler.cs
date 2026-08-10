@@ -12,10 +12,16 @@ public sealed class GlobalDropHandler(
 {
     public const int SessionsLimit = 18;
 
-    // Default sort for both tables: highest total value first.
-    public const string DefaultSourceSort = "value";
+    // Sources default to most-dropped first: the grid answers "where does this come from", and
+    // quantity is the honest answer to that. Value re-orders it by price, which for a single item is
+    // just quantity again unless the price changed mid-history.
+    public const string DefaultSourceSort = "qty";
     public const string DefaultCharacterSort = "value";
     public const SortDirection DefaultDirection = SortDirection.Descending;
+
+    public Task<DropCharacterSources?> GetCharacterSources(string itemName, int gameCharacterId)
+        => Cached($"character-sources:{gameCharacterId}", itemName,
+            () => repository.GetCharacterSources(itemName, gameCharacterId));
 
     // The all-players aggregates are cached (versioned, 5-min TTL); the version is bumped per
     // item on loot ingest. The sortable tables are only cached for the default view (no search

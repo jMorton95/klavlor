@@ -186,6 +186,108 @@ internal sealed class GlobalDropRepository(DataContext dataContext, ILogger<Glob
         ["last"] = "last_seen",
     };
 
+    public async Task<DropCharacterSources?> GetCharacterSources(string itemName, int gameCharacterId)
+    {
+        try
+        {
+            var connection = await OpenConnection();
+
+            // Same two-CTE shape as GetSources — per-source totals for the item, then total kills at
+            // those sources — but narrowed to one character on both sides, so the kill count is that
+            // character's own rolls rather than everyone's.
+            var sql = $"""
+                WITH drop_agg AS (
+                    SELECT lr."SourceName" AS source_name,
+                           mode() WITHIN GROUP (ORDER BY lr."SourceType") AS source_type,
+                           COUNT(DISTINCT lr."Id")::bigint AS drops,
+                           SUM(ld."Quantity"::bigint) AS total_qty,
+                           SUM(ld."Quantity"::bigint * ld."Price"::bigint) AS total_value,
+                           MIN(lr."OccurredAt") AS first_seen,
+                           MAX(lr."OccurredAt") AS last_seen
+                    FROM "LootDrops" ld
+                    JOIN "LootRecords" lr ON lr."Id" = ld."LootRecordId"
+                    JOIN "GameCharacters" gc ON gc."Id" = lr."GameCharacterId"
+                    WHERE ld."Name" = @item AND lr."GameCharacterId" = @cid AND {VisibilityFilter}
+                    GROUP BY lr."SourceName"
+                ),
+                kill_agg AS (
+                    SELECT lr."SourceName" AS source_name, COUNT(*)::bigint AS kills
+                    FROM "LootRecords" lr
+                    WHERE lr."GameCharacterId" = @cid
+                      AND lr."SourceName" IN (SELECT source_name FROM drop_agg)
+                    GROUP BY lr."SourceName"
+                )
+                SELECT d.source_name, d.source_type::text, d.drops, COALESCE(k.kills, 0) AS kills,
+                       d.total_qty, d.total_value, d.first_seen, d.last_seen
+                FROM drop_agg d
+                LEFT JOIN kill_agg k ON k.source_name = d.source_name
+                ORDER BY d.drops DESC, d.total_value DESC, d.source_name
+                """;
+
+            await using var cmd = connection.CreateCommand();
+            cmd.CommandText = sql;
+            cmd.Parameters.Add(new NpgsqlParameter("@item", itemName));
+            cmd.Parameters.Add(new NpgsqlParameter("@cid", gameCharacterId));
+
+            var rows = new List<DropCharacterSourceRow>();
+            await using (var reader = await cmd.ExecuteReaderAsync())
+            {
+                while (await reader.ReadAsync())
+                {
+                    var sourceType = !reader.IsDBNull(1)
+                                     && Enum.TryParse<LootSourceType>(reader.GetString(1), ignoreCase: true, out var st)
+                        ? st
+                        : LootSourceType.Unknown;
+
+                    rows.Add(new DropCharacterSourceRow(
+                        reader.GetString(0),
+                        sourceType,
+                        reader.GetInt64(2),
+                        reader.IsDBNull(3) ? 0 : reader.GetInt64(3),
+                        reader.IsDBNull(4) ? 0 : reader.GetInt64(4),
+                        reader.IsDBNull(5) ? 0 : reader.GetInt64(5),
+                        reader.GetFieldValue<DateTimeOffset>(6),
+                        reader.GetFieldValue<DateTimeOffset>(7)));
+                }
+            }
+
+            if (rows.Count == 0) return null;
+
+            // Names resolved separately so the aggregate above stays a clean group-by.
+            await using var nameCmd = connection.CreateCommand();
+            nameCmd.CommandText = $"""
+                SELECT COALESCE(gc."DisplayName", u."FirstName" || ' ' || u."LastName") AS character_name,
+                       u."FirstName" || ' ' || u."LastName" AS user_name
+                FROM "GameCharacters" gc
+                JOIN "Users" u ON u."Id" = gc."UserId"
+                WHERE gc."Id" = @cid AND {VisibilityFilter}
+                """;
+            nameCmd.Parameters.Add(new NpgsqlParameter("@cid", gameCharacterId));
+
+            await using var nameReader = await nameCmd.ExecuteReaderAsync();
+            if (!await nameReader.ReadAsync()) return null;
+            var characterName = nameReader.GetString(0);
+            var userName = nameReader.GetString(1);
+
+            return new DropCharacterSources(
+                gameCharacterId,
+                characterName,
+                userName,
+                itemName,
+                rows,
+                rows.Sum(r => r.Drops),
+                rows.Sum(r => r.TotalQuantity),
+                rows.Sum(r => r.TotalValue),
+                rows.Min(r => r.FirstSeen),
+                rows.Max(r => r.LastSeen));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get sources of {Item} for character {CharacterId}", itemName, gameCharacterId);
+            throw new RepositoryException("Failed to get character drop sources", ex);
+        }
+    }
+
     public async Task<DropCharacterTable> GetCharacters(string itemName, string sortBy, SortDirection direction, string? term)
     {
         try
