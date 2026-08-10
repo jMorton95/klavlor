@@ -160,6 +160,16 @@ The invariant that makes it consistent:
 
 `KlavLor.UnitTests/ItemValueOverrideTests.cs` pins the cache and the tier consequence; `KlavLor.IntegrationTests/ItemValueOverrideRebuildTests.cs` pins the rebuild and the restore-on-removal against real SQL.
 
+The panel also carries an on-request "Find items with no value" report (`FindZeroValueItems`), which is how you discover what needs an override. It is a full scan of the drop table grouped by item, filtered to `MAX(Price) = 0`, so it is deliberately never given a load trigger — the admin has to press the button. Collection-log membership is stamped from `ICollectionLogCache` rather than joined, and sorts those items to the top, because a clog item at 0 GP is the signal and everything below it is usually junk.
+
+### An Admin Edit That Changes A Luck Input Must Request A Rebuild
+
+The luck leaderboard is precomputed hourly, but nearly every admin panel edits an *input* to it: a baseline kill count, a delve depth, a rate modifier, a source or item exclusion, the collection-log blacklist, an intrinsic item value, a source rename, an injected special drop. Before `RecomputeTrigger` existed, all of those left the board quoting the old numbers for up to an hour with nothing on screen saying so.
+
+`RecomputeTrigger.LuckInputsChanged()` (Application/Features/Maintenance) is the single place that mapping lives. It flags a manual run on the existing poll-and-claim `IJobScheduleRepository` rather than recomputing inline — a rebuild walks every character and source, which has no business happening in an admin's request. The services poll once a minute, so it lands within ~60s, and the flag is idempotent, so ten edits cost one rebuild.
+
+**A new admin panel that writes anything the luck maths reads must call it.** It is not auto-registered (it isn't a `*Handler`), so it has an explicit `TryAddScoped` line in `ApplicationDependencyConfiguration`.
+
 ### Progression Completion Is Manual Only
 
 Template-node completion happens **only** when a user clicks a node in the viewer. There is deliberately no drop-driven auto-completion and no generated completion notes — that feature was removed, along with `Features/Progression/` and the `GetAutoCompletableNodes`/`AddCompletions` repository methods. Loot ingest must never write to `UserNodeCompletions`.

@@ -39,7 +39,7 @@ public sealed class ItemValueOverrideRebuildTests(PostgresFixture fx)
         var untouchedId = untouched.Id;
 
         var cache = new FakeItemValueCache((NoxPointSet, 10_000_000));
-        var repo = new ItemValueOverrideRepository(ctx, cache);
+        var repo = new ItemValueOverrideRepository(ctx, cache, new FakeClogCache());
 
         var result = await repo.RebuildForItem(NoxPointSet);
 
@@ -83,7 +83,7 @@ public sealed class ItemValueOverrideRebuildTests(PostgresFixture fx)
         await ctx.SaveChangesAsync();
 
         var cache = new FakeItemValueCache();
-        var repo = new ItemValueOverrideRepository(ctx, cache);
+        var repo = new ItemValueOverrideRepository(ctx, cache, new FakeClogCache());
 
         cache.Replace([new ItemValueOverrideValue(NoxPointRemove, "IVO Noxious point", 10_000_000)]);
         await repo.RebuildForItem(NoxPointRemove);
@@ -111,7 +111,7 @@ public sealed class ItemValueOverrideRebuildTests(PostgresFixture fx)
         Seed.AddKill(ctx, userId, charId, "IVO_Araxxor", t, 1, [new("IVO Noxious point", NoxPointIdempotent, 1, 0)]);
         await ctx.SaveChangesAsync();
 
-        var repo = new ItemValueOverrideRepository(ctx, new FakeItemValueCache((NoxPointIdempotent, 10_000_000)));
+        var repo = new ItemValueOverrideRepository(ctx, new FakeItemValueCache((NoxPointIdempotent, 10_000_000)), new FakeClogCache());
 
         Assert.Equal(1, (await repo.RebuildForItem(NoxPointIdempotent)).RecordsUpdated);
         // Second pass: everything already holds the effective price, so nothing is rewritten.
@@ -121,10 +121,47 @@ public sealed class ItemValueOverrideRebuildTests(PostgresFixture fx)
     }
 
     [Fact]
+    public async Task The_zero_value_report_finds_only_items_never_seen_with_a_price()
+    {
+        const int alwaysZero = 90_041;   // the population the report exists to surface
+        const int sometimesPriced = 90_042; // dropped once at 0, once at a real price
+        const int alwaysPriced = 90_043;
+
+        await using var ctx = fx.CreateContext();
+        var (userId, charId) = await Seed.UserAndCharacter(ctx, "ivo-zero");
+        var t = new DateTimeOffset(2026, 3, 4, 12, 0, 0, TimeSpan.Zero);
+
+        Seed.AddKill(ctx, userId, charId, "IVO_Zero", t, 1,
+            [new("IVO Always zero", alwaysZero, 1, 0), new("IVO Sometimes priced", sometimesPriced, 1, 0)]);
+        Seed.AddKill(ctx, userId, charId, "IVO_Zero", t.AddMinutes(1), 2,
+            [new("IVO Always zero", alwaysZero, 1, 0), new("IVO Sometimes priced", sometimesPriced, 1, 5_000)]);
+        Seed.AddKill(ctx, userId, charId, "IVO_Zero", t.AddMinutes(2), 3,
+            [new("IVO Always priced", alwaysPriced, 1, 1_000)]);
+        await ctx.SaveChangesAsync();
+
+        // alwaysZero is a clog item, so it must also sort above any non-clog zero-value item.
+        var repo = new ItemValueOverrideRepository(
+            ctx, new FakeItemValueCache(), new FakeClogCache(alwaysZero));
+
+        var report = await repo.FindZeroValueItems(500);
+        var mine = report.Where(r => r.ItemId is alwaysZero or sometimesPriced or alwaysPriced).ToList();
+
+        var only = Assert.Single(mine);
+        Assert.Equal(alwaysZero, only.ItemId);
+        Assert.Equal(2, only.DropCount);
+        Assert.True(only.IsCollectionLogItem);
+
+        // Collection-log items lead the whole report, not just this test's slice.
+        var firstNonClog = report.FindIndex(r => !r.IsCollectionLogItem);
+        var lastClog = report.FindLastIndex(r => r.IsCollectionLogItem);
+        if (firstNonClog >= 0 && lastClog >= 0) Assert.True(lastClog < firstNonClog);
+    }
+
+    [Fact]
     public async Task Rebuilding_an_item_that_was_never_dropped_is_a_no_op()
     {
         await using var ctx = fx.CreateContext();
-        var repo = new ItemValueOverrideRepository(ctx, new FakeItemValueCache((999_999, 1_000)));
+        var repo = new ItemValueOverrideRepository(ctx, new FakeItemValueCache((999_999, 1_000)), new FakeClogCache());
 
         var result = await repo.RebuildForItem(999_999);
 

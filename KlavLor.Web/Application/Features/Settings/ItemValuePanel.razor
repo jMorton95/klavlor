@@ -22,6 +22,22 @@
 </div>
 <div id="ivp-candidates" class="mb-4"></div>
 
+@* On-request only. This is a full scan of the drop table, so it is never given a load trigger —
+   the admin has to ask for it, and the button removes itself once the report has rendered. *@
+<div class="mb-4">
+    <button type="button"
+            hx-get="@AppRoutes.AdminItemValueZeroReport.FromApi()"
+            hx-target="#ivp-zero-report"
+            hx-swap="innerHTML"
+            hx-disabled-elt="this"
+            hx-indicator="#ivp-zero-spinner"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer disabled:opacity-50">
+        Find items with no value
+        <span id="ivp-zero-spinner" class="htmx-indicator w-3 h-3 rounded-full border-2 border-slate-400 border-t-transparent animate-spin"></span>
+    </button>
+    <div id="ivp-zero-report" class="mt-3"></div>
+</div>
+
 <div class="flex flex-wrap items-end gap-3 mb-4">
     <div>
         <label class="block text-[10px] uppercase tracking-wider text-slate-500 dark:text-white mb-1">Selected item</label>

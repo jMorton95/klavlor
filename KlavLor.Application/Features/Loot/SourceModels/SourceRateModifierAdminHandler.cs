@@ -1,3 +1,4 @@
+﻿using KlavLor.Application.Features.Maintenance;
 using KlavLor.Application.Interfaces.Repositories;
 using KlavLor.Application.Interfaces.Services;
 
@@ -6,10 +7,11 @@ namespace KlavLor.Application.Features.Loot.SourceModels;
 // Backs the admin "source rate modifiers" panel: search sources, set/clear the multiplier that
 // scales a source's (or a single item's) expected kills-to-drop. Every write reprimes the
 // singleton cache so it takes effect immediately on the character page and on the next
-// leaderboard rebuild.
+// leaderboard rebuild, which it now requests rather than waiting an hour for.
 public sealed class SourceRateModifierAdminHandler(
     ISourceRateModifierRepository repository,
-    ISourceRateModifierCache cache)
+    ISourceRateModifierCache cache,
+    RecomputeTrigger recompute)
 {
     public const int SearchLimit = 40;
 
@@ -39,5 +41,11 @@ public sealed class SourceRateModifierAdminHandler(
         return await repository.Search(null, SearchLimit);
     }
 
-    private async Task Reprime() => cache.Replace(await repository.GetAll());
+    // Reprime the cache (character pages read it live) and request a board rebuild, which is the
+    // only consumer that can't pick the change up on its own next request.
+    private async Task Reprime()
+    {
+        cache.Replace(await repository.GetAll());
+        await recompute.LuckInputsChanged();
+    }
 }

@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Caching.Memory;
+﻿using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using KlavLor.Application.Features.Source;
 using KlavLor.Application.Interfaces.Authentication;
@@ -12,6 +12,7 @@ public sealed class SourceAdminHandler(
     ISourceAdminRepository repository,
     IMemoryCache cache,
     ICurrentUser currentUser,
+    RecomputeTrigger recompute,
     ILogger<SourceAdminHandler> logger)
 {
     public const int SearchLimit = 50;
@@ -47,6 +48,9 @@ public sealed class SourceAdminHandler(
         // Global source-page aggregates changed for both the old and new names.
         GlobalSourceCache.Invalidate(cache, from);
         GlobalSourceCache.Invalidate(cache, to);
+
+        // Board entries are keyed on source name, so a rename leaves stale rows under the old one.
+        await recompute.LuckInputsChanged();
 
         logger.LogWarning("Admin {UserId} renamed loot source {From} -> {To} ({Moved} records moved)",
             currentUser.UserId, from, to, moved);

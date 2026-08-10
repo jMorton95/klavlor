@@ -22,6 +22,10 @@ public interface IItemValueOverrideRepository
     // something the site knows about. Blank term returns nothing.
     Task<List<ItemValueCandidate>> SearchItems(string? term, int limit);
 
+    // Items that have been dropped but never at a non-zero price, most-dropped first. A full scan
+    // of the drop table, so it is only ever run when an admin explicitly asks for it.
+    Task<List<ZeroValueItem>> FindZeroValueItems(int limit);
+
     Task Upsert(int itemId, string itemName, int value);
 
     Task Delete(int itemId);

@@ -23,6 +23,10 @@ public static class ApplicationDependencyConfiguration
 
         services.AddValidatorsFromAssembly(typeof(ApplicationDependencyConfiguration).Assembly);
 
+        // Not a *Handler, so the convention scan above doesn't see it. Shared by every admin panel
+        // that edits an input to the luck maths — see RecomputeTrigger.
+        services.TryAddScoped<Features.Maintenance.RecomputeTrigger>();
+
         // Source loot strategies (PVT strategy convention). One line per strategy against the
         // shared interface so SourceLootService receives them all as IEnumerable and dispatches
         // by source name. The default (empty key) covers every ordinary source; add a new

@@ -1,5 +1,6 @@
-using Microsoft.Extensions.Caching.Memory;
+﻿using Microsoft.Extensions.Caching.Memory;
 using KlavLor.Application.Common;
+using KlavLor.Application.Features.Maintenance;
 using KlavLor.Application.Interfaces.Repositories;
 using KlavLor.Application.Interfaces.Services;
 using KlavLor.Domain.Interfaces.Repositories;
@@ -13,7 +14,8 @@ public sealed class CollectionLogAdminHandler(
     ICollectionLogExclusionRepository exclusions,
     ICollectionLogItemRepository items,
     ICollectionLogCache cache,
-    IMemoryCache aggregateCache)
+    IMemoryCache aggregateCache,
+    RecomputeTrigger recompute)
 {
     public const int SearchLimit = 40;
 
@@ -23,6 +25,8 @@ public sealed class CollectionLogAdminHandler(
     {
         await exclusions.Exclude(itemId, itemName);
         await RefreshCache();
+        // The boards are built from collection-log entries, so a blacklist edit changes who is on them.
+        await recompute.LuckInputsChanged();
         return new ClogItemRow(itemId, itemName, true);
     }
 
@@ -30,6 +34,7 @@ public sealed class CollectionLogAdminHandler(
     {
         await exclusions.Include(itemId);
         await RefreshCache();
+        await recompute.LuckInputsChanged();
         return new ClogItemRow(itemId, itemName, false);
     }
 

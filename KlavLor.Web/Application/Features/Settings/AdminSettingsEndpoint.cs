@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using KlavLor.Application.Features.CollectionLog;
 using KlavLor.Application.Features.DropRates;
@@ -127,6 +127,10 @@ public sealed class AdminSettingsEndpoint : IEndpoint
             .RequireAuthorization(nameof(RoleName.Admin));
 
         app.MapGet(AppRoutes.AdminItemValueSearch.FromApi(), SearchItemValues)
+            .RequireAuthorization(nameof(RoleName.Admin));
+
+        // Full scan of the drop table — only ever hit when an admin presses the button.
+        app.MapGet(AppRoutes.AdminItemValueZeroReport.FromApi(), GetZeroValueItems)
             .RequireAuthorization(nameof(RoleName.Admin));
 
         // Reads item id / name / value from form fields (dynamic), so antiforgery is disabled —
@@ -460,6 +464,12 @@ public sealed class AdminSettingsEndpoint : IEndpoint
     {
         var items = await handler.SearchItems(searchTerm);
         return IResultExtensions.Component<ItemValueCandidates>(new { Items = items, SearchTerm = searchTerm });
+    }
+
+    private static async Task<RazorComponentResult> GetZeroValueItems(ItemValueOverrideAdminHandler handler)
+    {
+        var items = await handler.FindZeroValueItems();
+        return IResultExtensions.Component<ItemValueZeroReport>(new { Items = items });
     }
 
     private static async Task<RazorComponentResult> SetItemValue(

@@ -1,7 +1,8 @@
-using Microsoft.Extensions.Caching.Memory;
+﻿using Microsoft.Extensions.Caching.Memory;
 using KlavLor.Application.Common;
 using KlavLor.Application.Features.Drop;
 using KlavLor.Application.Features.Loot.Log;
+using KlavLor.Application.Features.Maintenance;
 using KlavLor.Application.Features.Source;
 using KlavLor.Application.Interfaces.Repositories;
 using KlavLor.Application.Interfaces.Services;
@@ -19,9 +20,14 @@ namespace KlavLor.Application.Features.Loot.ItemValues;
 public sealed class ItemValueOverrideAdminHandler(
     IItemValueOverrideRepository repository,
     IItemValueOverrideCache cache,
-    IMemoryCache memoryCache)
+    IMemoryCache memoryCache,
+    RecomputeTrigger recompute)
 {
     public const int SearchLimit = 25;
+
+    // Deliberately generous: the point of the report is to be scanned once and acted on, and the
+    // collection-log items it surfaces sort to the top regardless of how much junk sits below them.
+    public const int ZeroValueLimit = 100;
 
     // Guards against an int overflow in the quantity × price maths downstream. A billion GP per
     // single item is already far beyond anything in the game.
@@ -30,6 +36,9 @@ public sealed class ItemValueOverrideAdminHandler(
     public Task<List<ItemValueOverrideRow>> List() => repository.List();
 
     public Task<List<ItemValueCandidate>> SearchItems(string? term) => repository.SearchItems(term, SearchLimit);
+
+    // On-request only — see ZeroValueItem. Never wired to a load trigger.
+    public Task<List<ZeroValueItem>> FindZeroValueItems() => repository.FindZeroValueItems(ZeroValueLimit);
 
     public async Task<Result<List<ItemValueOverrideRow>>> Set(int itemId, string? itemName, int value)
     {
@@ -74,5 +83,9 @@ public sealed class ItemValueOverrideAdminHandler(
             GlobalSourceCache.Invalidate(memoryCache, sourceName);
         foreach (var itemName in rebuilt.ItemNames)
             GlobalDropCache.Invalidate(memoryCache, itemName);
+
+        // The board's 100k-per-receipt entry floor reads this value, so a newly-valued item can
+        // qualify for a slot it previously failed on.
+        await recompute.LuckInputsChanged();
     }
 }

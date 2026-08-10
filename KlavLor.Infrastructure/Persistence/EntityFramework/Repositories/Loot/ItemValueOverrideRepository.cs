@@ -9,7 +9,9 @@ using KlavLor.Domain.Entities;
 namespace KlavLor.Infrastructure.Persistence.EntityFramework.Repositories.Loot;
 
 internal sealed class ItemValueOverrideRepository(
-    DataContext dataContext, IItemValueOverrideCache cache) : IItemValueOverrideRepository
+    DataContext dataContext,
+    IItemValueOverrideCache cache,
+    ICollectionLogCache collectionLogCache) : IItemValueOverrideRepository
 {
     // Records are re-derived in bounded batches so a rebuild over a heavily-dropped item never
     // holds one long transaction open.
@@ -76,6 +78,36 @@ internal sealed class ItemValueOverrideRepository(
                 c.StoredPrice,
                 c.Count,
                 configured.TryGetValue(c.ItemId, out var v) ? v : null))
+            .ToList();
+    }
+
+    public async Task<List<ZeroValueItem>> FindZeroValueItems(int limit)
+    {
+        // MAX(Price) = 0 rather than Price = 0 per row: an item that has ever been recorded with a
+        // real price isn't a candidate, it just happened to drop as part of a zero-priced stack.
+        // Excludes items that already have an override, since those read as non-zero anyway.
+        var rows = await dataContext.LootDrops
+            .AsNoTracking()
+            .GroupBy(d => new { d.ItemId, d.Name })
+            .Where(g => g.Max(x => x.Price) == 0)
+            .Select(g => new
+            {
+                g.Key.ItemId,
+                g.Key.Name,
+                DropCount = g.LongCount()
+            })
+            .OrderByDescending(x => x.DropCount)
+            .Take(limit)
+            .ToListAsync();
+
+        // Collection-log membership comes from the in-memory cache rather than a join: the whole
+        // point of the flag is to sort the interesting items to the top, and the cache is already
+        // the authority the ingest path classifies against.
+        return rows
+            .Select(r => new ZeroValueItem(
+                r.ItemId, r.Name, r.DropCount, collectionLogCache.IsCollectionLogItem(r.ItemId, r.Name)))
+            .OrderByDescending(r => r.IsCollectionLogItem)
+            .ThenByDescending(r => r.DropCount)
             .ToList();
     }
 

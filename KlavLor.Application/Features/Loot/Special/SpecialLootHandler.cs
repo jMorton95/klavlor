@@ -1,10 +1,11 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.Extensions.Caching.Memory;
 using KlavLor.Application.Common;
 using KlavLor.Application.Features.CollectionLog;
 using KlavLor.Application.Features.Drop;
 using KlavLor.Application.Features.Loot.Feed;
 using KlavLor.Application.Features.Loot.Log;
+using KlavLor.Application.Features.Maintenance;
 using KlavLor.Application.Features.Source;
 using KlavLor.Application.Interfaces.Repositories;
 using KlavLor.Application.Interfaces.Services;
@@ -30,7 +31,8 @@ public sealed class SpecialLootHandler(
     ICollectionLogCache collectionLogCache,
     CollectionLogAdminHandler clogAdmin,
     IItemValueOverrideCache itemValues,
-    IMemoryCache memoryCache)
+    IMemoryCache memoryCache,
+    RecomputeTrigger recompute)
 {
     public async Task<List<SpecialLootCharacterOption>> GetCharacters()
     {
@@ -114,6 +116,8 @@ public sealed class SpecialLootHandler(
         LootStatsCache.Invalidate(memoryCache, character.Id);
         GlobalSourceCache.Invalidate(memoryCache, record.SourceName);
         GlobalDropCache.Invalidate(memoryCache, drop.Name);
+        // A back-dated injection adds a collection-log entry the boards score.
+        await recompute.LuckInputsChanged();
 
         // Optionally headline the live feed now, independent of the (possibly historical)
         // logged time. Only for visible characters, matching the ordinary feed's rule.

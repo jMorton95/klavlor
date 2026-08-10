@@ -1,4 +1,4 @@
-namespace KlavLor.Web.Application;
+﻿namespace KlavLor.Web.Application;
 
 public static class RouteExtensions
 {
@@ -190,6 +190,7 @@ public static class AppRoutes
     // Admin-set intrinsic GP values for items RuneLite prices at 0 (untradeable components).
     public const string AdminItemValues = "/admin/settings/item-values";
     public const string AdminItemValueSearch = "/admin/settings/item-values/search";
+    public const string AdminItemValueZeroReport = "/admin/settings/item-values/zero-report";
     public const string AdminItemValueSet = "/admin/settings/item-values/set";
     public const string AdminItemValueRemove = "/admin/settings/item-values/remove";
     public const string AdminSpecialLoot = "/admin/settings/special-loot";

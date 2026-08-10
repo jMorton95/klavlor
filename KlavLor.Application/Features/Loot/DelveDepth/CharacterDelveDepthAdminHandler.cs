@@ -1,4 +1,5 @@
-using KlavLor.Application.Features.Loot.Special;
+﻿using KlavLor.Application.Features.Loot.Special;
+using KlavLor.Application.Features.Maintenance;
 using KlavLor.Application.Features.Loot.SourceModels;
 using KlavLor.Application.Interfaces.Repositories;
 
@@ -9,7 +10,8 @@ namespace KlavLor.Application.Features.Loot.DelveDepth;
 // default and an admin corrects it per character here. Clearing a row restores the default.
 public sealed class CharacterDelveDepthAdminHandler(
     ICharacterDelveDepthRepository repository,
-    IGameCharacterRepository characters)
+    IGameCharacterRepository characters,
+    RecomputeTrigger recompute)
 {
     /// <summary>The assumed average used for any character without an override.</summary>
     public static int DefaultDepth => DoomLootStrategy.AssumedAverageDepth;
@@ -34,6 +36,8 @@ public sealed class CharacterDelveDepthAdminHandler(
             // reaches, and the rate table flattens at 9 anyway. 0 clears the override.
             var clamped = averageDepth <= 0 ? 0 : Math.Clamp(averageDepth, 1, 20);
             await repository.Upsert(characterId, source, clamped);
+            // Depth drives both the expectation and the delve-quoted units on the board.
+            await recompute.LuckInputsChanged();
         }
         return await repository.List();
     }
@@ -41,6 +45,7 @@ public sealed class CharacterDelveDepthAdminHandler(
     public async Task<List<CharacterDelveDepthRow>> Remove(int characterId, string sourceName)
     {
         await repository.Upsert(characterId, (sourceName ?? "").Trim(), 0);
+        await recompute.LuckInputsChanged();
         return await repository.List();
     }
 }

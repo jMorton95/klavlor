@@ -1,3 +1,4 @@
+﻿using KlavLor.Application.Features.Maintenance;
 using KlavLor.Application.Features.Loot.Special;
 using KlavLor.Application.Interfaces.Repositories;
 
@@ -7,7 +8,8 @@ namespace KlavLor.Application.Features.Loot.Baseline;
 // onboarded player who already ground the content starts from a realistic number.
 public sealed class CharacterBaselineAdminHandler(
     ICharacterSourceBaselineRepository repository,
-    IGameCharacterRepository characters)
+    IGameCharacterRepository characters,
+    RecomputeTrigger recompute)
 {
     public async Task<List<SpecialLootCharacterOption>> GetCharacters()
     {
@@ -21,7 +23,11 @@ public sealed class CharacterBaselineAdminHandler(
     {
         var source = (sourceName ?? "").Trim();
         if (source.Length > 0)
+        {
             await repository.Upsert(characterId, source, Math.Max(0, baselineKc));
+            // Baseline KC is an observed-side input to every luck ratio for this character.
+            await recompute.LuckInputsChanged();
+        }
         return await repository.List();
     }
 }
