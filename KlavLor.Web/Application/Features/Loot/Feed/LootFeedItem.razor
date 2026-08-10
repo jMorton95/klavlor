@@ -348,12 +348,12 @@
         if (!drop.IsCollectionLogItem) return null;
         if (drop.ExpectedKc is not > 0 || string.IsNullOrEmpty(drop.EffectiveRarity)) return null;
 
-        // Common drops get the rate but no verdict: at 1 in 5 or better, ordinary variance renders
-        // as a lurid multiple, and a guaranteed 1/1 (an Atlatl dart from a Lunar Chest) would report
-        // its entire kill count as dryness. See FeedLuckRules — the threshold is on EXPECTED ROLLS,
-        // which is what keeps raid unique shares (CoX 20/69 and the like) rated.
-        var rateOnly = new DropLuck(drop.EffectiveRarity!, null, "",
-            $"Effective rate {drop.EffectiveRarity}");
+        // Common drops get no line at all — not the verdict, not the rate, not the roll number. At
+        // 1 in 5 or better the whole line is noise: the rate says nothing a player doesn't know, and
+        // a guaranteed 1/1 (an Atlatl dart from a Lunar Chest) has no meaningful roll number to
+        // print. See FeedLuckRules — the threshold is on EXPECTED ROLLS, which is what keeps raid
+        // unique shares (CoX 20/69 and the like) rated.
+        if (!FeedLuckRules.WorthRating(drop.ExpectedKc)) return null;
 
         var expected = drop.ExpectedKc.Value;
         // THIS drop's own roll number — the roll it actually landed on. Not the card's: a card
@@ -372,12 +372,6 @@
         var landedOn = drop.KillCount ?? drop.KillOrdinal ?? Entry.MinKillCount ?? Entry.MinKillOrdinal;
         var title = $"Effective rate {drop.EffectiveRarity} (~{Math.Round(expected):N0} expected), "
                     + "after this source's loot model and any admin rate adjustment";
-
-        // Not rare enough to rate — show the rate and the roll it landed on, no verdict.
-        if (!FeedLuckRules.WorthRating(drop.ExpectedKc))
-            return landedOn is > 0
-                ? rateOnly with { Text = $"#{landedOn.Value:N0} · {drop.EffectiveRarity}" }
-                : rateOnly;
 
         // No kill count to compare against: still worth showing the rate.
         if (landedOn is not > 0)
