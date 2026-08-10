@@ -1,0 +1,22 @@
+@using KlavLor.Application.Interfaces.Services
+
+@* Links out to the two admin areas that are their own pages, plus the Leagues feature flag.
+   SystemSettingsCache is a singleton read, not a query, so this stays SSR-safe. *@
+@inject ISystemSettingsCache SystemSettingsCache
+
+<div class="flex flex-wrap gap-3 mb-5">
+    <a hx-get="@AppRoutes.UsersSearch.FromApi()" hx-target="#hx-page-container" hx-push-url="@AppRoutes.UsersSearch" hx-swap="innerHTML transition:true"
+       class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 hover:border-amber-200 dark:hover:border-amber-700 text-slate-700 dark:text-slate-200 cursor-pointer transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+        User Management
+    </a>
+    <a hx-get="@AppRoutes.SyncLog.FromApi()" hx-target="#hx-page-container" hx-push-url="@AppRoutes.SyncLog" hx-swap="innerHTML transition:true"
+       class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 hover:border-amber-200 dark:hover:border-amber-700 text-slate-700 dark:text-slate-200 cursor-pointer transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        Sync Logs
+    </a>
+</div>
+<div class="pt-4 border-t border-slate-200 dark:border-slate-700">
+    <h3 class="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-2">Leagues</h3>
+    <AdminSettingsToggleLeagues IsLeaguesEnabled="@SystemSettingsCache.IsLeaguesEnabled" />
+</div>

@@ -26,6 +26,12 @@ public sealed class AdminSettingsEndpoint : IEndpoint
             .RequireAuthorization(nameof(RoleName.Admin))
             .AddEndpointFilter<HtmxNavigationFilter>();
 
+        // One section per URL. No HtmxNavigationFilter: it derives the push URL by stripping "/api"
+        // from the request path, which is exactly right here, but the nav links already set
+        // hx-push-url explicitly and a second HX-Push-Url header would just duplicate the work.
+        app.MapGet(AppRoutes.AdminSettingsSection.FromApi(), GetHubSection)
+            .RequireAuthorization(nameof(RoleName.Admin));
+
         app.MapPost(AppRoutes.AdminSettingsLeaguesToggle.FromApi(), ToggleLeagues)
             .RequireAuthorization(nameof(RoleName.Admin))
             .RequireRateLimiting("mutation");
@@ -199,6 +205,11 @@ public sealed class AdminSettingsEndpoint : IEndpoint
 
     private static RazorComponentResult GetHub()
         => IResultExtensions.Component<AdminSettingsHub>();
+
+    // Unknown slugs resolve to the default section inside the component rather than 404ing — see
+    // AdminSections.Resolve.
+    private static RazorComponentResult GetHubSection(string section)
+        => IResultExtensions.Component<AdminSettingsHub>(new { Section = section });
 
     private static async Task<RazorComponentResult> ToggleLeagues(
         SystemSettingsHandler handler,

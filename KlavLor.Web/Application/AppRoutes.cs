@@ -160,6 +160,11 @@ public static class AppRoutes
     public const string HealthCheck = "/healthcheck";
 
     public const string AdminSettings = "/admin/settings";
+    // The admin area is one section per URL. {section} is a slug from AdminSection.All; the page
+    // lives at /admin/settings/{section} and its HTMX shell fragment at the /api equivalent.
+    // Every panel-body endpoint below therefore sits at least two segments deep, so a literal
+    // route can never shadow the section parameter.
+    public const string AdminSettingsSection = "/admin/settings/{section}";
     public const string AdminSettingsLeaguesToggle = "/admin/settings/leagues/toggle";
     public const string AdminClogSearch = "/admin/settings/collection-log/search";
     public const string AdminClogExclude = "/admin/settings/collection-log/exclude";
@@ -180,26 +185,26 @@ public static class AppRoutes
     public const string AdminSourceModifierSearch = "/admin/settings/source-modifiers/search";
     public const string AdminSourceModifierApply = "/admin/settings/source-modifiers/apply";
     public const string AdminSourceModifierRemove = "/admin/settings/source-modifiers/remove";
-    public const string AdminBaseline = "/admin/settings/baselines";
+    public const string AdminBaseline = "/admin/settings/baselines/panel";
     public const string AdminBaselineSet = "/admin/settings/baselines/set";
 
     // Admin-set average delve depth per character, for depth-modelled sources (Doom).
-    public const string AdminDelveDepth = "/admin/settings/delve-depths";
+    public const string AdminDelveDepth = "/admin/settings/delve-depths/panel";
     public const string AdminDelveDepthSet = "/admin/settings/delve-depths/set";
     public const string AdminDelveDepthRemove = "/admin/settings/delve-depths/remove";
     // Admin-set intrinsic GP values for items RuneLite prices at 0 (untradeable components).
-    public const string AdminItemValues = "/admin/settings/item-values";
+    public const string AdminItemValues = "/admin/settings/item-values/panel";
     public const string AdminItemValueSearch = "/admin/settings/item-values/search";
     public const string AdminItemValueZeroReport = "/admin/settings/item-values/zero-report";
     public const string AdminItemValueSet = "/admin/settings/item-values/set";
     public const string AdminItemValueRemove = "/admin/settings/item-values/remove";
-    public const string AdminSpecialLoot = "/admin/settings/special-loot";
+    public const string AdminSpecialLoot = "/admin/settings/special-loot/panel";
     public const string AdminSpecialLootItemSearch = "/admin/settings/special-loot/item-search";
     public const string AdminSpecialLootInject = "/admin/settings/special-loot/inject";
-    public const string AdminIcons = "/admin/settings/icons";
+    public const string AdminIcons = "/admin/settings/icons/panel";
     public const string AdminIconsRetry = "/admin/settings/icons/retry";
-    public const string AdminSyncStatus = "/admin/settings/sync-status";
-    public const string AdminJobHealth = "/admin/settings/job-health";
+    public const string AdminSyncStatus = "/admin/settings/sync-status/panel";
+    public const string AdminJobHealth = "/admin/settings/job-health/panel";
     public const string AdminJobRunNow = "/admin/settings/job-health/run-now";
     public const string AdminClogSyncNow = "/admin/settings/collection-log/sync-now";
     public const string AdminSourceSearch = "/admin/settings/sources/search";

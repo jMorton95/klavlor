@@ -162,6 +162,19 @@ The invariant that makes it consistent:
 
 The panel also carries an on-request "Find items with no value" report (`FindZeroValueItems`), which is how you discover what needs an override. It is a full scan of the drop table grouped by item, filtered to `MAX(Price) = 0`, so it is deliberately never given a load trigger — the admin has to press the button. Collection-log membership is stamped from `ICollectionLogCache` rather than joined, and sorts those items to the top, because a clog item at 0 GP is the signal and everything below it is usually junk.
 
+### The Admin Area Is One Section Per URL
+
+`AdminSections.All` (in `AdminSection.cs`) is the registry: slug, nav label, title, group, description. It drives the nav, the routable page and the shell endpoint together, so there is one list to add to.
+
+- The page is `AdminSettingsTemplate.razor`, routed at both `/admin/settings` and `/admin/settings/{Section}`. The HTMX shell fragment is `GET /api/admin/settings/{section}`.
+- `AdminSections.Resolve` falls back to the first section on an unknown or absent slug rather than 404ing — the nav is the only way in, so a bad slug is a stale bookmark.
+- **Every panel-body endpoint must sit at least two segments deep** (`/admin/settings/item-values/panel`, not `/admin/settings/item-values`). A single-segment literal wins the match over the `{section}` parameter and would silently shadow the page. Seven routes were moved a level deeper for exactly this.
+- Nav links set `hx-push-url` explicitly, because the fetch URL and the page URL differ by the `/api` prefix and `HtmxNavigationFilter`'s blanket strip can't derive one from the other. They also carry a real `href` so middle-click and JS-less loads work.
+- Section bodies are components, dispatched by an explicit `switch` in `AdminSettingsHub.razor`. The common "body is one HTMX panel" case uses `AdminPanelLoader`; five sections with inline search boxes have their own `AdminSection*.razor`.
+- Panels load on `load`, not on a `<details>` toggle — there are no `<details>` any more. A section with two independent loads staggers the second by 500ms (`AdminPanelLoader`'s `DelayMs`, or `load delay:500ms`), per the staggering rule above.
+
+This replaced a single page holding all thirteen sections as collapsible `<details>` with an anchor nav: nothing was linkable, every section's markup shipped on every visit, and finding one meant scrolling.
+
 ### An Admin Edit That Changes A Luck Input Must Request A Rebuild
 
 The luck leaderboard is precomputed hourly, but nearly every admin panel edits an *input* to it: a baseline kill count, a delve depth, a rate modifier, a source or item exclusion, the collection-log blacklist, an intrinsic item value, a source rename, an injected special drop. Before `RecomputeTrigger` existed, all of those left the board quoting the old numbers for up to an hour with nothing on screen saying so.
@@ -211,7 +224,7 @@ Shared in both layers:
 - `Login/` — Authentication (Web also has `Logout/` and `Home/`, which just redirects to the loot feed)
 - `Loot/` — the largest area, see breakdown below
 - `Search/` — Global search across characters, sources and drops
-- `Settings/` — Admin settings hub. One page with many independently-loading HTMX panels: leagues toggle, character baselines, collection-log blacklist, drop-rate resync, failed icons, job health/run history, leaderboard source + item exclusions, item values, source renames, source rate modifiers, special loot
+- `Settings/` — Admin area. **One section per URL** (`/admin/settings/{slug}`) — see "The Admin Area Is One Section Per URL" above
 - `Source/` — Global source (boss/monster) detail across all characters, with `GlobalSourceCache`
 - `Templates/` — Template CRUD (`Commands/`, `Queries/`) and the visual canvas builder (`Builder/` — nodes, edges, groups, annotations, regions, layouts). There is deliberately no export, import or duplicate feature: the endpoints existed but were never registered or linked from the UI, and were removed rather than finished.
 - `Users/` — Admin user management, API key generation/revocation, character assignment

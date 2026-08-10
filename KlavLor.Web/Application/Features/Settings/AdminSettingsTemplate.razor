@@ -1,11 +1,22 @@
 @page "/admin/settings"
+@page "/admin/settings/{Section}"
 @using Microsoft.AspNetCore.Authorization
 @using KlavLor.Web.Components.Layout
 @attribute [Authorize(Roles = "Admin")]
 
-<PageLayout PageTitle="KlavLor - Admin Area" Title="Admin Area" Description="Site administration">
-    @* PageLayout already renders the header; suppress the hub's own so a full page load
-       doesn't show a duplicate. HTMX in-app nav renders the hub via its /api endpoint with
+@* Both routes land here: /admin/settings resolves to the first section, /admin/settings/{slug} to
+   the named one. The slug is validated by AdminSections.Resolve, which falls back rather than 404s,
+   so a stale bookmark still opens the admin area.
+
+   The panel-body endpoints all sit at least two segments deep (/admin/settings/item-values/panel and
+   the like) precisely so this single-segment route can't be shadowed by a literal one. *@
+<PageLayout PageTitle="@($"KlavLor - {AdminSections.Resolve(Section).Title}")" Title="Admin Area" Description="@AdminSections.Resolve(Section).Title">
+    @* PageLayout already renders the header; suppress the shell's own so a full page load
+       doesn't show a duplicate. HTMX in-app nav renders the shell via its /api endpoint with
        UpdateHeader defaulting true, which OOB-swaps the header into the top bar. *@
-    <AdminSettingsHub UpdateHeader="false" />
+    <AdminSettingsHub UpdateHeader="false" Section="@Section" />
 </PageLayout>
+
+@code {
+    [Parameter] public string? Section { get; set; }
+}

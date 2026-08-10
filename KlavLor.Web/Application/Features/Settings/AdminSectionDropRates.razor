@@ -1,0 +1,56 @@
+@* Two independent loads: the source search (blank term = sources missing rates) and the
+   clog-items-with-no-rate report. The second is delayed 500ms so one section view doesn't open two
+   queries in the same instant — the staggering rule in CLAUDE.md. *@
+<div class="flex items-center gap-3 mb-3 flex-wrap">
+    <button type="button"
+            hx-post="@AppRoutes.AdminDropRatesResyncStart.FromApi()"
+            hx-target="#drate-resync"
+            hx-swap="innerHTML"
+            hx-include="#drate-resync-nodata"
+            hx-disabled-elt="this"
+            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-amber-500 text-white hover:bg-amber-600 cursor-pointer disabled:opacity-50">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+        Resync all missing sources
+    </button>
+    <label class="inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-white cursor-pointer">
+        <input id="drate-resync-nodata" type="checkbox" name="includeNoData" value="true"
+               class="rounded border-slate-300 dark:border-slate-600 text-amber-500 focus:ring-amber-500" />
+        Also re-check sources previously marked “no wiki data”
+    </label>
+</div>
+<div id="drate-resync" class="mb-3"></div>
+<div class="flex items-center gap-3 mb-3 flex-wrap">
+    <div class="relative flex-1 min-w-56 max-w-md">
+        <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+        <input id="drate-search" type="search" name="searchTerm" placeholder="Search sources (blank = missing rates)…"
+               autocomplete="off"
+               hx-get="@AppRoutes.AdminDropRatesSearch.FromApi()"
+               hx-trigger="keyup changed delay:300ms, load"
+               hx-target="#drate-results"
+               hx-swap="innerHTML"
+               hx-include="#drate-nodata"
+               class="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+    </div>
+    <label class="inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-white cursor-pointer whitespace-nowrap">
+        <input id="drate-nodata" type="checkbox" name="showNoData" value="true"
+               hx-get="@AppRoutes.AdminDropRatesSearch.FromApi()"
+               hx-trigger="change"
+               hx-target="#drate-results"
+               hx-swap="innerHTML"
+               hx-include="#drate-search"
+               class="rounded border-slate-300 dark:border-slate-600 text-amber-500 focus:ring-amber-500" />
+        Show sources with no wiki data
+    </label>
+</div>
+<div id="drate-results">
+    <div class="h-20 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
+</div>
+
+<div class="mt-4">
+    <h3 class="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-1">Collection-log items with no drop rate</h3>
+    <AdminPanelLoader Route="@AppRoutes.AdminDropRatesMismatches" Id="drate-missing" DelayMs="500" HeightClass="h-16" />
+</div>

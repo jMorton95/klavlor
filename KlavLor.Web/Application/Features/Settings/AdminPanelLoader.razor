@@ -1,0 +1,17 @@
+@* The common case: a section whose whole body is one HTMX-loaded panel. Fires on load rather than
+   on a <details> toggle, because a section page renders exactly one section — there is nothing to
+   expand. DelayMs exists for the handful of sections that load two panels and should not open two
+   queries in the same instant (the staggering rule in CLAUDE.md). *@
+<div id="@Id"
+     hx-get="@Route.FromApi()"
+     hx-trigger="load@(DelayMs > 0 ? $" delay:{DelayMs}ms" : "")"
+     hx-swap="innerHTML">
+    <div class="@HeightClass animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
+</div>
+
+@code {
+    [Parameter] public required string Route { get; set; }
+    [Parameter] public string? Id { get; set; }
+    [Parameter] public int DelayMs { get; set; }
+    [Parameter] public string HeightClass { get; set; } = "h-24";
+}
