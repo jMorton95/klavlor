@@ -23,29 +23,27 @@
     }
     else
     {
-        @* Summary strip. Eight facts on one line rather than a six-wide Stat grid with a second row
-           under it — the old card was mostly whitespace and pushed the actual content below the
-           fold. Wraps to two lines on narrow screens and no further. *@
+        @* Summary card: three left-aligned lines — identity, then the haul, then its spread. The
+           original was a six-wide Stat grid plus a second row, mostly whitespace, which pushed the
+           real content below the fold; a single long line fixed the height but ran the numbers into
+           one another. Three short lines keep it compact and still scannable. *@
         <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 px-4 py-3">
-            <div class="flex items-center gap-3 flex-wrap">
-                <div class="flex items-center gap-2 min-w-0 mr-1">
-                    <img src="/api/images/item-icon?name=@Uri.EscapeDataString(ItemName)" alt=""
-                         class="w-7 h-7 shrink-0" loading="lazy" onerror="this.style.display='none'" />
-                    <h1 class="text-lg font-bold text-slate-900 dark:text-slate-100 truncate">@ItemName</h1>
-                </div>
+            <div class="flex items-center gap-2 min-w-0 mb-1.5">
+                <img src="/api/images/item-icon?name=@Uri.EscapeDataString(ItemName)" alt=""
+                     class="w-7 h-7 shrink-0" loading="lazy" onerror="this.style.display='none'" />
+                <h1 class="text-lg font-bold text-slate-900 dark:text-slate-100 truncate">@ItemName</h1>
+            </div>
 
-                <div class="flex items-center gap-x-4 gap-y-1 flex-wrap text-sm">
-                    <Fact Label="drops" Value="@Overview.TotalDrops.ToString("N0")" />
-                    <Fact Label="qty" Value="@Overview.TotalQuantity.ToString("N0")" />
-                    <Fact Label="value" Value="@($"{GoldFormat.Format(Overview.TotalValue)} gp")" Accent="true" />
-                    <Fact Label="sources" Value="@Overview.DistinctSources.ToString("N0")" />
-                    <Fact Label="characters" Value="@Overview.DistinctCharacters.ToString("N0")" />
-                    <Fact Label="players" Value="@Overview.DistinctPlayers.ToString("N0")" />
-                    <span class="text-xs text-slate-400 dark:text-white whitespace-nowrap"
-                          title="First and last time any visible character recorded this item">
-                        @(Overview.FirstSeen?.ToString("d MMM yyyy") ?? "—") – @(Overview.LastSeen?.ToString("d MMM yyyy") ?? "—")
-                    </span>
-                </div>
+            <div class="flex items-center gap-x-4 gap-y-1 flex-wrap text-sm">
+                <Fact Label="drops" Value="@Overview.TotalDrops.ToString("N0")" />
+                <Fact Label="qty" Value="@Overview.TotalQuantity.ToString("N0")" />
+                <Fact Label="value" Value="@($"{GoldFormat.Format(Overview.TotalValue)} gp")" Accent="true" />
+            </div>
+
+            <div class="flex items-center gap-x-4 gap-y-1 flex-wrap text-sm mt-0.5">
+                <Fact Label="sources" Value="@Overview.DistinctSources.ToString("N0")" />
+                <Fact Label="characters" Value="@Overview.DistinctCharacters.ToString("N0")" />
+                <Fact Label="players" Value="@Overview.DistinctPlayers.ToString("N0")" />
             </div>
         </div>
 
