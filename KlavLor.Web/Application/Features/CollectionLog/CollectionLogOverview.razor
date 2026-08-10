@@ -1,0 +1,95 @@
+@using KlavLor.Application.Features.CollectionLog
+@using KlavLor.Web.Components.Layout
+
+@* The clan board. One row per character straight off the state table, so this renders from a single
+   scan however many items each character owns. *@
+
+<TopBarMetaData PageTitle="KlavLor - Collection Log" Title="Collection Log" Description="Collection log progress across every character" />
+
+<div class="space-y-6 pb-32">
+    <div class="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Clan standings</h2>
+            <p class="text-sm text-slate-500 dark:text-white">
+                Sourced from TempleOSRS. A character appears once its player has synced their collection log there.
+            </p>
+        </div>
+        <div class="relative w-full sm:w-72">
+            <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            <input type="search" name="searchTerm" placeholder="Search every collection log item…" autocomplete="off"
+                   hx-get="@AppRoutes.CollectionLogSearch.FromApi()"
+                   hx-trigger="keyup changed delay:300ms"
+                   hx-target="#clog-search-results"
+                   hx-swap="innerHTML"
+                   class="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+        </div>
+    </div>
+
+    <div id="clog-search-results"></div>
+
+    @if (Standings.Count == 0)
+    {
+        @* No data at all is a distinct state from a character with an empty log, and says what to
+           do about it rather than showing a bare empty table. *@
+        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-12 text-center">
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">No collection logs yet</h3>
+            <p class="text-sm text-slate-500 dark:text-white max-w-lg mx-auto">
+                Nothing has synced from TempleOSRS. A character needs a display name matching its RuneScape name,
+                and its player needs to have synced their collection log to TempleOSRS at least once.
+                The sync runs hourly.
+            </p>
+        </div>
+    }
+    else
+    {
+        <div class="space-y-2">
+            @foreach (var (standing, index) in Standings.Select((s, i) => (s, i)))
+            {
+                <a hx-get="@CharacterUrl(standing).FromApi()" hx-target="#hx-page-container"
+                   hx-push-url="@CharacterUrl(standing)" hx-swap="innerHTML transition:true"
+                   class="group flex items-center gap-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 hover:border-amber-300 dark:hover:border-amber-600 cursor-pointer transition-colors">
+                    <span class="w-6 text-sm font-semibold tabular-nums text-slate-400 dark:text-white shrink-0">@(index + 1)</span>
+
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-baseline gap-2 flex-wrap">
+                            <span class="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate group-hover:text-amber-600 dark:group-hover:text-amber-400">@standing.CharacterName</span>
+                            @if (GameModeLabel(standing.GameMode) is { } mode)
+                            {
+                                <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300">@mode</span>
+                            }
+                            <CollectionLogFreshnessBadge Freshness="standing.Freshness" />
+                        </div>
+
+                        <div class="mt-1.5 h-1.5 w-full rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                            <div class="h-full rounded-full bg-amber-500" style="width:@standing.Percent.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)%"></div>
+                        </div>
+                    </div>
+
+                    <div class="text-right shrink-0">
+                        <div class="text-sm font-semibold tabular-nums text-slate-900 dark:text-slate-100">
+                            @standing.Obtained.ToString("N0")<span class="text-slate-400 dark:text-white font-normal">/@standing.Available.ToString("N0")</span>
+                        </div>
+                        <div class="text-[11px] text-slate-500 dark:text-white tabular-nums">
+                            @standing.Percent.ToString("0.#")% · @standing.CategoriesFinished/@standing.CategoriesAvailable tabs
+                        </div>
+                    </div>
+                </a>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public List<CollectionLogStanding> Standings { get; set; } = [];
+
+    private static string CharacterUrl(CollectionLogStanding s) =>
+        AppRoutes.CollectionLogCharacter.WithId(s.GameCharacterId);
+
+    /// Ironman status changes what a comparison means, so it is labelled rather than hidden.
+    private static string? GameModeLabel(int mode) => mode switch
+    {
+        1 => "IM", 2 => "UIM", 3 => "HCIM", _ => null
+    };
+}

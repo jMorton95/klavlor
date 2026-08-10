@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.DataProtection;
+﻿using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -89,6 +89,7 @@ public static class InfrastructureDependencyConfiguration
 
             services.AddTransient<OsrsWikiRateLimitHandler>();
             services.AddOsrsWikiClient();
+            services.AddTempleOsrsClient();
             services.AddImageCacheService();
 
             services.AddBackgroundServices();
@@ -111,6 +112,7 @@ public static class InfrastructureDependencyConfiguration
             services.AddHostedService<DropRateSyncService>();
             services.AddHostedService<LuckLeaderboardRefreshService>();
             services.AddHostedService<LootDerivationBackfillService>();
+            services.AddHostedService<CollectionLogSyncFromTempleService>();
         }
 
         private void AddDomainRepositories()
@@ -140,6 +142,20 @@ public static class InfrastructureDependencyConfiguration
                 client.Timeout = TimeSpan.FromSeconds(10);
             })
             .AddHttpMessageHandler<OsrsWikiRateLimitHandler>();
+        }
+
+        // Third-party read-only API. A named/typed client so the User-Agent identifies us — an
+        // anonymous scraper is the first thing an API owner blocks — and the timeout is short,
+        // because a hung upstream must never hold a background cycle open.
+        private void AddTempleOsrsClient()
+        {
+            services.AddHttpClient<ITempleOsrsClient, TempleOsrsClient>(client =>
+            {
+                client.BaseAddress = new Uri(TempleOsrsClient.BaseAddress);
+                client.Timeout = TimeSpan.FromSeconds(30);
+                client.DefaultRequestHeaders.UserAgent.ParseAdd("KlavLor/1.0 (+https://github.com/klavlor; collection-log sync)");
+                client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+            });
         }
 
         private void AddImageCacheService()

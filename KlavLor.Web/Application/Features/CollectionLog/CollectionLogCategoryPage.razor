@@ -1,0 +1,25 @@
+@page "/collection-log/category"
+@using KlavLor.Application.Features.CollectionLog
+@using KlavLor.Web.Components.Layout
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+
+@inject CollectionLogHandler Handler
+
+<PageLayout PageTitle="@($"KlavLor - {_comparison?.DisplayName ?? "Collection Log"}")"
+            Title="@(_comparison?.DisplayName ?? "Collection Log")" Description="Category comparison">
+    <CollectionLogCategoryDetail Comparison="_comparison" Slug="@(Slug ?? "")" />
+</PageLayout>
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "slug")]
+    public string? Slug { get; set; }
+
+    private CollectionLogCategoryComparison? _comparison;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrWhiteSpace(Slug)) return;
+        _comparison = await Handler.GetCategoryComparison(Slug);
+    }
+}

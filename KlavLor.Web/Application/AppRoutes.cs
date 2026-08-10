@@ -100,6 +100,15 @@ public static class AppRoutes
     public const string LootFeedSourcePopover = "/loot/feed/source-popover/{id:int}";
     public const string LootLog = "/loot/log";
     public const string LootLeaderboard = "/loot/leaderboard";
+
+    // Collection log (TempleOSRS-sourced). Its own top-level area, not nested under /loot, because
+    // it is not derived from our loot data — see CollectionLogHandler for the split.
+    public const string CollectionLog = "/collection-log";
+    public const string CollectionLogCharacter = "/collection-log/character/{id:int}";
+    public const string CollectionLogCharacterCategory = "/collection-log/character/{id:int}/category";
+    public const string CollectionLogCategory = "/collection-log/category";
+    public const string CollectionLogItem = "/collection-log/item/{itemId:int}";
+    public const string CollectionLogSearch = "/collection-log/search";
     public const string LootLeaderboardResults = "/loot/leaderboard/results";
     public const string LootLogCharacter = "/loot/log/{id:int}";
     public const string LootLogSource = "/loot/log/{id:int}/source";

@@ -1,0 +1,20 @@
+@page "/collection-log"
+@using KlavLor.Application.Features.CollectionLog
+@using KlavLor.Web.Components.Layout
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+
+@* Routable shell for the clan board. Matches the endpoint's User policy — a routable page carries
+   no fallback policy, so without this attribute a direct URL load would be anonymous while the
+   HTMX-navigated version was not. *@
+@inject CollectionLogHandler Handler
+
+<PageLayout PageTitle="KlavLor - Collection Log" Title="Collection Log" Description="Collection log progress across every character">
+    <CollectionLogOverview Standings="_standings" />
+</PageLayout>
+
+@code {
+    private List<CollectionLogStanding> _standings = [];
+
+    // The routed page component is the ONE component allowed to query during SSR (see CLAUDE.md).
+    protected override async Task OnInitializedAsync() => _standings = await Handler.GetStandings();
+}

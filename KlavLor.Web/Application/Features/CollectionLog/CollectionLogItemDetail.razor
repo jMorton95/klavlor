@@ -1,0 +1,107 @@
+@using KlavLor.Application.Features.CollectionLog
+@using KlavLor.Web.Components.Layout
+
+@* One item across the roster: who has it, when they got it, and — from OUR loot data, not Temple's —
+   how many rolls they have at the sources that drop it.
+
+   The kill count is deliberately separate and deliberately nullable. Temple knows nothing about
+   rolls, so an item obtained before we started tracking loot has no count. That renders as
+   "unknown", never as zero, and never hides the holder. *@
+
+<TopBarMetaData PageTitle="@($"KlavLor - {Comparison?.Name ?? "Collection Log"}")"
+                Title="@(Comparison?.Name ?? "Collection Log")" Description="Who has this item" />
+
+<div class="space-y-5 pb-32">
+    <a onclick="history.back()"
+       class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-amber-600 dark:text-white dark:hover:text-amber-400 cursor-pointer transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+        Back
+    </a>
+
+    @if (Comparison is null)
+    {
+        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-12 text-center">
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">Item not found</h3>
+            <p class="text-sm text-slate-500 dark:text-white">That item isn't in the collection log.</p>
+        </div>
+    }
+    else
+    {
+        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 px-4 py-3">
+            <div class="flex items-center gap-2 min-w-0 mb-1.5">
+                <img src="/api/images/item-icon?name=@Uri.EscapeDataString(Comparison.Name)" alt=""
+                     class="w-7 h-7 shrink-0 object-contain" loading="lazy" onerror="this.style.display='none'" />
+                <h1 class="text-lg font-bold text-slate-900 dark:text-slate-100 truncate">@Comparison.Name</h1>
+            </div>
+            <div class="flex items-center gap-x-4 gap-y-1 flex-wrap text-sm">
+                <span class="inline-flex items-baseline gap-1 whitespace-nowrap">
+                    <span class="font-semibold tabular-nums text-slate-900 dark:text-slate-100">@Comparison.ObtainedBy/@Comparison.Holders.Count</span>
+                    <span class="text-[11px] text-slate-500 dark:text-white">characters have it</span>
+                </span>
+                @if (Comparison.Categories.Count > 0)
+                {
+                    <span class="text-[11px] text-slate-500 dark:text-white">@string.Join(" · ", Comparison.Categories)</span>
+                }
+                @* The item's own global drop page, which is where the rate and value live. *@
+                <a hx-get="@DropUrl.FromApi()" hx-target="#hx-page-container" hx-push-url="@DropUrl" hx-swap="innerHTML transition:true"
+                   class="text-[11px] text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">View drop stats</a>
+            </div>
+        </div>
+
+        <div class="space-y-1.5">
+            @foreach (var holder in Comparison.Holders)
+            {
+                <div class="flex items-center gap-3 bg-slate-50 dark:bg-slate-900 rounded-lg border px-3 py-2 @(holder.Obtained ? "border-slate-200 dark:border-slate-700" : "border-dashed border-slate-200 dark:border-slate-700 opacity-60")">
+                    <span class="w-4 shrink-0">
+                        @if (holder.Obtained)
+                        {
+                            <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                        }
+                        else
+                        {
+                            <svg class="w-4 h-4 text-slate-300 dark:text-slate-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg>
+                        }
+                    </span>
+
+                    <a hx-get="@CharacterUrl(holder.GameCharacterId).FromApi()" hx-target="#hx-page-container"
+                       hx-push-url="@CharacterUrl(holder.GameCharacterId)" hx-swap="innerHTML transition:true"
+                       class="text-sm font-medium text-amber-600 dark:text-amber-400 hover:underline cursor-pointer truncate flex-1 min-w-0">@holder.CharacterName</a>
+
+                    @if (holder.Obtained && holder.Count > 1)
+                    {
+                        <span class="text-[11px] tabular-nums text-slate-500 dark:text-white shrink-0">@holder.Count.ToString("N0")×</span>
+                    }
+
+                    <span class="text-[11px] tabular-nums text-slate-400 dark:text-white shrink-0 whitespace-nowrap">
+                        @Rolls(holder)
+                    </span>
+
+                    <span class="text-[11px] tabular-nums text-slate-400 dark:text-white shrink-0 w-24 text-right whitespace-nowrap">
+                        @Obtained(holder)
+                    </span>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public CollectionLogItemComparison? Comparison { get; set; }
+
+    private string DropUrl => $"{AppRoutes.Drop}?name={Uri.EscapeDataString(Comparison!.Name)}";
+
+    private static string CharacterUrl(int id) => AppRoutes.CollectionLogCharacter.WithId(id);
+
+    /// Our own roll count. Null means we have no loot data for that source — not zero rolls.
+    private static string Rolls(CollectionLogItemHolder h) =>
+        h.OurKillCount is { } k ? $"{k:N0} rolls" : "rolls unknown";
+
+    private static string Obtained(CollectionLogItemHolder h) => h switch
+    {
+        { Obtained: false } => "—",
+        { ObtainedAt: null } => "date unknown",
+        _ => h.ObtainedAt!.Value.ToString("d MMM yyyy")
+    };
+}

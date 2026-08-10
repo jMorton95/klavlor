@@ -1,0 +1,90 @@
+@using KlavLor.Application.Features.CollectionLog
+@using KlavLor.Web.Components.Layout
+
+@* One category compared across the roster: a standings strip, then a matrix of who owns what. *@
+
+<TopBarMetaData PageTitle="@($"KlavLor - {Comparison?.DisplayName ?? "Collection Log"}")"
+                Title="@(Comparison?.DisplayName ?? "Collection Log")" Description="Category comparison" />
+
+<div class="space-y-5 pb-32">
+    <a onclick="history.back()"
+       class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-amber-600 dark:text-white dark:hover:text-amber-400 cursor-pointer transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+        Back
+    </a>
+
+    @if (Comparison is null)
+    {
+        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-12 text-center">
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">Category not found</h3>
+            <p class="text-sm text-slate-500 dark:text-white">No collection log category called &ldquo;@Slug&rdquo;.</p>
+        </div>
+    }
+    else
+    {
+        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 px-4 py-3">
+            <h1 class="text-lg font-bold text-slate-900 dark:text-slate-100 mb-1.5">@Comparison.DisplayName</h1>
+            <div class="flex items-center gap-x-4 gap-y-1 flex-wrap text-sm">
+                <span class="inline-flex items-baseline gap-1">
+                    <span class="font-semibold tabular-nums text-slate-900 dark:text-slate-100">@Comparison.Total</span>
+                    <span class="text-[11px] text-slate-500 dark:text-white">items</span>
+                </span>
+                <span class="text-[11px] text-slate-500 dark:text-white">@Comparison.GroupName</span>
+            </div>
+        </div>
+
+        @if (Comparison.Standings.Count == 0)
+        {
+            <div class="bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-8 text-center text-sm text-slate-400 dark:text-white">
+                No characters have synced a collection log yet.
+            </div>
+        }
+        else
+        {
+            @* A row per character, a cell per item. Wide categories scroll inside their own
+               container so the page body never scrolls sideways. *@
+            <div class="bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 overflow-x-auto">
+                <table class="w-full text-sm">
+                    <tbody class="divide-y divide-slate-200 dark:divide-slate-700/50">
+                        @foreach (var standing in Comparison.Standings)
+                        {
+                            <tr class="hover:bg-slate-100/50 dark:hover:bg-slate-800/40">
+                                <td class="px-3 py-2 whitespace-nowrap">
+                                    <a hx-get="@CharacterUrl(standing.GameCharacterId).FromApi()" hx-target="#hx-page-container"
+                                       hx-push-url="@CharacterUrl(standing.GameCharacterId)" hx-swap="innerHTML transition:true"
+                                       class="text-sm font-medium text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">@standing.CharacterName</a>
+                                    <span class="ml-2 text-[11px] tabular-nums text-slate-500 dark:text-white">@standing.Obtained/@standing.Total</span>
+                                </td>
+                                <td class="px-3 py-2">
+                                    <div class="flex flex-wrap gap-1">
+                                        @foreach (var item in Comparison.Items)
+                                        {
+                                            var owned = standing.ObtainedItemIds.Contains(item.ItemId);
+                                            // Built here rather than inline: Razor can't parse two
+                                            // adjacent expressions inside one attribute value.
+                                            var cellTitle = owned ? item.Name : $"{item.Name} — not obtained";
+                                            <span title="@cellTitle"
+                                                  class="inline-block w-5 h-5 rounded @(owned ? "" : "opacity-25 grayscale")">
+                                                <img src="/api/images/item-icon?name=@Uri.EscapeDataString(item.Name)" alt="@item.Name"
+                                                     class="w-5 h-5 object-contain" loading="lazy" onerror="this.style.display='none'" />
+                                            </span>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public CollectionLogCategoryComparison? Comparison { get; set; }
+    [Parameter] public string Slug { get; set; } = "";
+
+    private static string CharacterUrl(int id) => AppRoutes.CollectionLogCharacter.WithId(id);
+}

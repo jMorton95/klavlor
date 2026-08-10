@@ -1,0 +1,42 @@
+@using KlavLor.Application.Features.CollectionLog
+
+@if (string.IsNullOrWhiteSpace(SearchTerm))
+{
+    return;
+}
+
+@if (Rows.Count == 0)
+{
+    <div class="bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-6 text-center text-sm text-slate-400 dark:text-white">
+        No collection log items match &ldquo;@SearchTerm&rdquo;.
+    </div>
+}
+else
+{
+    <div class="bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-2 space-y-1 max-h-96 overflow-y-auto">
+        @foreach (var row in Rows)
+        {
+            <a hx-get="@ItemUrl(row.ItemId).FromApi()" hx-target="#hx-page-container"
+               hx-push-url="@ItemUrl(row.ItemId)" hx-swap="innerHTML transition:true"
+               class="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-1.5 hover:border-amber-300 dark:hover:border-amber-600 cursor-pointer transition-colors">
+                <img src="/api/images/item-icon?name=@Uri.EscapeDataString(row.Name)" alt=""
+                     class="w-5 h-5 object-contain shrink-0" loading="lazy" onerror="this.style.display='none'" />
+                <span class="text-sm text-slate-700 dark:text-slate-100 truncate">@row.Name</span>
+                @if (row.Categories.Count > 0)
+                {
+                    <span class="text-[10px] text-slate-400 dark:text-white truncate hidden sm:inline">@string.Join(" · ", row.Categories.Take(2))</span>
+                }
+                <span class="ml-auto text-[11px] tabular-nums shrink-0 whitespace-nowrap @(row.ObtainedBy > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 dark:text-white")">
+                    @row.ObtainedBy/@row.TotalCharacters have it
+                </span>
+            </a>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public List<CollectionLogSearchRow> Rows { get; set; } = [];
+    [Parameter] public string? SearchTerm { get; set; }
+
+    private static string ItemUrl(int itemId) => AppRoutes.CollectionLogItem.Replace("{itemId:int}", itemId.ToString());
+}

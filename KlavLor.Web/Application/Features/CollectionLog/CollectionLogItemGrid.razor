@@ -1,0 +1,59 @@
+@using KlavLor.Application.Features.CollectionLog
+
+@* One category's items for one character. Missing items are shown greyed rather than omitted — a
+   collection log that only listed what you already own would be pointless. *@
+
+@if (Items.Count == 0)
+{
+    <div class="bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-6 text-center text-sm text-slate-400 dark:text-white">
+        No items in this category.
+    </div>
+}
+else
+{
+    <div class="bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-3">
+        <div class="flex items-baseline justify-between gap-2 mb-2.5">
+            <span class="text-sm font-semibold text-slate-800 dark:text-slate-100">@Obtained of @Items.Count obtained</span>
+            <a hx-get="@CompareUrl.FromApi()" hx-target="#hx-page-container" hx-push-url="@CompareUrl" hx-swap="innerHTML transition:true"
+               class="text-[11px] text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">Compare across characters</a>
+        </div>
+
+        <div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-1.5">
+            @foreach (var item in Items)
+            {
+                <a hx-get="@ItemUrl(item.ItemId).FromApi()" hx-target="#hx-page-container"
+                   hx-push-url="@ItemUrl(item.ItemId)" hx-swap="innerHTML transition:true"
+                   title="@Tooltip(item)"
+                   class="relative flex flex-col items-center gap-0.5 rounded-lg border px-1 py-1.5 cursor-pointer transition-colors @(item.Obtained ? "border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/40 hover:border-amber-300 dark:hover:border-amber-600" : "border-dashed border-slate-200 dark:border-slate-700 opacity-40 hover:opacity-70")">
+                    <img src="/api/images/item-icon?name=@Uri.EscapeDataString(item.Name)" alt=""
+                         class="w-6 h-6 object-contain @(item.Obtained ? "" : "grayscale")" loading="lazy" onerror="this.style.display='none'" />
+                    <span class="text-[9px] leading-tight text-center text-slate-600 dark:text-slate-300 line-clamp-2">@item.Name</span>
+                    @if (item.Obtained && item.Count > 1)
+                    {
+                        <span class="absolute top-0 right-0.5 text-[9px] font-semibold tabular-nums text-amber-600 dark:text-amber-400">@item.Count</span>
+                    }
+                </a>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public List<CollectionLogItemState> Items { get; set; } = [];
+    [Parameter] public string CategorySlug { get; set; } = "";
+
+    private int Obtained => Items.Count(i => i.Obtained);
+
+    private string CompareUrl => $"{AppRoutes.CollectionLogCategory}?slug={Uri.EscapeDataString(CategorySlug)}";
+
+    private static string ItemUrl(int itemId) => AppRoutes.CollectionLogItem.Replace("{itemId:int}", itemId.ToString());
+
+    /// A missing obtained date is normal — Temple often has none for items logged before the player
+    /// started syncing — so it reads as "date unknown" rather than being left blank.
+    private static string Tooltip(CollectionLogItemState item) => item switch
+    {
+        { Obtained: false } => $"{item.Name} — not obtained",
+        { ObtainedAt: null } => $"{item.Name} — obtained, date unknown",
+        _ => $"{item.Name} — obtained {item.ObtainedAt:d MMM yyyy}" + (item.Count > 1 ? $" ({item.Count}×)" : "")
+    };
+}

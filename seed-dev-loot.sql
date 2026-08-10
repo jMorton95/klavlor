@@ -70,7 +70,12 @@ CREATE TEMP TABLE seed_char (rl text, dn text, weight numeric) ON COMMIT DROP;
 INSERT INTO seed_char VALUES
     ('seed-claudelock', 'ClaudeLock',  1.00),  -- veteran: high KC, most uniques
     ('seed-zukkenmir',  'Zukkenmir',   0.40),  -- mid-tier
-    ('seed-ironfodder', 'Iron Fodder', 0.12);  -- fresh, mostly dry / still chasing
+    ('seed-ironfodder', 'Iron Fodder', 0.12),  -- fresh, mostly dry / still chasing
+    -- Klavelon is a REAL RSN that syncs to TempleOSRS. Its loot below is fabricated like the
+    -- others, but because DisplayName is the RSN the collection-log sync will pull this
+    -- character's genuine Temple log — so local dev exercises the real upstream end to end,
+    -- including the case where Temple reports items we hold no drop (and so no kill count) for.
+    ('seed-klavelon',   'Klavelon',    0.65);  -- real account, mid-to-veteran volume
 
 INSERT INTO "GameCharacters"
     ("UserId", "RuneLiteId", "DisplayName", "IsVisible", "IsAdminHidden", "SavedAt", "SavedById")

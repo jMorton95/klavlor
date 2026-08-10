@@ -1,0 +1,72 @@
+@using KlavLor.Application.Features.CollectionLog
+@using KlavLor.Domain.Entities
+
+@* The audit line: where this data came from and how far behind it might be. Shown on every
+   collection-log surface, because the whole area is a mirror of a third party that each player
+   refreshes by hand — a page with no provenance would silently present a year-old log as current. *@
+
+@if (Freshness is null)
+{
+    return;
+}
+
+<span class="inline-flex items-center gap-1.5 text-[11px] whitespace-nowrap @Classes" title="@Title">
+    <span class="w-1.5 h-1.5 rounded-full @Dot"></span>
+    @Label
+</span>
+
+@code {
+    [Parameter] public CollectionLogFreshness? Freshness { get; set; }
+
+    private string Label => Freshness!.Outcome switch
+    {
+        CollectionLogSyncOutcome.Never => "never synced",
+        CollectionLogSyncOutcome.NotSynced => "not on TempleOSRS",
+        CollectionLogSyncOutcome.NotFound => "unknown to TempleOSRS",
+        CollectionLogSyncOutcome.Failed => "sync failing",
+        _ when Freshness.IsStale => $"player synced {Ago(Freshness.PlayerSyncedAt)} ago",
+        _ => $"synced {Ago(Freshness.PlayerSyncedAt)} ago"
+    };
+
+    private string Classes => Freshness!.Outcome switch
+    {
+        CollectionLogSyncOutcome.Ok or CollectionLogSyncOutcome.Unchanged when !Freshness.IsStale
+            => "text-slate-400 dark:text-white",
+        CollectionLogSyncOutcome.Ok or CollectionLogSyncOutcome.Unchanged
+            => "text-amber-600 dark:text-amber-400",
+        _ => "text-rose-600 dark:text-rose-400"
+    };
+
+    private string Dot => Freshness!.Outcome switch
+    {
+        CollectionLogSyncOutcome.Ok or CollectionLogSyncOutcome.Unchanged when !Freshness.IsStale => "bg-emerald-500",
+        CollectionLogSyncOutcome.Ok or CollectionLogSyncOutcome.Unchanged => "bg-amber-500",
+        _ => "bg-rose-500"
+    };
+
+    private string Title
+    {
+        get
+        {
+            var parts = new List<string>();
+            if (Freshness!.PlayerSyncedAt is { } p)
+                parts.Add($"Player last synced to TempleOSRS {p:d MMM yyyy HH:mm} UTC");
+            if (Freshness.OurSyncedAt is { } o)
+                parts.Add($"We last checked {o:d MMM yyyy HH:mm} UTC");
+            if (!string.IsNullOrEmpty(Freshness.Error))
+                parts.Add(Freshness.Error!);
+            return parts.Count > 0 ? string.Join(" · ", parts) : "No sync recorded yet";
+        }
+    }
+
+    private static string Ago(DateTimeOffset? t)
+    {
+        if (t is null) return "never";
+        var d = DateTimeOffset.UtcNow - t.Value;
+        if (d.TotalMinutes < 60) return $"{Math.Max(1, (int)d.TotalMinutes)}m";
+        if (d.TotalHours < 24) return $"{(int)d.TotalHours}h";
+        if (d.TotalDays < 30) return $"{(int)d.TotalDays}d";
+        if (d.TotalDays < 365) return $"{(int)(d.TotalDays / 30)}mo";
+        return $"{(int)(d.TotalDays / 365)}y";
+    }
+}

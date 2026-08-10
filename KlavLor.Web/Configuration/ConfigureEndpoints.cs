@@ -1,4 +1,4 @@
-using KlavLor.Web.Application;
+﻿using KlavLor.Web.Application;
 using KlavLor.Web.Application.Features.HealthCheck;
 using KlavLor.Web.Application.Features.Home;
 using KlavLor.Web.Application.Features.Login;
@@ -18,6 +18,7 @@ using KlavLor.Web.Application.Features.Loot.Log;
 using KlavLor.Web.Application.Features.Loot.Leaderboard;
 using KlavLor.Web.Application.Features.Search;
 using KlavLor.Web.Application.Features.Source;
+using KlavLor.Web.Application.Features.CollectionLog;
 using KlavLor.Web.Application.Features.Drop;
 using KlavLor.Web.Application.Features.Settings;
 using KlavLor.Web.Application.Features.Viewer;
@@ -78,7 +79,8 @@ public static class ConfigureEndpoints
 
         web.MapEndpoints<SearchEndpoint>()
             .MapEndpoints<SourceEndpoint>()
-            .MapEndpoints<DropEndpoint>();
+            .MapEndpoints<DropEndpoint>()
+            .MapEndpoints<CollectionLogEndpoint>();
 
         web.MapEndpoints<HealthCheckEndpoint>();
     }

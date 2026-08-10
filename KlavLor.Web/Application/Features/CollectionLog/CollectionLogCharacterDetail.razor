@@ -1,0 +1,102 @@
+@using KlavLor.Application.Features.CollectionLog
+@using KlavLor.Web.Components.Layout
+
+@* One character's log: header, category grid, and an item panel that swaps in when a category is
+   picked. The item panel is HTMX-loaded rather than rendered up front so the page doesn't ship all
+   1,712 items on every visit. *@
+
+<TopBarMetaData PageTitle="@($"KlavLor - {Log?.CharacterName ?? "Collection Log"}")"
+                Title="@(Log?.CharacterName ?? "Collection Log")" Description="Collection log" />
+
+<div class="space-y-5 pb-32">
+    <a onclick="history.back()"
+       class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-amber-600 dark:text-white dark:hover:text-amber-400 cursor-pointer transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+        Back
+    </a>
+
+    @if (Log is null)
+    {
+        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-12 text-center">
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">Character not found</h3>
+            <p class="text-sm text-slate-500 dark:text-white">No visible character with that id.</p>
+        </div>
+    }
+    else
+    {
+        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 px-4 py-3">
+            <div class="flex items-center gap-2 flex-wrap mb-1.5">
+                <h1 class="text-lg font-bold text-slate-900 dark:text-slate-100 truncate">@Log.CharacterName</h1>
+                <CollectionLogFreshnessBadge Freshness="Log.Freshness" />
+            </div>
+            <div class="flex items-center gap-x-4 gap-y-1 flex-wrap text-sm">
+                <span class="inline-flex items-baseline gap-1 whitespace-nowrap">
+                    <span class="font-semibold tabular-nums text-slate-900 dark:text-slate-100">@Log.Obtained.ToString("N0")/@Log.Available.ToString("N0")</span>
+                    <span class="text-[11px] text-slate-500 dark:text-white">items</span>
+                </span>
+                <span class="inline-flex items-baseline gap-1 whitespace-nowrap">
+                    <span class="font-semibold tabular-nums text-amber-600 dark:text-amber-400">@Percent.ToString("0.#")%</span>
+                    <span class="text-[11px] text-slate-500 dark:text-white">complete</span>
+                </span>
+                @if (Log.HiscoresRank is { } rank)
+                {
+                    <span class="inline-flex items-baseline gap-1 whitespace-nowrap">
+                        <span class="font-semibold tabular-nums text-slate-900 dark:text-slate-100">#@rank.ToString("N0")</span>
+                        <span class="text-[11px] text-slate-500 dark:text-white">hiscores rank</span>
+                    </span>
+                }
+            </div>
+        </div>
+
+        @if (Log.Freshness.Blocker is { } blocker)
+        {
+            @* Says exactly why there is nothing to show, rather than rendering an empty grid that
+               looks like a bug. Still renders the categories below when we hold older data. *@
+            <div class="rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+                @blocker
+            </div>
+        }
+
+        @if (Log.Obtained > 0 || Log.Freshness.HasData)
+        {
+            @foreach (var group in Log.Categories.GroupBy(c => c.GroupName))
+            {
+                <div>
+                    <h2 class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-white mb-2">@group.Key</h2>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+                        @foreach (var category in group)
+                        {
+                            <button type="button"
+                                    hx-get="@CategoryUrl(category.Slug)"
+                                    hx-target="#clog-items"
+                                    hx-swap="innerHTML"
+                                    class="text-left bg-slate-50 dark:bg-slate-900 rounded-lg border px-3 py-2 cursor-pointer transition-colors @(category.IsComplete ? "border-emerald-300 dark:border-emerald-700" : "border-slate-200 dark:border-slate-700 hover:border-amber-300 dark:hover:border-amber-600")">
+                                <div class="flex items-baseline justify-between gap-2">
+                                    <span class="text-xs font-medium text-slate-800 dark:text-slate-100 truncate">@category.DisplayName</span>
+                                    <span class="text-[11px] tabular-nums whitespace-nowrap @(category.IsComplete ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500 dark:text-white")">@category.Obtained/@category.Total</span>
+                                </div>
+                                <div class="mt-1.5 h-1 w-full rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                                    <div class="h-full rounded-full @(category.IsComplete ? "bg-emerald-500" : "bg-amber-500")"
+                                         style="width:@category.Percent.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)%"></div>
+                                </div>
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
+
+            <div id="clog-items"></div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public CharacterCollectionLog? Log { get; set; }
+
+    private double Percent => Log is { Available: > 0 } ? Log.Obtained * 100.0 / Log.Available : 0;
+
+    private string CategoryUrl(string slug) =>
+        $"{AppRoutes.CollectionLogCharacterCategory.WithId(Log!.GameCharacterId).FromApi()}?slug={Uri.EscapeDataString(slug)}";
+}
