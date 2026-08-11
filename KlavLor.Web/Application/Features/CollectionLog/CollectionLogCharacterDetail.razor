@@ -90,12 +90,21 @@
                         {
                             <a hx-get="@ItemUrl(unlock.ItemId).FromApi()" hx-target="#hx-page-container"
                                hx-push-url="@ItemUrl(unlock.ItemId)" hx-swap="innerHTML transition:true"
-                               title="@($"{unlock.Name} — {unlock.CategoryDisplayName} — {unlock.ObtainedAt:d MMM yyyy}")"
-                               class="group shrink-0 w-[4.5rem] flex flex-col items-center gap-0.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/70 px-1.5 py-1.5 cursor-pointer hover:border-amber-400 dark:hover:border-amber-500 transition-colors">
+                               title="@UnlockTooltip(unlock)"
+                               class="group shrink-0 w-[5rem] flex flex-col items-center gap-0.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/70 px-1.5 py-1.5 cursor-pointer hover:border-amber-400 dark:hover:border-amber-500 transition-colors">
                                 <img src="/api/images/item-icon?name=@Uri.EscapeDataString(unlock.Name)" alt=""
-                                     class="w-6 h-6 object-contain" loading="lazy" onerror="this.style.display='none'" />
+                                     class="w-7 h-7 object-contain" loading="lazy" onerror="this.style.display='none'" />
                                 <span class="text-[9px] leading-tight text-center text-slate-700 dark:text-slate-200 line-clamp-2">@unlock.Name</span>
-                                <span class="text-[9px] text-amber-600 dark:text-amber-400 tabular-nums">@unlock.ObtainedAt.ToString("d MMM")</span>
+                                @* The roll it landed on, when our own loot records can attribute it;
+                                   the date otherwise, so the tile always says something. *@
+                                @if (unlock.FirstReceipt is { KillCount: > 0 } receipt)
+                                {
+                                    <span class="text-[9px] font-semibold text-amber-600 dark:text-amber-400 tabular-nums">#@receipt.KillCount!.Value.ToString("N0")</span>
+                                }
+                                else
+                                {
+                                    <span class="text-[9px] text-slate-400 dark:text-slate-400 tabular-nums">@unlock.ObtainedAt.ToString("d MMM")</span>
+                                }
                             </a>
                         }
                     </div>
@@ -230,6 +239,16 @@
         $"{AppRoutes.CollectionLogCharacterCategory.WithId(Log!.GameCharacterId).FromApi()}?slug={Uri.EscapeDataString(slug)}";
 
     private static string ItemUrl(int itemId) => AppRoutes.CollectionLogItem.Replace("{itemId:int}", itemId.ToString());
+
+    private static string UnlockTooltip(CollectionLogRecentUnlock unlock)
+    {
+        var parts = new List<string> { unlock.Name };
+        if (!string.IsNullOrEmpty(unlock.CategoryDisplayName)) parts.Add(unlock.CategoryDisplayName!);
+        parts.Add(unlock.ObtainedAt.ToString("d MMM yyyy"));
+        if (unlock.FirstReceipt is { KillCount: > 0 } r)
+            parts.Add($"roll {r.KillCount!.Value:N0} at {r.SourceName}");
+        return string.Join(" — ", parts);
+    }
 
     /// Source icon where the category names a boss we hold one for, else a representative item.
     private static string IconUrl(CollectionLogIconKind kind, string name) => kind switch

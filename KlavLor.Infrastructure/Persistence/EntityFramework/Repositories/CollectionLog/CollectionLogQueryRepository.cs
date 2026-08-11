@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Npgsql;
 using KlavLor.Application.Common.Exceptions;
 using KlavLor.Application.Features.CollectionLog;
 using KlavLor.Application.Interfaces.Repositories;
@@ -108,6 +109,7 @@ internal sealed class CollectionLogQueryRepository(
                 .ToListAsync();
 
             var recentCategories = await CategoryNamesFor(recent.Select(r => r.ItemId).ToList());
+            var recentReceipts = await ResolveFirstReceipts(gameCharacterId, recent.Select(r => r.ItemId).ToList());
 
             return new CharacterCollectionLog(
                 header.Id,
@@ -134,7 +136,8 @@ internal sealed class CollectionLogQueryRepository(
                     .Select(r => new CollectionLogRecentUnlock(
                         r.ItemId, r.Name,
                         recentCategories.TryGetValue(r.ItemId, out var cat) ? cat : null,
-                        r.ObtainedAt!.Value))
+                        r.ObtainedAt!.Value,
+                        recentReceipts.TryGetValue(r.ItemId, out var receipt) ? receipt : null))
                     .ToList());
         }
         catch (Exception ex)
@@ -173,8 +176,16 @@ internal sealed class CollectionLogQueryRepository(
             var icons = await ResolveCategoryIcons([categorySlug]);
             icons.TryGetValue(categorySlug, out var icon);
 
+            // Only obtained items can have a receipt, so only those are looked up.
+            var receipts = await ResolveFirstReceipts(
+                gameCharacterId, items.Where(i => i.Obtained).Select(i => i.ItemId).ToList());
+
+            var withReceipts = items
+                .Select(i => receipts.TryGetValue(i.ItemId, out var receipt) ? i with { FirstReceipt = receipt } : i)
+                .ToList();
+
             return new CollectionLogCategoryView(
-                category.Slug, category.DisplayName, icon.Kind, icon.Name, items);
+                category.Slug, category.DisplayName, icon.Kind, icon.Name, withReceipts);
         }
         catch (Exception ex)
         {
@@ -348,6 +359,79 @@ internal sealed class CollectionLogQueryRepository(
     }
 
     private const int RecentUnlockCount = 12;
+
+    /// <summary>
+    /// For each item, the source that FIRST dropped it to this character and the roll it landed on.
+    ///
+    /// This is the one place the two halves of the site meet: the collection log says a character
+    /// owns something, our loot records say where it came from and on which roll. An item we never
+    /// tracked simply has no entry — it is omitted from the result rather than defaulted, because a
+    /// zero would read as "obtained on kill zero".
+    ///
+    /// The roll number prefers RuneLite's reported kill count and falls back to the record's own
+    /// chronological position at that source, plus any admin baseline, exactly as
+    /// ILootRecordRepository.GetKillOrdinal does — so the figure agrees with the character page.
+    /// </summary>
+    private async Task<Dictionary<int, CollectionLogFirstReceipt>> ResolveFirstReceipts(
+        int gameCharacterId, List<int> itemIds)
+    {
+        var result = new Dictionary<int, CollectionLogFirstReceipt>();
+        if (itemIds.Count == 0) return result;
+
+        const string sql = """
+            WITH firsts AS (
+                SELECT DISTINCT ON (ld."ItemId")
+                       ld."ItemId"      AS item_id,
+                       lr."Id"          AS record_id,
+                       lr."SourceName"  AS source_name,
+                       lr."OccurredAt"  AS occurred_at,
+                       lr."KillCount"   AS kill_count
+                FROM "LootDrops" ld
+                JOIN "LootRecords" lr ON lr."Id" = ld."LootRecordId"
+                WHERE lr."GameCharacterId" = @cid AND ld."ItemId" = ANY(@items)
+                ORDER BY ld."ItemId", lr."OccurredAt", lr."Id"
+            )
+            SELECT f.item_id,
+                   f.source_name,
+                   f.kill_count,
+                   (SELECT COUNT(*)::int
+                      FROM "LootRecords" o
+                     WHERE o."GameCharacterId" = @cid
+                       AND o."SourceName" = f.source_name
+                       AND (o."OccurredAt" < f.occurred_at
+                            OR (o."OccurredAt" = f.occurred_at AND o."Id" <= f.record_id))) AS ordinal,
+                   COALESCE((SELECT b."BaselineKc" FROM "CharacterSourceBaselines" b
+                              WHERE b."GameCharacterId" = @cid AND b."SourceName" = f.source_name), 0) AS baseline
+            FROM firsts f
+            """;
+
+        var connection = dataContext.Database.GetDbConnection();
+        if (connection.State != System.Data.ConnectionState.Open)
+            await connection.OpenAsync();
+
+        await using var cmd = connection.CreateCommand();
+        cmd.CommandText = sql;
+        cmd.Parameters.Add(new NpgsqlParameter("@cid", gameCharacterId));
+        cmd.Parameters.Add(new NpgsqlParameter("@items", itemIds.ToArray()));
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            var itemId = reader.GetInt32(0);
+            var source = reader.GetString(1);
+            var reported = reader.IsDBNull(2) ? (int?)null : reader.GetInt32(2);
+            var ordinal = reader.IsDBNull(3) ? 0 : reader.GetInt32(3);
+            var baseline = reader.IsDBNull(4) ? 0 : reader.GetInt32(4);
+
+            // RuneLite's own count when it sent one, else our derived position. Chest sources
+            // routinely report none, which is why the fallback exists.
+            var kc = reported ?? (ordinal > 0 ? ordinal + baseline : null);
+            result[itemId] = new CollectionLogFirstReceipt(source, kc);
+        }
+
+        return result;
+    }
+
 
     /// <summary>Sources listed against a character who hasn't got the item yet.</summary>
     private const int ChaseSourceCount = 3;

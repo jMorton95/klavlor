@@ -93,7 +93,15 @@ public sealed record CollectionLogRecentUnlock(
     int ItemId,
     string Name,
     string? CategoryDisplayName,
-    DateTimeOffset ObtainedAt);
+    DateTimeOffset ObtainedAt,
+    /// <summary>Same attribution as CollectionLogItemState.FirstReceipt; null when untracked.</summary>
+    CollectionLogFirstReceipt? FirstReceipt = null);
+
+/// <summary>
+/// Where and on which roll an item first arrived, from OUR loot data. Null throughout when we hold
+/// no drop for it — the normal case for anything obtained before tracking began.
+/// </summary>
+public sealed record CollectionLogFirstReceipt(string SourceName, int? KillCount);
 
 /// <summary>One item within a category, with whether this character has it.</summary>
 public sealed record CollectionLogItemState(
@@ -101,7 +109,13 @@ public sealed record CollectionLogItemState(
     string Name,
     bool Obtained,
     int Count,
-    DateTimeOffset? ObtainedAt);
+    DateTimeOffset? ObtainedAt,
+    /// <summary>
+    /// The roll it landed on, attributed to the source that actually dropped it. Comes from our own
+    /// loot records, not the collection log, which knows nothing about kill counts — so it is null
+    /// for anything we never tracked, and must simply be omitted rather than shown as zero.
+    /// </summary>
+    CollectionLogFirstReceipt? FirstReceipt = null);
 
 /// <summary>One category's items for one character, plus what the panel needs to title itself.</summary>
 public sealed record CollectionLogCategoryView(
