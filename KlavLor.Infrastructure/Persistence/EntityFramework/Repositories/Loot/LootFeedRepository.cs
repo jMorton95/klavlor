@@ -38,6 +38,21 @@ internal sealed class LootFeedRepository(
 
         try
         {
+            // Phase timings. This lane's cost has twice now been diagnosed from a local database
+            // and twice failed to reproduce in production — local holds 26k records where
+            // production holds far more, so the shape of the plan is simply different there. Rather
+            // than guess a third time, each phase reports its own duration and the fetch loop
+            // reports how many times it went round and how many rows it threw away. Logged only
+            // when a lane is actually slow, so it costs nothing on the normal path.
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var phases = new List<string>();
+            long lastMs = 0;
+            void Mark(string name)
+            {
+                phases.Add($"{name}={sw.ElapsedMilliseconds - lastMs}ms");
+                lastMs = sw.ElapsedMilliseconds;
+            }
+
             var tiers = requestedTiers ?? new HashSet<LootFeedTier>(ILootFeedService.AllTiers);
             var result = new Dictionary<LootFeedTier, List<LootFeedEntry>>();
             foreach (var tier in ILootFeedService.AllTiers)
@@ -59,9 +74,12 @@ internal sealed class LootFeedRepository(
                 // one into the top lane explicitly.
                 var isLegendaryTier = tier == LootFeedTier.Legendary;
                 var take = initialTake;
+                var rounds = 0;
+                var fetched = 0;
 
                 while (true)
                 {
+                    rounds++;
                     var candidates = await FetchTierCandidates(baseQuery, tierMin, take);
 
                     // The legendary lane is the only one two different things can qualify for: a
@@ -93,10 +111,15 @@ internal sealed class LootFeedRepository(
                                 .ToList();
                     }
 
+                    fetched += candidates.Count;
                     var groups = CollapseProjections(candidates, tier, tierMin, tierMax, countPerTier, collectionLogCache, itemValues, scope);
 
                     if (groups.Count >= countPerTier || candidates.Count < take || take >= hardCap)
                     {
+                        // rounds and fetched-vs-kept are the two numbers that separate the
+                        // competing explanations: an escalating fetch loop, or one slow query.
+                        phases.Add($"{tier}:rounds={rounds},fetched={fetched},kept={groups.Count}");
+                        Mark($"{tier}:fetch+collapse");
                         result[tier] = groups;
                         break;
                     }
@@ -106,8 +129,18 @@ internal sealed class LootFeedRepository(
             }
 
             var expandedEnds = await ExpandToSessionBounds(result);
+            Mark("expandSessions");
             await FillSurvivorOrdinals(result, expandedEnds);
+            Mark("survivorOrdinals");
             await FillDropOrdinals(result);
+            Mark("dropOrdinals");
+
+            // 400ms is comfortably above a healthy lane (~200ms in production) and well below the
+            // ~900ms being investigated, so this stays quiet unless something is actually wrong.
+            if (sw.ElapsedMilliseconds >= 400)
+                logger.LogWarning("Slow feed backfill: total={Total}ms tiers={Tiers} phases={Phases}",
+                    sw.ElapsedMilliseconds, string.Join("|", tiers), string.Join(" ", phases));
+
             return result;
         }
         catch (Exception ex)
