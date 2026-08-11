@@ -176,7 +176,16 @@ public sealed record CollectionLogCategoryStanding(
     string CharacterName,
     int Obtained,
     int Total,
-    IReadOnlySet<int> ObtainedItemIds);
+    /// <summary>
+    /// Item id → how many of it they hold. A dictionary rather than a set because the comparison
+    /// shows quantities: two characters both "having" a Bandos hilt is not the same story when one
+    /// has eleven of them.
+    /// </summary>
+    IReadOnlyDictionary<int, int> Counts)
+{
+    public bool Has(int itemId) => Counts.ContainsKey(itemId);
+    public int CountOf(int itemId) => Counts.TryGetValue(itemId, out var n) ? n : 0;
+}
 
 /// <summary>A row in the item search, with how many characters hold it.</summary>
 public sealed record CollectionLogSearchRow(

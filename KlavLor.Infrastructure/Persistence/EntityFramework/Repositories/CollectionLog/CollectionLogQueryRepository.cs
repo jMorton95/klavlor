@@ -212,16 +212,20 @@ internal sealed class CollectionLogQueryRepository(
             // at most (characters × category size) rows, which is a few hundred.
             var held = await dataContext.CharacterCollectionLogEntries.AsNoTracking()
                 .Where(e => itemIds.Contains(e.ItemId))
-                .Select(e => new { e.GameCharacterId, e.ItemId })
+                .Select(e => new { e.GameCharacterId, e.ItemId, e.Count })
                 .ToListAsync();
 
             var byCharacter = held.GroupBy(h => h.GameCharacterId)
-                .ToDictionary(g => g.Key, g => g.Select(x => x.ItemId).ToHashSet());
+                // Count can be 0 upstream for an owned-but-uncounted item; the KEY is what means
+                // "has it", so a zero must still produce an entry.
+                .ToDictionary(g => g.Key, g => (IReadOnlyDictionary<int, int>)g.ToDictionary(x => x.ItemId, x => x.Count));
 
             var standings = characters
                 .Select(c =>
                 {
-                    var owned = byCharacter.TryGetValue(c.Id, out var set) ? set : [];
+                    var owned = byCharacter.TryGetValue(c.Id, out var counts)
+                        ? counts
+                        : new Dictionary<int, int>();
                     return new CollectionLogCategoryStanding(c.Id, c.CharacterName, owned.Count, items.Count, owned);
                 })
                 .OrderByDescending(s => s.Obtained)

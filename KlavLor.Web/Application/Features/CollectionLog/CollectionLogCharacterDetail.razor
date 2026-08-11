@@ -1,4 +1,4 @@
-@using KlavLor.Application.Features.CollectionLog
+﻿@using KlavLor.Application.Features.CollectionLog
 @using KlavLor.Web.Components.Layout
 
 @* One character's log.
@@ -112,67 +112,115 @@
 
         @if (Log.Obtained > 0 || Log.Freshness.HasData)
         {
-            <div class="lg:flex lg:gap-4 lg:items-start">
-                @* Left: the focused panel, sticky so a category picked from anywhere lands in view. *@
-                <div class="lg:w-[24rem] xl:w-[27rem] shrink-0 mb-5 lg:mb-0 lg:sticky lg:top-4 order-first">
-                    <div id="clog-focus">
-                        <div class="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 px-4 py-10 text-center">
-                            <svg class="w-8 h-8 mx-auto mb-2 text-slate-300 dark:text-slate-600" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
-                            </svg>
-                            <p class="text-sm text-slate-400 dark:text-white">Pick a category to see its items.</p>
-                        </div>
+            @* THE CENTRAL LAYOUT.
+
+               The focused panel sits in the middle with categories flanking it left and right, and
+               everything that doesn't fit alongside flows full width underneath.
+
+               Three real columns rather than a CSS wrap: shape-outside only wraps inline content,
+               so a grid of interactive cards cannot flow around a floated panel. Each flank is its
+               own auto-fill grid, so left and right work out their own column count from their own
+               width — on an ultrawide both widen independently rather than the pair being locked to
+               one shared track count.
+
+               The flanks carry the first group (bosses, much the largest, which is what makes them
+               tall enough to justify a panel between them). Every other group flows below at full
+               width, where more horizontal space simply means more columns.
+
+               Below lg the three stack, panel first — it is the thing being read, and on a phone
+               there is no "beside" to put it in. *@
+            @if (FlankGroupName is not null)
+            {
+                <div>
+                    <div class="flex items-baseline gap-2 mb-2 pb-1 border-b border-slate-200 dark:border-slate-700">
+                        <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">@FlankGroupName</h2>
+                        <span class="text-[10px] tabular-nums text-slate-400 dark:text-white">
+                            @FlankCategories.Count(c => c.IsComplete)/@FlankCategories.Count complete
+                        </span>
                     </div>
-                </div>
 
-                @* Right: the categories, grouped. Auto-fill so ultrawides get more columns, not wider ones. *@
-                <div class="lg:flex-1 lg:min-w-0 space-y-5">
-                    @foreach (var group in Log.Categories.GroupBy(c => c.GroupName))
-                    {
-                        <div>
-                            <div class="flex items-baseline gap-2 mb-2 pb-1 border-b border-slate-200 dark:border-slate-700">
-                                <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">@group.Key</h2>
-                                <span class="text-[10px] tabular-nums text-slate-400 dark:text-white">
-                                    @group.Count(c => c.IsComplete)/@group.Count() complete
-                                </span>
+                    <div class="flex flex-col lg:flex-row lg:items-start gap-3">
+                        @* Panel first in the DOM so it leads on a phone; ordered into the middle on lg. *@
+                        <div class="lg:order-2 lg:w-[21rem] xl:w-[23rem] shrink-0 lg:sticky lg:top-4">
+                            <div id="clog-focus">
+                                <div class="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 px-4 py-10 text-center">
+                                    <svg class="w-8 h-8 mx-auto mb-2 text-slate-300 dark:text-slate-600" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                                    </svg>
+                                    <p class="text-sm text-slate-400 dark:text-white">Pick a category to see its items.</p>
+                                </div>
                             </div>
+                        </div>
 
-                            <div class="grid gap-1.5" style="grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));">
-                                @foreach (var category in group)
+                        <div class="lg:order-1 lg:flex-1 lg:min-w-0">
+                            <div class="grid gap-1.5" style="grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));">
+                                @foreach (var category in LeftFlank)
                                 {
-                                    <button type="button"
-                                            hx-get="@CategoryUrl(category.Slug)"
-                                            hx-target="#clog-focus"
-                                            hx-swap="innerHTML"
-                                            class="group flex items-center gap-2 text-left rounded-lg border px-2.5 py-2 cursor-pointer transition-colors @CategoryClasses(category)">
-                                        @if (category.IconName is { Length: > 0 } icon)
-                                        {
-                                            @* Untouched categories dim the BACKGROUND only. Fading the icon
-                                               and text as well made a third of the grid unreadable. *@
-                                            <img src="@IconUrl(category.IconKind, icon)" alt=""
-                                                 class="w-6 h-6 shrink-0 object-contain @(category.IsStarted ? "" : "opacity-80")"
-                                                 loading="lazy" onerror="this.style.visibility='hidden'" />
-                                        }
-                                        <span class="min-w-0 flex-1">
-                                            <span class="flex items-baseline justify-between gap-2">
-                                                <span class="text-xs font-medium truncate @(category.IsStarted ? "text-slate-800 dark:text-slate-100" : "text-slate-600 dark:text-slate-300")">@category.DisplayName</span>
-                                                <span class="text-[10px] tabular-nums whitespace-nowrap @CountClasses(category)">@category.Obtained/@category.Total</span>
-                                            </span>
-                                            <span class="mt-1 block h-1 w-full rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
-                                                <span class="block h-full rounded-full @BarClasses(category)"
-                                                      style="width:@category.Percent.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)%"></span>
-                                            </span>
-                                        </span>
-                                    </button>
+                                    @CategoryCard(category)
                                 }
                             </div>
                         </div>
-                    }
+
+                        <div class="lg:order-3 lg:flex-1 lg:min-w-0">
+                            <div class="grid gap-1.5" style="grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));">
+                                @foreach (var category in RightFlank)
+                                {
+                                    @CategoryCard(category)
+                                }
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </div>
+            }
+
+            @foreach (var group in BelowGroups)
+            {
+                <div>
+                    <div class="flex items-baseline gap-2 mb-2 pb-1 border-b border-slate-200 dark:border-slate-700">
+                        <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">@group.Key</h2>
+                        <span class="text-[10px] tabular-nums text-slate-400 dark:text-white">
+                            @group.Count(c => c.IsComplete)/@group.Count() complete
+                        </span>
+                    </div>
+                    <div class="grid gap-1.5" style="grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));">
+                        @foreach (var category in group)
+                        {
+                            @CategoryCard(category)
+                        }
+                    </div>
+                </div>
+            }
         }
     }
 </div>
+
+@* One category card. A fragment because it is rendered from three places now — both flanks and
+   every group below — and three copies would drift. *@
+@{
+    RenderFragment CategoryCard(CollectionLogCategoryProgress category) =>
+        @<button type="button"
+                 hx-get="@CategoryUrl(category.Slug)"
+                 hx-target="#clog-focus"
+                 hx-swap="innerHTML"
+                 class="group flex items-center gap-2 text-left rounded-lg border px-2.5 py-2 cursor-pointer transition-colors @CategoryClasses(category)">
+            @if (category.IconName is { Length: > 0 } icon)
+            {
+                <img src="@IconUrl(category.IconKind, icon)" alt=""
+                     class="w-6 h-6 shrink-0 object-contain @(category.IsStarted ? "" : "opacity-80")"
+                     loading="lazy" onerror="this.style.visibility='hidden'" />
+            }
+            <span class="min-w-0 flex-1">
+                <span class="flex items-baseline justify-between gap-2">
+                    <span class="text-xs font-medium truncate @(category.IsStarted ? "text-slate-800 dark:text-slate-100" : "text-slate-600 dark:text-slate-300")">@category.DisplayName</span>
+                    <span class="text-[10px] tabular-nums whitespace-nowrap @CountClasses(category)">@category.Obtained/@category.Total</span>
+                </span>
+                <span class="mt-1 block h-1 w-full rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                    <span class="block h-full rounded-full @BarClasses(category)"
+                          style="width:@category.Percent.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)%"></span>
+                </span>
+            </span>
+        </button>;
+}
 
 @code {
     [Parameter] public CharacterCollectionLog? Log { get; set; }
@@ -182,6 +230,26 @@
     [Parameter] public bool UpdateHeader { get; set; } = true;
 
     private double Percent => Log is { Available: > 0 } ? Log.Obtained * 100.0 / Log.Available : 0;
+
+    // The flanking group is the first one — bosses, much the largest, and so the only one tall
+    // enough to sit either side of the panel without leaving a ragged gap. Everything else flows
+    // below at full width.
+    private List<IGrouping<string, CollectionLogCategoryProgress>> Groups =>
+        Log?.Categories.GroupBy(c => c.GroupName).ToList() ?? [];
+
+    private string? FlankGroupName => Groups.FirstOrDefault()?.Key;
+
+    private List<CollectionLogCategoryProgress> FlankCategories =>
+        Groups.FirstOrDefault()?.ToList() ?? [];
+
+    /// Split evenly, left taking the odd one, so the two flanks stay the same height.
+    private List<CollectionLogCategoryProgress> LeftFlank =>
+        FlankCategories.Take((FlankCategories.Count + 1) / 2).ToList();
+
+    private List<CollectionLogCategoryProgress> RightFlank =>
+        FlankCategories.Skip((FlankCategories.Count + 1) / 2).ToList();
+
+    private List<IGrouping<string, CollectionLogCategoryProgress>> BelowGroups => Groups.Skip(1).ToList();
 
     private string ProfileUrl => AppRoutes.LootLogCharacter.WithId(Log!.GameCharacterId);
 
