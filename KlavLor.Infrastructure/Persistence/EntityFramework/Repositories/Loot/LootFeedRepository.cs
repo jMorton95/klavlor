@@ -43,11 +43,14 @@ internal sealed class LootFeedRepository(
             foreach (var tier in ILootFeedService.AllTiers)
                 result[tier] = [];
 
+            // Named rather than anonymous so the two candidate fetches below can share it as a
+            // parameter type — the legendary lane needs the same join filtered two different ways.
             var baseQuery = dataContext.LootRecords
                 .Where(r => r.GameCharacterId != null)
                 .Join(dataContext.GameCharacters, r => r.GameCharacterId, gc => gc.Id, (r, gc) => new { Record = r, Character = gc })
                 .Where(x => x.Character.IsVisible && !x.Character.IsAdminHidden && x.Character.IsLeagues == isLeagues)
-                .Join(dataContext.Users, x => x.Character.UserId, u => u.Id, (x, u) => new { x.Record, x.Character, User = u });
+                .Join(dataContext.Users, x => x.Character.UserId, u => u.Id,
+                    (x, u) => new FeedJoinRow { Record = x.Record, Character = x.Character, User = u });
 
             foreach (var tier in tiers)
             {
@@ -59,31 +62,36 @@ internal sealed class LootFeedRepository(
 
                 while (true)
                 {
-                    var candidates = await baseQuery
-                        .Where(x => x.Record.TotalValue >= tierMin
-                                    || (isLegendaryTier && dataContext.LootDrops.Any(d => d.LootRecordId == x.Record.Id && d.IsSpecial)))
-                        .OrderByDescending(x => x.Record.OccurredAt)
-                        .Take(take)
-                        .Select(x => new FeedTierProjection
-                        {
-                            UserName = x.User.FirstName + " " + x.User.LastName,
-                            UserId = x.Record.UserId,
-                            SourceName = x.Record.SourceName,
-                            SourceType = x.Record.SourceType,
-                            TotalValue = x.Record.TotalValue,
-                            DropsJson = x.Record.DropsJson,
-                            OccurredAt = x.Record.OccurredAt,
-                            CharacterName = x.Character.DisplayName ?? x.User.FirstName + " " + x.User.LastName,
-                            GameCharacterId = x.Character.Id,
-                            KillCount = x.Record.KillCount,
-                            EffectiveKills = x.Record.EffectiveKills
-                            // KillOrdinal is intentionally NOT computed per-row here: it's only a
-                            // fallback label shown when RuneLite omitted KillCount, so a per-row
-                            // correlated count over (up to) hardCap candidates × 5 tiers on every
-                            // feed load was wasted work. It's filled lazily below for the handful
-                            // of surviving cards that actually need it (FillSurvivorOrdinals).
-                        })
-                        .ToListAsync();
+                    var candidates = await FetchTierCandidates(baseQuery, tierMin, take);
+
+                    // The legendary lane is the only one two different things can qualify for: a
+                    // 100m+ value, or a zero-value admin-injected special. Those used to be one OR
+                    // in a single query, and that shape was pathological. Every other tier matches
+                    // a large share of rows, so scanning the OccurredAt index backwards fills the
+                    // take almost immediately — Standard reads ~450 rows to find 300. Legendary
+                    // matches roughly one row in five thousand, so the same scan runs to the END OF
+                    // THE TABLE every time, and the OR forced a whole-table subplan on LootDrops on
+                    // top. Measured locally: 26,421 buffers and 11ms against 454 buffers and 0.5ms
+                    // for Standard — the same asymmetry reported in production as the legendary
+                    // swimlane taking several times longer than the other four.
+                    //
+                    // Split into two queries it is a range seek and an index lookup: 35 buffers.
+                    // Each half can be satisfied by an index, which neither could while they were
+                    // joined by an OR. The halves are merged here rather than in SQL because the
+                    // top `take` of each is guaranteed to contain the top `take` of the union.
+                    if (isLegendaryTier)
+                    {
+                        var specials = await FetchSpecialCandidates(baseQuery, take);
+                        if (specials.Count > 0)
+                            candidates = candidates
+                                .Concat(specials)
+                                // A record can be both 100m+ and special-carrying, so it can appear
+                                // in both halves; without this it would render as two cards.
+                                .DistinctBy(c => c.RecordId)
+                                .OrderByDescending(c => c.OccurredAt)
+                                .Take(take)
+                                .ToList();
+                    }
 
                     var groups = CollapseProjections(candidates, tier, tierMin, tierMax, countPerTier, collectionLogCache, itemValues, scope);
 
@@ -108,6 +116,49 @@ internal sealed class LootFeedRepository(
             throw new RepositoryException("Failed to get all feed tiers", ex);
         }
     }
+
+    /// <summary>
+    /// The newest `take` records worth at least `tierMin`. A plain range predicate, which the
+    /// (GameCharacterId, TotalValue, OccurredAt) index can serve.
+    /// </summary>
+    private Task<List<FeedTierProjection>> FetchTierCandidates(
+        IQueryable<FeedJoinRow> baseQuery, long tierMin, int take) =>
+        ProjectCandidates(baseQuery.Where(x => x.Record.TotalValue >= tierMin), take);
+
+    /// <summary>
+    /// The newest `take` records carrying an admin-injected special drop. Kept apart from the
+    /// value predicate rather than OR'd with it — see the note at the call site.
+    /// </summary>
+    private Task<List<FeedTierProjection>> FetchSpecialCandidates(IQueryable<FeedJoinRow> baseQuery, int take) =>
+        ProjectCandidates(
+            baseQuery.Where(x => dataContext.LootDrops.Any(d => d.LootRecordId == x.Record.Id && d.IsSpecial)),
+            take);
+
+    private static Task<List<FeedTierProjection>> ProjectCandidates(IQueryable<FeedJoinRow> filtered, int take) =>
+        filtered
+            .OrderByDescending(x => x.Record.OccurredAt)
+            .Take(take)
+            .Select(x => new FeedTierProjection
+            {
+                RecordId = x.Record.Id,
+                UserName = x.User.FirstName + " " + x.User.LastName,
+                UserId = x.Record.UserId,
+                SourceName = x.Record.SourceName,
+                SourceType = x.Record.SourceType,
+                TotalValue = x.Record.TotalValue,
+                DropsJson = x.Record.DropsJson,
+                OccurredAt = x.Record.OccurredAt,
+                CharacterName = x.Character.DisplayName ?? x.User.FirstName + " " + x.User.LastName,
+                GameCharacterId = x.Character.Id,
+                KillCount = x.Record.KillCount,
+                EffectiveKills = x.Record.EffectiveKills
+                // KillOrdinal is intentionally NOT computed per-row here: it's only a fallback
+                // label shown when RuneLite omitted KillCount, so a per-row correlated count over
+                // (up to) hardCap candidates × 5 tiers on every feed load was wasted work. It's
+                // filled lazily below for the handful of surviving cards that actually need it
+                // (FillSurvivorOrdinals).
+            })
+            .ToListAsync();
 
     // A card's kills are only the ones whose drops qualified for its tier, so a range built from
     // them starts at the first qualifying drop rather than the start of the play session. This
@@ -912,8 +963,19 @@ internal sealed class LootFeedRepository(
         public int ClogCount { get; set; }
     }
 
+    /// The feed's join shape. Named rather than anonymous so the tier and special candidate
+    /// fetches can take it as a parameter and share one projection.
+    private sealed class FeedJoinRow
+    {
+        public required LootRecord Record { get; init; }
+        public required GameCharacter Character { get; init; }
+        public required User User { get; init; }
+    }
+
     private sealed class FeedTierProjection
     {
+        /// Only used to de-duplicate the legendary lane's two candidate fetches.
+        public int RecordId { get; init; }
         public required string UserName { get; init; }
         public required int UserId { get; init; }
         public required string SourceName { get; init; }

@@ -352,6 +352,21 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
             .HasIndex(d => d.IsFirstTime)
             .HasFilter("\"IsFirstTime\"");
 
+        // Same shape, for the legendary swimlane: it looks up the records carrying an
+        // admin-injected special drop. Special drops are a handful in the whole table, so the
+        // partial index is tiny and turns that half of the lane into a lookup instead of a scan.
+        //
+        // Column order is deliberate and IsSpecial must lead. EF drops the relationship's own
+        // IX_LootDrops_LootRecordId as redundant whenever another index starts with LootRecordId —
+        // which is wrong here, because ours is FILTERED and so cannot serve the join that index
+        // exists for. Both earlier attempts generated a migration that dropped it. With IsSpecial
+        // first the convention does not fire, and nothing is lost: under the filter that column is
+        // constant, so the index is still ordered by LootRecordId within it.
+        modelBuilder.Entity<LootDropRow>()
+            .HasIndex(d => new { d.IsSpecial, d.LootRecordId })
+            .HasFilter("\"IsSpecial\"")
+            .HasDatabaseName("IX_LootDrops_LootRecordId_Special");
+
         // GameCharacter configuration
         modelBuilder.Entity<GameCharacter>()
             .HasOne(gc => gc.User)
