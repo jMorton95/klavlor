@@ -52,10 +52,21 @@ internal sealed class CollectionLogRepository(
             .ToList();
     }
 
-    public async Task<bool> HasCategories() => await dataContext.CollectionLogCategories.AnyAsync();
+    public async Task<DateTimeOffset?> CategoriesSyncedAt() => await dataContext.CollectionLogCategories
+        .AsNoTracking()
+        .MaxAsync(c => (DateTimeOffset?)c.SyncedAt);
 
     public async Task ReplaceCategories(IReadOnlyList<TempleCategory> categories)
     {
+        // This runs on a schedule now, not once, so an upstream hiccup that parses to an empty list
+        // must never be allowed to delete a working taxonomy — the same interlock the player log
+        // has. Nothing to write is not the same as everything having been removed.
+        if (categories.Count == 0)
+        {
+            logger.LogWarning("Refusing to replace collection-log categories with an empty set");
+            return;
+        }
+
         try
         {
             await using var tx = await dataContext.Database.BeginTransactionAsync();

@@ -153,12 +153,23 @@ public sealed class CollectionLogSyncFromTempleService(
     }
 
     /// <summary>
-    /// The taxonomy only needs fetching when we hold none. It changes when Jagex adds content, which
-    /// an admin can force with a manual job run rather than us polling for it hourly.
+    /// How often the category list itself is re-pulled. It changes whenever Jagex adds content — a
+    /// new boss, or new items in an existing log — so it cannot be fetched once and kept forever;
+    /// new content would simply never appear. Daily rather than hourly because it is one call for
+    /// the whole site and the underlying data moves on a game-update cadence, not a player one.
+    /// </summary>
+    private static readonly TimeSpan TaxonomyMaxAge = TimeSpan.FromHours(24);
+
+    /// <summary>
+    /// Fetch the taxonomy when we hold none, or when what we hold has gone stale. Everything
+    /// downstream is derived from it — the group a category sits in, its order, its items, and the
+    /// grid the character page draws — so a refresh here is all a newly released boss needs to
+    /// appear on the site.
     /// </summary>
     private async Task EnsureCategories(ICollectionLogRepository repository, ITempleOsrsClient temple, CancellationToken ct)
     {
-        if (await repository.HasCategories()) return;
+        var syncedAt = await repository.CategoriesSyncedAt();
+        if (syncedAt is { } at && DateTimeOffset.UtcNow - at < TaxonomyMaxAge) return;
 
         var categories = await temple.GetCategories(ct);
         if (!categories.IsOk)
@@ -168,7 +179,8 @@ public sealed class CollectionLogSyncFromTempleService(
         }
 
         await repository.ReplaceCategories(categories.Value!);
-        logger.LogInformation("Loaded {Count} collection-log categories from Temple", categories.Value!.Count);
+        logger.LogInformation("Refreshed {Count} collection-log categories from Temple (previous pull {Previous})",
+            categories.Value!.Count, syncedAt?.ToString("u") ?? "none");
         await Task.Delay(BetweenCalls, ct);
     }
 

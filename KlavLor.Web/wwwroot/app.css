@@ -1,4 +1,4 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 
 @source "../**/*.razor";
 @source "../**/*.html";
@@ -537,24 +537,36 @@ body:not(.history-panel-open) #completion-history-panel {
     .clog-grid > .clog-focus { grid-column: 2 / span 2; grid-row: 1 / span 8; }
 }
 
+/* THE WIDE PANEL. A category with ten or more items gets an extra track either
+   side, because at the standard width its tiles wrap into a tall narrow column
+   while a four-item category would only gain whitespace. The component decides
+   (CollectionLogItemGrid) and brings .is-wide with it in the swap.
+
+   Only from five columns up: below that, widening would leave a single card
+   column on each side or none at all. Every step stays symmetric — the flanks
+   must keep equal width or the panel stops reading as centred. */
 @media (min-width: 84rem) {          /* 5 columns: 2 | PANEL | 2 */
     .clog-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
     .clog-grid > .clog-focus { grid-column: 3 / span 1; grid-row: 1 / span 8; }
+    .clog-grid > .clog-focus.is-wide { grid-column: 2 / span 3; }   /* 1 | PANEL x3 | 1 */
 }
 
 @media (min-width: 100rem) {         /* 6 columns: 2 | PANEL x2 | 2 */
     .clog-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
     .clog-grid > .clog-focus { grid-column: 3 / span 2; grid-row: 1 / span 8; }
+    .clog-grid > .clog-focus.is-wide { grid-column: 2 / span 4; }   /* 1 | PANEL x4 | 1 */
 }
 
 @media (min-width: 116rem) {         /* 7 columns: 3 | PANEL | 3 */
     .clog-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
     .clog-grid > .clog-focus { grid-column: 4 / span 1; grid-row: 1 / span 8; }
+    .clog-grid > .clog-focus.is-wide { grid-column: 3 / span 3; }   /* 2 | PANEL x3 | 2 */
 }
 
 @media (min-width: 132rem) {         /* 8 columns: 3 | PANEL x2 | 3 */
     .clog-grid { grid-template-columns: repeat(8, minmax(0, 1fr)); }
     .clog-grid > .clog-focus { grid-column: 4 / span 2; grid-row: 1 / span 8; }
+    .clog-grid > .clog-focus.is-wide { grid-column: 3 / span 4; }   /* 2 | PANEL x4 | 2 */
 }
 
 /* The panel sits in a field of dark cards, so it is deliberately the one warm,

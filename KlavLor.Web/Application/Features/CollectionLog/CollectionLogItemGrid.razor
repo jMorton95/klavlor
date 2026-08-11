@@ -1,4 +1,4 @@
-@using KlavLor.Application.Features.CollectionLog
+﻿@using KlavLor.Application.Features.CollectionLog
 
 @* The focused panel: one category's items for one character, swapped into the middle of the grid.
 
@@ -13,6 +13,10 @@
 
    Missing items are shown greyed rather than omitted — a collection log that only listed what you
    already own would be pointless, and the gaps are the whole point of looking. *@
+@* The wrapper is part of the response, not just the target, because the CELL WIDTH depends on the
+   category: a 25-item log needs more room than a 4-item one. The buttons swap this whole element
+   (outerHTML), so each response brings its own span with it. *@
+<div id="clog-focus" class="clog-focus @(IsWide ? "is-wide" : "")">
 <div class="clog-focus-panel rounded-xl overflow-hidden h-full flex flex-col">
     <div class="clog-focus-header flex items-center gap-2 px-3 py-2.5 shrink-0">
         @if (IconName is { Length: > 0 } icon)
@@ -67,6 +71,7 @@
         </div>
     }
 </div>
+</div>
 
 @code {
     [Parameter] public List<CollectionLogItemState> Items { get; set; } = [];
@@ -74,6 +79,15 @@
     [Parameter] public string DisplayName { get; set; } = "";
     [Parameter] public CollectionLogIconKind IconKind { get; set; }
     [Parameter] public string? IconName { get; set; }
+
+    /// <summary>
+    /// Categories from this size up get the wider cell. Below it the tiles fit comfortably in the
+    /// standard width and a wider panel would just be whitespace; at ten and above they start
+    /// wrapping into a tall narrow column, which is when the extra track earns its place.
+    /// </summary>
+    private const int WideThreshold = 10;
+
+    private bool IsWide => Items.Count >= WideThreshold;
 
     private int Obtained => Items.Count(i => i.Obtained);
     private bool IsComplete => Items.Count > 0 && Obtained == Items.Count;

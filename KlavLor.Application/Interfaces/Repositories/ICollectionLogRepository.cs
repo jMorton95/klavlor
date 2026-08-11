@@ -36,7 +36,12 @@ public interface ICollectionLogRepository
     Task ReplaceCategories(IReadOnlyList<TempleCategory> categories);
 
     /// <summary>True when the taxonomy has never been loaded, so the first cycle knows to fetch it.</summary>
-    Task<bool> HasCategories();
+    /// <summary>
+    /// When the taxonomy was last pulled, or null if we hold none. Drives the refresh: the category
+    /// list is not static — Jagex adds bosses and items, and Temple picks them up — so "do we have
+    /// any" is the wrong question to ask before deciding whether to fetch.
+    /// </summary>
+    Task<DateTimeOffset?> CategoriesSyncedAt();
 
     /// <summary>
     /// Applies one character's log: inserts new entries, updates changed ones, deletes entries the

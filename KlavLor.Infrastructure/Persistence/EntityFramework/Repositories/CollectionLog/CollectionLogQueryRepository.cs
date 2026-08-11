@@ -102,9 +102,13 @@ internal sealed class CollectionLogQueryRepository(
             var recent = await (
                 from e in dataContext.CharacterCollectionLogEntries.AsNoTracking()
                     .Where(e => e.GameCharacterId == gameCharacterId && e.ObtainedAt != null)
-                join item in dataContext.CollectionLogItems.AsNoTracking() on e.ItemId equals item.ItemId
+                // Left-joined: a just-released item is exactly what turns up here first, and our
+                // own definitions may not have caught up with Temple yet. Dropping it would hide
+                // the newest unlock of all — the one the strip exists to show.
+                join i in dataContext.CollectionLogItems.AsNoTracking() on e.ItemId equals i.ItemId into named
+                from item in named.DefaultIfEmpty()
                 orderby e.ObtainedAt descending
-                select new { e.ItemId, item.Name, e.ObtainedAt })
+                select new { e.ItemId, Name = item != null ? item.Name : "Item " + e.ItemId, e.ObtainedAt })
                 .Take(RecentUnlockCount)
                 .ToListAsync();
 
@@ -155,11 +159,17 @@ internal sealed class CollectionLogQueryRepository(
                 .FirstOrDefaultAsync(c => c.Slug == categorySlug);
             if (category is null) return null;
 
-            // Left join so MISSING items come back too — a collection log that only listed what you
-            // already own would be useless.
+            // Left join on BOTH sides. Missing items come back because a collection log that only
+            // listed what you already own would be useless. And the name is left-joined because the
+            // two feeds move independently: Temple can list an item from a fresh game update before
+            // our own item definitions have caught up. An inner join dropped those rows silently,
+            // so a just-released item was invisible even to a player holding it, and the header
+            // count disagreed with the tiles. It now keeps its slot under a placeholder name and
+            // fixes itself when the definitions sync.
             var items = await (
                 from ci in dataContext.CollectionLogCategoryItems.AsNoTracking().Where(ci => ci.CategorySlug == categorySlug)
-                join item in dataContext.CollectionLogItems.AsNoTracking() on ci.ItemId equals item.ItemId
+                join i in dataContext.CollectionLogItems.AsNoTracking() on ci.ItemId equals i.ItemId into named
+                from item in named.DefaultIfEmpty()
                 join e in dataContext.CharacterCollectionLogEntries.AsNoTracking()
                         .Where(e => e.GameCharacterId == gameCharacterId)
                     on ci.ItemId equals e.ItemId into owned
@@ -167,7 +177,7 @@ internal sealed class CollectionLogQueryRepository(
                 orderby ci.SortOrder
                 select new CollectionLogItemState(
                     ci.ItemId,
-                    item.Name,
+                    item != null ? item.Name : "Item " + ci.ItemId,
                     e != null,
                     e != null ? e.Count : 0,
                     e != null ? e.ObtainedAt : null))
@@ -204,9 +214,11 @@ internal sealed class CollectionLogQueryRepository(
 
             var items = await (
                 from ci in dataContext.CollectionLogCategoryItems.AsNoTracking().Where(ci => ci.CategorySlug == categorySlug)
-                join item in dataContext.CollectionLogItems.AsNoTracking() on ci.ItemId equals item.ItemId
+                join i in dataContext.CollectionLogItems.AsNoTracking() on ci.ItemId equals i.ItemId into named
+                from item in named.DefaultIfEmpty()
                 orderby ci.SortOrder
-                select new CollectionLogItemState(ci.ItemId, item.Name, false, 0, null))
+                select new CollectionLogItemState(
+                    ci.ItemId, item != null ? item.Name : "Item " + ci.ItemId, false, 0, null))
                 .ToListAsync();
 
             var itemIds = items.Select(i => i.ItemId).ToHashSet();

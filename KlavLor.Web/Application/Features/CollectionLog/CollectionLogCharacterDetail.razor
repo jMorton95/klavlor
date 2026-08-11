@@ -185,12 +185,15 @@
 
 @* One category card. A fragment because it is rendered from three places now — both flanks and
    every group below — and three copies would drift. *@
+@* The card swaps the panel's whole grid cell (outerHTML), not just its contents, because how many
+   columns the panel spans depends on how many items the category holds — so the response has to be
+   able to bring a different span with it. *@
 @{
     RenderFragment CategoryCard(CollectionLogCategoryProgress category) =>
         @<button type="button"
                  hx-get="@CategoryUrl(category.Slug)"
                  hx-target="#clog-focus"
-                 hx-swap="innerHTML"
+                 hx-swap="outerHTML"
                  class="clog-card group flex items-center gap-2 text-left rounded-lg border px-2.5 py-2 cursor-pointer transition-colors @CategoryClasses(category)">
             @if (category.IconName is { Length: > 0 } icon)
             {
