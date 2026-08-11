@@ -1,4 +1,4 @@
-@page "/collection-log"
+﻿@page "/collection-log"
 @using KlavLor.Application.Features.CollectionLog
 @using KlavLor.Web.Components.Layout
 @attribute [Microsoft.AspNetCore.Authorization.Authorize]
@@ -9,7 +9,7 @@
 @inject CollectionLogHandler Handler
 
 <PageLayout PageTitle="KlavLor - Collection Log" Title="Collection Log" Description="Collection log progress across every character">
-    <CollectionLogOverview Standings="_standings" />
+    <CollectionLogOverview Standings="_standings" UpdateHeader="false" />
 </PageLayout>
 
 @code {

@@ -73,6 +73,21 @@ public sealed record CollectionLogCategoryProgress(
 
 public enum CollectionLogIconKind { None, Source, Item }
 
+/// <summary>
+/// Display order for the five upstream groups. The upstream returns them alphabetically, which puts
+/// clues above raids; in-game and in players' heads raids sit with bosses at the top.
+/// </summary>
+public static class CollectionLogGroups
+{
+    private static readonly string[] Order = ["bosses", "raids", "clues", "minigames", "other"];
+
+    public static int SortOrder(string groupName)
+    {
+        var index = Array.FindIndex(Order, g => string.Equals(g, groupName, StringComparison.OrdinalIgnoreCase));
+        return index < 0 ? Order.Length : index;
+    }
+}
+
 /// <summary>A recently obtained item, newest first — the "what just happened" strip.</summary>
 public sealed record CollectionLogRecentUnlock(
     int ItemId,
@@ -108,6 +123,9 @@ public sealed record CharacterCollectionLog(
     IReadOnlyList<CollectionLogCategoryProgress> Categories,
     IReadOnlyList<CollectionLogRecentUnlock> RecentUnlocks);
 
+/// <summary>One source a character has rolled, in the context of chasing a particular item.</summary>
+public sealed record CollectionLogRollSource(string SourceName, int Rolls, bool DroppedIt);
+
 /// <summary>One character's holding of a single item — powers the per-item comparison.</summary>
 public sealed record CollectionLogItemHolder(
     int GameCharacterId,
@@ -116,11 +134,23 @@ public sealed record CollectionLogItemHolder(
     int Count,
     DateTimeOffset? ObtainedAt,
     /// <summary>
-    /// Rolls at the source that drops it, from OUR loot data. Null when we hold no drops for this
-    /// character at that source, which is the normal case for anything obtained before tracking
-    /// started. A null must render as "unknown", never as zero.
+    /// Rolls from OUR loot data, and what they mean depends on whether they already have it.
+    ///
+    /// If they DO: only the source that actually dropped it to them. An item can come from several
+    /// sources, so attributing a receipt to the wrong one misstates the grind — an Abyssal whip
+    /// from an Abyssal demon is not a Sire drop, even though the Sire also drops it.
+    ///
+    /// If they DON'T: their biggest few sources among everything that drops it, because the
+    /// interesting figure while chasing is where the rolls have actually gone.
+    ///
+    /// Empty when we hold no loot data at all for them at any relevant source — the normal case for
+    /// anything obtained before tracking began. Empty must render as "unknown", never as zero.
     /// </summary>
-    int? OurKillCount);
+    IReadOnlyList<CollectionLogRollSource> RollSources)
+{
+    public int TotalRolls => RollSources.Sum(r => r.Rolls);
+    public bool HasRollData => RollSources.Count > 0;
+}
 
 /// <summary>An item across the roster: what it is, and who has it.</summary>
 public sealed record CollectionLogItemComparison(

@@ -8,28 +8,16 @@
    One row per character straight off the state table, so this renders from a single scan however
    many items each character owns. *@
 
-<TopBarMetaData PageTitle="KlavLor - Collection Log" Title="Collection Log" Description="Collection log progress across every character" />
+@if (UpdateHeader)
+{
+    <TopBarMetaData PageTitle="KlavLor - Collection Log" Title="Collection Log" Description="Collection log progress across every character" />
+}
 
 <div class="max-w-6xl mx-auto space-y-6 pb-32">
-    <div class="flex items-end justify-between gap-3 flex-wrap">
-        <div>
-            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Clan standings</h2>
-            <p class="text-sm text-slate-500 dark:text-white">Collection log completion across every tracked character.</p>
-        </div>
-        <div class="relative w-full sm:w-72">
-            <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-            </svg>
-            <input type="search" name="searchTerm" placeholder="Search every collection log item…" autocomplete="off"
-                   hx-get="@AppRoutes.CollectionLogSearch.FromApi()"
-                   hx-trigger="keyup changed delay:300ms"
-                   hx-target="#clog-search-results"
-                   hx-swap="innerHTML"
-                   class="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
-        </div>
+    <div>
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Clan standings</h2>
+        <p class="text-sm text-slate-500 dark:text-white">Collection log completion across every tracked character.</p>
     </div>
-
-    <div id="clog-search-results"></div>
 
     @if (Standings.Count == 0)
     {
@@ -100,9 +88,36 @@
             }
         </div>
     }
+
+    @* Below the roster, and titled, on purpose. Sitting at the top it appeared immediately under the
+       site-wide search in the header, and the two read as the same control. *@
+    <div class="pt-4 border-t border-slate-200 dark:border-slate-700">
+        <div class="flex items-end justify-between gap-3 flex-wrap mb-3">
+            <div>
+                <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Find an item</h2>
+                <p class="text-sm text-slate-500 dark:text-white">Search the collection log to see who has what.</p>
+            </div>
+            <div class="relative w-full sm:w-80">
+                <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+                <input type="search" name="searchTerm" placeholder="e.g. Abyssal whip" autocomplete="off"
+                       hx-get="@AppRoutes.CollectionLogSearch.FromApi()"
+                       hx-trigger="keyup changed delay:300ms"
+                       hx-target="#clog-search-results"
+                       hx-swap="innerHTML"
+                       class="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+            </div>
+        </div>
+        <div id="clog-search-results"></div>
+    </div>
 </div>
 
 @code {
+    /// True when served as an HTMX fragment (emits the OOB header); false inside PageLayout,
+    /// which renders the header itself. Without this an in-app navigation drew the title twice.
+    [Parameter] public bool UpdateHeader { get; set; } = true;
+
     [Parameter] public List<CollectionLogStanding> Standings { get; set; } = [];
 
     private static string CharacterUrl(CollectionLogStanding s) =>
@@ -128,8 +143,10 @@
 
     // The top three get progressively warmer framing; a character with no data is muted so it
     // can't be mistaken for one sitting at genuine zero.
+    // A character with no data tints its BACKGROUND and nothing else — the previous 60% opacity on
+    // the whole card washed out its name, border and ring along with it.
     private static string CardClasses(int? rank, CollectionLogStanding s) => !s.Freshness.HasData
-        ? "border-dashed border-slate-200 dark:border-slate-800 opacity-60 hover:opacity-90"
+        ? "border-slate-200/80 dark:border-slate-700/80 bg-slate-100/60 dark:bg-slate-950/40 hover:border-amber-300 dark:hover:border-amber-600"
         : rank switch
         {
             1 => "border-amber-300 dark:border-amber-600 shadow-md shadow-amber-500/10 hover:border-amber-400",

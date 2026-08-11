@@ -1,4 +1,4 @@
-@page "/collection-log/category"
+﻿@page "/collection-log/category"
 @using KlavLor.Application.Features.CollectionLog
 @using KlavLor.Web.Components.Layout
 @attribute [Microsoft.AspNetCore.Authorization.Authorize]
@@ -7,7 +7,7 @@
 
 <PageLayout PageTitle="@($"KlavLor - {_comparison?.DisplayName ?? "Collection Log"}")"
             Title="@(_comparison?.DisplayName ?? "Collection Log")" Description="Category comparison">
-    <CollectionLogCategoryDetail Comparison="_comparison" Slug="@(Slug ?? "")" />
+    <CollectionLogCategoryDetail Comparison="_comparison" Slug="@(Slug ?? "")" UpdateHeader="false" />
 </PageLayout>
 
 @code {

@@ -1,4 +1,4 @@
-@page "/collection-log/character/{Id:int}"
+﻿@page "/collection-log/character/{Id:int}"
 @using KlavLor.Application.Features.CollectionLog
 @using KlavLor.Web.Components.Layout
 @attribute [Microsoft.AspNetCore.Authorization.Authorize]
@@ -7,7 +7,7 @@
 
 <PageLayout PageTitle="@($"KlavLor - {_log?.CharacterName ?? "Collection Log"}")"
             Title="@(_log?.CharacterName ?? "Collection Log")" Description="Collection log">
-    <CollectionLogCharacterDetail Log="_log" />
+    <CollectionLogCharacterDetail Log="_log" UpdateHeader="false" />
 </PageLayout>
 
 @code {

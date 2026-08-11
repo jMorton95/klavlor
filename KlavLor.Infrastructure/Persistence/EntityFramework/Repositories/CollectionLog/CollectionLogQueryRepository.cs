@@ -84,10 +84,14 @@ internal sealed class CollectionLogQueryRepository(
                 select new { Slug = g.Key, Count = g.Count() })
                 .ToDictionaryAsync(x => x.Slug, x => x.Count);
 
-            var categories = await dataContext.CollectionLogCategories.AsNoTracking()
-                .OrderBy(c => c.GroupName).ThenBy(c => c.SortOrder)
-                .Select(c => new { c.Slug, c.DisplayName, c.GroupName, c.ItemCount })
-                .ToListAsync();
+            var categories = (await dataContext.CollectionLogCategories.AsNoTracking()
+                    .Select(c => new { c.Slug, c.DisplayName, c.GroupName, c.ItemCount })
+                    .ToListAsync())
+                // Ordered here rather than in SQL: the group order is a display decision (raids
+                // belong with bosses at the top, not filed under C for clues), not a stored column.
+                .OrderBy(c => CollectionLogGroups.SortOrder(c.GroupName))
+                .ThenBy(c => c.DisplayName, StringComparer.OrdinalIgnoreCase)
+                .ToList();
 
             var icons = await ResolveCategoryIcons(categories.Select(c => c.Slug).ToList());
 
@@ -259,24 +263,8 @@ internal sealed class CollectionLogQueryRepository(
                 .Where(e => e.ItemId == itemId)
                 .ToDictionaryAsync(e => e.GameCharacterId);
 
-            // OUR data, deliberately separate: how many rolls each character has at the sources that
-            // dropped this item for them. Null when we hold none — which is the normal case for
-            // anything obtained before loot tracking began, and must read as "unknown", not zero.
-            var ourKills = await (
-                from d in dataContext.LootDrops.AsNoTracking().Where(d => d.ItemId == itemId)
-                join r in dataContext.LootRecords.AsNoTracking() on d.LootRecordId equals r.Id
-                where r.GameCharacterId != null
-                group r by r.GameCharacterId!.Value into g
-                select new { CharacterId = g.Key, Sources = g.Select(x => x.SourceName).Distinct().ToList() })
-                .ToListAsync();
-
-            var killsByCharacter = new Dictionary<int, int>();
-            foreach (var row in ourKills)
-            {
-                var count = await dataContext.LootRecords.AsNoTracking()
-                    .CountAsync(r => r.GameCharacterId == row.CharacterId && row.Sources.Contains(r.SourceName));
-                killsByCharacter[row.CharacterId] = count;
-            }
+            var rollSources = await ResolveRollSources(
+                itemId, item.Name, characters.Select(c => c.Id).ToList(), held.Keys.ToHashSet());
 
             var holders = characters
                 .Select(c =>
@@ -287,7 +275,7 @@ internal sealed class CollectionLogQueryRepository(
                         e is not null,
                         e?.Count ?? 0,
                         e?.ObtainedAt,
-                        killsByCharacter.TryGetValue(c.Id, out var k) ? k : null);
+                        rollSources.TryGetValue(c.Id, out var sources) ? sources : []);
                 })
                 .OrderByDescending(h => h.Obtained)
                 .ThenBy(h => h.ObtainedAt ?? DateTimeOffset.MaxValue)
@@ -356,6 +344,94 @@ internal sealed class CollectionLogQueryRepository(
     }
 
     private const int RecentUnlockCount = 12;
+
+    /// <summary>Sources listed against a character who hasn't got the item yet.</summary>
+    private const int ChaseSourceCount = 3;
+
+    /// <summary>
+    /// Per-character roll counts in the context of one item, from OUR loot data only.
+    ///
+    /// A character who HAS it gets only the source that actually dropped it to them — an item can
+    /// come from several sources, and crediting the wrong one misstates the grind entirely (an
+    /// Abyssal whip from an Abyssal demon is not a Sire drop). A character who has NOT got it gets
+    /// their biggest few sources among everything known to drop it, because while chasing, where the
+    /// rolls have gone is the interesting figure.
+    /// </summary>
+    private async Task<Dictionary<int, IReadOnlyList<CollectionLogRollSource>>> ResolveRollSources(
+        int itemId, string itemName, List<int> characterIds, IReadOnlySet<int> holders)
+    {
+        var result = new Dictionary<int, IReadOnlyList<CollectionLogRollSource>>();
+        if (characterIds.Count == 0) return result;
+
+        // Where this item can come from at all. DropRates is the authority; anywhere it has actually
+        // dropped for someone is folded in too, so a source with no stored rate isn't lost.
+        var lowered = itemName.ToLowerInvariant();
+        var ratedSources = await dataContext.DropRates.AsNoTracking()
+            .Where(dr => dr.ItemName.ToLower() == lowered)
+            .Select(dr => dr.SourceName)
+            .ToListAsync();
+
+        var observedSources = await (
+            from d in dataContext.LootDrops.AsNoTracking().Where(d => d.ItemId == itemId)
+            join r in dataContext.LootRecords.AsNoTracking() on d.LootRecordId equals r.Id
+            select r.SourceName)
+            .Distinct()
+            .ToListAsync();
+
+        var itemSources = ratedSources.Concat(observedSources).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (itemSources.Count == 0) return result;
+
+        // Which source actually produced it, per character — the only honest attribution.
+        var droppedBy = (await (
+            from d in dataContext.LootDrops.AsNoTracking().Where(d => d.ItemId == itemId)
+            join r in dataContext.LootRecords.AsNoTracking() on d.LootRecordId equals r.Id
+            where r.GameCharacterId != null && characterIds.Contains(r.GameCharacterId.Value)
+            select new { CharacterId = r.GameCharacterId!.Value, r.SourceName })
+            .Distinct()
+            .ToListAsync())
+            .GroupBy(x => x.CharacterId)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.SourceName).ToHashSet(StringComparer.OrdinalIgnoreCase));
+
+        // Roll counts at every relevant source, for every character, in one pass.
+        var sourceList = itemSources.ToList();
+        var rolls = (await dataContext.LootRecords.AsNoTracking()
+                .Where(r => r.GameCharacterId != null
+                            && characterIds.Contains(r.GameCharacterId.Value)
+                            && sourceList.Contains(r.SourceName))
+                .GroupBy(r => new { CharacterId = r.GameCharacterId!.Value, r.SourceName })
+                .Select(g => new { g.Key.CharacterId, g.Key.SourceName, Count = g.Count() })
+                .ToListAsync())
+            .GroupBy(x => x.CharacterId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        foreach (var characterId in characterIds)
+        {
+            if (!rolls.TryGetValue(characterId, out var theirs) || theirs.Count == 0) continue;
+
+            // The COLLECTION LOG decides whether they have it — our loot records only decide where
+            // it came from. A character with a tracked drop but no collection-log entry (loot data
+            // but never synced) would otherwise be shown a green "this dropped it" beside a card
+            // that says not obtained.
+            droppedBy.TryGetValue(characterId, out var producing);
+            if (!holders.Contains(characterId)) producing = null;
+
+            var chosen = producing is { Count: > 0 }
+                // Got it: only where it actually came from.
+                ? theirs.Where(t => producing.Contains(t.SourceName))
+                    .OrderByDescending(t => t.Count)
+                    .Select(t => new CollectionLogRollSource(t.SourceName, t.Count, true))
+                    .ToList()
+                // Still chasing: the biggest few places those rolls have gone.
+                : theirs.OrderByDescending(t => t.Count)
+                    .Take(ChaseSourceCount)
+                    .Select(t => new CollectionLogRollSource(t.SourceName, t.Count, false))
+                    .ToList();
+
+            if (chosen.Count > 0) result[characterId] = chosen;
+        }
+
+        return result;
+    }
 
     /// <summary>
     /// An icon per category: the boss's own source icon when we hold one, else a representative item

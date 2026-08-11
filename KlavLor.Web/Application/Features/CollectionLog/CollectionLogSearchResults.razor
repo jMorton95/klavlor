@@ -1,5 +1,8 @@
 @using KlavLor.Application.Features.CollectionLog
 
+@* Search results as a card grid, not one full-width row per item. A row spread an item name and a
+   holder count across the whole viewport, which made a list of twenty impossible to scan. *@
+
 @if (string.IsNullOrWhiteSpace(SearchTerm))
 {
     return;
@@ -7,27 +10,31 @@
 
 @if (Rows.Count == 0)
 {
-    <div class="bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-6 text-center text-sm text-slate-400 dark:text-white">
+    <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-3 py-6 text-center text-sm text-slate-400 dark:text-white">
         No collection log items match &ldquo;@SearchTerm&rdquo;.
     </div>
 }
 else
 {
-    <div class="bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-2 space-y-1 max-h-96 overflow-y-auto">
+    <div class="grid gap-1.5 max-h-[30rem] overflow-y-auto themed-scrollbar pr-1"
+         style="grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));">
         @foreach (var row in Rows)
         {
             <a hx-get="@ItemUrl(row.ItemId).FromApi()" hx-target="#hx-page-container"
                hx-push-url="@ItemUrl(row.ItemId)" hx-swap="innerHTML transition:true"
-               class="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-1.5 hover:border-amber-300 dark:hover:border-amber-600 cursor-pointer transition-colors">
+               title="@Tooltip(row)"
+               class="group flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-2.5 py-2 hover:border-amber-400 dark:hover:border-amber-500 cursor-pointer transition-colors">
                 <img src="/api/images/item-icon?name=@Uri.EscapeDataString(row.Name)" alt=""
-                     class="w-5 h-5 object-contain shrink-0" loading="lazy" onerror="this.style.display='none'" />
-                <span class="text-sm text-slate-700 dark:text-slate-100 truncate">@row.Name</span>
-                @if (row.Categories.Count > 0)
-                {
-                    <span class="text-[10px] text-slate-400 dark:text-white truncate hidden sm:inline">@string.Join(" · ", row.Categories.Take(2))</span>
-                }
-                <span class="ml-auto text-[11px] tabular-nums shrink-0 whitespace-nowrap @(row.ObtainedBy > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 dark:text-white")">
-                    @row.ObtainedBy/@row.TotalCharacters have it
+                     class="w-6 h-6 object-contain shrink-0" loading="lazy" onerror="this.style.display='none'" />
+                <span class="min-w-0 flex-1">
+                    <span class="block text-xs font-medium text-slate-800 dark:text-slate-100 truncate group-hover:text-amber-600 dark:group-hover:text-amber-400">@row.Name</span>
+                    @if (row.Categories.Count > 0)
+                    {
+                        <span class="block text-[10px] text-slate-400 dark:text-white truncate">@string.Join(" · ", row.Categories.Take(2))</span>
+                    }
+                </span>
+                <span class="text-[11px] tabular-nums shrink-0 whitespace-nowrap @(row.ObtainedBy > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 dark:text-slate-500")">
+                    @row.ObtainedBy/@row.TotalCharacters
                 </span>
             </a>
         }
@@ -39,4 +46,7 @@ else
     [Parameter] public string? SearchTerm { get; set; }
 
     private static string ItemUrl(int itemId) => AppRoutes.CollectionLogItem.Replace("{itemId:int}", itemId.ToString());
+
+    private static string Tooltip(CollectionLogSearchRow row) =>
+        $"{row.Name} — {row.ObtainedBy} of {row.TotalCharacters} characters have it";
 }

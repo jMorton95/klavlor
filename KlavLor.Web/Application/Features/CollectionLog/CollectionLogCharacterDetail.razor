@@ -3,16 +3,22 @@
 
 @* One character's log.
 
-   Laid out as a two-column workspace rather than one long grid. The previous version stacked 124
-   category cards and put the item panel underneath them, ~1,900px down — so clicking a category
-   swapped content that was entirely off screen and read as nothing happening at all. The panel is
-   now a sticky column beside the list, in view before and after every click.
+   Two columns: the focused panel on the LEFT, the category list on the right. Left because the
+   panel is the thing being read — putting it after 124 cards in source order left it below the fold
+   entirely, and putting it on the right made the eye jump the full width of an ultrawide.
 
-   Categories are grouped with their own headers and a completion tint, so bosses, raids, clues,
-   minigames and other read as distinct blocks instead of one undifferentiated field of cards. *@
+   A true marquee/wrap layout, with cards flowing around a central panel, was considered and
+   rejected: CSS shape-outside only wraps inline content, so a grid of interactive cards can't flow
+   round it without absolute positioning that breaks at every breakpoint.
 
-<TopBarMetaData PageTitle="@($"KlavLor - {Log?.CharacterName ?? "Collection Log"}")"
-                Title="@(Log?.CharacterName ?? "Collection Log")" Description="Collection log" />
+   The category grid is auto-fill with a minimum card width, so it grows from one column on a phone
+   to as many as fit on an ultrawide instead of stopping at three. *@
+
+@if (UpdateHeader)
+{
+    <TopBarMetaData PageTitle="@($"KlavLor - {Log?.CharacterName ?? "Collection Log"}")"
+                    Title="@(Log?.CharacterName ?? "Collection Log")" Description="Collection log" />
+}
 
 <div class="space-y-5 pb-32">
     <a onclick="history.back()"
@@ -32,9 +38,10 @@
     }
     else
     {
-        @* Header: identity, the completion ring, and the headline numbers. *@
-        <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-4 py-3">
-            <div class="flex items-center gap-4 flex-wrap">
+        @* Header: identity, ring, headline numbers — and the recent unlocks folded in, so the top of
+           the page is one block rather than two stacked bars saying related things. *@
+        <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 overflow-hidden">
+            <div class="flex items-center gap-4 flex-wrap px-4 py-3">
                 <div class="relative w-16 h-16 shrink-0">
                     <svg class="w-16 h-16 -rotate-90" viewBox="0 0 36 36" aria-hidden="true">
                         <circle cx="18" cy="18" r="15.5" fill="none" stroke="currentColor" stroke-width="3" class="text-slate-200 dark:text-slate-800" />
@@ -46,7 +53,10 @@
 
                 <div class="min-w-0">
                     <div class="flex items-center gap-2 flex-wrap mb-0.5">
-                        <h1 class="text-lg font-bold text-slate-900 dark:text-slate-100 truncate">@Log.CharacterName</h1>
+                        @* Through to the character's own profile — the loot side of the same account. *@
+                        <a hx-get="@ProfileUrl.FromApi()" hx-target="#hx-page-container" hx-push-url="@ProfileUrl" hx-swap="innerHTML transition:true"
+                           class="text-lg font-bold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer truncate"
+                           title="@($"{Log.CharacterName}'s profile")">@Log.CharacterName</a>
                         <CollectionLogFreshnessBadge Freshness="Log.Freshness" />
                     </div>
                     <div class="flex items-center gap-x-4 gap-y-1 flex-wrap text-sm">
@@ -68,6 +78,29 @@
                     </div>
                 </div>
             </div>
+
+            @if (Log.RecentUnlocks.Count > 0)
+            {
+                <div class="border-t border-slate-200 dark:border-slate-700 bg-linear-to-r from-amber-50/70 to-transparent dark:from-amber-900/15 dark:to-transparent px-4 py-2.5">
+                    <h2 class="text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300 mb-1.5">Recent unlocks</h2>
+                    @* themed-scrollbar keeps the horizontal strip in the house style; the browser
+                       default reads as a foreign element on narrow screens where it actually shows. *@
+                    <div class="flex gap-2 overflow-x-auto pb-1.5 themed-scrollbar">
+                        @foreach (var unlock in Log.RecentUnlocks)
+                        {
+                            <a hx-get="@ItemUrl(unlock.ItemId).FromApi()" hx-target="#hx-page-container"
+                               hx-push-url="@ItemUrl(unlock.ItemId)" hx-swap="innerHTML transition:true"
+                               title="@($"{unlock.Name} — {unlock.CategoryDisplayName} — {unlock.ObtainedAt:d MMM yyyy}")"
+                               class="group shrink-0 w-[4.5rem] flex flex-col items-center gap-0.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/70 px-1.5 py-1.5 cursor-pointer hover:border-amber-400 dark:hover:border-amber-500 transition-colors">
+                                <img src="/api/images/item-icon?name=@Uri.EscapeDataString(unlock.Name)" alt=""
+                                     class="w-6 h-6 object-contain" loading="lazy" onerror="this.style.display='none'" />
+                                <span class="text-[9px] leading-tight text-center text-slate-700 dark:text-slate-200 line-clamp-2">@unlock.Name</span>
+                                <span class="text-[9px] text-amber-600 dark:text-amber-400 tabular-nums">@unlock.ObtainedAt.ToString("d MMM")</span>
+                            </a>
+                        }
+                    </div>
+                </div>
+            }
         </div>
 
         @if (Log.Freshness.Blocker is { } blocker)
@@ -77,32 +110,22 @@
             </div>
         }
 
-        @if (Log.RecentUnlocks.Count > 0)
-        {
-            @* The one genuinely time-ordered thing on the page — what they just got. *@
-            <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-linear-to-r from-amber-50 to-transparent dark:from-amber-900/15 dark:to-transparent px-4 py-3">
-                <h2 class="text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300 mb-2">Recent unlocks</h2>
-                <div class="flex gap-2 overflow-x-auto pb-1">
-                    @foreach (var unlock in Log.RecentUnlocks)
-                    {
-                        <a hx-get="@ItemUrl(unlock.ItemId).FromApi()" hx-target="#hx-page-container"
-                           hx-push-url="@ItemUrl(unlock.ItemId)" hx-swap="innerHTML transition:true"
-                           title="@($"{unlock.Name} — {unlock.CategoryDisplayName} — {unlock.ObtainedAt:d MMM yyyy}")"
-                           class="group shrink-0 w-20 flex flex-col items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/70 px-1.5 py-2 cursor-pointer hover:border-amber-400 dark:hover:border-amber-500 transition-colors">
-                            <img src="/api/images/item-icon?name=@Uri.EscapeDataString(unlock.Name)" alt=""
-                                 class="w-7 h-7 object-contain" loading="lazy" onerror="this.style.display='none'" />
-                            <span class="text-[9px] leading-tight text-center text-slate-700 dark:text-slate-200 line-clamp-2">@unlock.Name</span>
-                            <span class="text-[9px] text-amber-600 dark:text-amber-400 tabular-nums">@unlock.ObtainedAt.ToString("d MMM")</span>
-                        </a>
-                    }
-                </div>
-            </div>
-        }
-
         @if (Log.Obtained > 0 || Log.Freshness.HasData)
         {
             <div class="lg:flex lg:gap-4 lg:items-start">
-                @* Left: the categories, grouped. Scrolls with the page. *@
+                @* Left: the focused panel, sticky so a category picked from anywhere lands in view. *@
+                <div class="lg:w-[24rem] xl:w-[27rem] shrink-0 mb-5 lg:mb-0 lg:sticky lg:top-4 order-first">
+                    <div id="clog-focus">
+                        <div class="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 px-4 py-10 text-center">
+                            <svg class="w-8 h-8 mx-auto mb-2 text-slate-300 dark:text-slate-600" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                            </svg>
+                            <p class="text-sm text-slate-400 dark:text-white">Pick a category to see its items.</p>
+                        </div>
+                    </div>
+                </div>
+
+                @* Right: the categories, grouped. Auto-fill so ultrawides get more columns, not wider ones. *@
                 <div class="lg:flex-1 lg:min-w-0 space-y-5">
                     @foreach (var group in Log.Categories.GroupBy(c => c.GroupName))
                     {
@@ -114,7 +137,7 @@
                                 </span>
                             </div>
 
-                            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-1.5">
+                            <div class="grid gap-1.5" style="grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));">
                                 @foreach (var category in group)
                                 {
                                     <button type="button"
@@ -124,13 +147,15 @@
                                             class="group flex items-center gap-2 text-left rounded-lg border px-2.5 py-2 cursor-pointer transition-colors @CategoryClasses(category)">
                                         @if (category.IconName is { Length: > 0 } icon)
                                         {
+                                            @* Untouched categories dim the BACKGROUND only. Fading the icon
+                                               and text as well made a third of the grid unreadable. *@
                                             <img src="@IconUrl(category.IconKind, icon)" alt=""
-                                                 class="w-6 h-6 shrink-0 object-contain @(category.IsStarted ? "" : "grayscale opacity-50")"
+                                                 class="w-6 h-6 shrink-0 object-contain @(category.IsStarted ? "" : "opacity-80")"
                                                  loading="lazy" onerror="this.style.visibility='hidden'" />
                                         }
                                         <span class="min-w-0 flex-1">
                                             <span class="flex items-baseline justify-between gap-2">
-                                                <span class="text-xs font-medium text-slate-800 dark:text-slate-100 truncate">@category.DisplayName</span>
+                                                <span class="text-xs font-medium truncate @(category.IsStarted ? "text-slate-800 dark:text-slate-100" : "text-slate-600 dark:text-slate-300")">@category.DisplayName</span>
                                                 <span class="text-[10px] tabular-nums whitespace-nowrap @CountClasses(category)">@category.Obtained/@category.Total</span>
                                             </span>
                                             <span class="mt-1 block h-1 w-full rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
@@ -144,19 +169,6 @@
                         </div>
                     }
                 </div>
-
-                @* Right: the focused panel. Sticky, so a category picked from anywhere in the list
-                   lands somewhere the eye already is. *@
-                <div class="lg:w-[26rem] xl:w-[30rem] shrink-0 mt-5 lg:mt-0 lg:sticky lg:top-4">
-                    <div id="clog-focus">
-                        <div class="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 px-4 py-10 text-center">
-                            <svg class="w-8 h-8 mx-auto mb-2 text-slate-300 dark:text-slate-600" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
-                            </svg>
-                            <p class="text-sm text-slate-400 dark:text-white">Pick a category to see its items.</p>
-                        </div>
-                    </div>
-                </div>
             </div>
         }
     }
@@ -165,7 +177,13 @@
 @code {
     [Parameter] public CharacterCollectionLog? Log { get; set; }
 
+    /// True when served as an HTMX fragment (emits the OOB header); false inside PageLayout on a
+    /// full page load, which renders the header itself. Same convention as the other routed pages.
+    [Parameter] public bool UpdateHeader { get; set; } = true;
+
     private double Percent => Log is { Available: > 0 } ? Log.Obtained * 100.0 / Log.Available : 0;
+
+    private string ProfileUrl => AppRoutes.LootLogCharacter.WithId(Log!.GameCharacterId);
 
     private string CategoryUrl(string slug) =>
         $"{AppRoutes.CollectionLogCharacterCategory.WithId(Log!.GameCharacterId).FromApi()}?slug={Uri.EscapeDataString(slug)}";
@@ -179,20 +197,20 @@
         _ => $"/api/images/item-icon?name={Uri.EscapeDataString(name)}"
     };
 
-    // Three states, three treatments: finished, in progress, untouched. Without this the grid was
-    // 124 identical cards and nothing drew the eye to what was actually done.
+    // Three states, three treatments. The untouched case tints its background and leaves the border,
+    // icon and text legible — the previous 60% opacity on the whole card hid all three.
     private static string CategoryClasses(CollectionLogCategoryProgress c) => c switch
     {
         { IsComplete: true } => "border-emerald-300 dark:border-emerald-700 bg-emerald-50/60 dark:bg-emerald-900/15 hover:border-emerald-400",
         { IsStarted: true } => "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 hover:border-amber-400 dark:hover:border-amber-500",
-        _ => "border-dashed border-slate-200 dark:border-slate-800 bg-transparent opacity-60 hover:opacity-100 hover:border-amber-400"
+        _ => "border-slate-200/80 dark:border-slate-700/80 bg-slate-100/60 dark:bg-slate-950/40 hover:border-amber-400 dark:hover:border-amber-500"
     };
 
     private static string CountClasses(CollectionLogCategoryProgress c) => c switch
     {
         { IsComplete: true } => "text-emerald-600 dark:text-emerald-400 font-semibold",
         { IsStarted: true } => "text-slate-500 dark:text-white",
-        _ => "text-slate-400 dark:text-slate-500"
+        _ => "text-slate-500 dark:text-slate-400"
     };
 
     private static string BarClasses(CollectionLogCategoryProgress c) =>

@@ -1,10 +1,13 @@
-@using KlavLor.Application.Features.CollectionLog
+﻿@using KlavLor.Application.Features.CollectionLog
 @using KlavLor.Web.Components.Layout
 
 @* One category compared across the roster: a standings strip, then a matrix of who owns what. *@
 
-<TopBarMetaData PageTitle="@($"KlavLor - {Comparison?.DisplayName ?? "Collection Log"}")"
+@if (UpdateHeader)
+{
+    <TopBarMetaData PageTitle="@($"KlavLor - {Comparison?.DisplayName ?? "Collection Log"}")"
                 Title="@(Comparison?.DisplayName ?? "Collection Log")" Description="Category comparison" />
+}
 
 <div class="space-y-5 pb-32">
     <a onclick="history.back()"
@@ -43,48 +46,56 @@
         }
         else
         {
-            @* A row per character, a cell per item. Wide categories scroll inside their own
-               container so the page body never scrolls sideways. *@
-            <div class="bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 overflow-x-auto">
-                <table class="w-full text-sm">
-                    <tbody class="divide-y divide-slate-200 dark:divide-slate-700/50">
-                        @foreach (var standing in Comparison.Standings)
-                        {
-                            <tr class="hover:bg-slate-100/50 dark:hover:bg-slate-800/40">
-                                <td class="px-3 py-2 whitespace-nowrap">
-                                    <a hx-get="@CharacterUrl(standing.GameCharacterId).FromApi()" hx-target="#hx-page-container"
-                                       hx-push-url="@CharacterUrl(standing.GameCharacterId)" hx-swap="innerHTML transition:true"
-                                       class="text-sm font-medium text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">@standing.CharacterName</a>
-                                    <span class="ml-2 text-[11px] tabular-nums text-slate-500 dark:text-white">@standing.Obtained/@standing.Total</span>
-                                </td>
-                                <td class="px-3 py-2">
-                                    <div class="flex flex-wrap gap-1">
-                                        @foreach (var item in Comparison.Items)
-                                        {
-                                            var owned = standing.ObtainedItemIds.Contains(item.ItemId);
-                                            // Built here rather than inline: Razor can't parse two
-                                            // adjacent expressions inside one attribute value.
-                                            var cellTitle = owned ? item.Name : $"{item.Name} — not obtained";
-                                            <span title="@cellTitle"
-                                                  class="inline-block w-5 h-5 rounded @(owned ? "" : "opacity-25 grayscale")">
-                                                <img src="/api/images/item-icon?name=@Uri.EscapeDataString(item.Name)" alt="@item.Name"
-                                                     class="w-5 h-5 object-contain" loading="lazy" onerror="this.style.display='none'" />
-                                            </span>
-                                        }
-                                    </div>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
+            @* One stacked card per character rather than a wide table row. A table forced the item
+               matrix into a single cell that ran off the side of the screen; stacking gives each
+               character its own block, its own progress bar, and room for the items to wrap. *@
+            <div class="grid gap-2" style="grid-template-columns: repeat(auto-fill, minmax(22rem, 1fr));">
+                @foreach (var standing in Comparison.Standings)
+                {
+                    var complete = standing.Obtained >= standing.Total && standing.Total > 0;
+                    <div class="rounded-xl border px-3 py-2.5 @(complete ? "border-emerald-300 dark:border-emerald-700 bg-emerald-50/50 dark:bg-emerald-900/10" : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900")">
+                        <div class="flex items-baseline justify-between gap-2 mb-1.5">
+                            <a hx-get="@CharacterUrl(standing.GameCharacterId).FromApi()" hx-target="#hx-page-container"
+                               hx-push-url="@CharacterUrl(standing.GameCharacterId)" hx-swap="innerHTML transition:true"
+                               class="text-sm font-semibold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer truncate">@standing.CharacterName</a>
+                            <span class="text-[11px] tabular-nums whitespace-nowrap @(complete ? "text-emerald-600 dark:text-emerald-400 font-semibold" : "text-slate-500 dark:text-white")">@standing.Obtained/@standing.Total</span>
+                        </div>
+
+                        <div class="h-1 w-full rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden mb-2">
+                            <div class="h-full rounded-full @(complete ? "bg-emerald-500" : "bg-amber-500")"
+                                 style="width:@Percent(standing).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)%"></div>
+                        </div>
+
+                        <div class="flex flex-wrap gap-1">
+                            @foreach (var item in Comparison.Items)
+                            {
+                                var owned = standing.ObtainedItemIds.Contains(item.ItemId);
+                                // Built here rather than inline: Razor can't parse two adjacent
+                                // expressions inside one attribute value.
+                                var cellTitle = owned ? item.Name : $"{item.Name} — not obtained";
+                                <span title="@cellTitle" class="inline-block w-5 h-5 rounded @(owned ? "" : "grayscale opacity-40")">
+                                    <img src="/api/images/item-icon?name=@Uri.EscapeDataString(item.Name)" alt="@item.Name"
+                                         class="w-5 h-5 object-contain" loading="lazy" onerror="this.style.display='none'" />
+                                </span>
+                            }
+                        </div>
+                    </div>
+                }
             </div>
         }
     }
 </div>
 
 @code {
+    /// True when served as an HTMX fragment (emits the OOB header); false inside PageLayout,
+    /// which renders the header itself. Without this an in-app navigation drew the title twice.
+    [Parameter] public bool UpdateHeader { get; set; } = true;
+
     [Parameter] public CollectionLogCategoryComparison? Comparison { get; set; }
     [Parameter] public string Slug { get; set; } = "";
 
     private static string CharacterUrl(int id) => AppRoutes.CollectionLogCharacter.WithId(id);
+
+    private static double Percent(CollectionLogCategoryStanding s) =>
+        s.Total > 0 ? s.Obtained * 100.0 / s.Total : 0;
 }
