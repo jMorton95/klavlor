@@ -1,4 +1,4 @@
-using KlavLor.Application.Features.Viewer.ViewerData;
+﻿using KlavLor.Application.Features.Viewer.ViewerData;
 using KlavLor.Application.Interfaces.Authentication;
 using KlavLor.Web.Application.HttpResults;
 
@@ -10,7 +10,7 @@ public sealed class ViewerEndpoint : IEndpoint
     {
         return app.MapGet(AppRoutes.TemplatesView.FromApi(), Endpoint)
             .AllowAnonymous()
-            .RequireRateLimiting("anonymous");
+            .RequireRateLimiting("read");
     }
 
     private static async Task<IResult> Endpoint(

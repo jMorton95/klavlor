@@ -24,32 +24,32 @@ public sealed class CollectionLogEndpoint : IEndpoint
         // once per category click, which is the one a user can hold down.
         app.MapGet(AppRoutes.CollectionLog.FromApi(), GetOverview)
             .RequireAuthorization(nameof(RoleName.User))
-            .RequireRateLimiting("anonymous")
+            .RequireRateLimiting("read")
             .AddEndpointFilter<HtmxNavigationFilter>();
 
         app.MapGet(AppRoutes.CollectionLogCharacter.FromApi(), GetCharacter)
             .RequireAuthorization(nameof(RoleName.User))
-            .RequireRateLimiting("anonymous")
+            .RequireRateLimiting("read")
             .AddEndpointFilter<HtmxNavigationFilter>();
 
         // Panel, not a page: swaps the item grid inside the character page when a category is picked.
         app.MapGet(AppRoutes.CollectionLogCharacterCategory.FromApi(), GetCharacterCategory)
             .RequireAuthorization(nameof(RoleName.User))
-            .RequireRateLimiting("anonymous");
+            .RequireRateLimiting("read");
 
         app.MapGet(AppRoutes.CollectionLogCategory.FromApi(), GetCategoryComparison)
             .RequireAuthorization(nameof(RoleName.User))
-            .RequireRateLimiting("anonymous")
+            .RequireRateLimiting("read")
             .AddEndpointFilter<HtmxNavigationFilter>();
 
         app.MapGet(AppRoutes.CollectionLogItem.FromApi(), GetItemComparison)
             .RequireAuthorization(nameof(RoleName.User))
-            .RequireRateLimiting("anonymous")
+            .RequireRateLimiting("read")
             .AddEndpointFilter<HtmxNavigationFilter>();
 
         return app.MapGet(AppRoutes.CollectionLogSearch.FromApi(), Search)
             .RequireAuthorization(nameof(RoleName.User))
-            .RequireRateLimiting("anonymous");
+            .RequireRateLimiting("read");
     }
 
     private static async Task<RazorComponentResult> GetOverview(CollectionLogHandler handler)

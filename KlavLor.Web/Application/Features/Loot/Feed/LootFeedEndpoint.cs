@@ -1,4 +1,4 @@
-using KlavLor.Application.Features.Loot.Feed;
+﻿using KlavLor.Application.Features.Loot.Feed;
 using KlavLor.Application.Interfaces.Services;
 using KlavLor.Web.Application.HttpResults;
 using Microsoft.AspNetCore.Components;
@@ -13,24 +13,24 @@ public sealed class LootFeedEndpoint : IEndpoint
         // Main feed routes. The page route is deliberately handler-free — see GetPage.
         app.MapGet(AppRoutes.LootFeed.FromApi(), () => GetPage(LootFeedScope.Main))
             .AllowAnonymous()
-            .RequireRateLimiting("anonymous");
+            .RequireRateLimiting("read");
 
         // Grid = swimlane shells only, no loot and no query. Each shell then fetches its own tier.
         app.MapGet(AppRoutes.LootFeedGrid.FromApi(), (string? tiers) => GetGrid(LootFeedScope.Main, tiers))
             .AllowAnonymous()
-            .RequireRateLimiting("anonymous");
+            .RequireRateLimiting("read");
 
         app.MapGet(AppRoutes.LootFeedColumn.FromApi(), (string tier, int? cols, LootFeedTiersHandler handler) =>
                 GetColumn(handler, LootFeedScope.Main, tier, cols))
             .AllowAnonymous()
-            .RequireRateLimiting("anonymous");
+            .RequireRateLimiting("read");
 
         // Recent activity: what everyone has actually been grinding, which drop cards can't show.
         // Loaded on demand when the popover is first opened rather than with the feed.
         app.MapGet(AppRoutes.LootFeedSessions.FromApi(), (RecentSessionsHandler handler) =>
                 GetRecentSessions(handler, LootFeedScope.Main))
             .AllowAnonymous()
-            .RequireRateLimiting("anonymous");
+            .RequireRateLimiting("read");
 
         MapStream(app, AppRoutes.LootFeedStreamStandard, LootFeedScope.Main, LootFeedTier.Standard);
         MapStream(app, AppRoutes.LootFeedStreamUncommon, LootFeedScope.Main, LootFeedTier.Uncommon);
@@ -45,14 +45,14 @@ public sealed class LootFeedEndpoint : IEndpoint
                     ? GetPage(LootFeedScope.Leagues)
                     : TypedResults.NotFound())
             .AllowAnonymous()
-            .RequireRateLimiting("anonymous");
+            .RequireRateLimiting("read");
 
         app.MapGet(AppRoutes.LootFeedLeaguesGrid.FromApi(), IResult (ISystemSettingsCache settings, string? tiers) =>
                 settings.IsLeaguesEnabled
                     ? GetGrid(LootFeedScope.Leagues, tiers)
                     : TypedResults.NotFound())
             .AllowAnonymous()
-            .RequireRateLimiting("anonymous");
+            .RequireRateLimiting("read");
 
         app.MapGet(AppRoutes.LootFeedLeaguesColumn.FromApi(), async (string tier, int? cols, LootFeedTiersHandler handler, ISystemSettingsCache settings) =>
             {
@@ -60,7 +60,7 @@ public sealed class LootFeedEndpoint : IEndpoint
                 return await GetColumn(handler, LootFeedScope.Leagues, tier, cols);
             })
             .AllowAnonymous()
-            .RequireRateLimiting("anonymous");
+            .RequireRateLimiting("read");
 
         app.MapGet(AppRoutes.LootFeedLeaguesSessions.FromApi(), async (RecentSessionsHandler handler, ISystemSettingsCache settings) =>
             {
@@ -68,7 +68,7 @@ public sealed class LootFeedEndpoint : IEndpoint
                 return await GetRecentSessions(handler, LootFeedScope.Leagues);
             })
             .AllowAnonymous()
-            .RequireRateLimiting("anonymous");
+            .RequireRateLimiting("read");
 
         MapLeaguesStream(app, AppRoutes.LootFeedLeaguesStreamStandard, LootFeedTier.Standard);
         MapLeaguesStream(app, AppRoutes.LootFeedLeaguesStreamUncommon, LootFeedTier.Uncommon);

@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using KlavLor.Application.Features.Templates.Search;
 using KlavLor.Application.Interfaces.Authentication;
 using KlavLor.Web.Application.HttpResults;
@@ -11,7 +11,7 @@ public sealed class TemplateSearchEndpoint : IEndpoint
     {
         return app.MapGet(AppRoutes.TemplatesSearch.FromApi(), Endpoint)
             .AllowAnonymous()
-            .RequireRateLimiting("anonymous");
+            .RequireRateLimiting("read");
     }
 
     private static async Task<RazorComponentResult> Endpoint(

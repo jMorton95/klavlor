@@ -1,4 +1,4 @@
-using KlavLor.Application.Features.Users.Account;
+﻿using KlavLor.Application.Features.Users.Account;
 using KlavLor.Domain.Shared;
 using KlavLor.Web.Application.HttpResults;
 
@@ -13,7 +13,7 @@ public sealed class SidebarAccountEndpoint : IEndpoint
         // would race the page body's queries on the request's shared scoped DbContext.
         return app.MapGet(AppRoutes.SidebarAccount.FromApi(), GetAccount)
             .RequireAuthorization(nameof(RoleName.User))
-            .RequireRateLimiting("anonymous");
+            .RequireRateLimiting("read");
     }
 
     private static async Task<IResult> GetAccount(SidebarAccountHandler handler)

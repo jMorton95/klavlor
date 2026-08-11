@@ -1,4 +1,4 @@
-using KlavLor.Application.Features.Loot.Feed;
+﻿using KlavLor.Application.Features.Loot.Feed;
 using KlavLor.Web.Application.HttpResults;
 
 namespace KlavLor.Web.Application.Features.Loot.Feed;
@@ -12,7 +12,7 @@ public sealed class SourcePopoverEndpoint : IEndpoint
         // since this fires on hover and a casual scroll could trigger several.
         return app.MapGet(AppRoutes.LootFeedSourcePopover.FromApi(), GetPopover)
             .AllowAnonymous()
-            .RequireRateLimiting("anonymous");
+            .RequireRateLimiting("read");
     }
 
     private static async Task<IResult> GetPopover(int id, string name, SourcePopoverHandler handler)
