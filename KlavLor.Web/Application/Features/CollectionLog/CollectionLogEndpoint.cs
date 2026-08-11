@@ -19,28 +19,37 @@ public sealed class CollectionLogEndpoint : IEndpoint
 {
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
+        // Every route takes the house read policy. These are cheap per call but not free — the
+        // comparison and search routes fan out across the whole roster — and the panel route fires
+        // once per category click, which is the one a user can hold down.
         app.MapGet(AppRoutes.CollectionLog.FromApi(), GetOverview)
             .RequireAuthorization(nameof(RoleName.User))
+            .RequireRateLimiting("anonymous")
             .AddEndpointFilter<HtmxNavigationFilter>();
 
         app.MapGet(AppRoutes.CollectionLogCharacter.FromApi(), GetCharacter)
             .RequireAuthorization(nameof(RoleName.User))
+            .RequireRateLimiting("anonymous")
             .AddEndpointFilter<HtmxNavigationFilter>();
 
         // Panel, not a page: swaps the item grid inside the character page when a category is picked.
         app.MapGet(AppRoutes.CollectionLogCharacterCategory.FromApi(), GetCharacterCategory)
-            .RequireAuthorization(nameof(RoleName.User));
+            .RequireAuthorization(nameof(RoleName.User))
+            .RequireRateLimiting("anonymous");
 
         app.MapGet(AppRoutes.CollectionLogCategory.FromApi(), GetCategoryComparison)
             .RequireAuthorization(nameof(RoleName.User))
+            .RequireRateLimiting("anonymous")
             .AddEndpointFilter<HtmxNavigationFilter>();
 
         app.MapGet(AppRoutes.CollectionLogItem.FromApi(), GetItemComparison)
             .RequireAuthorization(nameof(RoleName.User))
+            .RequireRateLimiting("anonymous")
             .AddEndpointFilter<HtmxNavigationFilter>();
 
         return app.MapGet(AppRoutes.CollectionLogSearch.FromApi(), Search)
-            .RequireAuthorization(nameof(RoleName.User));
+            .RequireAuthorization(nameof(RoleName.User))
+            .RequireRateLimiting("anonymous");
     }
 
     private static async Task<RazorComponentResult> GetOverview(CollectionLogHandler handler)
