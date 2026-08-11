@@ -15,7 +15,8 @@ public sealed class LuckLeaderboardEndpoint : IEndpoint
         // per-user data — LuckLeaderboardHandler reads a precomputed global board.
         app.MapGet(AppRoutes.LootLeaderboard.FromApi(), GetPage)
             .AllowAnonymous()
-            .AddEndpointFilter<HtmxNavigationFilter>();
+            .AddEndpointFilter<HtmxNavigationFilter>()
+            .RequireRateLimiting("read");
 
         return app.MapGet(AppRoutes.LootLeaderboardResults.FromApi(), GetResults)
             .AllowAnonymous()

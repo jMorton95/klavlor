@@ -11,7 +11,7 @@ public sealed class TemplateEditEndpoint : IEndpoint
 {
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
-        app.MapGet(AppRoutes.TemplatesEdit.FromApi(), GetPage).RequireAuthorization(nameof(RoleName.User));
+        app.MapGet(AppRoutes.TemplatesEdit.FromApi(), GetPage).RequireAuthorization(nameof(RoleName.User)).RequireRateLimiting("read");
         return app.MapPost(AppRoutes.TemplatesEdit.FromApi(), Endpoint).RequireAuthorization(nameof(RoleName.User)).RequireRateLimiting("mutation");
     }
 

@@ -13,7 +13,8 @@ public sealed class SyncLogEndpoint : IEndpoint
         // Policy "Auditor" admits Auditor OR Admin (Admin supersedes).
         return app.MapGet(AppRoutes.SyncLog.FromApi(), GetSyncLog)
             .RequireAuthorization(nameof(RoleName.Auditor))
-            .AddEndpointFilter<HtmxNavigationFilter>();
+            .AddEndpointFilter<HtmxNavigationFilter>()
+            .RequireRateLimiting("read");
     }
 
     private static async Task<RazorComponentResult> GetSyncLog(

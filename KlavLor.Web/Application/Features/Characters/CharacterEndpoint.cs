@@ -11,19 +11,24 @@ public sealed class CharacterEndpoint : IEndpoint
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
         app.MapGet(AppRoutes.Characters.FromApi(), GetCharacters)
-            .RequireAuthorization(nameof(RoleName.User));
+            .RequireAuthorization(nameof(RoleName.User))
+            .RequireRateLimiting("read");
 
         app.MapPost(AppRoutes.CharacterUpdateName.FromApi(), UpdateName)
-            .RequireAuthorization(nameof(RoleName.User));
+            .RequireAuthorization(nameof(RoleName.User))
+            .RequireRateLimiting("mutation");
 
         app.MapPost(AppRoutes.CharacterToggleVisibility.FromApi(), ToggleVisibility)
-            .RequireAuthorization(nameof(RoleName.User));
+            .RequireAuthorization(nameof(RoleName.User))
+            .RequireRateLimiting("mutation");
 
         app.MapPost(AppRoutes.CharacterToggleLeagues.FromApi(), ToggleLeagues)
-            .RequireAuthorization(nameof(RoleName.User));
+            .RequireAuthorization(nameof(RoleName.User))
+            .RequireRateLimiting("mutation");
 
         return app.MapPost(AppRoutes.AdminCharacterAssign.FromApi(), AssignUnassigned)
-            .RequireAuthorization(nameof(RoleName.User));
+            .RequireAuthorization(nameof(RoleName.User))
+            .RequireRateLimiting("mutation");
     }
 
     private static async Task<RazorComponentResult> GetCharacters(CharacterHandler handler)

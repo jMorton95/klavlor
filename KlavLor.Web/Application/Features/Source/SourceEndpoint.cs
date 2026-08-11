@@ -12,19 +12,24 @@ public sealed class SourceEndpoint : IEndpoint
     {
         app.MapGet(AppRoutes.Source.FromApi(), GetSource)
             .RequireAuthorization(nameof(RoleName.User))
-            .AddEndpointFilter<HtmxNavigationFilter>();
+            .AddEndpointFilter<HtmxNavigationFilter>()
+            .RequireRateLimiting("read");
 
         app.MapGet(AppRoutes.SourcePlayers.FromApi(), GetPlayers)
-            .RequireAuthorization(nameof(RoleName.User));
+            .RequireAuthorization(nameof(RoleName.User))
+            .RequireRateLimiting("read");
 
         app.MapGet(AppRoutes.SourceClogs.FromApi(), GetRecentClogs)
-            .RequireAuthorization(nameof(RoleName.User));
+            .RequireAuthorization(nameof(RoleName.User))
+            .RequireRateLimiting("read");
 
         app.MapGet(AppRoutes.SourceItems.FromApi(), GetItems)
-            .RequireAuthorization(nameof(RoleName.User));
+            .RequireAuthorization(nameof(RoleName.User))
+            .RequireRateLimiting("read");
 
         return app.MapGet(AppRoutes.SourceTrend.FromApi(), GetTrend)
-            .RequireAuthorization(nameof(RoleName.User));
+            .RequireAuthorization(nameof(RoleName.User))
+            .RequireRateLimiting("read");
     }
 
     private static async Task<RazorComponentResult> GetSource([FromQuery] string name, GlobalSourceHandler handler)

@@ -14,30 +14,38 @@ public sealed class SearchEndpoint : IEndpoint
         // /search?searchTerm=… so the searched URL is shareable/back-navigable.
         app.MapGet(AppRoutes.Search.FromApi(), GetShell)
             .RequireAuthorization(nameof(RoleName.User))
-            .AddEndpointFilter<HtmxNavigationFilter>();
+            .AddEndpointFilter<HtmxNavigationFilter>()
+            .RequireRateLimiting("read");
 
         // The row of section placeholders, re-requested by the debounced input so each
         // section re-fires its own hx-trigger="load" with the new query.
         app.MapGet(AppRoutes.SearchSections.FromApi(), GetSections)
-            .RequireAuthorization(nameof(RoleName.User));
+            .RequireAuthorization(nameof(RoleName.User))
+            .RequireRateLimiting("read");
 
         app.MapGet(AppRoutes.SearchSectionCharacters.FromApi(), GetCharacters)
-            .RequireAuthorization(nameof(RoleName.User));
+            .RequireAuthorization(nameof(RoleName.User))
+            .RequireRateLimiting("read");
 
         app.MapGet(AppRoutes.SearchSectionSources.FromApi(), GetSources)
-            .RequireAuthorization(nameof(RoleName.User));
+            .RequireAuthorization(nameof(RoleName.User))
+            .RequireRateLimiting("read");
 
         app.MapGet(AppRoutes.SearchSectionDrops.FromApi(), GetDrops)
-            .RequireAuthorization(nameof(RoleName.User));
+            .RequireAuthorization(nameof(RoleName.User))
+            .RequireRateLimiting("read");
 
         app.MapGet(AppRoutes.SearchSectionItems.FromApi(), GetItems)
-            .RequireAuthorization(nameof(RoleName.User));
+            .RequireAuthorization(nameof(RoleName.User))
+            .RequireRateLimiting("read");
 
         app.MapGet(AppRoutes.SearchSectionTemplates.FromApi(), GetTemplates)
-            .RequireAuthorization(nameof(RoleName.User));
+            .RequireAuthorization(nameof(RoleName.User))
+            .RequireRateLimiting("read");
 
         return app.MapGet(AppRoutes.SearchSectionUsers.FromApi(), GetUsers)
-            .RequireAuthorization(nameof(RoleName.User));
+            .RequireAuthorization(nameof(RoleName.User))
+            .RequireRateLimiting("read");
     }
 
     private static RazorComponentResult GetShell([AsParameters] SearchQuery query)

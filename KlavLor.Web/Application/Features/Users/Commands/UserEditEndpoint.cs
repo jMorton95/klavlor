@@ -10,8 +10,8 @@ public sealed class UserEditEndpoint : IEndpoint
 {
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
-        app.MapGet(AppRoutes.UsersEdit.FromApi(), GetPage).RequireAuthorization(nameof(RoleName.Admin));
-        return app.MapPost(AppRoutes.UsersEdit.FromApi(), Endpoint).RequireAuthorization(nameof(RoleName.Admin));
+        app.MapGet(AppRoutes.UsersEdit.FromApi(), GetPage).RequireAuthorization(nameof(RoleName.Admin)).RequireRateLimiting("read");
+        return app.MapPost(AppRoutes.UsersEdit.FromApi(), Endpoint).RequireAuthorization(nameof(RoleName.Admin)).RequireRateLimiting("mutation");
     }
 
     private static async Task<Results<RazorComponentResult, HtmxRedirectResult>> GetPage(

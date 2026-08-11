@@ -9,8 +9,8 @@ public sealed class UserCreateEndpoint : IEndpoint
 {
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
-        app.MapGet(AppRoutes.UsersCreate.FromApi(), GetPage).RequireAuthorization(nameof(RoleName.Admin));
-        return app.MapPost(AppRoutes.UsersCreate.FromApi(), Endpoint).RequireAuthorization(nameof(RoleName.Admin));
+        app.MapGet(AppRoutes.UsersCreate.FromApi(), GetPage).RequireAuthorization(nameof(RoleName.Admin)).RequireRateLimiting("read");
+        return app.MapPost(AppRoutes.UsersCreate.FromApi(), Endpoint).RequireAuthorization(nameof(RoleName.Admin)).RequireRateLimiting("mutation");
     }
 
     private static RazorComponentResult GetPage()

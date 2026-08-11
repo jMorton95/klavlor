@@ -16,7 +16,7 @@ public sealed class RegionEndpoints : IEndpoint
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
         app.MapPost(AppRoutes.BuilderRegions.FromApi(), AddRegion).RequireAuthorization(nameof(RoleName.User)).RequireRateLimiting("mutation");
-        app.MapGet(AppRoutes.BuilderRegionEdit.FromApi(), GetEditModal).RequireAuthorization(nameof(RoleName.User));
+        app.MapGet(AppRoutes.BuilderRegionEdit.FromApi(), GetEditModal).RequireAuthorization(nameof(RoleName.User)).RequireRateLimiting("read");
         app.MapPut(AppRoutes.BuilderRegion.FromApi(), UpdateRegion).RequireAuthorization(nameof(RoleName.User)).RequireRateLimiting("mutation");
         app.MapPut(AppRoutes.BuilderRegionPosition.FromApi(), UpdateRegionPosition).RequireAuthorization(nameof(RoleName.User)).RequireRateLimiting("position");
         app.MapPut(AppRoutes.BuilderRegionSize.FromApi(), UpdateRegionSize).RequireAuthorization(nameof(RoleName.User)).RequireRateLimiting("position");

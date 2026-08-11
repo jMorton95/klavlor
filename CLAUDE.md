@@ -199,12 +199,18 @@ New endpoints must use one of these existing policies (applied via `.RequireRate
 - **mutation** — Per-user: 60 requests/min (node/edge/group/template CRUD, completion)
 - **position** — Per-user: 300 requests/min (high-frequency drag updates)
 - **loot-ingest** — Per-user: 120 requests/min (RuneLite plugin ingestion)
-- **read** — Tiered by caller: authenticated 600/min counted **per user**, anonymous 120/min counted **per IP** (all read-only endpoints)
+- **read** — Tiered by caller: authenticated 600/min counted **per user**, anonymous 240/min counted **per IP** (all read-only endpoints)
+- **assets** — Tiered: authenticated 3000/min per user, anonymous 1200/min per IP (item/source icons, cached images)
+- **upstream** — Per-caller: 30/min (routes that make a live third-party call — currently only the OSRS Wiki search)
 - **sse** — Per-IP: 20 *concurrent* connections, no queue (SSE feed streams only)
 
 `read` is one policy with two partitions rather than two policies, because the public read surface serves both kinds of caller: the same route is hit by a signed-out visitor and by a logged-in user, so a call site cannot choose in advance — only the request can. A signed-in user is identified, attributable and revocable, so they get a generous budget counted against their own account; anonymous traffic can only be identified by a possibly-shared address, so it gets the tighter one counted per address. The flat per-IP limit it replaced punished the wrong people: several signed-in users behind one NAT shared a single 120/min budget while an abusive anonymous client on its own address was unaffected.
 
 Partition keys are prefixed (`u:` / `ip:`) so a user id can never collide with an address. The anonymous fallback on the per-user policies is **per-IP, not a single shared bucket** — the old `?? "anonymous"` fallback put every unauthenticated caller in one partition, so one of them could exhaust the budget for all the others.
+
+`assets` is separate from `read` purely because of volume: those routes serve one request per `<img>`, and a single collection-log or search view paints hundreds, so a shared budget would be exhausted by one page. `upstream` is the opposite case — trivial work, but each request makes us call someone else's server, and being blocked there breaks item images site-wide, so it is far tighter than the cost suggests.
+
+**Every mapped route carries a policy.** The sole exception is `HealthCheck`, deliberately and with the reason recorded on the endpoint: Swarm's probe polls it from one address, and a 429 would mark the container unhealthy and restart it — the limiter would manufacture the outage it exists to detect.
 
 All policies live in `ConfigureRateLimiting.cs`, not Program.cs.
 

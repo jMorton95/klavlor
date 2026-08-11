@@ -11,18 +11,22 @@ public sealed class LootLogEndpoint : IEndpoint
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
         app.MapGet(AppRoutes.LootLog.FromApi(), GetCharacters)
-            .AllowAnonymous();
+            .AllowAnonymous()
+            .RequireRateLimiting("read");
 
         app.MapGet(AppRoutes.LootLogCharacter.FromApi(), GetCharacterLog)
             .AllowAnonymous()
-            .AddEndpointFilter<HtmxNavigationFilter>();
+            .AddEndpointFilter<HtmxNavigationFilter>()
+            .RequireRateLimiting("read");
 
         app.MapGet(AppRoutes.LootLogSource.FromApi(), GetSourceDetail)
             .AllowAnonymous()
-            .AddEndpointFilter<HtmxNavigationFilter>();
+            .AddEndpointFilter<HtmxNavigationFilter>()
+            .RequireRateLimiting("read");
 
         return app.MapGet(AppRoutes.LootLogSourceSession.FromApi(), GetSessionKills)
-            .AllowAnonymous();
+            .AllowAnonymous()
+            .RequireRateLimiting("read");
     }
 
     private static async Task<RazorComponentResult> GetCharacters(LootLogHandler handler)
