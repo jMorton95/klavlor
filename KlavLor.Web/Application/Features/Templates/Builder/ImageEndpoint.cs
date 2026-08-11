@@ -6,7 +6,7 @@ public sealed class ImageEndpoint : IEndpoint
 {
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
-        return app.MapGet(AppRoutes.CachedImage.FromApi(), GetImage).AllowAnonymous();
+        return app.MapGet(AppRoutes.CachedImage.FromApi(), GetImage).AllowAnonymous().RequireRateLimiting("assets");
     }
 
     private static async Task<IResult> GetImage(int imageId, ICachedImageRepository cachedImageRepository, HttpContext httpContext)

@@ -12,7 +12,8 @@ public sealed class SourceIconEndpoint : IEndpoint
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
         return app.MapGet(AppRoutes.SourceIcon.FromApi(), GetSourceIcon)
-            .AllowAnonymous();
+            .AllowAnonymous()
+            .RequireRateLimiting("assets");
     }
 
     private static async Task<IResult> GetSourceIcon(

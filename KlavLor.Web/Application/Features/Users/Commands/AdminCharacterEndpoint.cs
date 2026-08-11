@@ -13,31 +13,40 @@ public sealed class AdminCharacterEndpoint : IEndpoint
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
         app.MapGet(AppRoutes.AdminCharacterSection.FromApi(), GetCharacterSection)
-            .RequireAuthorization(nameof(RoleName.Admin));
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("read");
 
         app.MapGet(AppRoutes.AdminUserDeleteLoot.FromApi(), GetDeleteLootConfirmation)
-            .RequireAuthorization(nameof(RoleName.Admin));
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("read");
 
         app.MapDelete(AppRoutes.AdminUserDeleteLoot.FromApi(), DeleteAllUserLoot)
-            .RequireAuthorization(nameof(RoleName.Admin));
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("mutation");
 
         app.MapPost(AppRoutes.AdminCharacterToggleHidden.FromApi(), ToggleAdminHidden)
-            .RequireAuthorization(nameof(RoleName.Admin));
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("mutation");
 
         app.MapPost(AppRoutes.AdminCharacterToggleLeagues.FromApi(), ToggleAdminLeagues)
-            .RequireAuthorization(nameof(RoleName.Admin));
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("mutation");
 
         app.MapPost(AppRoutes.AdminCharacterToggleVisibility.FromApi(), ToggleAdminVisibility)
-            .RequireAuthorization(nameof(RoleName.Admin));
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("mutation");
 
         app.MapPost(AppRoutes.AdminCharacterUpdateName.FromApi(), UpdateAdminCharacterName)
-            .RequireAuthorization(nameof(RoleName.Admin));
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("mutation");
 
         app.MapGet(AppRoutes.AdminCharacterDelete.FromApi(), GetDeleteCharacterConfirmation)
-            .RequireAuthorization(nameof(RoleName.Admin));
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("read");
 
         return app.MapDelete(AppRoutes.AdminCharacterDelete.FromApi(), DeleteCharacterData)
-            .RequireAuthorization(nameof(RoleName.Admin));
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("mutation");
     }
 
     private static async Task<RazorComponentResult> GetCharacterSection(int id, CharacterHandler handler)

@@ -14,9 +14,9 @@ public sealed class AnnotationEndpoints : IEndpoint
 {
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
-        app.MapGet(AppRoutes.BuilderAnnotationCreate.FromApi(), GetCreateModal).RequireAuthorization(nameof(RoleName.User));
+        app.MapGet(AppRoutes.BuilderAnnotationCreate.FromApi(), GetCreateModal).RequireAuthorization(nameof(RoleName.User)).RequireRateLimiting("read");
         app.MapPost(AppRoutes.BuilderAnnotations.FromApi(), AddAnnotation).RequireAuthorization(nameof(RoleName.User)).RequireRateLimiting("mutation");
-        app.MapGet(AppRoutes.BuilderAnnotationEdit.FromApi(), GetEditModal).RequireAuthorization(nameof(RoleName.User));
+        app.MapGet(AppRoutes.BuilderAnnotationEdit.FromApi(), GetEditModal).RequireAuthorization(nameof(RoleName.User)).RequireRateLimiting("read");
         app.MapPut(AppRoutes.BuilderAnnotation.FromApi(), UpdateAnnotation).RequireAuthorization(nameof(RoleName.User)).RequireRateLimiting("mutation");
         app.MapPut(AppRoutes.BuilderAnnotationPosition.FromApi(), UpdateAnnotationPosition).RequireAuthorization(nameof(RoleName.User)).RequireRateLimiting("position");
         return app.MapDelete(AppRoutes.BuilderAnnotation.FromApi(), DeleteAnnotation).RequireAuthorization(nameof(RoleName.User)).RequireRateLimiting("mutation");

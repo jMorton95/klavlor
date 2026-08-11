@@ -24,20 +24,23 @@ public sealed class AdminSettingsEndpoint : IEndpoint
     {
         app.MapGet(AppRoutes.AdminSettings.FromApi(), GetHub)
             .RequireAuthorization(nameof(RoleName.Admin))
-            .AddEndpointFilter<HtmxNavigationFilter>();
+            .AddEndpointFilter<HtmxNavigationFilter>()
+            .RequireRateLimiting("read");
 
         // One section per URL. No HtmxNavigationFilter: it derives the push URL by stripping "/api"
         // from the request path, which is exactly right here, but the nav links already set
         // hx-push-url explicitly and a second HX-Push-Url header would just duplicate the work.
         app.MapGet(AppRoutes.AdminSettingsSection.FromApi(), GetHubSection)
-            .RequireAuthorization(nameof(RoleName.Admin));
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("read");
 
         app.MapPost(AppRoutes.AdminSettingsLeaguesToggle.FromApi(), ToggleLeagues)
             .RequireAuthorization(nameof(RoleName.Admin))
             .RequireRateLimiting("mutation");
 
         app.MapGet(AppRoutes.AdminClogSearch.FromApi(), SearchClog)
-            .RequireAuthorization(nameof(RoleName.Admin));
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("read");
 
         app.MapPost(AppRoutes.AdminClogExclude.FromApi(), ExcludeClog)
             .RequireAuthorization(nameof(RoleName.Admin))
@@ -48,7 +51,8 @@ public sealed class AdminSettingsEndpoint : IEndpoint
             .RequireRateLimiting("mutation");
 
         app.MapGet(AppRoutes.AdminDropRatesSearch.FromApi(), SearchDropRates)
-            .RequireAuthorization(nameof(RoleName.Admin));
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("read");
 
         app.MapPost(AppRoutes.AdminDropRatesSync.FromApi(), SyncDropRates)
             .RequireAuthorization(nameof(RoleName.Admin))
@@ -70,10 +74,12 @@ public sealed class AdminSettingsEndpoint : IEndpoint
             .DisableAntiforgery();
 
         app.MapGet(AppRoutes.AdminDropRatesMismatches.FromApi(), GetDropRateMismatches)
-            .RequireAuthorization(nameof(RoleName.Admin));
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("read");
 
         app.MapGet(AppRoutes.AdminLeaderboardExclusionSearch.FromApi(), SearchLeaderboardExclusions)
-            .RequireAuthorization(nameof(RoleName.Admin));
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("read");
 
         app.MapPost(AppRoutes.AdminLeaderboardExclusionExclude.FromApi(), ExcludeLeaderboardSource)
             .RequireAuthorization(nameof(RoleName.Admin))
@@ -84,7 +90,8 @@ public sealed class AdminSettingsEndpoint : IEndpoint
             .RequireRateLimiting("mutation");
 
         app.MapGet(AppRoutes.AdminLeaderboardItemExclusionSearch.FromApi(), SearchLeaderboardItemExclusions)
-            .RequireAuthorization(nameof(RoleName.Admin));
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("read");
 
         app.MapPost(AppRoutes.AdminLeaderboardItemExclusionExclude.FromApi(), ExcludeLeaderboardItem)
             .RequireAuthorization(nameof(RoleName.Admin))
@@ -95,7 +102,8 @@ public sealed class AdminSettingsEndpoint : IEndpoint
             .RequireRateLimiting("mutation");
 
         app.MapGet(AppRoutes.AdminSourceModifierSearch.FromApi(), SearchSourceModifiers)
-            .RequireAuthorization(nameof(RoleName.Admin));
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("read");
 
         // Apply reads source/item/multiplier from form fields (dynamic), so antiforgery is
         // disabled — admin-gated, rate-limited, SameSite=Strict cookie (same as the rename path).
@@ -109,7 +117,8 @@ public sealed class AdminSettingsEndpoint : IEndpoint
             .RequireRateLimiting("mutation");
 
         app.MapGet(AppRoutes.AdminBaseline.FromApi(), GetBaselines)
-            .RequireAuthorization(nameof(RoleName.Admin));
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("read");
 
         app.MapPost(AppRoutes.AdminBaselineSet.FromApi(), SetBaseline)
             .RequireAuthorization(nameof(RoleName.Admin))
@@ -117,7 +126,8 @@ public sealed class AdminSettingsEndpoint : IEndpoint
             .DisableAntiforgery();
 
         app.MapGet(AppRoutes.AdminDelveDepth.FromApi(), GetDelveDepths)
-            .RequireAuthorization(nameof(RoleName.Admin));
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("read");
 
         app.MapPost(AppRoutes.AdminDelveDepthSet.FromApi(), SetDelveDepth)
             .RequireAuthorization(nameof(RoleName.Admin))
@@ -130,14 +140,17 @@ public sealed class AdminSettingsEndpoint : IEndpoint
             .DisableAntiforgery();
 
         app.MapGet(AppRoutes.AdminItemValues.FromApi(), GetItemValues)
-            .RequireAuthorization(nameof(RoleName.Admin));
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("read");
 
         app.MapGet(AppRoutes.AdminItemValueSearch.FromApi(), SearchItemValues)
-            .RequireAuthorization(nameof(RoleName.Admin));
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("read");
 
         // Full scan of the drop table — only ever hit when an admin presses the button.
         app.MapGet(AppRoutes.AdminItemValueZeroReport.FromApi(), GetZeroValueItems)
-            .RequireAuthorization(nameof(RoleName.Admin));
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("read");
 
         // Reads item id / name / value from form fields (dynamic), so antiforgery is disabled —
         // admin-gated, rate-limited, SameSite=Strict cookie (same as the other form-field posts).
@@ -151,10 +164,12 @@ public sealed class AdminSettingsEndpoint : IEndpoint
             .RequireRateLimiting("mutation");
 
         app.MapGet(AppRoutes.AdminSpecialLoot.FromApi(), GetSpecialLoot)
-            .RequireAuthorization(nameof(RoleName.Admin));
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("read");
 
         app.MapGet(AppRoutes.AdminSpecialLootItemSearch.FromApi(), SearchSpecialLootItems)
-            .RequireAuthorization(nameof(RoleName.Admin));
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("read");
 
         // Inject reads all fields from the form (dynamic), so antiforgery is disabled — admin-gated,
         // rate-limited, SameSite=Strict cookie (same as the other form-field admin posts).
@@ -164,17 +179,20 @@ public sealed class AdminSettingsEndpoint : IEndpoint
             .DisableAntiforgery();
 
         app.MapGet(AppRoutes.AdminIcons.FromApi(), GetIcons)
-            .RequireAuthorization(nameof(RoleName.Admin));
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("read");
 
         app.MapPost(AppRoutes.AdminIconsRetry.FromApi(), RetryIcon)
             .RequireAuthorization(nameof(RoleName.Admin))
             .RequireRateLimiting("mutation");
 
         app.MapGet(AppRoutes.AdminSyncStatus.FromApi(), GetSyncStatus)
-            .RequireAuthorization(nameof(RoleName.Admin));
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("read");
 
         app.MapGet(AppRoutes.AdminJobHealth.FromApi(), GetJobHealth)
-            .RequireAuthorization(nameof(RoleName.Admin));
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("read");
 
         app.MapPost(AppRoutes.AdminJobRunNow.FromApi(), RunJobNow)
             .RequireAuthorization(nameof(RoleName.Admin))
@@ -185,15 +203,18 @@ public sealed class AdminSettingsEndpoint : IEndpoint
             .RequireRateLimiting("mutation");
 
         app.MapGet(AppRoutes.AdminSourceSearch.FromApi(), SearchSources)
-            .RequireAuthorization(nameof(RoleName.Admin));
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("read");
 
         // Read-only impact preview shown before a rename/merge is committed.
         app.MapGet(AppRoutes.AdminSourceRenamePreview.FromApi(), PreviewRename)
-            .RequireAuthorization(nameof(RoleName.Admin));
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("read");
 
         // Re-renders a single source row (used to cancel out of the preview).
         app.MapGet(AppRoutes.AdminSourceRow.FromApi(), GetSourceRow)
-            .RequireAuthorization(nameof(RoleName.Admin));
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("read");
 
         // Rename takes the new name from a form field (dynamic), so antiforgery is disabled;
         // it's admin-gated, rate-limited, and the auth cookie is SameSite=Strict.

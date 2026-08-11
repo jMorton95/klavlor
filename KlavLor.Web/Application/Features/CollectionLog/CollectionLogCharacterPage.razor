@@ -1,0 +1,19 @@
+﻿@page "/collection-log/character/{Id:int}"
+@using KlavLor.Application.Features.CollectionLog
+@using KlavLor.Web.Components.Layout
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+
+@inject CollectionLogHandler Handler
+
+<PageLayout PageTitle="@($"KlavLor - {_log?.CharacterName ?? "Collection Log"}")"
+            Title="@(_log?.CharacterName ?? "Collection Log")" Description="Collection log">
+    <CollectionLogCharacterDetail Log="_log" UpdateHeader="false" />
+</PageLayout>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private CharacterCollectionLog? _log;
+
+    protected override async Task OnInitializedAsync() => _log = await Handler.GetCharacterLog(Id);
+}

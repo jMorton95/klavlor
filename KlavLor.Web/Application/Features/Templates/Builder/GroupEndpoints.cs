@@ -14,7 +14,7 @@ public sealed class GroupEndpoints : IEndpoint
 {
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
-        app.MapGet(AppRoutes.BuilderGroup.FromApi(), GetGroup).RequireAuthorization(nameof(RoleName.User));
+        app.MapGet(AppRoutes.BuilderGroup.FromApi(), GetGroup).RequireAuthorization(nameof(RoleName.User)).RequireRateLimiting("read");
         app.MapPost(AppRoutes.BuilderGroups.FromApi(), AddGroup).RequireAuthorization(nameof(RoleName.User)).RequireRateLimiting("mutation");
         app.MapDelete(AppRoutes.BuilderGroup.FromApi(), DeleteGroup).RequireAuthorization(nameof(RoleName.User)).RequireRateLimiting("mutation");
         app.MapPut(AppRoutes.BuilderGroupPosition.FromApi(), UpdateGroupPosition).RequireAuthorization(nameof(RoleName.User)).RequireRateLimiting("position");

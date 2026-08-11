@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using KlavLor.Application.Features.Loot.Log;
 using KlavLor.Web.Application.Features.Loot.Log.Profile;
 using KlavLor.Web.Application.Filters;
@@ -11,44 +11,55 @@ public sealed class LootCharacterProfileEndpoint : IEndpoint
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
         app.MapGet(AppRoutes.LootLogCharacterHeatmap.FromApi(), GetHeatmap)
-            .AllowAnonymous();
+            .AllowAnonymous()
+            .RequireRateLimiting("read");
 
         app.MapGet(AppRoutes.LootLogCharacterMonthly.FromApi(), GetMonthly)
-            .AllowAnonymous();
+            .AllowAnonymous()
+            .RequireRateLimiting("read");
 
         app.MapGet(AppRoutes.LootLogCharacterRolls.FromApi(), GetMonthlyRolls)
-            .AllowAnonymous();
+            .AllowAnonymous()
+            .RequireRateLimiting("read");
 
         app.MapGet(AppRoutes.LootLogCharacterRecords.FromApi(), GetRecords)
-            .AllowAnonymous();
+            .AllowAnonymous()
+            .RequireRateLimiting("read");
 
         app.MapGet(AppRoutes.LootLogCharacterTopItems.FromApi(), GetTopItems)
-            .AllowAnonymous();
+            .AllowAnonymous()
+            .RequireRateLimiting("read");
 
         app.MapGet(AppRoutes.LootLogCharacterRecentFirsts.FromApi(), GetRecentFirsts)
-            .AllowAnonymous();
+            .AllowAnonymous()
+            .RequireRateLimiting("read");
 
         app.MapGet(AppRoutes.LootLogCharacterSessions.FromApi(), GetSessions)
-            .AllowAnonymous();
+            .AllowAnonymous()
+            .RequireRateLimiting("read");
 
         app.MapGet(AppRoutes.LootLogCharacterSources.FromApi(), GetCharacterSources)
             .AllowAnonymous()
-            .AddEndpointFilter<HtmxNavigationFilter>();
+            .AddEndpointFilter<HtmxNavigationFilter>()
+            .RequireRateLimiting("read");
 
         app.MapGet(AppRoutes.LootLogSourceCollection.FromApi(), GetSourceCollection)
-            .AllowAnonymous();
+            .AllowAnonymous()
+            .RequireRateLimiting("read");
 
         app.MapGet(AppRoutes.LootLogSourceKillTrend.FromApi(), GetSourceKillTrend)
             .AllowAnonymous()
-            .RequireRateLimiting("anonymous");
+            .RequireRateLimiting("read");
 
         app.MapGet(AppRoutes.LootLogCharacterFirsts.FromApi(), GetFirstTimeFeed)
             .AllowAnonymous()
-            .AddEndpointFilter<HtmxNavigationFilter>();
+            .AddEndpointFilter<HtmxNavigationFilter>()
+            .RequireRateLimiting("read");
 
         return app.MapGet(AppRoutes.LootLogCharacterDay.FromApi(), GetDayFeed)
             .AllowAnonymous()
-            .AddEndpointFilter<HtmxNavigationFilter>();
+            .AddEndpointFilter<HtmxNavigationFilter>()
+            .RequireRateLimiting("read");
     }
 
     private static async Task<IResult> GetSessions(

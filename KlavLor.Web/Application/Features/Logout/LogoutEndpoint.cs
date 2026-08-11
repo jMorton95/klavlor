@@ -8,7 +8,7 @@ public sealed class LogoutEndpoint : IEndpoint
 {
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
-        return app.MapPost(AppRoutes.Logout.FromApi(), Endpoint).RequireAuthorization();
+        return app.MapPost(AppRoutes.Logout.FromApi(), Endpoint).RequireAuthorization().RequireRateLimiting("mutation");
     }
 
     public static async Task<HtmxRedirectResult> Endpoint([FromServices] ISessionStateManager sessionManager)

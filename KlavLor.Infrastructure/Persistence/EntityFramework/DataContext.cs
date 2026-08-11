@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using KlavLor.Domain.Entities;
 using KlavLor.Domain.Shared;
@@ -37,6 +37,10 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
     public virtual DbSet<LeaderboardItemExclusion> LeaderboardItemExclusions => Set<LeaderboardItemExclusion>();
     public virtual DbSet<SourceRateModifier> SourceRateModifiers => Set<SourceRateModifier>();
     public virtual DbSet<ItemValueOverride> ItemValueOverrides => Set<ItemValueOverride>();
+    public virtual DbSet<CollectionLogCategory> CollectionLogCategories => Set<CollectionLogCategory>();
+    public virtual DbSet<CollectionLogCategoryItem> CollectionLogCategoryItems => Set<CollectionLogCategoryItem>();
+    public virtual DbSet<CharacterCollectionLogEntry> CharacterCollectionLogEntries => Set<CharacterCollectionLogEntry>();
+    public virtual DbSet<CharacterCollectionLogState> CharacterCollectionLogStates => Set<CharacterCollectionLogState>();
     public virtual DbSet<JobRun> JobRuns => Set<JobRun>();
     public virtual DbSet<JobSchedule> JobSchedules => Set<JobSchedule>();
     public virtual DbSet<CharacterSourceBaseline> CharacterSourceBaselines => Set<CharacterSourceBaseline>();
@@ -447,6 +451,55 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
         modelBuilder.Entity<SourceRateModifier>()
             .HasIndex(e => new { e.SourceName, e.ItemName })
             .IsUnique();
+
+        // ---------------------------------------------------------------- Collection log (Temple)
+
+        // Category membership is many-to-many: an item can sit under several categories, so the
+        // pair is the natural key and the surrogate Id exists only to keep EF happy.
+        modelBuilder.Entity<CollectionLogCategoryItem>()
+            .HasIndex(e => new { e.CategorySlug, e.ItemId })
+            .IsUnique();
+
+        // The reverse lookup — "which categories is this item in" — backs the per-item comparison page.
+        modelBuilder.Entity<CollectionLogCategoryItem>()
+            .HasIndex(e => e.ItemId);
+
+        modelBuilder.Entity<CollectionLogCategory>()
+            .HasIndex(e => new { e.GroupName, e.SortOrder });
+
+        // Composite key, character first: every read is "this character's log", so the leading
+        // column matches the access pattern and the PK index serves it without a second index.
+        modelBuilder.Entity<CharacterCollectionLogEntry>()
+            .HasKey(e => new { e.GameCharacterId, e.ItemId });
+
+        // The cross-character direction — "who owns this item" — for the per-item comparison.
+        modelBuilder.Entity<CharacterCollectionLogEntry>()
+            .HasIndex(e => e.ItemId);
+
+        // Losing the character loses its log; there is nothing to keep.
+        modelBuilder.Entity<CharacterCollectionLogEntry>()
+            .HasOne<GameCharacter>()
+            .WithMany()
+            .HasForeignKey(e => e.GameCharacterId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<CharacterCollectionLogState>()
+            .HasOne(e => e.GameCharacter)
+            .WithMany()
+            .HasForeignKey(e => e.GameCharacterId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<CharacterCollectionLogState>()
+            .Property(e => e.LastOutcome)
+            .HasConversion<string>();
+
+        // HasData is a computed property, not a column.
+        modelBuilder.Entity<CharacterCollectionLogState>()
+            .Ignore(e => e.HasData);
+
+        // Ranking the clan board is an ordered scan of this one column.
+        modelBuilder.Entity<CharacterCollectionLogState>()
+            .HasIndex(e => e.TotalObtained);
 
         // Admin intrinsic item values, one row per item (see ItemValueOverride).
         modelBuilder.Entity<ItemValueOverride>()

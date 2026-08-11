@@ -1,0 +1,19 @@
+﻿@page "/collection-log/item/{ItemId:int}"
+@using KlavLor.Application.Features.CollectionLog
+@using KlavLor.Web.Components.Layout
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+
+@inject CollectionLogHandler Handler
+
+<PageLayout PageTitle="@($"KlavLor - {_comparison?.Name ?? "Collection Log"}")"
+            Title="@(_comparison?.Name ?? "Collection Log")" Description="Who has this item">
+    <CollectionLogItemDetail Comparison="_comparison" UpdateHeader="false" />
+</PageLayout>
+
+@code {
+    [Parameter] public int ItemId { get; set; }
+
+    private CollectionLogItemComparison? _comparison;
+
+    protected override async Task OnInitializedAsync() => _comparison = await Handler.GetItemComparison(ItemId);
+}

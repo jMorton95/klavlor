@@ -11,8 +11,8 @@ public sealed class UserDeleteEndpoint : IEndpoint
 {
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
-        app.MapGet(AppRoutes.UsersDelete.FromApi(), GetConfirmation).RequireAuthorization(nameof(RoleName.Admin));
-        return app.MapDelete(AppRoutes.UsersDelete.FromApi(), DeleteEndpoint).RequireAuthorization(nameof(RoleName.Admin));
+        app.MapGet(AppRoutes.UsersDelete.FromApi(), GetConfirmation).RequireAuthorization(nameof(RoleName.Admin)).RequireRateLimiting("read");
+        return app.MapDelete(AppRoutes.UsersDelete.FromApi(), DeleteEndpoint).RequireAuthorization(nameof(RoleName.Admin)).RequireRateLimiting("mutation");
     }
 
     private static HtmxRetargetResult GetConfirmation(int id)

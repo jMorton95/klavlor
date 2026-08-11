@@ -11,15 +11,18 @@ public sealed class ApiKeyManageEndpoint : IEndpoint
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
         app.MapGet(AppRoutes.UserApiKeySection.FromApi(), GetSection)
-            .RequireAuthorization(nameof(RoleName.Admin));
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("read");
 
         app.MapPost(AppRoutes.UserApiKeyGenerate.FromApi(), Generate)
             .RequireAuthorization(nameof(RoleName.Admin))
-            .DisableAntiforgery();
+            .DisableAntiforgery()
+            .RequireRateLimiting("mutation");
 
         return app.MapPost(AppRoutes.UserApiKeyRevoke.FromApi(), Revoke)
             .RequireAuthorization(nameof(RoleName.Admin))
-            .DisableAntiforgery();
+            .DisableAntiforgery()
+            .RequireRateLimiting("mutation");
     }
 
     private static async Task<RazorComponentResult> GetSection(

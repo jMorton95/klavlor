@@ -1,0 +1,289 @@
+﻿@using KlavLor.Application.Features.CollectionLog
+@using KlavLor.Web.Components.Layout
+
+@* One character's log.
+
+   Two columns: the focused panel on the LEFT, the category list on the right. Left because the
+   panel is the thing being read — putting it after 124 cards in source order left it below the fold
+   entirely, and putting it on the right made the eye jump the full width of an ultrawide.
+
+   A true marquee/wrap layout, with cards flowing around a central panel, was considered and
+   rejected: CSS shape-outside only wraps inline content, so a grid of interactive cards can't flow
+   round it without absolute positioning that breaks at every breakpoint.
+
+   The category grid is auto-fill with a minimum card width, so it grows from one column on a phone
+   to as many as fit on an ultrawide instead of stopping at three. *@
+
+@if (UpdateHeader)
+{
+    <TopBarMetaData PageTitle="@($"KlavLor - {Log?.CharacterName ?? "Collection Log"}")"
+                    Title="@(Log?.CharacterName ?? "Collection Log")" Description="Collection log" />
+}
+
+<div class="space-y-5 pb-32">
+    <a onclick="history.back()"
+       class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-amber-600 dark:text-white dark:hover:text-amber-400 cursor-pointer transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+        Back
+    </a>
+
+    @if (Log is null)
+    {
+        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-12 text-center">
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">Character not found</h3>
+            <p class="text-sm text-slate-500 dark:text-white">No visible character with that id.</p>
+        </div>
+    }
+    else
+    {
+        @* Header: identity, ring, headline numbers — and the recent unlocks folded in, so the top of
+           the page is one block rather than two stacked bars saying related things. *@
+        <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 overflow-hidden">
+            <div class="flex items-center gap-4 flex-wrap px-4 py-3">
+                <div class="relative w-16 h-16 shrink-0">
+                    <svg class="w-16 h-16 -rotate-90" viewBox="0 0 36 36" aria-hidden="true">
+                        <circle cx="18" cy="18" r="15.5" fill="none" stroke="currentColor" stroke-width="3" class="text-slate-200 dark:text-slate-800" />
+                        <circle cx="18" cy="18" r="15.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"
+                                class="text-amber-500" stroke-dasharray="@Dash(Percent)" />
+                    </svg>
+                    <span class="absolute inset-0 flex items-center justify-center text-xs font-bold tabular-nums text-slate-800 dark:text-slate-100">@Percent.ToString("0")%</span>
+                </div>
+
+                <div class="min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap mb-0.5">
+                        @* Through to the character's own profile — the loot side of the same account. *@
+                        <a hx-get="@ProfileUrl.FromApi()" hx-target="#hx-page-container" hx-push-url="@ProfileUrl" hx-swap="innerHTML transition:true"
+                           class="text-lg font-bold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer truncate"
+                           title="@($"{Log.CharacterName}'s profile")">@Log.CharacterName</a>
+                        <CollectionLogFreshnessBadge Freshness="Log.Freshness" />
+                    </div>
+                    <div class="flex items-center gap-x-4 gap-y-1 flex-wrap text-sm">
+                        <span class="inline-flex items-baseline gap-1 whitespace-nowrap">
+                            <span class="font-semibold tabular-nums text-slate-900 dark:text-slate-100">@Log.Obtained.ToString("N0")/@Log.Available.ToString("N0")</span>
+                            <span class="text-[11px] text-slate-500 dark:text-white">items</span>
+                        </span>
+                        <span class="inline-flex items-baseline gap-1 whitespace-nowrap">
+                            <span class="font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">@Log.Categories.Count(c => c.IsComplete)</span>
+                            <span class="text-[11px] text-slate-500 dark:text-white">tabs complete</span>
+                        </span>
+                        @if (Log.HiscoresRank is { } rank)
+                        {
+                            <span class="inline-flex items-baseline gap-1 whitespace-nowrap">
+                                <span class="font-semibold tabular-nums text-slate-900 dark:text-slate-100">#@rank.ToString("N0")</span>
+                                <span class="text-[11px] text-slate-500 dark:text-white">hiscores rank</span>
+                            </span>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            @if (Log.RecentUnlocks.Count > 0)
+            {
+                <div class="border-t border-slate-200 dark:border-slate-700 bg-linear-to-r from-amber-50/70 to-transparent dark:from-amber-900/15 dark:to-transparent px-4 py-2.5">
+                    <h2 class="text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300 mb-1.5">Recent unlocks</h2>
+                    @* themed-scrollbar keeps the horizontal strip in the house style; the browser
+                       default reads as a foreign element on narrow screens where it actually shows. *@
+                    <div class="flex gap-2 overflow-x-auto pb-1.5 themed-scrollbar">
+                        @foreach (var unlock in Log.RecentUnlocks)
+                        {
+                            <a hx-get="@ItemUrl(unlock.ItemId).FromApi()" hx-target="#hx-page-container"
+                               hx-push-url="@ItemUrl(unlock.ItemId)" hx-swap="innerHTML transition:true"
+                               title="@UnlockTooltip(unlock)"
+                               class="group shrink-0 w-[5rem] flex flex-col items-center gap-0.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/70 px-1.5 py-1.5 cursor-pointer hover:border-amber-400 dark:hover:border-amber-500 transition-colors">
+                                <img src="/api/images/item-icon?name=@Uri.EscapeDataString(unlock.Name)" alt=""
+                                     class="w-7 h-7 object-contain" loading="lazy" onerror="this.style.display='none'" />
+                                <span class="text-[9px] leading-tight text-center text-slate-700 dark:text-slate-200 line-clamp-2">@unlock.Name</span>
+                                @* The roll it landed on, when our own loot records can attribute it;
+                                   the date otherwise, so the tile always says something. *@
+                                @if (unlock.FirstReceipt is { KillCount: > 0 } receipt)
+                                {
+                                    <span class="text-[9px] font-semibold text-amber-600 dark:text-amber-400 tabular-nums">#@receipt.KillCount!.Value.ToString("N0")</span>
+                                }
+                                else
+                                {
+                                    <span class="text-[9px] text-slate-400 dark:text-slate-400 tabular-nums">@unlock.ObtainedAt.ToString("d MMM")</span>
+                                }
+                            </a>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+
+        @if (Log.Freshness.Blocker is { } blocker)
+        {
+            <div class="rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+                @blocker
+            </div>
+        }
+
+        @if (Log.Obtained > 0 || Log.Freshness.HasData)
+        {
+            @* THE BOSS GRID.
+
+               One uniform grid with the focused panel placed inside it as a real cell, not a
+               sidebar beside it. Grid auto-placement then fills every cell the panel does not
+               occupy, so categories flow to its left, to its right, AND underneath it once its rows
+               run out — which is the true wrap-around a float could never give, because
+               shape-outside only affects inline content.
+
+               Column counts and the panel's position/span are driven by breakpoints in app.css
+               (see .clog-grid). They have to be explicit: with auto-fill the column count is
+               whatever the container allows, so "the middle column" would be unknowable. The panel
+               widens with the grid at every step and matches a flank's width once both are two
+               columns wide. *@
+            <div>
+                <div class="flex items-baseline gap-2 mb-2 pb-1 border-b border-slate-200 dark:border-slate-700">
+                    <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">@FlankGroupName</h2>
+                    <span class="text-[10px] tabular-nums text-slate-400 dark:text-white">
+                        @FlankCategories.Count(c => c.IsComplete)/@FlankCategories.Count complete
+                    </span>
+                </div>
+
+                <div class="clog-grid">
+                    @* Placed first in source order so it lands on row 1 and reads first on a phone,
+                       where it spans the full width above everything. *@
+                    <div id="clog-focus" class="clog-focus">
+                        <div class="clog-focus-panel rounded-xl h-full flex flex-col items-center justify-center px-4 py-8 text-center">
+                            <svg class="w-8 h-8 mb-2 text-amber-500/70" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                            </svg>
+                            <p class="text-sm font-medium text-amber-800 dark:text-amber-200">Pick a source</p>
+                            <p class="text-xs text-slate-500 dark:text-white mt-0.5">Its collection log items appear here.</p>
+                        </div>
+                    </div>
+
+                    @foreach (var category in FlankCategories)
+                    {
+                        @CategoryCard(category)
+                    }
+                </div>
+            </div>
+
+            @foreach (var group in BelowGroups)
+            {
+                <div>
+                    <div class="flex items-baseline gap-2 mb-2 pb-1 border-b border-slate-200 dark:border-slate-700">
+                        <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">@group.Key</h2>
+                        <span class="text-[10px] tabular-nums text-slate-400 dark:text-white">
+                            @group.Count(c => c.IsComplete)/@group.Count() complete
+                        </span>
+                    </div>
+                    <div class="grid gap-1.5" style="grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));">
+                        @foreach (var category in group)
+                        {
+                            @CategoryCard(category)
+                        }
+                    </div>
+                </div>
+            }
+        }
+    }
+</div>
+
+@* One category card. A fragment because it is rendered from three places now — both flanks and
+   every group below — and three copies would drift. *@
+@* The card swaps the panel's whole grid cell (outerHTML), not just its contents, because how many
+   columns the panel spans depends on how many items the category holds — so the response has to be
+   able to bring a different span with it. *@
+@{
+    RenderFragment CategoryCard(CollectionLogCategoryProgress category) =>
+        @<button type="button"
+                 hx-get="@CategoryUrl(category.Slug)"
+                 hx-target="#clog-focus"
+                 hx-swap="outerHTML"
+                 class="clog-card group flex items-center gap-2 text-left rounded-lg border px-2.5 py-2 cursor-pointer transition-colors @CategoryClasses(category)">
+            @if (category.IconName is { Length: > 0 } icon)
+            {
+                <img src="@IconUrl(category.IconKind, icon)" alt=""
+                     class="w-6 h-6 shrink-0 object-contain @(category.IsStarted ? "" : "opacity-80")"
+                     loading="lazy" onerror="this.style.visibility='hidden'" />
+            }
+            <span class="min-w-0 flex-1">
+                <span class="flex items-baseline justify-between gap-2">
+                    <span class="text-xs font-medium truncate @(category.IsStarted ? "text-slate-800 dark:text-slate-100" : "text-slate-600 dark:text-slate-300")">@category.DisplayName</span>
+                    <span class="text-[10px] tabular-nums whitespace-nowrap @CountClasses(category)">@category.Obtained/@category.Total</span>
+                </span>
+                <span class="mt-1 block h-1 w-full rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                    <span class="block h-full rounded-full @BarClasses(category)"
+                          style="width:@category.Percent.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)%"></span>
+                </span>
+            </span>
+        </button>;
+}
+
+@code {
+    [Parameter] public CharacterCollectionLog? Log { get; set; }
+
+    /// True when served as an HTMX fragment (emits the OOB header); false inside PageLayout on a
+    /// full page load, which renders the header itself. Same convention as the other routed pages.
+    [Parameter] public bool UpdateHeader { get; set; } = true;
+
+    private double Percent => Log is { Available: > 0 } ? Log.Obtained * 100.0 / Log.Available : 0;
+
+    // The panel is embedded in the first group's grid — bosses, much the largest, and so the only
+    // one with enough cards to surround it. Every other group flows below at full width. No manual
+    // left/right split any more: the grid places the panel and auto-placement does the rest.
+    private List<IGrouping<string, CollectionLogCategoryProgress>> Groups =>
+        Log?.Categories.GroupBy(c => c.GroupName).ToList() ?? [];
+
+    private string? FlankGroupName => Groups.FirstOrDefault()?.Key;
+
+    private List<CollectionLogCategoryProgress> FlankCategories =>
+        Groups.FirstOrDefault()?.ToList() ?? [];
+
+    private List<IGrouping<string, CollectionLogCategoryProgress>> BelowGroups => Groups.Skip(1).ToList();
+
+    private string ProfileUrl => AppRoutes.LootLogCharacter.WithId(Log!.GameCharacterId);
+
+    private string CategoryUrl(string slug) =>
+        $"{AppRoutes.CollectionLogCharacterCategory.WithId(Log!.GameCharacterId).FromApi()}?slug={Uri.EscapeDataString(slug)}";
+
+    private static string ItemUrl(int itemId) => AppRoutes.CollectionLogItem.Replace("{itemId:int}", itemId.ToString());
+
+    private static string UnlockTooltip(CollectionLogRecentUnlock unlock)
+    {
+        var parts = new List<string> { unlock.Name };
+        if (!string.IsNullOrEmpty(unlock.CategoryDisplayName)) parts.Add(unlock.CategoryDisplayName!);
+        parts.Add(unlock.ObtainedAt.ToString("d MMM yyyy"));
+        if (unlock.FirstReceipt is { KillCount: > 0 } r)
+            parts.Add($"roll {r.KillCount!.Value:N0} at {r.SourceName}");
+        return string.Join(" — ", parts);
+    }
+
+    /// Source icon where the category names a boss we hold one for, else a representative item.
+    private static string IconUrl(CollectionLogIconKind kind, string name) => kind switch
+    {
+        CollectionLogIconKind.Source => $"/api/images/source-icon?name={Uri.EscapeDataString(name)}",
+        _ => $"/api/images/item-icon?name={Uri.EscapeDataString(name)}"
+    };
+
+    // Three states, three treatments. The untouched case tints its background and leaves the border,
+    // icon and text legible — the previous 60% opacity on the whole card hid all three.
+    private static string CategoryClasses(CollectionLogCategoryProgress c) => c switch
+    {
+        { IsComplete: true } => "border-emerald-300 dark:border-emerald-700 bg-emerald-50/60 dark:bg-emerald-900/15 hover:border-emerald-400",
+        { IsStarted: true } => "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 hover:border-amber-400 dark:hover:border-amber-500",
+        _ => "border-slate-200/80 dark:border-slate-700/80 bg-slate-100/60 dark:bg-slate-950/40 hover:border-amber-400 dark:hover:border-amber-500"
+    };
+
+    private static string CountClasses(CollectionLogCategoryProgress c) => c switch
+    {
+        { IsComplete: true } => "text-emerald-600 dark:text-emerald-400 font-semibold",
+        { IsStarted: true } => "text-slate-500 dark:text-white",
+        _ => "text-slate-500 dark:text-slate-400"
+    };
+
+    private static string BarClasses(CollectionLogCategoryProgress c) =>
+        c.IsComplete ? "bg-emerald-500" : "bg-amber-500";
+
+    /// SVG dash for a percentage on an r=15.5 circle (circumference ≈ 97.4).
+    private static string Dash(double percent)
+    {
+        const double circumference = 97.4;
+        var filled = Math.Clamp(percent, 0, 100) / 100.0 * circumference;
+        return $"{filled.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)} {circumference.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}";
+    }
+}

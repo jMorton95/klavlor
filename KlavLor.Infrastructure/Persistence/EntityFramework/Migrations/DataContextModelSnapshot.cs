@@ -230,6 +230,95 @@ namespace KlavLor.Infrastructure.Persistence.EntityFramework.Migrations
                     b.ToTable("CanvasRegions");
                 });
 
+            modelBuilder.Entity("KlavLor.Domain.Entities.CharacterCollectionLogEntry", b =>
+                {
+                    b.Property<int>("GameCharacterId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Count")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("FirstSeenAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("LastSyncedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("ObtainedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("GameCharacterId", "ItemId");
+
+                    b.HasIndex("ItemId");
+
+                    b.ToTable("CharacterCollectionLogEntries");
+                });
+
+            modelBuilder.Entity("KlavLor.Domain.Entities.CharacterCollectionLogState", b =>
+                {
+                    b.Property<int>("GameCharacterId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CategoriesAvailable")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CategoriesFinished")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ConsecutiveFailures")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("GameMode")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("HiscoresRank")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("LastChangedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("LastOutcome")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("LastSyncedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Rsn")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("TempleDisplayName")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTimeOffset?>("TempleLastChanged")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("TempleLastChecked")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("TotalAvailable")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TotalObtained")
+                        .HasColumnType("integer");
+
+                    b.HasKey("GameCharacterId");
+
+                    b.HasIndex("TotalObtained");
+
+                    b.ToTable("CharacterCollectionLogStates");
+                });
+
             modelBuilder.Entity("KlavLor.Domain.Entities.CharacterDelveDepth", b =>
                 {
                     b.Property<int>("GameCharacterId")
@@ -260,6 +349,67 @@ namespace KlavLor.Infrastructure.Persistence.EntityFramework.Migrations
                     b.HasKey("GameCharacterId", "SourceName");
 
                     b.ToTable("CharacterSourceBaselines");
+                });
+
+            modelBuilder.Entity("KlavLor.Domain.Entities.CollectionLogCategory", b =>
+                {
+                    b.Property<string>("Slug")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("GroupName")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int>("ItemCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("SyncedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Slug");
+
+                    b.HasIndex("GroupName", "SortOrder");
+
+                    b.ToTable("CollectionLogCategories");
+                });
+
+            modelBuilder.Entity("KlavLor.Domain.Entities.CollectionLogCategoryItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CategorySlug")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("CategorySlug", "ItemId")
+                        .IsUnique();
+
+                    b.ToTable("CollectionLogCategoryItems");
                 });
 
             modelBuilder.Entity("KlavLor.Domain.Entities.CollectionLogExclusion", b =>
@@ -1546,6 +1696,26 @@ namespace KlavLor.Infrastructure.Persistence.EntityFramework.Migrations
                     b.Navigation("SavedBy");
 
                     b.Navigation("Template");
+                });
+
+            modelBuilder.Entity("KlavLor.Domain.Entities.CharacterCollectionLogEntry", b =>
+                {
+                    b.HasOne("KlavLor.Domain.Entities.GameCharacter", null)
+                        .WithMany()
+                        .HasForeignKey("GameCharacterId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("KlavLor.Domain.Entities.CharacterCollectionLogState", b =>
+                {
+                    b.HasOne("KlavLor.Domain.Entities.GameCharacter", "GameCharacter")
+                        .WithMany()
+                        .HasForeignKey("GameCharacterId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("GameCharacter");
                 });
 
             modelBuilder.Entity("KlavLor.Domain.Entities.CollectionLogExclusion", b =>

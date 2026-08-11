@@ -1,4 +1,4 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 
 @source "../**/*.razor";
 @source "../**/*.html";
@@ -476,3 +476,128 @@ body:not(.history-panel-open) #completion-history-panel {
 }
 
 
+
+/* ---------------------------------------------------------------------------
+   Collection log: the boss grid with the focused source panel embedded in it.
+
+   The panel is a real grid cell, not a sidebar. That is what lets categories
+   flow around AND underneath it: CSS Grid auto-placement fills every cell the
+   explicitly-placed panel does not occupy, which is the one way to get a true
+   wrap-around with interactive cards (shape-outside only wraps inline content).
+
+   Explicit column counts per breakpoint rather than auto-fill, because the panel
+   has to be placed in the MIDDLE column — and with auto-fill the column count is
+   whatever the container happens to allow, so "the middle" is unknowable. The
+   progression keeps the flanks symmetrical at every step:
+
+     1 col   panel full width, on top
+     2 cols  panel full width, on top
+     3 cols  1 | PANEL | 1
+     4 cols  1 | PANEL×2 | 1
+     5 cols  2 | PANEL | 2
+     6 cols  2 | PANEL×2 | 2      <- panel matches a flank's width
+     7 cols  3 | PANEL | 3
+     8 cols  3 | PANEL×2 | 3
+
+   grid-auto-rows is fixed so the panel's row span is honest: 8 rows at 3.25rem
+   plus 7 gaps is ~29rem, which is the panel's own height. Once those rows are
+   used up, later categories simply carry on underneath it.
+   --------------------------------------------------------------------------- */
+.clog-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-auto-rows: 3.25rem;
+    gap: 0.375rem;
+}
+
+.clog-grid > .clog-focus {
+    grid-column: 1 / -1;
+    grid-row: 1;
+}
+
+/* Cards fill their row box rather than sitting at natural height, so the rows
+   stay uniform and the panel's span lines up with them. */
+.clog-grid > .clog-card {
+    min-height: 0;
+    height: 100%;
+}
+
+@media (min-width: 40rem) {          /* 2 columns */
+    .clog-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .clog-grid > .clog-focus { grid-column: 1 / -1; grid-row: 1; }
+}
+
+@media (min-width: 52rem) {          /* 3 columns: 1 | PANEL | 1 */
+    .clog-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .clog-grid > .clog-focus { grid-column: 2 / span 1; grid-row: 1 / span 8; }
+}
+
+@media (min-width: 68rem) {          /* 4 columns: 1 | PANEL x2 | 1 */
+    .clog-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .clog-grid > .clog-focus { grid-column: 2 / span 2; grid-row: 1 / span 8; }
+}
+
+/* THE WIDE PANEL. A category with ten or more items gets an extra track either
+   side, because at the standard width its tiles wrap into a tall narrow column
+   while a four-item category would only gain whitespace. The component decides
+   (CollectionLogItemGrid) and brings .is-wide with it in the swap.
+
+   Only from five columns up: below that, widening would leave a single card
+   column on each side or none at all. Every step stays symmetric — the flanks
+   must keep equal width or the panel stops reading as centred. */
+@media (min-width: 84rem) {          /* 5 columns: 2 | PANEL | 2 */
+    .clog-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    .clog-grid > .clog-focus { grid-column: 3 / span 1; grid-row: 1 / span 8; }
+    .clog-grid > .clog-focus.is-wide { grid-column: 2 / span 3; }   /* 1 | PANEL x3 | 1 */
+}
+
+@media (min-width: 100rem) {         /* 6 columns: 2 | PANEL x2 | 2 */
+    .clog-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    .clog-grid > .clog-focus { grid-column: 3 / span 2; grid-row: 1 / span 8; }
+    .clog-grid > .clog-focus.is-wide { grid-column: 2 / span 4; }   /* 1 | PANEL x4 | 1 */
+}
+
+@media (min-width: 116rem) {         /* 7 columns: 3 | PANEL | 3 */
+    .clog-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+    .clog-grid > .clog-focus { grid-column: 4 / span 1; grid-row: 1 / span 8; }
+    .clog-grid > .clog-focus.is-wide { grid-column: 3 / span 3; }   /* 2 | PANEL x3 | 2 */
+}
+
+@media (min-width: 132rem) {         /* 8 columns: 3 | PANEL x2 | 3 */
+    .clog-grid { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+    .clog-grid > .clog-focus { grid-column: 4 / span 2; grid-row: 1 / span 8; }
+    .clog-grid > .clog-focus.is-wide { grid-column: 3 / span 4; }   /* 2 | PANEL x4 | 2 */
+}
+
+/* The panel sits in a field of dark cards, so it is deliberately the one warm,
+   saturated thing on the page — an amber ring and glow rather than another slate
+   box, which simply disappeared among them. */
+.clog-focus-panel {
+    background:
+        linear-gradient(180deg, rgba(245, 158, 11, 0.10), rgba(245, 158, 11, 0) 40%),
+        rgb(248 250 252);
+    border: 1px solid rgba(245, 158, 11, 0.55);
+    box-shadow:
+        0 0 0 1px rgba(245, 158, 11, 0.10),
+        0 8px 24px -8px rgba(245, 158, 11, 0.35);
+}
+
+:where(.dark, .dark *) .clog-focus-panel {
+    background:
+        linear-gradient(180deg, rgba(245, 158, 11, 0.14), rgba(245, 158, 11, 0) 45%),
+        rgb(15 23 42);
+    border-color: rgba(245, 158, 11, 0.45);
+    box-shadow:
+        0 0 0 1px rgba(245, 158, 11, 0.08),
+        0 10px 30px -10px rgba(245, 158, 11, 0.30);
+}
+
+.clog-focus-header {
+    background: linear-gradient(90deg, rgba(245, 158, 11, 0.22), rgba(245, 158, 11, 0.04));
+    border-bottom: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+:where(.dark, .dark *) .clog-focus-header {
+    background: linear-gradient(90deg, rgba(245, 158, 11, 0.25), rgba(245, 158, 11, 0.02));
+    border-bottom-color: rgba(245, 158, 11, 0.30);
+}

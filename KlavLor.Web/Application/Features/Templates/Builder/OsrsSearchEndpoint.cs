@@ -8,7 +8,7 @@ public sealed class OsrsSearchEndpoint : IEndpoint
 {
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
-        return app.MapGet(AppRoutes.OsrsSearch.FromApi(), Search).RequireAuthorization(nameof(RoleName.User));
+        return app.MapGet(AppRoutes.OsrsSearch.FromApi(), Search).RequireAuthorization(nameof(RoleName.User)).RequireRateLimiting("upstream");
     }
 
     private static async Task<IResult> Search(string? q, IOsrsWikiClient wikiClient)

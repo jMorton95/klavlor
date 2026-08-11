@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using KlavLor.Application.Features.Loot.Leaderboard;
 using KlavLor.Domain.Entities;
 using KlavLor.Web.Application.Filters;
@@ -15,11 +15,12 @@ public sealed class LuckLeaderboardEndpoint : IEndpoint
         // per-user data — LuckLeaderboardHandler reads a precomputed global board.
         app.MapGet(AppRoutes.LootLeaderboard.FromApi(), GetPage)
             .AllowAnonymous()
-            .AddEndpointFilter<HtmxNavigationFilter>();
+            .AddEndpointFilter<HtmxNavigationFilter>()
+            .RequireRateLimiting("read");
 
         return app.MapGet(AppRoutes.LootLeaderboardResults.FromApi(), GetResults)
             .AllowAnonymous()
-            .RequireRateLimiting("anonymous");
+            .RequireRateLimiting("read");
     }
 
     // Serves the content for in-app HTMX navigation; the HtmxNavigationFilter wraps it in the

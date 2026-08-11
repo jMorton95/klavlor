@@ -13,25 +13,31 @@ public sealed class DropEndpoint : IEndpoint
     {
         app.MapGet(AppRoutes.Drop.FromApi(), GetDrop)
             .RequireAuthorization(nameof(RoleName.User))
-            .AddEndpointFilter<HtmxNavigationFilter>();
+            .AddEndpointFilter<HtmxNavigationFilter>()
+            .RequireRateLimiting("read");
 
         app.MapGet(AppRoutes.DropSources.FromApi(), GetSources)
-            .RequireAuthorization(nameof(RoleName.User));
+            .RequireAuthorization(nameof(RoleName.User))
+            .RequireRateLimiting("read");
 
         app.MapGet(AppRoutes.DropCharacters.FromApi(), GetCharacters)
-            .RequireAuthorization(nameof(RoleName.User));
+            .RequireAuthorization(nameof(RoleName.User))
+            .RequireRateLimiting("read");
 
         app.MapGet(AppRoutes.DropTrend.FromApi(), GetTrend)
-            .RequireAuthorization(nameof(RoleName.User));
+            .RequireAuthorization(nameof(RoleName.User))
+            .RequireRateLimiting("read");
 
         app.MapGet(AppRoutes.DropSessions.FromApi(), GetSessions)
-            .RequireAuthorization(nameof(RoleName.User));
+            .RequireAuthorization(nameof(RoleName.User))
+            .RequireRateLimiting("read");
 
         // One character's sources for this item. A full page rather than a panel, so it pushes a
         // URL like the drop page itself does.
         return app.MapGet(AppRoutes.DropCharacterSources.FromApi(), GetCharacterSources)
             .RequireAuthorization(nameof(RoleName.User))
-            .AddEndpointFilter<HtmxNavigationFilter>();
+            .AddEndpointFilter<HtmxNavigationFilter>()
+            .RequireRateLimiting("read");
     }
 
     private static async Task<RazorComponentResult> GetDrop([FromQuery] string name, GlobalDropHandler handler)

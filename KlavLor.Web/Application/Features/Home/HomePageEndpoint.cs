@@ -7,7 +7,8 @@ public sealed class HomePageEndpoint : IEndpoint
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
         return app.MapGet(AppRoutes.Home.FromApi(), Endpoint)
-            .AllowAnonymous();
+            .AllowAnonymous()
+            .RequireRateLimiting("read");
     }
 
     private static Task<HtmxRedirectResult> Endpoint()

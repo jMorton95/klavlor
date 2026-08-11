@@ -9,7 +9,7 @@ public sealed class LoginModalEndpoint : IEndpoint
 {
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
-        app.MapGet(AppRoutes.LoginModal.FromApi(), GetModal).AllowAnonymous();
+        app.MapGet(AppRoutes.LoginModal.FromApi(), GetModal).AllowAnonymous().RequireRateLimiting("read");
         return app.MapPost(AppRoutes.LoginModal.FromApi(), PostModal).AllowAnonymous().RequireRateLimiting("login");
     }
 

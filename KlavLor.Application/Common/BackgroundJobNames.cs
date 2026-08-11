@@ -1,4 +1,4 @@
-namespace KlavLor.Application.Common;
+﻿namespace KlavLor.Application.Common;
 
 // Canonical names for the recurring background jobs, shared by the services (which record and
 // schedule under these names) and the admin panel (which lists and manually triggers them).
@@ -9,6 +9,7 @@ public static class BackgroundJobNames
     public const string CollectionLogSync = "Collection log sync";
     public const string LuckLeaderboardRefresh = "Luck leaderboard refresh";
     public const string LootDerivationBackfill = "Loot derivation backfill";
+    public const string CollectionLogTempleSync = "Collection log sync (TempleOSRS)";
 
     // Jobs an admin can trigger on demand (the recurring, poll-scheduled services).
     public static readonly IReadOnlyList<string> Triggerable =
@@ -16,7 +17,8 @@ public static class BackgroundJobNames
         DropRateSync,
         CollectionLogSync,
         LuckLeaderboardRefresh,
-        LootDerivationBackfill
+        LootDerivationBackfill,
+        CollectionLogTempleSync
     ];
 
     public static bool CanTrigger(string jobName) => Triggerable.Contains(jobName);

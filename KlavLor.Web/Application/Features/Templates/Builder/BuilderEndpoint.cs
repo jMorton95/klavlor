@@ -9,7 +9,8 @@ public sealed class BuilderEndpoint : IEndpoint
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
         return app.MapGet(AppRoutes.Builder.FromApi(), Endpoint)
-            .RequireAuthorization(nameof(RoleName.User));
+            .RequireAuthorization(nameof(RoleName.User))
+            .RequireRateLimiting("read");
     }
 
     private static async Task<IResult> Endpoint(int id, LoadBuilderHandler handler)

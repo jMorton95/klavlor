@@ -10,10 +10,12 @@ public sealed class UserRolesEndpoint : IEndpoint
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
         app.MapGet(AppRoutes.UserRolesSection.FromApi(), GetRolesSection)
-            .RequireAuthorization(nameof(RoleName.Admin));
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("read");
 
         return app.MapPost(AppRoutes.UserRoleToggle.FromApi(), ToggleRole)
-            .RequireAuthorization(nameof(RoleName.Admin));
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("mutation");
     }
 
     private static async Task<RazorComponentResult> GetRolesSection(int id, UserRolesHandler handler)

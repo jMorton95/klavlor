@@ -10,7 +10,8 @@ public sealed class UserSearchEndpoint : IEndpoint
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
         return app.MapGet(AppRoutes.UsersSearch.FromApi(), Endpoint)
-            .RequireAuthorization(nameof(RoleName.Admin));
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("read");
     }
 
     private static async Task<RazorComponentResult> Endpoint(
