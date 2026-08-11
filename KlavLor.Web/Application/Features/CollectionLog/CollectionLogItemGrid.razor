@@ -5,31 +5,36 @@
    Missing items are shown greyed rather than omitted — a collection log that only listed what you
    already own would be pointless, and the gaps are the whole point of looking. *@
 
-<div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 overflow-hidden">
-    <div class="flex items-center gap-2 px-3 py-2.5 border-b border-slate-200 dark:border-slate-700 bg-linear-to-r from-amber-50 to-transparent dark:from-amber-900/20 dark:to-transparent">
+@* clog-focus-panel gives it an amber ring and glow. It sits surrounded by dark slate category
+   cards, so anything slate-on-slate simply vanished into them — this is deliberately the one warm,
+   saturated element on the page. *@
+<div class="clog-focus-panel rounded-xl overflow-hidden h-full flex flex-col">
+    <div class="clog-focus-header flex items-center gap-2 px-3 py-2.5 shrink-0">
         @if (IconName is { Length: > 0 } icon)
         {
             <img src="@IconUrl" alt="" class="w-6 h-6 shrink-0 object-contain" loading="lazy" onerror="this.style.visibility='hidden'" />
         }
         <div class="min-w-0 flex-1">
-            <div class="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">@DisplayName</div>
+            <div class="text-sm font-bold text-amber-900 dark:text-amber-100 truncate">@DisplayName</div>
             <div class="text-[11px] tabular-nums @(IsComplete ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500 dark:text-white")">
                 @Obtained of @Items.Count obtained@(IsComplete ? " · complete" : "")
             </div>
         </div>
         <a hx-get="@CompareUrl.FromApi()" hx-target="#hx-page-container" hx-push-url="@CompareUrl" hx-swap="innerHTML transition:true"
-           class="shrink-0 text-[11px] text-amber-600 dark:text-amber-400 hover:underline cursor-pointer whitespace-nowrap">Compare</a>
+           class="shrink-0 text-[11px] font-medium px-2 py-1 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 hover:bg-amber-500/30 cursor-pointer whitespace-nowrap transition-colors">Compare</a>
     </div>
 
     @if (Items.Count == 0)
     {
-        <div class="px-3 py-8 text-center text-sm text-slate-400 dark:text-white">No items in this category.</div>
+        <div class="px-3 py-8 text-center text-sm text-slate-400 dark:text-white grow">No items in this category.</div>
     }
     else
     {
         @* Capped height so a 25-item category can't push the sticky column taller than the viewport
            and defeat the point of it being sticky. *@
-        <div class="p-2.5 grid grid-cols-4 sm:grid-cols-5 gap-1.5 max-h-[28rem] overflow-y-auto themed-scrollbar">
+        @* grow + min-h-0 lets the scroll area take exactly the height the grid cell gives the panel,
+           so the panel fills its 8-row span rather than floating short inside it. *@
+        <div class="p-2.5 grid grid-cols-4 sm:grid-cols-5 gap-1.5 grow min-h-0 overflow-y-auto themed-scrollbar content-start">
             @foreach (var item in Items)
             {
                 <a hx-get="@ItemUrl(item.ItemId).FromApi()" hx-target="#hx-page-container"

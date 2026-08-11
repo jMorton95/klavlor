@@ -1,11 +1,14 @@
 @using KlavLor.Application.Features.CollectionLog
 @using KlavLor.Web.Components.Layout
 
-@* One category compared across the roster, as a matrix: characters across the top, items down the
-   side. Reading down a character's column shows what they have and what they're missing in one
-   sweep, which neither the old table row nor the stacked cards allowed — both put each character's
-   items on their own line, so comparing two of them meant reading two strips side by side and
-   holding the item order in your head. *@
+@* One category compared across the roster: a panel per character side by side, each listing every
+   item in the category vertically with its icon, name and quantity.
+
+   Not a table. A table put one shared item column down the left and a bare number per character,
+   which lost the icons entirely and read as a spreadsheet. Repeating the icon and name inside each
+   character's panel costs some width but means a column can be read on its own — you can see what
+   someone has and hasn't without tracking back to a header row. Missing items keep their place,
+   greyed, so every panel stays in the same order and the columns line up by eye. *@
 
 @if (UpdateHeader)
 {
@@ -50,67 +53,56 @@
         }
         else
         {
-            <div class="bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 overflow-x-auto themed-scrollbar">
-                <table class="w-full text-sm border-collapse">
-                    <thead>
-                        <tr class="border-b border-slate-200 dark:border-slate-700">
-                            <th class="sticky left-0 z-10 bg-slate-50 dark:bg-slate-900 px-3 py-2 text-left text-[10px] uppercase tracking-wider text-slate-500 dark:text-white">Item</th>
-                            @foreach (var standing in Comparison.Standings)
-                            {
-                                var complete = standing.Total > 0 && standing.Obtained >= standing.Total;
-                                <th class="px-2 py-2 text-center min-w-[6.5rem]">
-                                    <a hx-get="@CharacterUrl(standing.GameCharacterId).FromApi()" hx-target="#hx-page-container"
-                                       hx-push-url="@CharacterUrl(standing.GameCharacterId)" hx-swap="innerHTML transition:true"
-                                       class="block text-xs font-semibold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer truncate">@standing.CharacterName</a>
-                                    <span class="block text-[10px] tabular-nums @(complete ? "text-emerald-600 dark:text-emerald-400 font-semibold" : "text-slate-500 dark:text-white")">@standing.Obtained/@standing.Total</span>
-                                </th>
-                            }
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-200 dark:divide-slate-700/50">
-                        @foreach (var item in Comparison.Items)
-                        {
-                            <tr class="hover:bg-slate-100/60 dark:hover:bg-slate-800/40">
-                                @* The item column pins, so a wide roster can scroll sideways without
-                                   losing which row you are reading. *@
-                                <td class="sticky left-0 z-10 bg-slate-50 dark:bg-slate-900 px-3 py-1.5 whitespace-nowrap">
-                                    <a hx-get="@ItemUrl(item.ItemId).FromApi()" hx-target="#hx-page-container"
-                                       hx-push-url="@ItemUrl(item.ItemId)" hx-swap="innerHTML transition:true"
-                                       class="inline-flex items-center gap-1.5 cursor-pointer group">
-                                        <img src="/api/images/item-icon?name=@Uri.EscapeDataString(item.Name)" alt=""
-                                             class="w-5 h-5 object-contain shrink-0" loading="lazy" onerror="this.style.display='none'" />
-                                        <span class="text-xs text-slate-700 dark:text-slate-200 group-hover:text-amber-600 dark:group-hover:text-amber-400">@item.Name</span>
-                                    </a>
-                                </td>
+            @* Panels run side by side and scroll horizontally together when the roster outgrows the
+               screen, so each character stays a single readable column. *@
+            <div class="flex gap-3 overflow-x-auto pb-2 themed-scrollbar items-start">
+                @foreach (var standing in Comparison.Standings)
+                {
+                    var complete = standing.Total > 0 && standing.Obtained >= standing.Total;
+                    <div class="shrink-0 w-64 rounded-xl border overflow-hidden @(complete ? "border-emerald-300 dark:border-emerald-700" : "border-slate-200 dark:border-slate-700")">
+                        <div class="px-3 py-2.5 border-b @(complete ? "border-emerald-300 dark:border-emerald-700 bg-emerald-50/70 dark:bg-emerald-900/20" : "border-slate-200 dark:border-slate-700 bg-slate-100/70 dark:bg-slate-800/40")">
+                            <a hx-get="@CharacterUrl(standing.GameCharacterId).FromApi()" hx-target="#hx-page-container"
+                               hx-push-url="@CharacterUrl(standing.GameCharacterId)" hx-swap="innerHTML transition:true"
+                               class="block text-sm font-semibold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer truncate">@standing.CharacterName</a>
+                            <div class="flex items-center gap-2 mt-1">
+                                <div class="h-1 flex-1 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                                    <div class="h-full rounded-full @(complete ? "bg-emerald-500" : "bg-amber-500")"
+                                         style="width:@Percent(standing).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)%"></div>
+                                </div>
+                                <span class="text-[10px] tabular-nums shrink-0 @(complete ? "text-emerald-600 dark:text-emerald-400 font-semibold" : "text-slate-500 dark:text-white")">@standing.Obtained/@standing.Total</span>
+                            </div>
+                        </div>
 
-                                @foreach (var standing in Comparison.Standings)
-                                {
-                                    var has = standing.Has(item.ItemId);
-                                    var count = standing.CountOf(item.ItemId);
-                                    <td class="px-2 py-1.5 text-center @(has ? "bg-emerald-50/60 dark:bg-emerald-900/15" : "")"
-                                        title="@CellTitle(standing.CharacterName, item.Name, has, count)">
-                                        @if (has && count > 0)
-                                        {
-                                            @* The quantity is the point of showing it at all: one hilt
-                                               and eleven hilts are different stories. *@
-                                            <span class="text-xs font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">@count.ToString("N0")</span>
-                                        }
-                                        else if (has)
-                                        {
-                                            @* Owned, but the upstream reports no count — a tick rather
-                                               than a zero, which would read as "has none". *@
-                                            <svg class="w-3.5 h-3.5 mx-auto text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                                        }
-                                        else
-                                        {
-                                            <span class="text-xs text-slate-300 dark:text-slate-600">·</span>
-                                        }
-                                    </td>
-                                }
-                            </tr>
-                        }
-                    </tbody>
-                </table>
+                        <div class="bg-slate-50 dark:bg-slate-900 divide-y divide-slate-200/70 dark:divide-slate-800">
+                            @foreach (var item in Comparison.Items)
+                            {
+                                var has = standing.Has(item.ItemId);
+                                var count = standing.CountOf(item.ItemId);
+                                <a hx-get="@ItemUrl(item.ItemId).FromApi()" hx-target="#hx-page-container"
+                                   hx-push-url="@ItemUrl(item.ItemId)" hx-swap="innerHTML transition:true"
+                                   title="@CellTitle(standing.CharacterName, item.Name, has, count)"
+                                   class="flex items-center gap-2 px-2.5 py-1 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors">
+                                    @* Missing items keep their row and grey out — icon desaturated,
+                                       name dimmed — so the panels stay aligned row for row. *@
+                                    <img src="/api/images/item-icon?name=@Uri.EscapeDataString(item.Name)" alt=""
+                                         class="w-5 h-5 object-contain shrink-0 @(has ? "" : "grayscale opacity-40")"
+                                         loading="lazy" onerror="this.style.visibility='hidden'" />
+                                    <span class="text-[11px] truncate flex-1 min-w-0 @(has ? "text-slate-700 dark:text-slate-200" : "text-slate-400 dark:text-slate-600")">@item.Name</span>
+                                    @if (has && count > 0)
+                                    {
+                                        <span class="text-[11px] font-semibold tabular-nums shrink-0 text-emerald-600 dark:text-emerald-400">@count.ToString("N0")</span>
+                                    }
+                                    else if (has)
+                                    {
+                                        @* Owned but the upstream reports no count — a tick, not a zero,
+                                           which would read as "has none". *@
+                                        <svg class="w-3 h-3 shrink-0 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                    }
+                                </a>
+                            }
+                        </div>
+                    </div>
+                }
             </div>
         }
     }
@@ -127,6 +119,9 @@
     private static string CharacterUrl(int id) => AppRoutes.CollectionLogCharacter.WithId(id);
 
     private static string ItemUrl(int itemId) => AppRoutes.CollectionLogItem.Replace("{itemId:int}", itemId.ToString());
+
+    private static double Percent(CollectionLogCategoryStanding s) =>
+        s.Total > 0 ? s.Obtained * 100.0 / s.Total : 0;
 
     private static string CellTitle(string character, string item, bool has, int count) => has
         ? count > 1 ? $"{character} — {item} ×{count:N0}" : $"{character} — {item}"
