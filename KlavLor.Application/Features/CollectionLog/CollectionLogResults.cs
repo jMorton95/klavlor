@@ -1,4 +1,4 @@
-using KlavLor.Domain.Entities;
+﻿using KlavLor.Domain.Entities;
 
 namespace KlavLor.Application.Features.CollectionLog;
 
@@ -24,12 +24,13 @@ public sealed record CollectionLogFreshness(
     public bool IsStale => PlayerSyncedAt is { } t && DateTimeOffset.UtcNow - t > TimeSpan.FromDays(7);
 
     /// <summary>A short reason a view can show instead of an empty grid.</summary>
+    // Deliberately never names the upstream on screen: which third party we read from is an
+    // implementation detail, and "no collection log data" is what a viewer can actually act on.
     public string? Blocker => Outcome switch
     {
-        CollectionLogSyncOutcome.Never => "Not synced yet — this character's log will appear after the next sync.",
-        CollectionLogSyncOutcome.NotSynced => "This player hasn't synced their collection log to TempleOSRS yet.",
-        CollectionLogSyncOutcome.NotFound => "TempleOSRS has no player with this character's name.",
-        CollectionLogSyncOutcome.Failed => "The last sync failed. The data below may be out of date.",
+        CollectionLogSyncOutcome.Never => "No collection log data yet — it will appear after the next sync.",
+        CollectionLogSyncOutcome.NotSynced or CollectionLogSyncOutcome.NotFound => "No collection log data for this character.",
+        CollectionLogSyncOutcome.Failed => "The last refresh failed, so anything below may be out of date.",
         _ => null
     };
 }
@@ -56,11 +57,28 @@ public sealed record CollectionLogCategoryProgress(
     string DisplayName,
     string GroupName,
     int Obtained,
-    int Total)
+    int Total,
+    /// <summary>
+    /// What to draw beside the name. A source icon when the category names a boss we already hold
+    /// one for, otherwise a representative item from the category — only 12 of the 124 categories
+    /// match a known source, so an item icon is the fallback that actually renders for the rest.
+    /// </summary>
+    CollectionLogIconKind IconKind = CollectionLogIconKind.None,
+    string? IconName = null)
 {
     public bool IsComplete => Total > 0 && Obtained >= Total;
+    public bool IsStarted => Obtained > 0;
     public double Percent => Total > 0 ? Obtained * 100.0 / Total : 0;
 }
+
+public enum CollectionLogIconKind { None, Source, Item }
+
+/// <summary>A recently obtained item, newest first — the "what just happened" strip.</summary>
+public sealed record CollectionLogRecentUnlock(
+    int ItemId,
+    string Name,
+    string? CategoryDisplayName,
+    DateTimeOffset ObtainedAt);
 
 /// <summary>One item within a category, with whether this character has it.</summary>
 public sealed record CollectionLogItemState(
@@ -69,6 +87,14 @@ public sealed record CollectionLogItemState(
     bool Obtained,
     int Count,
     DateTimeOffset? ObtainedAt);
+
+/// <summary>One category's items for one character, plus what the panel needs to title itself.</summary>
+public sealed record CollectionLogCategoryView(
+    string Slug,
+    string DisplayName,
+    CollectionLogIconKind IconKind,
+    string? IconName,
+    IReadOnlyList<CollectionLogItemState> Items);
 
 /// <summary>A character's whole log: the header, its categories, and one category's items.</summary>
 public sealed record CharacterCollectionLog(
@@ -79,7 +105,8 @@ public sealed record CharacterCollectionLog(
     int GameMode,
     int? HiscoresRank,
     CollectionLogFreshness Freshness,
-    IReadOnlyList<CollectionLogCategoryProgress> Categories);
+    IReadOnlyList<CollectionLogCategoryProgress> Categories,
+    IReadOnlyList<CollectionLogRecentUnlock> RecentUnlocks);
 
 /// <summary>One character's holding of a single item — powers the per-item comparison.</summary>
 public sealed record CollectionLogItemHolder(

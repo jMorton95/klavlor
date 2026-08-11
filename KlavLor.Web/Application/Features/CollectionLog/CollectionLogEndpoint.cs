@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using KlavLor.Application.Features.CollectionLog;
 using KlavLor.Domain.Shared;
 using KlavLor.Web.Application.Filters;
@@ -60,11 +60,14 @@ public sealed class CollectionLogEndpoint : IEndpoint
         [FromQuery] string slug,
         CollectionLogHandler handler)
     {
-        var items = await handler.GetCategoryItems(id, slug);
+        var view = await handler.GetCategoryItems(id, slug);
         return IResultExtensions.Component<CollectionLogItemGrid>(new
         {
-            Items = items,
-            CategorySlug = slug
+            Items = view?.Items.ToList() ?? [],
+            CategorySlug = view?.Slug ?? slug,
+            DisplayName = view?.DisplayName ?? slug,
+            IconKind = view?.IconKind ?? CollectionLogIconKind.None,
+            IconName = view?.IconName
         });
     }
 

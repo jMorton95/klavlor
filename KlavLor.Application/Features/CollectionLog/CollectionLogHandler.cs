@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Caching.Memory;
+﻿using Microsoft.Extensions.Caching.Memory;
 using KlavLor.Application.Common;
 using KlavLor.Application.Interfaces.Repositories;
 
@@ -31,7 +31,7 @@ public sealed class CollectionLogHandler(ICollectionLogQueryRepository repositor
     public Task<CharacterCollectionLog?> GetCharacterLog(int gameCharacterId)
         => Cached($"character:{gameCharacterId}", () => repository.GetCharacterLog(gameCharacterId));
 
-    public Task<List<CollectionLogItemState>> GetCategoryItems(int gameCharacterId, string categorySlug)
+    public Task<CollectionLogCategoryView?> GetCategoryItems(int gameCharacterId, string categorySlug)
         => Cached($"category-items:{gameCharacterId}:{categorySlug}",
             () => repository.GetCategoryItems(gameCharacterId, Normalise(categorySlug)));
 

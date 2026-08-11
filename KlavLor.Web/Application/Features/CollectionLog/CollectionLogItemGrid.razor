@@ -1,30 +1,41 @@
 @using KlavLor.Application.Features.CollectionLog
 
-@* One category's items for one character. Missing items are shown greyed rather than omitted — a
-   collection log that only listed what you already own would be pointless. *@
+@* The focused panel: one category's items for one character, swapped in beside the category list.
 
-@if (Items.Count == 0)
-{
-    <div class="bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-6 text-center text-sm text-slate-400 dark:text-white">
-        No items in this category.
-    </div>
-}
-else
-{
-    <div class="bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-3">
-        <div class="flex items-baseline justify-between gap-2 mb-2.5">
-            <span class="text-sm font-semibold text-slate-800 dark:text-slate-100">@Obtained of @Items.Count obtained</span>
-            <a hx-get="@CompareUrl.FromApi()" hx-target="#hx-page-container" hx-push-url="@CompareUrl" hx-swap="innerHTML transition:true"
-               class="text-[11px] text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">Compare across characters</a>
+   Missing items are shown greyed rather than omitted — a collection log that only listed what you
+   already own would be pointless, and the gaps are the whole point of looking. *@
+
+<div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 overflow-hidden">
+    <div class="flex items-center gap-2 px-3 py-2.5 border-b border-slate-200 dark:border-slate-700 bg-linear-to-r from-amber-50 to-transparent dark:from-amber-900/20 dark:to-transparent">
+        @if (IconName is { Length: > 0 } icon)
+        {
+            <img src="@IconUrl" alt="" class="w-6 h-6 shrink-0 object-contain" loading="lazy" onerror="this.style.visibility='hidden'" />
+        }
+        <div class="min-w-0 flex-1">
+            <div class="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">@DisplayName</div>
+            <div class="text-[11px] tabular-nums @(IsComplete ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500 dark:text-white")">
+                @Obtained of @Items.Count obtained@(IsComplete ? " · complete" : "")
+            </div>
         </div>
+        <a hx-get="@CompareUrl.FromApi()" hx-target="#hx-page-container" hx-push-url="@CompareUrl" hx-swap="innerHTML transition:true"
+           class="shrink-0 text-[11px] text-amber-600 dark:text-amber-400 hover:underline cursor-pointer whitespace-nowrap">Compare</a>
+    </div>
 
-        <div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-1.5">
+    @if (Items.Count == 0)
+    {
+        <div class="px-3 py-8 text-center text-sm text-slate-400 dark:text-white">No items in this category.</div>
+    }
+    else
+    {
+        @* Capped height so a 25-item category can't push the sticky column taller than the viewport
+           and defeat the point of it being sticky. *@
+        <div class="p-2.5 grid grid-cols-4 sm:grid-cols-5 gap-1.5 max-h-[28rem] overflow-y-auto">
             @foreach (var item in Items)
             {
                 <a hx-get="@ItemUrl(item.ItemId).FromApi()" hx-target="#hx-page-container"
                    hx-push-url="@ItemUrl(item.ItemId)" hx-swap="innerHTML transition:true"
                    title="@Tooltip(item)"
-                   class="relative flex flex-col items-center gap-0.5 rounded-lg border px-1 py-1.5 cursor-pointer transition-colors @(item.Obtained ? "border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/40 hover:border-amber-300 dark:hover:border-amber-600" : "border-dashed border-slate-200 dark:border-slate-700 opacity-40 hover:opacity-70")">
+                   class="relative flex flex-col items-center gap-0.5 rounded-lg border px-1 py-1.5 cursor-pointer transition-colors @(item.Obtained ? "border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/40 hover:border-amber-400" : "border-dashed border-slate-200 dark:border-slate-800 opacity-40 hover:opacity-80")">
                     <img src="/api/images/item-icon?name=@Uri.EscapeDataString(item.Name)" alt=""
                          class="w-6 h-6 object-contain @(item.Obtained ? "" : "grayscale")" loading="lazy" onerror="this.style.display='none'" />
                     <span class="text-[9px] leading-tight text-center text-slate-600 dark:text-slate-300 line-clamp-2">@item.Name</span>
@@ -35,14 +46,22 @@ else
                 </a>
             }
         </div>
-    </div>
-}
+    }
+</div>
 
 @code {
     [Parameter] public List<CollectionLogItemState> Items { get; set; } = [];
     [Parameter] public string CategorySlug { get; set; } = "";
+    [Parameter] public string DisplayName { get; set; } = "";
+    [Parameter] public CollectionLogIconKind IconKind { get; set; }
+    [Parameter] public string? IconName { get; set; }
 
     private int Obtained => Items.Count(i => i.Obtained);
+    private bool IsComplete => Items.Count > 0 && Obtained == Items.Count;
+
+    private string IconUrl => IconKind == CollectionLogIconKind.Source
+        ? $"/api/images/source-icon?name={Uri.EscapeDataString(IconName!)}"
+        : $"/api/images/item-icon?name={Uri.EscapeDataString(IconName!)}";
 
     private string CompareUrl => $"{AppRoutes.CollectionLogCategory}?slug={Uri.EscapeDataString(CategorySlug)}";
 

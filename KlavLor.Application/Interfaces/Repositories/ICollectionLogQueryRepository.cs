@@ -1,4 +1,4 @@
-using KlavLor.Application.Features.CollectionLog;
+﻿using KlavLor.Application.Features.CollectionLog;
 
 namespace KlavLor.Application.Interfaces.Repositories;
 
@@ -20,8 +20,11 @@ public interface ICollectionLogQueryRepository
     /// <summary>One character's header and per-category progress. Null when the character is unknown.</summary>
     Task<CharacterCollectionLog?> GetCharacterLog(int gameCharacterId);
 
-    /// <summary>The items of one category for one character, obtained and missing alike.</summary>
-    Task<List<CollectionLogItemState>> GetCategoryItems(int gameCharacterId, string categorySlug);
+    /// <summary>
+    /// One category's items for one character, obtained and missing alike, with the category's own
+    /// name and icon so the focused panel can title itself without a second round trip.
+    /// </summary>
+    Task<CollectionLogCategoryView?> GetCategoryItems(int gameCharacterId, string categorySlug);
 
     /// <summary>One category across every character with data.</summary>
     Task<CollectionLogCategoryComparison?> GetCategoryComparison(string categorySlug);

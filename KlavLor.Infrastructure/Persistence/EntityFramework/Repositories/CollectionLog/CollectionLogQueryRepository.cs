@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using KlavLor.Application.Common.Exceptions;
 using KlavLor.Application.Features.CollectionLog;
@@ -89,6 +89,22 @@ internal sealed class CollectionLogQueryRepository(
                 .Select(c => new { c.Slug, c.DisplayName, c.GroupName, c.ItemCount })
                 .ToListAsync();
 
+            var icons = await ResolveCategoryIcons(categories.Select(c => c.Slug).ToList());
+
+            // The newest unlocks, for the "what just happened" strip. Entries with no date sort out
+            // entirely rather than to the bottom — Temple omits dates for items logged before the
+            // player started syncing, and an undated item is not recent, it is merely undated.
+            var recent = await (
+                from e in dataContext.CharacterCollectionLogEntries.AsNoTracking()
+                    .Where(e => e.GameCharacterId == gameCharacterId && e.ObtainedAt != null)
+                join item in dataContext.CollectionLogItems.AsNoTracking() on e.ItemId equals item.ItemId
+                orderby e.ObtainedAt descending
+                select new { e.ItemId, item.Name, e.ObtainedAt })
+                .Take(RecentUnlockCount)
+                .ToListAsync();
+
+            var recentCategories = await CategoryNamesFor(recent.Select(r => r.ItemId).ToList());
+
             return new CharacterCollectionLog(
                 header.Id,
                 header.CharacterName,
@@ -100,10 +116,21 @@ internal sealed class CollectionLogQueryRepository(
                 state?.HiscoresRank,
                 Freshness(state),
                 categories
-                    .Select(c => new CollectionLogCategoryProgress(
-                        c.Slug, c.DisplayName, c.GroupName,
-                        obtained.TryGetValue(c.Slug, out var n) ? n : 0,
-                        c.ItemCount))
+                    .Select(c =>
+                    {
+                        icons.TryGetValue(c.Slug, out var icon);
+                        return new CollectionLogCategoryProgress(
+                            c.Slug, c.DisplayName, c.GroupName,
+                            obtained.TryGetValue(c.Slug, out var n) ? n : 0,
+                            c.ItemCount,
+                            icon.Kind, icon.Name);
+                    })
+                    .ToList(),
+                recent
+                    .Select(r => new CollectionLogRecentUnlock(
+                        r.ItemId, r.Name,
+                        recentCategories.TryGetValue(r.ItemId, out var cat) ? cat : null,
+                        r.ObtainedAt!.Value))
                     .ToList());
         }
         catch (Exception ex)
@@ -113,13 +140,17 @@ internal sealed class CollectionLogQueryRepository(
         }
     }
 
-    public async Task<List<CollectionLogItemState>> GetCategoryItems(int gameCharacterId, string categorySlug)
+    public async Task<CollectionLogCategoryView?> GetCategoryItems(int gameCharacterId, string categorySlug)
     {
         try
         {
+            var category = await dataContext.CollectionLogCategories.AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Slug == categorySlug);
+            if (category is null) return null;
+
             // Left join so MISSING items come back too — a collection log that only listed what you
             // already own would be useless.
-            return await (
+            var items = await (
                 from ci in dataContext.CollectionLogCategoryItems.AsNoTracking().Where(ci => ci.CategorySlug == categorySlug)
                 join item in dataContext.CollectionLogItems.AsNoTracking() on ci.ItemId equals item.ItemId
                 join e in dataContext.CharacterCollectionLogEntries.AsNoTracking()
@@ -134,6 +165,12 @@ internal sealed class CollectionLogQueryRepository(
                     e != null ? e.Count : 0,
                     e != null ? e.ObtainedAt : null))
                 .ToListAsync();
+
+            var icons = await ResolveCategoryIcons([categorySlug]);
+            icons.TryGetValue(categorySlug, out var icon);
+
+            return new CollectionLogCategoryView(
+                category.Slug, category.DisplayName, icon.Kind, icon.Name, items);
         }
         catch (Exception ex)
         {
@@ -316,6 +353,70 @@ internal sealed class CollectionLogQueryRepository(
             logger.LogError(ex, "Failed to search collection log items");
             throw new RepositoryException("Failed to search collection log items", ex);
         }
+    }
+
+    private const int RecentUnlockCount = 12;
+
+    /// <summary>
+    /// An icon per category: the boss's own source icon when we hold one, else a representative item
+    /// from the category. Only 12 of the 124 categories name a source we have an icon for, so
+    /// without the item fallback the overwhelming majority would render blank.
+    /// </summary>
+    private async Task<Dictionary<string, (CollectionLogIconKind Kind, string? Name)>> ResolveCategoryIcons(
+        List<string> slugs)
+    {
+        var result = new Dictionary<string, (CollectionLogIconKind, string?)>();
+
+        var categories = await dataContext.CollectionLogCategories.AsNoTracking()
+            .Where(c => slugs.Contains(c.Slug))
+            .Select(c => new { c.Slug, c.DisplayName })
+            .ToListAsync();
+
+        var names = categories.Select(c => c.DisplayName).ToList();
+        var sourceIcons = (await dataContext.SourceIcons.AsNoTracking()
+                .Where(si => names.Contains(si.SourceName))
+                .Select(si => si.SourceName)
+                .ToListAsync())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        // The category's first item by Temple's own ordering, which is the in-game log order and so
+        // tends to lead with the signature drop or the pet.
+        var firstItems = await (
+            from ci in dataContext.CollectionLogCategoryItems.AsNoTracking().Where(ci => slugs.Contains(ci.CategorySlug))
+            join item in dataContext.CollectionLogItems.AsNoTracking() on ci.ItemId equals item.ItemId
+            select new { ci.CategorySlug, ci.SortOrder, item.Name })
+            .ToListAsync();
+
+        var leadItem = firstItems
+            .GroupBy(x => x.CategorySlug)
+            .ToDictionary(g => g.Key, g => g.OrderBy(x => x.SortOrder).First().Name);
+
+        foreach (var category in categories)
+        {
+            if (sourceIcons.Contains(category.DisplayName))
+                result[category.Slug] = (CollectionLogIconKind.Source, category.DisplayName);
+            else if (leadItem.TryGetValue(category.Slug, out var item))
+                result[category.Slug] = (CollectionLogIconKind.Item, item);
+            else
+                result[category.Slug] = (CollectionLogIconKind.None, null);
+        }
+
+        return result;
+    }
+
+    /// <summary>First category display name per item, for labelling a recent unlock.</summary>
+    private async Task<Dictionary<int, string>> CategoryNamesFor(List<int> itemIds)
+    {
+        if (itemIds.Count == 0) return [];
+
+        var rows = await dataContext.CollectionLogCategoryItems.AsNoTracking()
+            .Where(ci => itemIds.Contains(ci.ItemId))
+            .Join(dataContext.CollectionLogCategories.AsNoTracking(),
+                ci => ci.CategorySlug, c => c.Slug, (ci, c) => new { ci.ItemId, c.DisplayName, c.SortOrder })
+            .ToListAsync();
+
+        return rows.GroupBy(r => r.ItemId)
+            .ToDictionary(g => g.Key, g => g.OrderBy(x => x.SortOrder).First().DisplayName);
     }
 
     private static CollectionLogFreshness Freshness(CharacterCollectionLogState? state) =>

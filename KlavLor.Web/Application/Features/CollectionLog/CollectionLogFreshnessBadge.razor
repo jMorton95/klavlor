@@ -1,4 +1,4 @@
-@using KlavLor.Application.Features.CollectionLog
+﻿@using KlavLor.Application.Features.CollectionLog
 @using KlavLor.Domain.Entities
 
 @* The audit line: where this data came from and how far behind it might be. Shown on every
@@ -18,14 +18,16 @@
 @code {
     [Parameter] public CollectionLogFreshness? Freshness { get; set; }
 
+    // The upstream is never named on screen — which third party we read from is an implementation
+    // detail, and a viewer can only act on whether there IS data.
     private string Label => Freshness!.Outcome switch
     {
-        CollectionLogSyncOutcome.Never => "never synced",
-        CollectionLogSyncOutcome.NotSynced => "not on TempleOSRS",
-        CollectionLogSyncOutcome.NotFound => "unknown to TempleOSRS",
-        CollectionLogSyncOutcome.Failed => "sync failing",
-        _ when Freshness.IsStale => $"player synced {Ago(Freshness.PlayerSyncedAt)} ago",
-        _ => $"synced {Ago(Freshness.PlayerSyncedAt)} ago"
+        CollectionLogSyncOutcome.Never
+            or CollectionLogSyncOutcome.NotSynced
+            or CollectionLogSyncOutcome.NotFound => "No collection log data",
+        CollectionLogSyncOutcome.Failed => "refresh failing",
+        _ when Freshness.IsStale => $"updated {Ago(Freshness.PlayerSyncedAt)} ago",
+        _ => $"updated {Ago(Freshness.PlayerSyncedAt)} ago"
     };
 
     private string Classes => Freshness!.Outcome switch
@@ -50,12 +52,12 @@
         {
             var parts = new List<string>();
             if (Freshness!.PlayerSyncedAt is { } p)
-                parts.Add($"Player last synced to TempleOSRS {p:d MMM yyyy HH:mm} UTC");
+                parts.Add($"Collection log last updated {p:d MMM yyyy HH:mm} UTC");
             if (Freshness.OurSyncedAt is { } o)
-                parts.Add($"We last checked {o:d MMM yyyy HH:mm} UTC");
+                parts.Add($"Last checked {o:d MMM yyyy HH:mm} UTC");
             if (!string.IsNullOrEmpty(Freshness.Error))
                 parts.Add(Freshness.Error!);
-            return parts.Count > 0 ? string.Join(" · ", parts) : "No sync recorded yet";
+            return parts.Count > 0 ? string.Join(" · ", parts) : "No collection log data yet";
         }
     }
 

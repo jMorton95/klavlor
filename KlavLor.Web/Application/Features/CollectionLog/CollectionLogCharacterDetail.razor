@@ -1,9 +1,15 @@
 @using KlavLor.Application.Features.CollectionLog
 @using KlavLor.Web.Components.Layout
 
-@* One character's log: header, category grid, and an item panel that swaps in when a category is
-   picked. The item panel is HTMX-loaded rather than rendered up front so the page doesn't ship all
-   1,712 items on every visit. *@
+@* One character's log.
+
+   Laid out as a two-column workspace rather than one long grid. The previous version stacked 124
+   category cards and put the item panel underneath them, ~1,900px down — so clicking a category
+   swapped content that was entirely off screen and read as nothing happening at all. The panel is
+   now a sticky column beside the list, in view before and after every click.
+
+   Categories are grouped with their own headers and a completion tint, so bosses, raids, clues,
+   minigames and other read as distinct blocks instead of one undifferentiated field of cards. *@
 
 <TopBarMetaData PageTitle="@($"KlavLor - {Log?.CharacterName ?? "Collection Log"}")"
                 Title="@(Log?.CharacterName ?? "Collection Log")" Description="Collection log" />
@@ -26,68 +32,132 @@
     }
     else
     {
-        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 px-4 py-3">
-            <div class="flex items-center gap-2 flex-wrap mb-1.5">
-                <h1 class="text-lg font-bold text-slate-900 dark:text-slate-100 truncate">@Log.CharacterName</h1>
-                <CollectionLogFreshnessBadge Freshness="Log.Freshness" />
-            </div>
-            <div class="flex items-center gap-x-4 gap-y-1 flex-wrap text-sm">
-                <span class="inline-flex items-baseline gap-1 whitespace-nowrap">
-                    <span class="font-semibold tabular-nums text-slate-900 dark:text-slate-100">@Log.Obtained.ToString("N0")/@Log.Available.ToString("N0")</span>
-                    <span class="text-[11px] text-slate-500 dark:text-white">items</span>
-                </span>
-                <span class="inline-flex items-baseline gap-1 whitespace-nowrap">
-                    <span class="font-semibold tabular-nums text-amber-600 dark:text-amber-400">@Percent.ToString("0.#")%</span>
-                    <span class="text-[11px] text-slate-500 dark:text-white">complete</span>
-                </span>
-                @if (Log.HiscoresRank is { } rank)
-                {
-                    <span class="inline-flex items-baseline gap-1 whitespace-nowrap">
-                        <span class="font-semibold tabular-nums text-slate-900 dark:text-slate-100">#@rank.ToString("N0")</span>
-                        <span class="text-[11px] text-slate-500 dark:text-white">hiscores rank</span>
-                    </span>
-                }
+        @* Header: identity, the completion ring, and the headline numbers. *@
+        <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-4 py-3">
+            <div class="flex items-center gap-4 flex-wrap">
+                <div class="relative w-16 h-16 shrink-0">
+                    <svg class="w-16 h-16 -rotate-90" viewBox="0 0 36 36" aria-hidden="true">
+                        <circle cx="18" cy="18" r="15.5" fill="none" stroke="currentColor" stroke-width="3" class="text-slate-200 dark:text-slate-800" />
+                        <circle cx="18" cy="18" r="15.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"
+                                class="text-amber-500" stroke-dasharray="@Dash(Percent)" />
+                    </svg>
+                    <span class="absolute inset-0 flex items-center justify-center text-xs font-bold tabular-nums text-slate-800 dark:text-slate-100">@Percent.ToString("0")%</span>
+                </div>
+
+                <div class="min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap mb-0.5">
+                        <h1 class="text-lg font-bold text-slate-900 dark:text-slate-100 truncate">@Log.CharacterName</h1>
+                        <CollectionLogFreshnessBadge Freshness="Log.Freshness" />
+                    </div>
+                    <div class="flex items-center gap-x-4 gap-y-1 flex-wrap text-sm">
+                        <span class="inline-flex items-baseline gap-1 whitespace-nowrap">
+                            <span class="font-semibold tabular-nums text-slate-900 dark:text-slate-100">@Log.Obtained.ToString("N0")/@Log.Available.ToString("N0")</span>
+                            <span class="text-[11px] text-slate-500 dark:text-white">items</span>
+                        </span>
+                        <span class="inline-flex items-baseline gap-1 whitespace-nowrap">
+                            <span class="font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">@Log.Categories.Count(c => c.IsComplete)</span>
+                            <span class="text-[11px] text-slate-500 dark:text-white">tabs complete</span>
+                        </span>
+                        @if (Log.HiscoresRank is { } rank)
+                        {
+                            <span class="inline-flex items-baseline gap-1 whitespace-nowrap">
+                                <span class="font-semibold tabular-nums text-slate-900 dark:text-slate-100">#@rank.ToString("N0")</span>
+                                <span class="text-[11px] text-slate-500 dark:text-white">hiscores rank</span>
+                            </span>
+                        }
+                    </div>
+                </div>
             </div>
         </div>
 
         @if (Log.Freshness.Blocker is { } blocker)
         {
-            @* Says exactly why there is nothing to show, rather than rendering an empty grid that
-               looks like a bug. Still renders the categories below when we hold older data. *@
             <div class="rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
                 @blocker
             </div>
         }
 
+        @if (Log.RecentUnlocks.Count > 0)
+        {
+            @* The one genuinely time-ordered thing on the page — what they just got. *@
+            <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-linear-to-r from-amber-50 to-transparent dark:from-amber-900/15 dark:to-transparent px-4 py-3">
+                <h2 class="text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300 mb-2">Recent unlocks</h2>
+                <div class="flex gap-2 overflow-x-auto pb-1">
+                    @foreach (var unlock in Log.RecentUnlocks)
+                    {
+                        <a hx-get="@ItemUrl(unlock.ItemId).FromApi()" hx-target="#hx-page-container"
+                           hx-push-url="@ItemUrl(unlock.ItemId)" hx-swap="innerHTML transition:true"
+                           title="@($"{unlock.Name} — {unlock.CategoryDisplayName} — {unlock.ObtainedAt:d MMM yyyy}")"
+                           class="group shrink-0 w-20 flex flex-col items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/70 px-1.5 py-2 cursor-pointer hover:border-amber-400 dark:hover:border-amber-500 transition-colors">
+                            <img src="/api/images/item-icon?name=@Uri.EscapeDataString(unlock.Name)" alt=""
+                                 class="w-7 h-7 object-contain" loading="lazy" onerror="this.style.display='none'" />
+                            <span class="text-[9px] leading-tight text-center text-slate-700 dark:text-slate-200 line-clamp-2">@unlock.Name</span>
+                            <span class="text-[9px] text-amber-600 dark:text-amber-400 tabular-nums">@unlock.ObtainedAt.ToString("d MMM")</span>
+                        </a>
+                    }
+                </div>
+            </div>
+        }
+
         @if (Log.Obtained > 0 || Log.Freshness.HasData)
         {
-            @foreach (var group in Log.Categories.GroupBy(c => c.GroupName))
-            {
-                <div>
-                    <h2 class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-white mb-2">@group.Key</h2>
-                    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
-                        @foreach (var category in group)
-                        {
-                            <button type="button"
-                                    hx-get="@CategoryUrl(category.Slug)"
-                                    hx-target="#clog-items"
-                                    hx-swap="innerHTML"
-                                    class="text-left bg-slate-50 dark:bg-slate-900 rounded-lg border px-3 py-2 cursor-pointer transition-colors @(category.IsComplete ? "border-emerald-300 dark:border-emerald-700" : "border-slate-200 dark:border-slate-700 hover:border-amber-300 dark:hover:border-amber-600")">
-                                <div class="flex items-baseline justify-between gap-2">
-                                    <span class="text-xs font-medium text-slate-800 dark:text-slate-100 truncate">@category.DisplayName</span>
-                                    <span class="text-[11px] tabular-nums whitespace-nowrap @(category.IsComplete ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500 dark:text-white")">@category.Obtained/@category.Total</span>
-                                </div>
-                                <div class="mt-1.5 h-1 w-full rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
-                                    <div class="h-full rounded-full @(category.IsComplete ? "bg-emerald-500" : "bg-amber-500")"
-                                         style="width:@category.Percent.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)%"></div>
-                                </div>
-                            </button>
-                        }
+            <div class="lg:flex lg:gap-4 lg:items-start">
+                @* Left: the categories, grouped. Scrolls with the page. *@
+                <div class="lg:flex-1 lg:min-w-0 space-y-5">
+                    @foreach (var group in Log.Categories.GroupBy(c => c.GroupName))
+                    {
+                        <div>
+                            <div class="flex items-baseline gap-2 mb-2 pb-1 border-b border-slate-200 dark:border-slate-700">
+                                <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">@group.Key</h2>
+                                <span class="text-[10px] tabular-nums text-slate-400 dark:text-white">
+                                    @group.Count(c => c.IsComplete)/@group.Count() complete
+                                </span>
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-1.5">
+                                @foreach (var category in group)
+                                {
+                                    <button type="button"
+                                            hx-get="@CategoryUrl(category.Slug)"
+                                            hx-target="#clog-focus"
+                                            hx-swap="innerHTML"
+                                            class="group flex items-center gap-2 text-left rounded-lg border px-2.5 py-2 cursor-pointer transition-colors @CategoryClasses(category)">
+                                        @if (category.IconName is { Length: > 0 } icon)
+                                        {
+                                            <img src="@IconUrl(category.IconKind, icon)" alt=""
+                                                 class="w-6 h-6 shrink-0 object-contain @(category.IsStarted ? "" : "grayscale opacity-50")"
+                                                 loading="lazy" onerror="this.style.visibility='hidden'" />
+                                        }
+                                        <span class="min-w-0 flex-1">
+                                            <span class="flex items-baseline justify-between gap-2">
+                                                <span class="text-xs font-medium text-slate-800 dark:text-slate-100 truncate">@category.DisplayName</span>
+                                                <span class="text-[10px] tabular-nums whitespace-nowrap @CountClasses(category)">@category.Obtained/@category.Total</span>
+                                            </span>
+                                            <span class="mt-1 block h-1 w-full rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                                                <span class="block h-full rounded-full @BarClasses(category)"
+                                                      style="width:@category.Percent.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)%"></span>
+                                            </span>
+                                        </span>
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                @* Right: the focused panel. Sticky, so a category picked from anywhere in the list
+                   lands somewhere the eye already is. *@
+                <div class="lg:w-[26rem] xl:w-[30rem] shrink-0 mt-5 lg:mt-0 lg:sticky lg:top-4">
+                    <div id="clog-focus">
+                        <div class="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 px-4 py-10 text-center">
+                            <svg class="w-8 h-8 mx-auto mb-2 text-slate-300 dark:text-slate-600" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                            </svg>
+                            <p class="text-sm text-slate-400 dark:text-white">Pick a category to see its items.</p>
+                        </div>
                     </div>
                 </div>
-            }
-
-            <div id="clog-items"></div>
+            </div>
         }
     }
 </div>
@@ -99,4 +169,40 @@
 
     private string CategoryUrl(string slug) =>
         $"{AppRoutes.CollectionLogCharacterCategory.WithId(Log!.GameCharacterId).FromApi()}?slug={Uri.EscapeDataString(slug)}";
+
+    private static string ItemUrl(int itemId) => AppRoutes.CollectionLogItem.Replace("{itemId:int}", itemId.ToString());
+
+    /// Source icon where the category names a boss we hold one for, else a representative item.
+    private static string IconUrl(CollectionLogIconKind kind, string name) => kind switch
+    {
+        CollectionLogIconKind.Source => $"/api/images/source-icon?name={Uri.EscapeDataString(name)}",
+        _ => $"/api/images/item-icon?name={Uri.EscapeDataString(name)}"
+    };
+
+    // Three states, three treatments: finished, in progress, untouched. Without this the grid was
+    // 124 identical cards and nothing drew the eye to what was actually done.
+    private static string CategoryClasses(CollectionLogCategoryProgress c) => c switch
+    {
+        { IsComplete: true } => "border-emerald-300 dark:border-emerald-700 bg-emerald-50/60 dark:bg-emerald-900/15 hover:border-emerald-400",
+        { IsStarted: true } => "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 hover:border-amber-400 dark:hover:border-amber-500",
+        _ => "border-dashed border-slate-200 dark:border-slate-800 bg-transparent opacity-60 hover:opacity-100 hover:border-amber-400"
+    };
+
+    private static string CountClasses(CollectionLogCategoryProgress c) => c switch
+    {
+        { IsComplete: true } => "text-emerald-600 dark:text-emerald-400 font-semibold",
+        { IsStarted: true } => "text-slate-500 dark:text-white",
+        _ => "text-slate-400 dark:text-slate-500"
+    };
+
+    private static string BarClasses(CollectionLogCategoryProgress c) =>
+        c.IsComplete ? "bg-emerald-500" : "bg-amber-500";
+
+    /// SVG dash for a percentage on an r=15.5 circle (circumference ≈ 97.4).
+    private static string Dash(double percent)
+    {
+        const double circumference = 97.4;
+        var filled = Math.Clamp(percent, 0, 100) / 100.0 * circumference;
+        return $"{filled.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)} {circumference.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}";
+    }
 }
