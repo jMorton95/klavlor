@@ -100,21 +100,7 @@
         // Densify from the first logged week through the current one, so idle weeks are visible
         // gaps rather than being skipped (which would silently compress a break into nothing).
         var byWeek = Trend.Weeks.ToDictionary(w => w.WeekStart);
-
-        // Start one week BEFORE the first logged roll. The cumulative line then opens at zero and
-        // climbs, instead of appearing part-way up the axis at whatever the first week happened to
-        // total — which on a character with two weeks of history read as a line floating in mid-air.
-        // A real, empty week rather than a synthetic point: the character genuinely had no rolls
-        // here, so it is true, it dates correctly on the axis, and it needs no special case
-        // anywhere downstream.
-        //
-        // It also fixes the shaded area stopping half way across. The fill ends at the boundary
-        // before the in-progress week, so with only two columns that boundary WAS the middle of
-        // the chart. A third column moves it where it belongs.
-        //
-        // Only ever visible when the window reaches back to the beginning; a 13-week view of a
-        // long-running character still opens at its true carried total, as it should.
-        var first = Trend.Weeks[0].WeekStart.AddDays(-7);
+        var first = Trend.Weeks[0].WeekStart;
         var last = MondayOf(DateOnly.FromDateTime(IngestTimezone.ToZoneTime(DateTimeOffset.UtcNow).DateTime));
         if (last < Trend.Weeks[^1].WeekStart) last = Trend.Weeks[^1].WeekStart;
 
@@ -134,6 +120,20 @@
             ? all.GetRange(all.Count - n, n)
             : all;
 
+        // THE LEAD-IN ANCHOR. The cumulative line starts at the total it ENTERS the window with,
+        // in its own slot to the left of every bar — zero when the window reaches back to the
+        // character's first roll, the carried-forward total when it doesn't.
+        //
+        // Without it the first point sits at the centre of the first bar, so the line begins on top
+        // of the data rather than beside it: on a long history it reads as a line starting
+        // mid-air, and on a short one the shaded fill (which stops at the boundary before the
+        // in-progress week) covered only the left half of the chart.
+        //
+        // The slot carries no bar and no date label on purpose. It is an axis anchor, not a week:
+        // labelling it would date it as a week that had rolls we are not drawing, and drawing a
+        // zero bar would claim the character was idle then. Its tooltip says what it is.
+        var carriedIn = window.Count > 0 ? window[0].Running - window[0].Kills : 0;
+
         _windowTotal = window.Sum(w => (long)w.Kills);
         _activeWeeks = window.Count(w => w.Kills > 0);
         _perActiveWeek = _activeWeeks > 0 ? _windowTotal / _activeWeeks : 0;
@@ -145,6 +145,16 @@
         // The week we're currently in is only partly elapsed, so its bar is not comparable with the
         // completed ones beside it. Flagged rather than hidden: dropping it would lose today's kills.
         var currentWeek = MondayOf(DateOnly.FromDateTime(IngestTimezone.ToZoneTime(DateTimeOffset.UtcNow).DateTime));
+
+        _points.Add(new TrendLineChart.Point(
+            Label: "",
+            Value: carriedIn,
+            Title: carriedIn > 0 ? "Before this window" : "Before the first roll",
+            ValueText: $"{carriedIn:N0} total rolls",
+            Detail: null,
+            SecondaryValue: 0,
+            SecondaryText: null,
+            IsPartial: false));
 
         for (var i = 0; i < window.Count; i++)
         {
