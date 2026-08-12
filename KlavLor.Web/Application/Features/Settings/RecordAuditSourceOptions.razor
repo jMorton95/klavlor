@@ -1,0 +1,21 @@
+@using KlavLor.Application.Interfaces.Repositories
+
+@* Just the <option> list, swapped into the source <select> when the character changes. Busiest
+   source first, with its record count, so the admin can see at a glance where the volume is. *@
+
+@if (Sources.Count == 0)
+{
+    <option value="">No records for this character</option>
+}
+else
+{
+    <option value="">Select a source…</option>
+    @foreach (var s in Sources)
+    {
+        <option value="@s.SourceName">@s.SourceName (@s.RecordCount.ToString("N0"))</option>
+    }
+}
+
+@code {
+    [Parameter] public List<AuditSourceOption> Sources { get; set; } = [];
+}

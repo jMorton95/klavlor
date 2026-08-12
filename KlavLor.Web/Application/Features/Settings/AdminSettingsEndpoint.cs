@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using KlavLor.Application.Features.CollectionLog;
 using KlavLor.Application.Features.DropRates;
 using KlavLor.Application.Common;
+using KlavLor.Application.Features.Loot.Audit;
 using KlavLor.Application.Features.Loot.Baseline;
 using KlavLor.Application.Features.Loot.DelveDepth;
 using KlavLor.Application.Features.Loot.ItemValues;
@@ -115,6 +116,23 @@ public sealed class AdminSettingsEndpoint : IEndpoint
         app.MapPost(AppRoutes.AdminSourceModifierRemove.FromApi(), RemoveSourceModifier)
             .RequireAuthorization(nameof(RoleName.Admin))
             .RequireRateLimiting("mutation");
+
+        app.MapGet(AppRoutes.AdminRecordAudit.FromApi(), GetRecordAudit)
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("read");
+
+        app.MapGet(AppRoutes.AdminRecordAuditSources.FromApi(), GetRecordAuditSources)
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("read");
+
+        app.MapGet(AppRoutes.AdminRecordAuditSearch.FromApi(), SearchRecordAudit)
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("read");
+
+        app.MapDelete(AppRoutes.AdminRecordAuditDelete.FromApi(), DeleteAuditRecord)
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("mutation")
+            .DisableAntiforgery();
 
         app.MapGet(AppRoutes.AdminBaseline.FromApi(), GetBaselines)
             .RequireAuthorization(nameof(RoleName.Admin))
@@ -439,6 +457,40 @@ public sealed class AdminSettingsEndpoint : IEndpoint
     {
         var items = await handler.Remove(source, item);
         return IResultExtensions.Component<SourceRateModifierResults>(new { Items = items, IsSearch = false });
+    }
+
+    private static async Task<RazorComponentResult> GetRecordAudit(RecordAuditHandler handler)
+    {
+        var characters = await handler.GetCharacters();
+        return IResultExtensions.Component<RecordAuditPanel>(new { Characters = characters });
+    }
+
+    /// The source list depends on the chosen character, so it is its own fetch rather than being
+    /// shipped up-front for every character at once.
+    private static async Task<RazorComponentResult> GetRecordAuditSources(int characterId, RecordAuditHandler handler)
+    {
+        var sources = await handler.GetSources(characterId);
+        return IResultExtensions.Component<RecordAuditSourceOptions>(new { Sources = sources });
+    }
+
+    private static async Task<RazorComponentResult> SearchRecordAudit(
+        int characterId, string? sourceName, string? term, int? page, int? pageSize, RecordAuditHandler handler)
+    {
+        var result = await handler.Search(characterId, sourceName, term, page ?? 1, pageSize ?? RecordAuditHandler.DefaultPageSize);
+        return IResultExtensions.Component<RecordAuditResults>(new
+        {
+            Page = result, CharacterId = characterId, SourceName = sourceName ?? "", Term = term ?? ""
+        });
+    }
+
+    /// Re-runs the search after deleting so the row disappears and the paging/count stay honest —
+    /// removing the row client-side would leave a page of 24 claiming to be a page of 25.
+    private static async Task<RazorComponentResult> DeleteAuditRecord(
+        int recordId, int characterId, string? sourceName, string? term, int? page, int? pageSize,
+        RecordAuditHandler handler)
+    {
+        await handler.Delete(recordId);
+        return await SearchRecordAudit(characterId, sourceName, term, page, pageSize, handler);
     }
 
     private static async Task<RazorComponentResult> GetBaselines(CharacterBaselineAdminHandler handler)

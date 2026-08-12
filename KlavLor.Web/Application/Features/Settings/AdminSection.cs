@@ -1,4 +1,4 @@
-namespace KlavLor.Web.Application.Features.Settings;
+﻿namespace KlavLor.Web.Application.Features.Settings;
 
 // One entry per admin section — the single source of truth for the nav, the routable page, the
 // shell endpoint's slug validation and the section's own heading.
@@ -34,6 +34,8 @@ public static class AdminSections
             "Excluded items stop counting as collection-log drops everywhere — recent clogs, first-time feeds, activity counts and the live feed. Search to add; the list below shows what's currently excluded."),
         new("drop-rates", "Drop rates", "Drop rates", Data,
             "Manually fetch per-source drop rates from the wiki when some are missing. The list below shows sources with loot but no stored rates; search to re-fetch any source, or resync the whole backlog at once."),
+        new("record-audit", "Record audit", "Record audit", Data,
+            "Find and delete an individual sync record. RuneLite occasionally attributes a drop to the wrong source — opening a dossier at the moment something is equipped logs that item as loot from the dossier. Narrow to a character and source, page through the records, and remove just the bad one; deleting a whole character's loot to fix one row is not a repair."),
         new("sources", "Source names", "Source names", Data,
             "Rename or merge inconsistent loot-source names (e.g. variants/typos). Editing a name to one that already exists merges them. This repoints all loot and re-derives drop rates and icons — it can't be undone."),
 

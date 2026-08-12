@@ -100,7 +100,21 @@
         // Densify from the first logged week through the current one, so idle weeks are visible
         // gaps rather than being skipped (which would silently compress a break into nothing).
         var byWeek = Trend.Weeks.ToDictionary(w => w.WeekStart);
-        var first = Trend.Weeks[0].WeekStart;
+
+        // Start one week BEFORE the first logged roll. The cumulative line then opens at zero and
+        // climbs, instead of appearing part-way up the axis at whatever the first week happened to
+        // total — which on a character with two weeks of history read as a line floating in mid-air.
+        // A real, empty week rather than a synthetic point: the character genuinely had no rolls
+        // here, so it is true, it dates correctly on the axis, and it needs no special case
+        // anywhere downstream.
+        //
+        // It also fixes the shaded area stopping half way across. The fill ends at the boundary
+        // before the in-progress week, so with only two columns that boundary WAS the middle of
+        // the chart. A third column moves it where it belongs.
+        //
+        // Only ever visible when the window reaches back to the beginning; a 13-week view of a
+        // long-running character still opens at its true carried total, as it should.
+        var first = Trend.Weeks[0].WeekStart.AddDays(-7);
         var last = MondayOf(DateOnly.FromDateTime(IngestTimezone.ToZoneTime(DateTimeOffset.UtcNow).DateTime));
         if (last < Trend.Weeks[^1].WeekStart) last = Trend.Weeks[^1].WeekStart;
 

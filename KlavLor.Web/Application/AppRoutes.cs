@@ -209,6 +209,13 @@ public static class AppRoutes
     public const string AdminItemValueZeroReport = "/admin/settings/item-values/zero-report";
     public const string AdminItemValueSet = "/admin/settings/item-values/set";
     public const string AdminItemValueRemove = "/admin/settings/item-values/remove";
+    // Record audit. Every one at least two segments deep, or a single-segment literal would win
+    // the match over the {section} parameter and shadow the settings page itself.
+    public const string AdminRecordAudit = "/admin/settings/record-audit/panel";
+    public const string AdminRecordAuditSources = "/admin/settings/record-audit/sources";
+    public const string AdminRecordAuditSearch = "/admin/settings/record-audit/search";
+    public const string AdminRecordAuditDelete = "/admin/settings/record-audit/delete/{recordId:int}";
+
     public const string AdminSpecialLoot = "/admin/settings/special-loot/panel";
     public const string AdminSpecialLootItemSearch = "/admin/settings/special-loot/item-search";
     public const string AdminSpecialLootInject = "/admin/settings/special-loot/inject";

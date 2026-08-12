@@ -1,0 +1,80 @@
+@using KlavLor.Application.Features.Loot.Audit
+@using KlavLor.Application.Features.Loot.Special
+
+@* Record audit: find one bad sync record and delete it.
+
+   Narrowing is deliberately stepwise — character, then source, then search. Every query is bound
+   to one character and one source before any matching happens, so this never becomes a way to
+   scan the whole loot table from a text box. The source list is fetched per character rather than
+   typed, because a mis-attributed drop is usually filed under a source the admin would not think
+   to guess (that is exactly what makes it wrong). *@
+
+<div class="flex flex-wrap items-end gap-3 mb-3">
+    <div>
+        <label class="block text-[10px] uppercase tracking-wider text-slate-500 dark:text-white mb-1">Character</label>
+        <select id="ra-char" name="characterId"
+                hx-get="@AppRoutes.AdminRecordAuditSources.FromApi()"
+                hx-target="#ra-source"
+                hx-swap="innerHTML"
+                hx-trigger="change"
+                class="w-56 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none">
+            <option value="0">Select a character…</option>
+            @foreach (var c in Characters)
+            {
+                <option value="@c.Id">@c.Name</option>
+            }
+        </select>
+    </div>
+
+    <div>
+        <label class="block text-[10px] uppercase tracking-wider text-slate-500 dark:text-white mb-1">Source</label>
+        <select id="ra-source" name="sourceName"
+                class="w-64 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none">
+            <option value="">Pick a character first</option>
+        </select>
+    </div>
+
+    <div>
+        <label class="block text-[10px] uppercase tracking-wider text-slate-500 dark:text-white mb-1">Item contains</label>
+        <input id="ra-term" name="term" type="text" placeholder="optional, fuzzy" autocomplete="off"
+               class="w-52 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+    </div>
+
+    <div>
+        <label class="block text-[10px] uppercase tracking-wider text-slate-500 dark:text-white mb-1">Page size</label>
+        <select id="ra-size" name="pageSize"
+                class="w-24 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none">
+            @foreach (var size in RecordAuditHandler.PageSizes)
+            {
+                <option value="@size" selected="@(size == RecordAuditHandler.DefaultPageSize)">@size</option>
+            }
+        </select>
+    </div>
+
+    @* page is pinned to 1 here: changing the filters must not land you on page 7 of a new result set. *@
+    <input type="hidden" id="ra-page" name="page" value="1" />
+
+    <button type="button"
+            hx-get="@AppRoutes.AdminRecordAuditSearch.FromApi()"
+            hx-include="#ra-char, #ra-source, #ra-term, #ra-size, #ra-page"
+            hx-target="#ra-results"
+            hx-swap="innerHTML"
+            hx-disabled-elt="this"
+            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-amber-500 text-white hover:bg-amber-600 cursor-pointer disabled:opacity-50">
+        Search
+    </button>
+</div>
+
+<p class="text-xs text-slate-400 dark:text-white mb-3">
+    Deleting removes that single kill and its drops, and cannot be undone. Use it for records RuneLite
+    logged wrongly &mdash; a drop attributed to a dossier or chest that was opened at the same moment
+    something was equipped. The luck leaderboard is rebuilt automatically afterwards.
+</p>
+
+<div id="ra-results">
+    <p class="text-sm text-slate-400 dark:text-white">Choose a character and source, then search.</p>
+</div>
+
+@code {
+    [Parameter] public List<SpecialLootCharacterOption> Characters { get; set; } = [];
+}

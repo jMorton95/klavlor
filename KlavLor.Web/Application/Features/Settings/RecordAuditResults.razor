@@ -1,0 +1,98 @@
+@using KlavLor.Application.Interfaces.Repositories
+
+@* One page of records for a character at a source, each with its drops and a delete.
+
+   Every control here carries the full query as hx-vals rather than reading the form inputs. The
+   pager and the delete both need to reproduce the exact search that produced this page, and after
+   a delete swaps this component the original inputs are still on screen but the page number in
+   them is stale. Round-tripping the parameters through the markup keeps them in step. *@
+
+@if (Page.TotalRows == 0)
+{
+    <p class="text-sm text-slate-400 dark:text-white">No records match.</p>
+}
+else
+{
+    <div class="flex items-center justify-between gap-3 mb-2 flex-wrap">
+        <p class="text-xs text-slate-500 dark:text-white">
+            @Page.TotalRows.ToString("N0") record@(Page.TotalRows == 1 ? "" : "s")
+            · page @Page.Page of @Page.TotalPages
+        </p>
+        <div class="inline-flex gap-1">
+            <button type="button" disabled="@(!Page.HasPrevious)"
+                    hx-get="@PageUrl(Page.Page - 1)" hx-target="#ra-results" hx-swap="innerHTML"
+                    class="px-2 py-1 text-[11px] rounded border border-slate-300 dark:border-slate-600 disabled:opacity-40 cursor-pointer disabled:cursor-default dark:text-slate-200">Previous</button>
+            <button type="button" disabled="@(!Page.HasNext)"
+                    hx-get="@PageUrl(Page.Page + 1)" hx-target="#ra-results" hx-swap="innerHTML"
+                    class="px-2 py-1 text-[11px] rounded border border-slate-300 dark:border-slate-600 disabled:opacity-40 cursor-pointer disabled:cursor-default dark:text-slate-200">Next</button>
+        </div>
+    </div>
+
+    <div class="divide-y divide-slate-200 dark:divide-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+        @foreach (var row in Page.Rows)
+        {
+            <div class="flex items-start gap-3 px-3 py-2 bg-slate-50 dark:bg-slate-900">
+                <div class="min-w-0 flex-1">
+                    <div class="flex items-baseline gap-2 flex-wrap">
+                        <span class="text-xs font-semibold tabular-nums text-slate-700 dark:text-slate-200">@row.OccurredAt.ToLocalTime().ToString("d MMM yyyy HH:mm")</span>
+                        @if (row.KillCount is { } kc)
+                        {
+                            <span class="text-[10px] tabular-nums text-amber-600 dark:text-amber-400">KC @kc.ToString("N0")</span>
+                        }
+                        <span class="text-[10px] tabular-nums text-slate-500 dark:text-white">@row.TotalValue.ToString("N0") gp</span>
+                        @if (row.IsImported)
+                        {
+                            @* Imported records came from a historical backfill rather than a live
+                               kill, which is worth knowing before deleting one. *@
+                            <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300">imported</span>
+                        }
+                        <span class="text-[10px] text-slate-400 dark:text-slate-500">#@row.Id</span>
+                    </div>
+
+                    <div class="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
+                        @if (row.Drops.Count == 0)
+                        {
+                            <span class="text-[11px] text-slate-400 dark:text-slate-500">no drops</span>
+                        }
+                        @foreach (var drop in row.Drops)
+                        {
+                            <span class="text-[11px] text-slate-600 dark:text-slate-300">
+                                @drop.Name@(drop.Quantity > 1 ? $" ×{drop.Quantity:N0}" : "")
+                                <span class="text-slate-400 dark:text-slate-500">@(((long)drop.Quantity * drop.Price).ToString("N0"))</span>
+                            </span>
+                        }
+                    </div>
+                </div>
+
+                @* Native confirm: destructive, unrecoverable, and one click from a list. *@
+                <button type="button"
+                        hx-delete="@DeleteUrl(row.Id)"
+                        hx-target="#ra-results"
+                        hx-swap="innerHTML"
+                        hx-confirm="Delete this record and its drops? This cannot be undone."
+                        class="shrink-0 px-2 py-1 text-[11px] rounded border border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 cursor-pointer">
+                    Delete
+                </button>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public required AuditRecordPage Page { get; set; }
+    [Parameter] public int CharacterId { get; set; }
+    [Parameter] public string SourceName { get; set; } = "";
+    [Parameter] public string Term { get; set; } = "";
+
+    private string Query(int page) =>
+        $"?characterId={CharacterId}" +
+        $"&sourceName={Uri.EscapeDataString(SourceName)}" +
+        $"&term={Uri.EscapeDataString(Term)}" +
+        $"&page={page}&pageSize={Page.PageSize}";
+
+    private string PageUrl(int page) => AppRoutes.AdminRecordAuditSearch.FromApi() + Query(page);
+
+    /// Deleting re-runs the search on the SAME page, so the list closes up around the removed row.
+    private string DeleteUrl(int recordId) =>
+        AppRoutes.AdminRecordAuditDelete.Replace("{recordId:int}", recordId.ToString()).FromApi() + Query(Page.Page);
+}
