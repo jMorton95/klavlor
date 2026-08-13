@@ -1,4 +1,4 @@
-@using System.Globalization
+﻿@using System.Globalization
 @using KlavLor.Application.Common
 @using KlavLor.Application.Features.Loot.Log
 @using KlavLor.Web.Application.Features.Loot.Log.Profile.Svg
@@ -108,12 +108,13 @@
 
     protected override void OnParametersSet()
     {
-        // Which (item, source) pairs get their own colour: the biggest contributors overall, plus
-        // the top few in every individual month so no bar can come out entirely grey. See
-        // StackPalette.Assign.
+        // Colour is keyed on the ITEM ALONE, deliberately. Segments are grouped per item across
+        // sources now, so the source field is a description of that aggregate ("3 sources") and can
+        // legitimately differ from month to month for the same item — keying on it would give Coins
+        // one colour in a month it came from one source and another in a month it came from five.
         var perMonth = Trend.Months
             .Select(m => (IReadOnlyList<((string Item, string Source) Key, long Value)>)m.TopSegments
-                .Select(s => (((string, string))(s.ItemName, s.SourceName), s.Value))
+                .Select(s => (((string, string))(s.ItemName, ""), s.Value))
                 .ToList())
             .ToList();
 
@@ -138,7 +139,7 @@
             long namedTotal = 0;
             foreach (var seg in m.TopSegments.OrderByDescending(s => s.Value))
             {
-                if (styleByKey.TryGetValue((seg.ItemName, seg.SourceName), out var style))
+                if (styleByKey.TryGetValue((seg.ItemName, ""), out var style))
                 {
                     segments.Add(new HistogramBars.BarSegment(
                         Label: $"{seg.ItemName} · {seg.SourceName} — {GoldFormat.Format(seg.Value)}",

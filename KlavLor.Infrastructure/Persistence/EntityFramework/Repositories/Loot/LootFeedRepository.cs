@@ -22,8 +22,38 @@ internal sealed class LootFeedRepository(
     IItemValueOverrideCache itemValues)
     : ILootFeedRepository
 {
+    /// <summary>
+    /// The feed's character filter options for this scope.
+    ///
+    /// One projected read of a small table, and the visible/hidden/leagues predicate is exactly the
+    /// composite index on GameCharacters, so it costs the feed essentially nothing. It is served
+    /// from the grid shell — the one request that already fires on page load — rather than from a
+    /// request of its own, so the filter is populated without adding a round trip and without
+    /// putting a query back on the page route.
+    /// </summary>
+    public async Task<List<FeedCharacterOption>> GetFeedCharacters(LootFeedScope scope)
+    {
+        try
+        {
+            var isLeagues = scope == LootFeedScope.Leagues;
+            var rows = await dataContext.GameCharacters.AsNoTracking()
+                .Where(gc => gc.IsVisible && !gc.IsAdminHidden && gc.IsLeagues == isLeagues && gc.DisplayName != null)
+                .OrderBy(gc => gc.DisplayName)
+                .Select(gc => new { gc.Id, gc.DisplayName })
+                .ToListAsync();
+
+            return rows.Select(r => new FeedCharacterOption(r.Id, r.DisplayName!)).ToList();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to list feed characters");
+            throw new RepositoryException("Failed to list feed characters", ex);
+        }
+    }
+
     public async Task<Dictionary<LootFeedTier, List<LootFeedEntry>>> GetAllFeedTiers(
-        int countPerTier, LootFeedScope scope = LootFeedScope.Main, IReadOnlySet<LootFeedTier>? requestedTiers = null)
+        int countPerTier, LootFeedScope scope = LootFeedScope.Main, IReadOnlySet<LootFeedTier>? requestedTiers = null,
+        int? gameCharacterId = null)
     {
         var isLeagues = scope == LootFeedScope.Leagues;
         // The cap counts *grouped* entries: adjacent same-source kills collapse into one card
@@ -66,6 +96,12 @@ internal sealed class LootFeedRepository(
                 .Where(x => x.Character.IsVisible && !x.Character.IsAdminHidden && x.Character.IsLeagues == isLeagues)
                 .Join(dataContext.Users, x => x.Character.UserId, u => u.Id,
                     (x, u) => new FeedJoinRow { Record = x.Record, Character = x.Character, User = u });
+
+            // Narrowing to one character makes the value predicate MORE selective, which is exactly
+            // the case the (GameCharacterId, TotalValue, OccurredAt) index is shaped for — so the
+            // filtered feed is cheaper than the unfiltered one, not dearer.
+            if (gameCharacterId is { } cid)
+                baseQuery = baseQuery.Where(x => x.Character.Id == cid);
 
             foreach (var tier in tiers)
             {

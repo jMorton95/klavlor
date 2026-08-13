@@ -16,12 +16,12 @@ public sealed class LootFeedEndpoint : IEndpoint
             .RequireRateLimiting("read");
 
         // Grid = swimlane shells only, no loot and no query. Each shell then fetches its own tier.
-        app.MapGet(AppRoutes.LootFeedGrid.FromApi(), (string? tiers) => GetGrid(LootFeedScope.Main, tiers))
+        app.MapGet(AppRoutes.LootFeedGrid.FromApi(), (LootFeedTiersHandler handler, string? tiers) => GetGrid(handler, LootFeedScope.Main, tiers))
             .AllowAnonymous()
             .RequireRateLimiting("read");
 
-        app.MapGet(AppRoutes.LootFeedColumn.FromApi(), (string tier, int? cols, LootFeedTiersHandler handler) =>
-                GetColumn(handler, LootFeedScope.Main, tier, cols))
+        app.MapGet(AppRoutes.LootFeedColumn.FromApi(), (string tier, int? cols, int? characterId, LootFeedTiersHandler handler) =>
+                GetColumn(handler, LootFeedScope.Main, tier, cols, characterId))
             .AllowAnonymous()
             .RequireRateLimiting("read");
 
@@ -47,17 +47,17 @@ public sealed class LootFeedEndpoint : IEndpoint
             .AllowAnonymous()
             .RequireRateLimiting("read");
 
-        app.MapGet(AppRoutes.LootFeedLeaguesGrid.FromApi(), IResult (ISystemSettingsCache settings, string? tiers) =>
+        app.MapGet(AppRoutes.LootFeedLeaguesGrid.FromApi(), async (ISystemSettingsCache settings, LootFeedTiersHandler handler, string? tiers) =>
                 settings.IsLeaguesEnabled
-                    ? GetGrid(LootFeedScope.Leagues, tiers)
-                    : TypedResults.NotFound())
+                    ? await GetGrid(handler, LootFeedScope.Leagues, tiers)
+                    : Results.NotFound())
             .AllowAnonymous()
             .RequireRateLimiting("read");
 
-        app.MapGet(AppRoutes.LootFeedLeaguesColumn.FromApi(), async (string tier, int? cols, LootFeedTiersHandler handler, ISystemSettingsCache settings) =>
+        app.MapGet(AppRoutes.LootFeedLeaguesColumn.FromApi(), async (string tier, int? cols, int? characterId, LootFeedTiersHandler handler, ISystemSettingsCache settings) =>
             {
-                if (!settings.IsLeaguesEnabled) return TypedResults.NotFound();
-                return await GetColumn(handler, LootFeedScope.Leagues, tier, cols);
+                if (!settings.IsLeaguesEnabled) return Results.NotFound();
+                return await GetColumn(handler, LootFeedScope.Leagues, tier, cols, characterId);
             })
             .AllowAnonymous()
             .RequireRateLimiting("read");
@@ -106,18 +106,25 @@ public sealed class LootFeedEndpoint : IEndpoint
     private static RazorComponentResult GetPage(LootFeedScope scope)
         => IResultExtensions.Component<LootFeedContent>(new { Scope = scope });
 
-    // Shells only — synchronous and query-free. Its sole job is to decide which lanes exist, since
-    // the active-tier filter lives in the browser and arrives as ?tiers=. Each lane then loads
-    // itself via GetColumn, so no request ever carries the whole grid.
-    private static RazorComponentResult GetGrid(LootFeedScope scope, string? tiers)
+    // Lane shells, plus the character filter's options. Its job is to decide which lanes exist,
+    // since the active-tier filter lives in the browser and arrives as ?tiers=. Each lane then
+    // loads itself via GetColumn, so no request ever carries the whole grid.
+    //
+    // The character list rides along here rather than on a request of its own. This is the one
+    // fetch that already fires on page load, and the character read is a projection of a small
+    // indexed table — so the filter is populated on first paint without a second round trip, and
+    // without putting a query back on the PAGE route, which must stay query-free.
+    private static async Task<RazorComponentResult> GetGrid(LootFeedTiersHandler handler, LootFeedScope scope, string? tiers)
     {
         var requestedTiers = ParseTiers(tiers);
+        var characters = await handler.GetCharacters(scope);
         return IResultExtensions.Component<LootFeedGrid>(new
         {
             ActiveTiers = requestedTiers is not null
                 ? (IReadOnlyList<LootFeedTier>)requestedTiers.Order().ToList()
                 : (IReadOnlyList<LootFeedTier>)ILootFeedService.AllTiers,
-            Scope = scope
+            Scope = scope,
+            Characters = characters
         });
     }
 
@@ -127,12 +134,15 @@ public sealed class LootFeedEndpoint : IEndpoint
     // `cols` is the number of lanes the requesting shell laid out. The column replaces its own
     // shell via outerHTML, so it has to reproduce that width or the lane would resize as it lands —
     // and a single-tier response can't otherwise know how many siblings it has.
-    private static async Task<IResult> GetColumn(LootFeedTiersHandler handler, LootFeedScope scope, string tier, int? cols)
+    private static async Task<IResult> GetColumn(
+        LootFeedTiersHandler handler, LootFeedScope scope, string tier, int? cols, int? characterId)
     {
         if (!Enum.TryParse<LootFeedTier>(tier, ignoreCase: true, out var parsed))
             return Results.NotFound();
 
-        var tierData = await handler.Handle(scope, new HashSet<LootFeedTier> { parsed });
+        // characterId arrives on the lane request, not the grid shell, because the lane is what
+        // carries the backfill. site.js appends it to both from the same saved value.
+        var tierData = await handler.Handle(scope, new HashSet<LootFeedTier> { parsed }, characterId);
 
         return IResultExtensions.Component<LootFeedColumn>(new
         {

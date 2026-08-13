@@ -1,4 +1,4 @@
-// --- Dark Mode Toggle ---
+﻿// --- Dark Mode Toggle ---
 function toggleDarkMode() {
     var isDark = document.documentElement.classList.toggle('dark');
     localStorage.setItem('theme', isDark ? 'dark' : 'light');
@@ -291,12 +291,71 @@ window.initHistoryPanel = function() {
         });
     };
 
-    // Inject tiers param into HTMX requests for any feed grid API (main or leagues).
-    document.body.addEventListener('htmx:configRequest', function(evt) {
-        if (evt.detail.path && evt.detail.path.startsWith('/api/loot/feed') && evt.detail.path.endsWith(GRID_PATH_SUFFIX)) {
-            const tiers = getActiveTiers();
-            evt.detail.parameters['tiers'] = tiers.join(',');
+    // CHARACTER FILTER.
+    //
+    // Saved here rather than server-side for the same reason the tier filter is: the feed shell is
+    // static and cached, so a per-viewer preference cannot live in the markup. The select itself is
+    // delivered out-of-band by the grid response, so this restores the saved value once it lands.
+    const CHARACTER_KEY = 'klavlor.feed.character';
+
+    function getActiveCharacter() {
+        return localStorage.getItem(CHARACTER_KEY) || '';
+    }
+
+    function initFeedCharacter() {
+        const select = document.getElementById('feed-character-filter');
+        if (!select || select.disabled) return;
+        const saved = getActiveCharacter();
+        // Only restore a character still present in the list — one that has been hidden or deleted
+        // would otherwise leave the feed silently filtered to nothing with no way back.
+        if (saved && select.querySelector(`option[value="${saved}"]`)) select.value = saved;
+        else if (saved) localStorage.removeItem(CHARACTER_KEY);
+        applyCharacterFilterToLiveCards();
+    }
+
+    window.saveFeedCharacter = function(value) {
+        if (value) localStorage.setItem(CHARACTER_KEY, value);
+        else localStorage.removeItem(CHARACTER_KEY);
+
+        // Refetch the grid: the backfill is server-filtered, so the lanes have to come back.
+        const container = document.getElementById('feed-grid-container');
+        if (!container) return;
+        htmx.ajax('GET', container.dataset.gridUrl, { target: '#feed-grid-container', swap: 'innerHTML' });
+    };
+
+    // Live cards arrive over SSE, which is per-tier and not per-character — one stream serves every
+    // viewer, so it cannot be filtered server-side without a stream per character. Each card
+    // carries its character id instead and non-matching ones are hidden as they land. Hidden rather
+    // than dropped so clearing the filter reveals them without a refetch.
+    function applyCharacterFilterToLiveCards() {
+        const active = getActiveCharacter();
+        for (const card of document.querySelectorAll('[data-feed-character]')) {
+            card.classList.toggle('hidden', active !== '' && card.dataset.feedCharacter !== active);
         }
+    }
+
+    // Inject tiers and the chosen character into HTMX requests for any feed grid or lane API
+    // (main or leagues). The lane carries the backfill, so it needs the character too — the grid
+    // shell alone would filter nothing.
+    document.body.addEventListener('htmx:configRequest', function(evt) {
+        const path = evt.detail.path;
+        if (!path || !path.startsWith('/api/loot/feed')) return;
+
+        if (path.endsWith(GRID_PATH_SUFFIX)) {
+            evt.detail.parameters['tiers'] = getActiveTiers().join(',');
+        }
+        if (path.endsWith(GRID_PATH_SUFFIX) || path.includes('/column/')) {
+            const character = getActiveCharacter();
+            if (character) evt.detail.parameters['characterId'] = character;
+        }
+    });
+
+    // Re-apply after every swap: lanes land one at a time, and live cards are inserted by SSE.
+    // The card pass is NOT gated on the select existing — live cards can land on a page where the
+    // grid has already settled, and they still need hiding.
+    document.body.addEventListener('htmx:afterSettle', function() {
+        initFeedCharacter();
+        applyCharacterFilterToLiveCards();
     });
 
     // Recent-activity popover. Its contents load on first open (hx-trigger="load" inside the panel

@@ -1,4 +1,4 @@
-@using KlavLor.Application.Features.Loot.Feed
+﻿@using KlavLor.Application.Features.Loot.Feed
 @using KlavLor.Application.Interfaces.Services
 @using KlavLor.Web.Components.Layout
 
@@ -19,6 +19,13 @@
 }
 
 <div class="flex justify-start items-center gap-2 mb-3">
+    @* Empty placeholder: the grid response fills this out-of-band with the real options. Rendering
+       it here would need a query on the page route, which must stay query-free. *@
+    <select id="feed-character-filter" disabled
+            class="px-2 py-1 text-xs font-medium rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-400 dark:text-slate-500">
+        <option value="">All characters</option>
+    </select>
+
     <div class="relative">
         <button onclick="toggleFeedFilter()"
                 class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">

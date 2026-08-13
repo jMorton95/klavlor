@@ -1,4 +1,4 @@
-@using KlavLor.Application.Common
+﻿@using KlavLor.Application.Common
 @using KlavLor.Application.Features.Loot.Feed
 @using KlavLor.Application.Interfaces.Services
 
@@ -44,7 +44,11 @@
         rootAttrs["hx-swap"] = "innerHTML";
     }
 }
+@* data-feed-character lets the browser hide live SSE arrivals that don't match the chosen
+   character. The backfill is filtered server-side; the streams are shared per tier across every
+   viewer, so they cannot be. *@
 <div id="@Entry.DomId"
+     data-feed-character="@(Entry.GameCharacterId?.ToString() ?? "")"
      @attributes="rootAttrs"
      class="group relative hover:z-40 @(Animate ? "loot-feed-new " : "")bg-slate-50 dark:bg-slate-900 rounded-lg shadow border @GetValueTierClasses() p-2.5 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-amber-200 dark:hover:border-amber-700 transition-all duration-200 @legendaryCardClass @gigaCardClass @highlightCardClass">
     @if (isHighlight)

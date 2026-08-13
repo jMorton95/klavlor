@@ -1,4 +1,5 @@
-@using KlavLor.Application.Features.Loot.Feed
+﻿@using KlavLor.Application.Features.Loot.Feed
+@using KlavLor.Application.Interfaces.Repositories
 @using KlavLor.Application.Interfaces.Services
 
 @* Swimlane SHELLS only — this component touches no loot and issues no query.
@@ -13,6 +14,24 @@
     var containerClass = FeedColumnLayout.ContainerClass(activeTiers.Count);
     var colClass = FeedColumnLayout.ColumnClass(activeTiers.Count);
 }
+
+@* The character filter's options, swapped OUT-OF-BAND into the toolbar placeholder.
+
+   They ride on this response rather than fetching themselves because this is the one request that
+   already fires on page load — so the filter is usable on first paint with no extra round trip, and
+   the PAGE route stays query-free, which is the rule that keeps the shell painting in ~15ms.
+
+   site.js restores the saved selection once this lands; rendering `selected` here instead would
+   mean the server had to know a preference that lives in the browser. *@
+<select id="feed-character-filter" hx-swap-oob="outerHTML"
+        onchange="saveFeedCharacter(this.value)"
+        class="px-2 py-1 text-xs font-medium rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer">
+    <option value="">All characters</option>
+    @foreach (var c in Characters)
+    {
+        <option value="@c.Id">@c.Name</option>
+    }
+</select>
 
 <div class="@containerClass">
     @foreach (var tier in activeTiers)
@@ -78,4 +97,5 @@
 @code {
     [Parameter] public IReadOnlyList<LootFeedTier>? ActiveTiers { get; set; }
     [Parameter] public LootFeedScope Scope { get; set; } = LootFeedScope.Main;
+    [Parameter] public List<FeedCharacterOption> Characters { get; set; } = [];
 }

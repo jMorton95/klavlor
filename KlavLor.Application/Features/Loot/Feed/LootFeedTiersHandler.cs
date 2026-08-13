@@ -17,11 +17,15 @@ public sealed class LootFeedTiersHandler(
 
     public async Task<Dictionary<LootFeedTier, List<LootFeedEntry>>> Handle(
         LootFeedScope scope = LootFeedScope.Main,
-        IReadOnlySet<LootFeedTier>? requestedTiers = null)
+        IReadOnlySet<LootFeedTier>? requestedTiers = null,
+        int? gameCharacterId = null)
     {
-        var tiers = await lootFeedRepository.GetAllFeedTiers(EntriesPerTier, scope, requestedTiers);
+        var tiers = await lootFeedRepository.GetAllFeedTiers(EntriesPerTier, scope, requestedTiers, gameCharacterId);
         return await AttachEffectiveRates(tiers);
     }
+
+    public Task<List<FeedCharacterOption>> GetCharacters(LootFeedScope scope) =>
+        lootFeedRepository.GetFeedCharacters(scope);
 
     /// <summary>
     /// Stamps every drop on every card with its effective rate, so a card rendered on page load

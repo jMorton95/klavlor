@@ -295,8 +295,18 @@ internal sealed class LootProfileRepository(
                 }
             }
 
-            // Top 60 (item, source) contributors per month, by drop value. The global
-            // top ~10 (compact) or ~40 (expanded) stack as named segments in the chart;
+            // Top 60 ITEMS per month, by drop value. Grouped by item across every source that
+            // dropped it, not per (item, source) pair — Coins comes off almost everything in the
+            // game, and pairing meant the chart showed one Coins segment worth only whatever the
+            // single biggest source contributed, with the rest of that month's coins scattered
+            // through the tail or swallowed by "Other". A month's Coins figure now means the
+            // month's Coins.
+            //
+            // The source is kept as a label rather than a grouping key: the actual name when only
+            // one source dropped it, a count when several did, which is the honest description of
+            // an aggregate and keeps the tooltip useful.
+            //
+            // The global top ~10 (compact) or ~40 (expanded) stack as named segments in the chart;
             // the rest feed the "Other" segment's expanded tooltip. Separate query keeps
             // the monthly-aggregate plan simple and avoids re-unrolling DropsJson inside
             // its CTE.
@@ -314,16 +324,21 @@ internal sealed class LootProfileRepository(
                       AND lr."OccurredAt" < @to
                 ),
                 agg AS (
-                    SELECT y, m, source_name, item_name, SUM(value)::bigint AS total
+                    SELECT y, m, item_name,
+                           SUM(value)::bigint AS total,
+                           CASE WHEN COUNT(DISTINCT source_name) = 1
+                                THEN MIN(source_name)
+                                ELSE COUNT(DISTINCT source_name) || ' sources'
+                           END AS source_label
                     FROM unrolled
-                    GROUP BY y, m, source_name, item_name
+                    GROUP BY y, m, item_name
                 ),
                 ranked AS (
-                    SELECT y, m, source_name, item_name, total,
+                    SELECT y, m, item_name, source_label, total,
                            ROW_NUMBER() OVER (PARTITION BY y, m ORDER BY total DESC) AS rn
                     FROM agg
                 )
-                SELECT y, m, item_name, source_name, total
+                SELECT y, m, item_name, source_label, total
                 FROM ranked
                 WHERE rn <= 60
                 ORDER BY y, m, total DESC
