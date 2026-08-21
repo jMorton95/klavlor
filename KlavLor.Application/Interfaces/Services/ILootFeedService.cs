@@ -42,6 +42,21 @@ public interface ILootFeedService
         _ => throw new ArgumentOutOfRangeException(nameof(tier))
     };
 
+    /// <summary>
+    /// True when a card's TOTAL is worth more than the lane it sits in — several drops that each
+    /// classify into this tier, summing past its ceiling. Three 90M drops from one source land as
+    /// one Epic card worth 270M, which is Legendary money sitting in the Epic lane.
+    ///
+    /// This does NOT contradict "tiers are per drop": the lane is still chosen by the single
+    /// receipt (<see cref="GetDropTier"/>), and a card is never promoted out of its lane. The
+    /// answer only drives a presentation cue - the card pulses in its OWN tier colour - so a big
+    /// session reads as big without a stack of cheap drops ever being able to fake a rarer one.
+    ///
+    /// Always false for Legendary, which has no ceiling to exceed.
+    /// </summary>
+    static bool ExceedsTier(LootFeedTier tier, long cardTotal) =>
+        GetDropTier(cardTotal) is { } totalTier && totalTier > tier;
+
     static readonly LootFeedTier[] AllTiers =
         [LootFeedTier.Standard, LootFeedTier.Uncommon, LootFeedTier.Rare, LootFeedTier.Epic, LootFeedTier.Legendary];
 

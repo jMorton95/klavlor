@@ -19,6 +19,20 @@
     var entryHasSpecial = Entry.Drops.Any(d => d.IsSpecial);
     var gigaCardClass = entryHasSpecial ? "giga-card" : "";
 
+    // A card whose TOTAL is worth more than its own lane pulses in that lane's colour: three 90M
+    // drops from one source merge into one Epic card worth 270M, which is Legendary money sitting
+    // in the Epic column. The pulse is the card's own tier hue, not the tier the total would
+    // reach - the card has not been promoted, it is just carrying more than the lane implies.
+    //
+    // Yielded to the two effects that also animate the border, so they cannot fight over it. In
+    // practice they never collide (a 250M+ drop and an injected special both classify as
+    // Legendary, which has no ceiling to exceed) but the precedence is stated rather than left to
+    // stylesheet ordering.
+    var exceedsTier = ILootFeedService.ExceedsTier(Entry.Tier, Entry.TotalValue);
+    var tierOverflowClass = exceedsTier && !entryHasLegendaryDrop && !entryHasSpecial
+        ? GetTierOverflowClasses(Entry.Tier)
+        : "";
+
     var isHighlight = HighlightTracker.IsHighlight(Entry);
     var highlightLabel = isHighlight ? HighlightTracker.LabelFor(Entry.Tier, Entry.OccurredAt) : null;
     var highlightCardClass = isHighlight ? GetHighlightRingClasses(Entry.Tier) : "";
@@ -50,7 +64,7 @@
 <div id="@Entry.DomId"
      data-feed-character="@(Entry.GameCharacterId?.ToString() ?? "")"
      @attributes="rootAttrs"
-     class="group relative hover:z-40 @(Animate ? "loot-feed-new " : "")bg-slate-50 dark:bg-slate-900 rounded-lg shadow border @GetValueTierClasses() p-2.5 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-amber-200 dark:hover:border-amber-700 transition-all duration-200 @legendaryCardClass @gigaCardClass @highlightCardClass">
+     class="group relative hover:z-40 @(Animate ? "loot-feed-new " : "")bg-slate-50 dark:bg-slate-900 rounded-lg shadow border @GetValueTierClasses() p-2.5 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-amber-200 dark:hover:border-amber-700 transition-all duration-200 @legendaryCardClass @gigaCardClass @tierOverflowClass @highlightCardClass">
     @if (isHighlight)
     {
         <span class="absolute -top-2 -right-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-linear-to-r from-amber-500 to-yellow-400 text-amber-950 shadow ring-1 ring-amber-300/80 select-none"
@@ -135,30 +149,10 @@
                 <span class="flex flex-col min-w-0">
                 <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] border @GetDropTierClasses(drop.Price) text-slate-700 dark:text-slate-200 @((isNewUnique && !isLegendary && !isSpecial) ? GetFirstTimeRingClasses(Entry.Tier) : "") @(isLegendary ? "legendary-item" : "") @(isSpecial ? "giga-item" : "")"
                       title="@(isNewUnique ? "First-time collection log unlock" : null)">
-                    @if (isSpecial)
-                    {
-                        @* Distinct-hued spinning bolt for admin-injected untradeable giga drops.
-                           Uses the #giga-electric filter + #giga-electric-grad gradient in App.razor;
-                           .giga-border in app.css adds the rotation. *@
-                        <svg class="giga-border" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                            <rect x="0" y="0" width="100%" height="100%" rx="6" ry="6"
-                                  fill="none"
-                                  stroke="url(#giga-electric-grad)"
-                                  stroke-width="2"
-                                  opacity="0.8"
-                                  filter="url(#giga-electric)" />
-                            <rect x="0" y="0" width="100%" height="100%" rx="6" ry="6"
-                                  fill="none"
-                                  stroke="#ffffff"
-                                  stroke-width="2"
-                                  stroke-linecap="round"
-                                  stroke-dasharray="40 160"
-                                  filter="url(#giga-electric)">
-                                <animate attributeName="stroke-dashoffset" from="0" to="200"
-                                         dur="1.1s" repeatCount="indefinite" />
-                            </rect>
-                        </svg>
-                    }
+                    @* An injected special gets no bolt of its own: the card already carries the
+                       spinning neon ring, and a second lightning effect inside it was competing
+                       with the thing it was meant to draw attention to. The pill keeps only its
+                       enlarged .giga-item sizing. *@
                     @if (isLegendary)
                     {
                         @* Jagged lightning border for the 250M+ pill itself. The global
@@ -280,6 +274,19 @@
         >= 1_000_000 => "bg-blue-100 dark:bg-blue-950 border-blue-400",
         >= 100_000 => "bg-green-100 dark:bg-green-950 border-green-400",
         _ => "bg-slate-200 dark:bg-slate-800 border-slate-300 dark:border-slate-700"
+    };
+
+    // Pulse colours for a card carrying more than its lane (see ILootFeedService.ExceedsTier).
+    // The hue is the card's OWN tier, matching GetValueTierClasses, so the effect reads as the
+    // swimlane straining rather than as the card belonging somewhere else. Two classes: the shared
+    // animation plus the per-tier colour variable it animates.
+    private static string GetTierOverflowClasses(LootFeedTier tier) => tier switch
+    {
+        LootFeedTier.Legendary => "tier-overflow tier-overflow-legendary",
+        LootFeedTier.Epic => "tier-overflow tier-overflow-epic",
+        LootFeedTier.Rare => "tier-overflow tier-overflow-rare",
+        LootFeedTier.Uncommon => "tier-overflow tier-overflow-uncommon",
+        _ => "tier-overflow tier-overflow-standard"
     };
 
     private static string GetFirstTimeRingClasses(LootFeedTier tier) => tier switch

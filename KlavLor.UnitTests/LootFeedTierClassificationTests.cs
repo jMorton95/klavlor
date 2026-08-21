@@ -44,6 +44,60 @@ public sealed class LootFeedTierClassificationTests
         Assert.Null(ILootFeedService.GetDropTier(-1));
     }
 
+    // ExceedsTier answers a different question from GetDropTier and must not be confused with it:
+    // "is this CARD carrying more than its lane's ceiling", used only to decide whether the card
+    // pulses in its own tier colour. The lane itself is still chosen per drop, so a card is never
+    // promoted - which is what keeps the per-drop rule above intact.
+    [Theory]
+    // The reported case: three 90M drops from one source merge into one Epic card worth 270M.
+    [InlineData(LootFeedTier.Epic, 270_000_000, true)]
+    // Exactly the ceiling counts as exceeding it, because that is the value at which a single drop
+    // would already have been classified into the next lane up.
+    [InlineData(LootFeedTier.Epic, 100_000_000, true)]
+    [InlineData(LootFeedTier.Epic, 99_999_999, false)]
+    // A card sitting comfortably inside its lane, and one at its floor.
+    [InlineData(LootFeedTier.Epic, 45_000_000, false)]
+    [InlineData(LootFeedTier.Epic, 10_000_000, false)]
+    // Every other lane behaves the same way at its own ceiling.
+    [InlineData(LootFeedTier.Standard, 100_000, true)]
+    [InlineData(LootFeedTier.Standard, 99_999, false)]
+    [InlineData(LootFeedTier.Uncommon, 1_000_000, true)]
+    [InlineData(LootFeedTier.Uncommon, 999_999, false)]
+    [InlineData(LootFeedTier.Rare, 10_000_000, true)]
+    [InlineData(LootFeedTier.Rare, 9_999_999, false)]
+    // A total several lanes above its own still just means "exceeds", since the cue is the card's
+    // own colour either way.
+    [InlineData(LootFeedTier.Standard, 5_000_000_000, true)]
+    // Legendary has no ceiling, so it can never exceed itself however big the session gets.
+    [InlineData(LootFeedTier.Legendary, 100_000_000, false)]
+    [InlineData(LootFeedTier.Legendary, 50_000_000_000, false)]
+    // Nonsense totals are not an overflow.
+    [InlineData(LootFeedTier.Standard, 0, false)]
+    [InlineData(LootFeedTier.Standard, -1, false)]
+    public void ExceedsTier_asks_whether_a_card_total_outgrew_its_own_lane(
+        LootFeedTier tier, long cardTotal, bool expected)
+    {
+        Assert.Equal(expected, ILootFeedService.ExceedsTier(tier, cardTotal));
+    }
+
+    [Fact]
+    public void A_cards_total_never_changes_the_lane_it_was_classified_into()
+    {
+        // The guard on the per-drop rule: 500 cheap drops summing past a ceiling make the card
+        // pulse, and nothing more. Its tier is still whatever the single receipts said.
+        var drops = Enumerable.Range(0, 500)
+            .Select(_ => new LootFeedDrop("Coins", 1, 50_000))
+            .ToList();
+        var byTier = ILootFeedService.ClassifyDropsByTier(drops);
+
+        Assert.Equal([LootFeedTier.Standard], byTier.Keys);
+        var total = drops.Sum(d => (long)d.Quantity * d.Price);
+        Assert.Equal(25_000_000, total);
+        // Worth more than Standard's ceiling - hence the pulse - but still a Standard card.
+        Assert.True(ILootFeedService.ExceedsTier(LootFeedTier.Standard, total));
+        Assert.Equal(LootFeedTier.Epic, ILootFeedService.GetDropTier(total));
+    }
+
     [Fact]
     public void Every_tier_boundary_agrees_with_GetTierRange()
     {

@@ -188,6 +188,9 @@ body:not(.history-panel-open) #completion-history-panel {
     pointer-events: none;
     z-index: 2;
 }
+/* The pill is enlarged only. It used to carry its own lightning bolt as well, which competed
+   with the card ring above for the same attention; the border it had suppressed for the bolt's
+   sake is back, so the chip reads as an ordinary (if larger) chip inside a lit card. */
 .giga-item {
     position: relative;
     isolation: isolate;
@@ -196,20 +199,59 @@ body:not(.history-panel-open) #completion-history-panel {
     padding: 0.3rem 0.6rem !important;
     gap: 0.3rem !important;
     font-weight: 600;
-    border-color: transparent !important;
 }
 .giga-item img {
     width: 1.1rem !important;
     height: 1.1rem !important;
 }
-.giga-item > .giga-border {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    overflow: visible;
-    pointer-events: none;
-    z-index: 1;
+
+/* A card whose TOTAL exceeds its own lane's ceiling (ILootFeedService.ExceedsTier): several drops
+   that each classify into this tier, summing past it - three 90M drops from one source make one
+   Epic card worth 270M. It pulses in the card's OWN tier colour, so the cue says "this lane is
+   carrying more than it looks" rather than pretending the card belongs a lane up.
+
+   One animation, one colour variable. Splitting it into five keyframe blocks would be five places
+   to keep the timing in step; the hue arrives from the .tier-overflow-* class instead. The timing
+   deliberately matches .legendary-card so two cards pulsing side by side don't beat against each
+   other. */
+@keyframes tier-overflow-pulse {
+    0%, 100% {
+        box-shadow:
+            0 0 6px rgb(var(--tier-overflow-rgb) / 0.40),
+            0 0 14px rgb(var(--tier-overflow-rgb) / 0.22);
+    }
+    50% {
+        box-shadow:
+            0 0 12px rgb(var(--tier-overflow-rgb) / 0.85),
+            0 0 28px rgb(var(--tier-overflow-rgb) / 0.45),
+            0 0 48px rgb(var(--tier-overflow-rgb) / 0.20);
+    }
+}
+
+.tier-overflow {
+    position: relative;
+    isolation: isolate;
+    border-color: rgb(var(--tier-overflow-rgb)) !important;
+    animation: tier-overflow-pulse 1.8s ease-in-out infinite;
+}
+
+/* Hues match GetValueTierClasses' border colours exactly (Tailwind's *-400 ramp), so the pulse is
+   the card's existing border brightening rather than a new colour appearing. */
+.tier-overflow-legendary { --tier-overflow-rgb: 251 191 36; }   /* amber-400 */
+.tier-overflow-epic      { --tier-overflow-rgb: 192 132 252; }  /* purple-400 */
+.tier-overflow-rare      { --tier-overflow-rgb: 96 165 250; }   /* blue-400 */
+.tier-overflow-uncommon  { --tier-overflow-rgb: 74 222 128; }   /* green-400 */
+.tier-overflow-standard  { --tier-overflow-rgb: 148 163 184; }  /* slate-400 */
+
+/* Respect a reduced-motion preference: keep the brighter border, drop the throb. The other card
+   effects predate this rule and are left as they are rather than changed by a side wind. */
+@media (prefers-reduced-motion: reduce) {
+    .tier-overflow {
+        animation: none;
+        box-shadow:
+            0 0 10px rgb(var(--tier-overflow-rgb) / 0.55),
+            0 0 24px rgb(var(--tier-overflow-rgb) / 0.30);
+    }
 }
 
 @keyframes fade-in {
