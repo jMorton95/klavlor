@@ -71,7 +71,7 @@ public sealed class SourceLootService
         if (strategy.OverridesStoredRates)
             return double.MaxValue;
 
-        var baseline = strategy.ExpectedCompletions(numerator, denominator, rolls);
+        var baseline = strategy.ExpectedCompletions(itemName, numerator, denominator, rolls);
         return baseline * _modifiers.GetMultiplier(sourceName, itemName);
     }
 

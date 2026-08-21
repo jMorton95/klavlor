@@ -27,7 +27,13 @@ public interface ISourceLootStrategy
     // stored wiki rate. Default treats numerator/denominator as a flat per-kill probability.
     // Raid strategies reinterpret unique-table shares and scale by the per-completion unique
     // frequency, since the wiki stores a share ("given a unique, which item") not a per-raid rate.
-    double ExpectedCompletions(int numerator, int denominator, int rolls);
+    //
+    // itemName says WHICH drop is being asked about, and is what lets a raid tell a unique-table
+    // share from a per-completion tertiary by name rather than only by its denominator — the wiki
+    // restructured the CoX table (x/69 to x/60 and x/56) and a denominator-only test silently
+    // stopped scaling every CoX unique. Null/empty for a source-wide question, which a strategy
+    // that needs the name must treat as "not a share".
+    double ExpectedCompletions(string? itemName, int numerator, int denominator, int rolls);
 
     // Depth-aware expected completions (in runs) to a first drop of a named item, for sources
     // whose per-item odds depend on how far each run went (Doom's delve levels).
@@ -63,7 +69,7 @@ public abstract class SourceLootStrategy(string sourceName) : ISourceLootStrateg
 
     public virtual bool IncludeInLeaderboard => true;
 
-    public virtual double ExpectedCompletions(int numerator, int denominator, int rolls)
+    public virtual double ExpectedCompletions(string? itemName, int numerator, int denominator, int rolls)
     {
         if (denominator <= 0) return double.MaxValue;
         var p = Math.Max(1, rolls) * (double)Math.Max(1, numerator) / denominator;
