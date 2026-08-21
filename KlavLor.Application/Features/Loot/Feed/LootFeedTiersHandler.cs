@@ -10,7 +10,6 @@ public sealed class LootFeedTiersHandler(
     ILootFeedRepository lootFeedRepository,
     IDropRateRepository dropRateRepository,
     ICharacterDelveDepthRepository delveDepths,
-    ILootRecordRepository lootRecordRepository,
     SourceLootService sourceLoot)
 {
     public const int EntriesPerTier = 50;
@@ -70,25 +69,6 @@ public sealed class LootFeedTiersHandler(
             overrideDepths[key] = await delveDepths.GetAverageDepth(characterId, entry.SourceName);
         }
 
-        // Rolls since the previous receipt, for every collection-log drop on every card, in ONE
-        // query for the whole feed. A repeat drop's luck is only meaningful against that gap, and a
-        // backfilled card has to say the same thing the live SSE card said (LootIngestHandler stamps
-        // the identical figure from the identical repository call).
-        //
-        // Keyed on the DROP's own OccurredAt, not the card's: a card is a merged session, so its
-        // timestamp belongs to the latest kill in it, not to the receipt being rated.
-        var receipts = tiers.Values
-            .SelectMany(list => list)
-            .Where(e => e.GameCharacterId is not null)
-            .SelectMany(e => e.Drops
-                .Where(d => d.IsCollectionLogItem && d.OccurredAt is not null)
-                .Select(d => new ItemReceipt(e.GameCharacterId!.Value, e.SourceName, d.Name, d.OccurredAt!.Value)))
-            .Distinct()
-            .ToList();
-        var rollsSince = receipts.Count > 0
-            ? await lootRecordRepository.GetRollsSincePreviousReceipt(receipts)
-            : new Dictionary<ItemReceipt, int>();
-
         foreach (var entries in tiers.Values)
         {
             for (var i = 0; i < entries.Count; i++)
@@ -115,17 +95,10 @@ public sealed class LootFeedTiersHandler(
                             entry.SourceName, d.Name, rate?.RarityNumerator, rate?.RarityDenominator,
                             rate?.Rolls ?? 1, runDepths);
 
-                        int? since = null;
-                        if (entry.GameCharacterId is { } charId && d.OccurredAt is { } dropAt
-                            && rollsSince.TryGetValue(
-                                new ItemReceipt(charId, entry.SourceName, d.Name, dropAt), out var gap))
-                            since = gap;
-
                         return d with
                         {
                             ExpectedKc = effective?.ExpectedKc,
-                            EffectiveRarity = effective?.Rarity,
-                            RollsSincePrevious = since
+                            EffectiveRarity = effective?.Rarity
                         };
                     }).ToList()
                 };

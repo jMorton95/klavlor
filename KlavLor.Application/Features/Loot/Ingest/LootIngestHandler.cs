@@ -318,23 +318,6 @@ public sealed class LootIngestHandler(
             ordinal = await lootRecordRepository.GetKillOrdinal(
                 character.Id, record.SourceName, record.OccurredAt, record.Id);
 
-        // Rolls since this character last received each of these items, so a repeat drop is judged
-        // on the gap rather than on its absolute roll number. Only asked for collection-log items,
-        // since they are the only ones that get a verdict. One batched call per record, shared with
-        // the backfill path (LootFeedTiersHandler) so the two can't drift.
-        var rollsSince = new Dictionary<ItemReceipt, int>();
-        if (character is not null)
-        {
-            var receipts = drops
-                .Where(d => collectionLogCache.IsCollectionLogItem(d.ItemId, d.Name))
-                .Select(d => new ItemReceipt(character.Id, record.SourceName, d.Name, record.OccurredAt))
-                .Distinct()
-                .ToList();
-            if (receipts.Count > 0)
-                rollsSince = new Dictionary<ItemReceipt, int>(
-                    await lootRecordRepository.GetRollsSincePreviousReceipt(receipts));
-        }
-
         var feedDrops = drops.Select(d =>
         {
             rates.TryGetValue(d.Name, out var rate);
@@ -350,11 +333,11 @@ public sealed class LootIngestHandler(
                 KillCount: record.KillCount,
                 KillOrdinal: ordinal,
                 OccurredAt: record.OccurredAt,
-                RollsSincePrevious: character is not null
-                    && rollsSince.TryGetValue(
-                        new ItemReceipt(character.Id, record.SourceName, d.Name, record.OccurredAt), out var since)
-                        ? since
-                        : null);
+                // A record being published live was created moments ago, so it cannot yet carry an
+                // admin luck exclusion. Read from the record anyway rather than hardcoded, so this
+                // path and the backfill (LootFeedTiersHandler) state the same thing about the same
+                // drop if a republish ever happens.
+                ExcludedFromLuck: record.ExcludedFromLuck);
         }).ToList();
         var dropsByTier = ILootFeedService.ClassifyDropsByTier(feedDrops);
         if (dropsByTier.Count == 0) return;

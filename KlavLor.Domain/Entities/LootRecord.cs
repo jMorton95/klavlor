@@ -35,6 +35,22 @@ public sealed class LootRecord : Entity
 
     public bool IsImported { get; set; }
 
+    // Admin decision that this record's DROPS must not inform anyone's luck: they are skipped by
+    // the luck leaderboard, the character page's collection panel and the feed's lucky/dry line.
+    // The record itself is untouched and still counts as a roll, still appears in the kill history,
+    // the drop grids and every value total — the kill happened, it is only the attribution of what
+    // fell out of it that has been disowned.
+    //
+    // The case it exists for is a receipt we cannot rate honestly rather than one that never
+    // happened: a crystal armour seed logged against Hunllef, where deleting the record would throw
+    // away a real kill to silence one bad luck figure. Deletion remains the tool for a record that
+    // is wrong in its entirety.
+    //
+    // An item whose ONLY receipts are excluded is treated as neither obtained nor still being
+    // chased: it leaves the obtained side without reappearing as an ongoing dry streak, which would
+    // be a stranger claim than the one being suppressed.
+    public bool ExcludedFromLuck { get; set; }
+
     public int? GameCharacterId { get; set; }
 
     [ForeignKey(nameof(GameCharacterId))]

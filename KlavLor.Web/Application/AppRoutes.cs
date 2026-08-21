@@ -215,6 +215,7 @@ public static class AppRoutes
     public const string AdminRecordAuditSources = "/admin/settings/record-audit/sources";
     public const string AdminRecordAuditSearch = "/admin/settings/record-audit/search";
     public const string AdminRecordAuditDelete = "/admin/settings/record-audit/delete/{recordId:int}";
+    public const string AdminRecordAuditExclude = "/admin/settings/record-audit/exclude/{recordId:int}";
 
     public const string AdminSpecialLoot = "/admin/settings/special-loot/panel";
     public const string AdminSpecialLootItemSearch = "/admin/settings/special-loot/item-search";

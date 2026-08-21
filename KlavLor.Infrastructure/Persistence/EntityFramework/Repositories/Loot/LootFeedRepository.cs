@@ -220,7 +220,8 @@ internal sealed class LootFeedRepository(
                 CharacterName = x.Character.DisplayName ?? x.User.FirstName + " " + x.User.LastName,
                 GameCharacterId = x.Character.Id,
                 KillCount = x.Record.KillCount,
-                EffectiveKills = x.Record.EffectiveKills
+                EffectiveKills = x.Record.EffectiveKills,
+                ExcludedFromLuck = x.Record.ExcludedFromLuck
                 // KillOrdinal is intentionally NOT computed per-row here: it's only a fallback
                 // label shown when RuneLite omitted KillCount, so a per-row correlated count over
                 // (up to) hardCap candidates × 5 tiers on every feed load was wasted work. It's
@@ -574,7 +575,7 @@ internal sealed class LootFeedRepository(
                 })
                 // KillCount is this record's own, so a drop keeps the KC it landed on when adjacent
                 // kills collapse into one card — the card's own Max would climb with the session.
-                .Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId, d.Name), d.IsSpecial, KillCount: r.KillCount, OccurredAt: r.OccurredAt))
+                .Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId, d.Name), d.IsSpecial, KillCount: r.KillCount, OccurredAt: r.OccurredAt, ExcludedFromLuck: r.ExcludedFromLuck))
                 .ToList();
 
             if (tierDrops.Count == 0) continue;
@@ -677,6 +678,7 @@ internal sealed class LootFeedRepository(
                     GameCharacterId = x.Character.Id,
                     KillCount = x.Record.KillCount,
                     EffectiveKills = x.Record.EffectiveKills,
+                    ExcludedFromLuck = x.Record.ExcludedFromLuck,
                     KillOrdinal = dataContext.LootRecords.Count(o =>
                         o.GameCharacterId == x.Character.Id
                         && o.SourceName == x.Record.SourceName
@@ -719,7 +721,7 @@ internal sealed class LootFeedRepository(
                 JsonSerializer.Deserialize<List<LootDrop>>(r.DropsJson) ?? []);
             var drops = allDrops
                 .Where(d => ILootFeedService.GetDropTier((long)d.Quantity * d.Price) is not null)
-                .Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId, d.Name), d.IsSpecial, KillCount: r.KillCount, OccurredAt: r.OccurredAt))
+                .Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId, d.Name), d.IsSpecial, KillCount: r.KillCount, OccurredAt: r.OccurredAt, ExcludedFromLuck: r.ExcludedFromLuck))
                 .ToList();
 
             if (drops.Count == 0) continue;
@@ -1058,5 +1060,8 @@ internal sealed class LootFeedRepository(
         public int? KillOrdinal { get; init; }
         // Derived per-run depth for depth-modelled sources (Doom); null otherwise.
         public int? EffectiveKills { get; init; }
+        /// Admin luck exclusion on the record, carried per drop so the card can drop the lucky/dry
+        /// line for it while still showing the drop itself.
+        public bool ExcludedFromLuck { get; init; }
     }
 }

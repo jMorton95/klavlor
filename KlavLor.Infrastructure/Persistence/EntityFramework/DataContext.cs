@@ -306,6 +306,12 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
         modelBuilder.Entity<LootRecord>()
             .HasIndex(l => new { l.GameCharacterId, l.SourceName });
 
+        // Partial index: the excluded rows are a handful of admin decisions in a table of millions,
+        // and every luck query filters them OUT, so the useful index is the tiny one listing them.
+        modelBuilder.Entity<LootRecord>()
+            .HasIndex(l => l.ExcludedFromLuck)
+            .HasFilter("\"ExcludedFromLuck\"");
+
         modelBuilder.Entity<LootRecord>()
             .HasIndex(l => new { l.GameCharacterId, l.OccurredAt });
 

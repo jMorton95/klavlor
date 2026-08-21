@@ -282,6 +282,14 @@ internal sealed class LootSourceDetailRepository(
                     FROM "LootRecords" lr
                     JOIN "LootDrops" ld ON ld."LootRecordId" = lr."Id"
                     WHERE lr."GameCharacterId" = @cid AND lr."SourceName" = @source
+                      -- Admin-excluded records inform nobody's luck (LootRecord.ExcludedFromLuck).
+                      -- This is the ONLY place that filter is needed for the whole luck surface:
+                      -- the leaderboard and the character page's collection panel both read their
+                      -- receipts from here, so neither can disagree with the other about which ones
+                      -- count. The record still contributes a ROLL - it is only the attribution of
+                      -- what fell out of the kill that has been disowned, and `runs` above is
+                      -- deliberately left unfiltered for exactly that reason.
+                      AND NOT lr."ExcludedFromLuck"
                       -- Split into two EXISTS rather than one with an OR inside: the OR blocks the
                       -- ItemId PK index and forces a full clog-view scan per drop. Separate EXISTS
                       -- each use an index (ItemId PK; lower(Name) expression index) and the fast
@@ -380,6 +388,11 @@ internal sealed class LootSourceDetailRepository(
                     LEFT JOIN "DropRates" dr
                         ON dr."SourceName" = @source
                        AND lower(dr."ItemName") = lower(cli."Name")
+                    -- NOT filtered by ExcludedFromLuck, deliberately: an item whose only receipts
+                    -- are excluded has left the obtained side, and resurrecting it here as a
+                    -- still-being-chased item would put an ongoing dry streak on the board for a
+                    -- drop the player has actually had - a stranger claim than the one the
+                    -- exclusion was suppressing.
                     -- A clog item belongs to this source if the wiki tab mapping says so, OR we
                     -- otherwise have data that it drops here: a stored drop rate for the source.
                     -- The latter surfaces items (e.g. Dragon warhammer from Lizardman shaman) whose

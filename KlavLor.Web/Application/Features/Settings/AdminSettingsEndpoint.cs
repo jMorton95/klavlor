@@ -134,6 +134,11 @@ public sealed class AdminSettingsEndpoint : IEndpoint
             .RequireRateLimiting("mutation")
             .DisableAntiforgery();
 
+        app.MapPost(AppRoutes.AdminRecordAuditExclude.FromApi(), SetAuditRecordLuckExclusion)
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("mutation")
+            .DisableAntiforgery();
+
         app.MapGet(AppRoutes.AdminBaseline.FromApi(), GetBaselines)
             .RequireAuthorization(nameof(RoleName.Admin))
             .RequireRateLimiting("read");
@@ -490,6 +495,16 @@ public sealed class AdminSettingsEndpoint : IEndpoint
         RecordAuditHandler handler)
     {
         await handler.Delete(recordId);
+        return await SearchRecordAudit(characterId, sourceName, term, page, pageSize, handler);
+    }
+
+    /// Same re-run-the-search shape as the delete: the row has to come back showing its new state,
+    /// and the toggle is one button whose label depends on it.
+    private static async Task<RazorComponentResult> SetAuditRecordLuckExclusion(
+        int recordId, bool excluded, int characterId, string? sourceName, string? term, int? page, int? pageSize,
+        RecordAuditHandler handler)
+    {
+        await handler.SetLuckExclusion(recordId, excluded);
         return await SearchRecordAudit(characterId, sourceName, term, page, pageSize, handler);
     }
 

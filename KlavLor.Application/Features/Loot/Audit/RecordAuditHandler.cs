@@ -11,7 +11,7 @@ namespace KlavLor.Application.Features.Loot.Audit;
 
 /// <summary>
 /// Backs the admin record-audit panel: narrow to a character and a source, page through their
-/// records, and delete a single bad one.
+/// records, and either delete a single bad one or take it out of the luck maths.
 ///
 /// The case it exists for is RuneLite mis-attributing a drop — opening a dossier at the moment an
 /// item was equipped logs that item as loot from the dossier. Before this, the only deletion
@@ -50,7 +50,8 @@ public sealed class RecordAuditHandler(
     }
 
     /// <summary>
-    /// Delete one record. Its drops go with it through the existing cascade.
+    /// Delete one record entirely. Its drops go with it through the existing cascade. For a record
+    /// whose kill was real but whose drop cannot be rated, use <see cref="SetLuckExclusion"/>.
     ///
     /// A deleted record changes both sides of every luck ratio for that character and source — the
     /// roll count and, if it carried the item, the receipt — so the leaderboard is flagged for
@@ -62,9 +63,35 @@ public sealed class RecordAuditHandler(
         var deleted = await repository.Delete(recordId);
         if (deleted is null) return Result.Failure("That record no longer exists.");
 
-        LootStatsCache.Invalidate(memoryCache, deleted.GameCharacterId);
-        GlobalSourceCache.Invalidate(memoryCache, deleted.SourceName);
-        foreach (var item in deleted.ItemNames.Distinct(StringComparer.OrdinalIgnoreCase))
+        return await Invalidate(deleted);
+    }
+
+    /// <summary>
+    /// Take one record's drops out of the luck maths, or put them back, without touching the record.
+    ///
+    /// The kill still counts as a roll and the drop still shows everywhere it did — kill history,
+    /// drop grids, value totals, feed cards. What goes is the luck claim: the leaderboard skips the
+    /// receipt, the character page's collection panel skips it, and the feed card drops its
+    /// lucky/dry line. That is the repair for a receipt we cannot rate honestly rather than one
+    /// that never happened; deletion is still the tool for the latter.
+    ///
+    /// Invalidates and re-flags exactly what a delete does, because it changes the same inputs.
+    /// </summary>
+    public async Task<Result> SetLuckExclusion(int recordId, bool excluded)
+    {
+        var changed = await repository.SetLuckExclusion(recordId, excluded);
+        if (changed is null) return Result.Failure("That record no longer exists.");
+
+        return await Invalidate(changed);
+    }
+
+    /// Drop every memoised aggregate the record fed and ask for a leaderboard rebuild. Shared by
+    /// delete and exclude so the two can't invalidate different things for the same change of fact.
+    private async Task<Result> Invalidate(DeletedRecordInfo record)
+    {
+        LootStatsCache.Invalidate(memoryCache, record.GameCharacterId);
+        GlobalSourceCache.Invalidate(memoryCache, record.SourceName);
+        foreach (var item in record.ItemNames.Distinct(StringComparer.OrdinalIgnoreCase))
             GlobalDropCache.Invalidate(memoryCache, item);
 
         await recompute.LuckInputsChanged();

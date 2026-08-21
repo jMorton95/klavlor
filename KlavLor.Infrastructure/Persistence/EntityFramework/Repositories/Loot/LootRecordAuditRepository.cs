@@ -75,7 +75,8 @@ internal sealed class LootRecordAuditRepository(DataContext dataContext, ILogger
                 .Take(pageSize)
                 .Select(r => new
                 {
-                    r.Id, r.SourceName, r.OccurredAt, r.KillCount, r.TotalValue, r.IsImported, r.ContentHash
+                    r.Id, r.SourceName, r.OccurredAt, r.KillCount, r.TotalValue, r.IsImported, r.ContentHash,
+                    r.ExcludedFromLuck
                 })
                 .ToListAsync();
 
@@ -97,13 +98,47 @@ internal sealed class LootRecordAuditRepository(DataContext dataContext, ILogger
             return new AuditRecordPage(
                 rows.Select(r => new AuditRecordRow(
                     r.Id, r.SourceName, r.OccurredAt, r.KillCount, r.TotalValue, r.IsImported, r.ContentHash,
-                    byRecord.TryGetValue(r.Id, out var d) ? d : [])).ToList(),
+                    r.ExcludedFromLuck, byRecord.TryGetValue(r.Id, out var d) ? d : [])).ToList(),
                 page, pageSize, total);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to search audit records for character {CharacterId}", gameCharacterId);
             throw new RepositoryException("Failed to search records", ex);
+        }
+    }
+
+    public async Task<DeletedRecordInfo?> SetLuckExclusion(int recordId, bool excluded)
+    {
+        try
+        {
+            var record = await dataContext.LootRecords.FirstOrDefaultAsync(r => r.Id == recordId);
+            if (record is null) return null;
+
+            // Item names are read whether or not the flag actually moves: the caller invalidates the
+            // per-item global pages from them, and an idempotent no-op still has to return a
+            // complete answer rather than a half-populated one.
+            var itemNames = await dataContext.LootDrops.AsNoTracking()
+                .Where(d => d.LootRecordId == recordId)
+                .Select(d => d.Name)
+                .ToListAsync();
+
+            if (record.ExcludedFromLuck != excluded)
+            {
+                record.ExcludedFromLuck = excluded;
+                await dataContext.SaveChangesAsync();
+
+                logger.LogInformation(
+                    "Admin set luck exclusion {Excluded} on loot record {RecordId} ({Source}, character {CharacterId})",
+                    excluded, recordId, record.SourceName, record.GameCharacterId);
+            }
+
+            return new DeletedRecordInfo(record.GameCharacterId ?? 0, record.SourceName, itemNames);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to set luck exclusion on loot record {RecordId}", recordId);
+            throw new RepositoryException("Failed to update record", ex);
         }
     }
 

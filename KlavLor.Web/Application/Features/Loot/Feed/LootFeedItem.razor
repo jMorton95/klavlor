@@ -324,42 +324,31 @@
                 g.Select(d => d.KillCount).Where(k => k is > 0).Min(),
                 g.Select(d => d.KillOrdinal).Where(k => k is > 0).Min(),
                 g.Select(d => d.OccurredAt).Where(t => t is not null).Min(),
-                // Taken from that same earliest receipt rather than min/max-ed: the gap belongs to a
-                // specific receipt, and mixing one receipt's roll number with another's gap would
-                // state a ratio neither of them had.
-                Earliest(g).RollsSincePrevious))
+                // Any excluded receipt silences the chip's luck line. A chip can stand for several
+                // records, and half a verdict is worse than none: if one of the receipts behind it
+                // has been disowned, the chip can no longer say what its number means.
+                g.Any(d => d.ExcludedFromLuck)))
             .OrderByDescending(d => (long)d.Quantity * d.Price)
             .ToList();
 
-    // The receipt the chip speaks for: earliest by whichever ordering signal the card actually has.
-    private static LootFeedDrop Earliest(IEnumerable<LootFeedDrop> group) =>
-        group
-            .OrderBy(d => d.OccurredAt ?? DateTimeOffset.MaxValue)
-            .ThenBy(d => d.KillCount ?? d.KillOrdinal ?? int.MaxValue)
-            .First();
-
     private sealed record DropLuck(string Text, string? Verdict, string VerdictClass, string Title);
 
-    // The line under an item: "KC 4,312 . 1/5,000" plus a lucky/dry verdict.
+    // The line under an item: "#4,312 . 1/5,000" plus a lucky/dry verdict.
     //
-    // Collection-log items ONLY. A snapdragon seed or rune platelegs has a drop rate but nobody is
-    // tracking their luck on it, and showing one on every common drop buries the interesting ones.
-    // Null also when we hold no rate for this item at this source: ExpectedKc/EffectiveRarity are
-    // resolved per (source, item) so an item that drops from several bosses is always rated against
-    // the one that actually dropped it, never a blend.
+    // WHETHER a drop gets one is FeedLuckRules.ShouldRate's decision, not this component's:
+    // collection-log items only, first receipt only, not admin-excluded, and rare enough for a
+    // verdict to mean anything. The policy lives in the Application layer so it can be unit-tested
+    // - markup cannot be - and it is the rule people ask questions about.
+    //
+    // Note the WHOLE line goes when a drop is not rated, never just the verdict: on a repeat or a
+    // common drop the rate and roll number are noise standing on their own.
     private DropLuck? LuckLabel(LootFeedDrop drop)
     {
-        if (!drop.IsCollectionLogItem) return null;
-        if (drop.ExpectedKc is not > 0 || string.IsNullOrEmpty(drop.EffectiveRarity)) return null;
+        if (!FeedLuckRules.ShouldRate(drop)) return null;
 
-        // Common drops get no line at all — not the verdict, not the rate, not the roll number. At
-        // 1 in 5 or better the whole line is noise: the rate says nothing a player doesn't know, and
-        // a guaranteed 1/1 (an Atlatl dart from a Lunar Chest) has no meaningful roll number to
-        // print. See FeedLuckRules — the threshold is on EXPECTED ROLLS, which is what keeps raid
-        // unique shares (CoX 20/69 and the like) rated.
-        if (!FeedLuckRules.WorthRating(drop.ExpectedKc)) return null;
-
-        var expected = drop.ExpectedKc.Value;
+        // ShouldRate has established both of these; the compiler cannot see through the call.
+        var expected = drop.ExpectedKc!.Value;
+        var rarity = drop.EffectiveRarity!;
         // THIS drop's own roll number — the roll it actually landed on. Not the card's: a card
         // covers a whole play session, so judging a drop against the card's numbers is wrong in both
         // directions. Against the Max, a Venator fang that came on rate at roll 20 was re-judged
@@ -374,23 +363,20 @@
         // SourceLootService.EffectiveRate), so the two sides are already on the same scale and any
         // conversion here would skew the ratio. The character page compares the same pair.
         var landedOn = drop.KillCount ?? drop.KillOrdinal ?? Entry.MinKillCount ?? Entry.MinKillOrdinal;
-        var title = $"Effective rate {drop.EffectiveRarity} (~{Math.Round(expected):N0} expected), "
+        var title = $"Effective rate {rarity} (~{Math.Round(expected):N0} expected), "
                     + "after this source's loot model and any admin rate adjustment";
 
         // No kill count to compare against: still worth showing the rate.
         if (landedOn is not > 0)
-            return new DropLuck(drop.EffectiveRarity!, null, "", title);
+            return new DropLuck(rarity, null, "", title);
 
-        // THE DENOMINATOR IS THE GAP, NOT THE POSITION. RollsSincePrevious is how many rolls this
-        // character did since they last received this same item; it is null only on a first-ever
-        // receipt, where the absolute count is already the gap since they started. Judging a repeat
-        // against its absolute roll number reported a second 1/100 item at roll 200 as "2x dry" when
+        // The roll it landed on IS the gap, because this is the character's first receipt of the
+        // item: every roll they have ever done at this source was spent waiting for it. That is
+        // precisely why repeats are not rated - their gap is a different number, and judging one
+        // against its absolute position reported a second 1/100 item at roll 200 as "2x dry" when
         // the player had gone 150 rolls since the last one.
-        var sincePrevious = drop.RollsSincePrevious ?? landedOn.Value;
-        var isRepeat = drop.RollsSincePrevious is not null;
-
-        var text = $"#{landedOn.Value:N0} · {drop.EffectiveRarity}";
-        var ratio = sincePrevious / expected;
+        var text = $"#{landedOn.Value:N0} · {rarity}";
+        var ratio = landedOn.Value / expected;
         var (verdict, verdictClass) = ratio switch
         {
             <= 0.50 => ($"{1 / ratio:0.#}x lucky", "text-emerald-600 dark:text-emerald-400"),
@@ -398,10 +384,8 @@
             <= 3.00 => ($"{ratio:0.#}x dry", "text-amber-600 dark:text-amber-400"),
             _ => ($"{ratio:0.#}x dry", "text-rose-600 dark:text-rose-400")
         };
-        var basis = isRepeat
-            ? $"This drop came at roll {landedOn.Value:N0}, {sincePrevious:N0} rolls since the previous one."
-            : $"This drop came at roll {landedOn.Value:N0}, their first.";
-        return new DropLuck(text, verdict, verdictClass, $"{title}. {basis}");
+        return new DropLuck(text, verdict, verdictClass,
+            $"{title}. This drop came at roll {landedOn.Value:N0}, their first.");
     }
 
 

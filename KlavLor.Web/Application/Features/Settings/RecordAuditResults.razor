@@ -46,6 +46,13 @@ else
                                kill, which is worth knowing before deleting one. *@
                             <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300">imported</span>
                         }
+                        @if (row.ExcludedFromLuck)
+                        {
+                            @* States the consequence rather than the flag: "excluded" alone reads as
+                               "hidden", and this record is still counted everywhere except luck. *@
+                            <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300"
+                                  title="This record's drops are skipped by the luck leaderboard, the collection panel and the feed's lucky/dry line. The kill still counts as a roll.">no luck</span>
+                        }
                         <span class="text-[10px] text-slate-400 dark:text-slate-500">#@row.Id</span>
                     </div>
 
@@ -63,6 +70,21 @@ else
                         }
                     </div>
                 </div>
+
+                @* Reversible and non-destructive, so no confirm: the button says which way it is
+                   about to go and one more click puts it back. *@
+                <button type="button"
+                        hx-post="@ExcludeUrl(row.Id, !row.ExcludedFromLuck)"
+                        hx-target="#ra-results"
+                        hx-swap="innerHTML"
+                        title="@(row.ExcludedFromLuck
+                            ? "Count this record's drops in luck figures again."
+                            : "Keep the record and its roll, but stop its drops informing the luck leaderboard, the collection panel and the feed's lucky/dry line.")"
+                        class="shrink-0 px-2 py-1 text-[11px] rounded border cursor-pointer @(row.ExcludedFromLuck
+                            ? "border-amber-300 dark:border-amber-800 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                            : "border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800")">
+                    @(row.ExcludedFromLuck ? "Count for luck" : "Exclude from luck")
+                </button>
 
                 @* Native confirm: destructive, unrecoverable, and one click from a list. *@
                 <button type="button"
@@ -95,4 +117,11 @@ else
     /// Deleting re-runs the search on the SAME page, so the list closes up around the removed row.
     private string DeleteUrl(int recordId) =>
         AppRoutes.AdminRecordAuditDelete.Replace("{recordId:int}", recordId.ToString()).FromApi() + Query(Page.Page);
+
+    /// The target state travels in the URL rather than being inferred server-side, so a double
+    /// click cannot flip the record twice - the second request asks for the state it is already in,
+    /// which the handler treats as a no-op.
+    private string ExcludeUrl(int recordId, bool excluded) =>
+        AppRoutes.AdminRecordAuditExclude.Replace("{recordId:int}", recordId.ToString()).FromApi()
+        + Query(Page.Page) + $"&excluded={excluded.ToString().ToLowerInvariant()}";
 }

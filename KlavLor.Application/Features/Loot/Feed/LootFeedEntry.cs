@@ -75,14 +75,9 @@ public sealed record LootFeedDrop(
     // When this specific drop happened — distinct from the card's OccurredAt, which is the whole
     // group's latest. Drives the per-drop ordinal lookup for records with no reported count.
     DateTimeOffset? OccurredAt = null,
-    // Rolls done at this source since the character's PREVIOUS receipt of this same item. Null on a
-    // first-ever receipt, where the absolute kill count already is the right basis.
-    //
-    // This is the only honest denominator for a repeat drop. Judging one against its absolute roll
-    // number said a second 1/100 item at kill 200 was "2x dry" when the player had actually gone 150
-    // rolls since the last one, and made every guaranteed drop absurd — an Atlatl dart (1/1) from
-    // the 300th Lunar Chest read as 300x dry.
-    int? RollsSincePrevious = null);
+    // Admin decision (LootRecord.ExcludedFromLuck) that this receipt must inform nobody's luck.
+    // The drop still shows on the card with its value and tier; only the lucky/dry line goes.
+    bool ExcludedFromLuck = false);
 
 public static class FeedLuckRules
 {
@@ -99,6 +94,32 @@ public static class FeedLuckRules
     public const double MinExpectedRolls = 6.0;
 
     public static bool WorthRating(double? expectedKc) => expectedKc is { } kc && kc >= MinExpectedRolls;
+
+    /// <summary>
+    /// Whether a feed card should state how lucky this drop was at all. Every reason to stay silent
+    /// lives here rather than in the card's markup, so the policy is one testable decision:
+    ///
+    /// <list type="bullet">
+    /// <item>Not a collection-log item — a snapdragon seed has a drop rate but nobody tracks their
+    /// luck on it, and a line on every common drop buries the interesting ones.</item>
+    /// <item>Not the character's FIRST receipt of the item. A luck figure answers "how long did this
+    /// take to arrive", which is a question a first receipt has an answer to and a repeat does not:
+    /// the same item four times over is four numbers about the same slot, and the interesting one is
+    /// the first. Repeats keep their value, tier, roll number and rate — they just make no claim
+    /// about luck. IsFirstTime is the flag the ingest already maintains for the first-time feed and
+    /// the card's own badge, so the two can never disagree.</item>
+    /// <item>Excluded by an admin at the record level, for a receipt we cannot rate honestly.</item>
+    /// <item>No usable rate for this item at this source, or one too common to be worth a verdict
+    /// (<see cref="WorthRating"/>).</item>
+    /// </list>
+    /// </summary>
+    public static bool ShouldRate(LootFeedDrop drop) =>
+        drop.IsCollectionLogItem
+        && drop.IsFirstTime
+        && !drop.ExcludedFromLuck
+        && drop.ExpectedKc is > 0
+        && !string.IsNullOrEmpty(drop.EffectiveRarity)
+        && WorthRating(drop.ExpectedKc);
 }
 
 public sealed record LootFeedBroadcast(LootFeedEntry Entry, string? PreviousDomId, HighlightChange? HighlightChange = null);
