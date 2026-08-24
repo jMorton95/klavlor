@@ -242,10 +242,66 @@ window.initHistoryPanel = function() {
     // tiers query param onto either via htmx:configRequest.
     const GRID_PATH_SUFFIX = '/grid';
 
+    // FILTERS LIVE IN THE URL AS WELL AS IN localStorage.
+    //
+    // localStorage alone made a filtered feed unshareable and un-bookmarkable: the shell is static
+    // and cached, so the only record of what you were looking at was in your own browser. The query
+    // string is now the authority when it is present (a link someone sent you must win over your own
+    // last choice) and localStorage is the fallback, so a bare /loot/feed still remembers.
+    //
+    // Param names deliberately match the API's own (tiers, characterId), so the page URL and the
+    // grid request read identically and there is no second vocabulary to keep in step.
+    //
+    // Ordering matters: this runs during site.js's deferred execution, which is before htmx
+    // processes hx-trigger="load" on #feed-grid-container (that waits for DOMContentLoaded), so the
+    // very first grid fetch already carries the URL's filter and no follow-up request is needed.
+    const NO_TIERS = 'none';
+
+    function syncFiltersFromUrl() {
+        const params = new URLSearchParams(window.location.search);
+
+        // Absent means "no opinion", NOT "clear" — an in-app HTMX navigation pushes /loot/feed with
+        // no query, and that must not wipe what the viewer had chosen.
+        if (params.has('tiers')) {
+            const raw = params.get('tiers');
+            const tiers = raw === NO_TIERS
+                ? []
+                : raw.split(',').map(t => t.trim().toLowerCase()).filter(t => ALL_TIERS.includes(t));
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(tiers));
+        }
+
+        if (params.has('characterId')) {
+            const character = params.get('characterId');
+            if (character) localStorage.setItem(CHARACTER_KEY, character);
+            else localStorage.removeItem(CHARACTER_KEY);
+        }
+    }
+
+    // replaceState, not pushState: a filter is a view of one page, not a navigation, and pushing
+    // would make Back step through every checkbox the viewer touched instead of leaving the feed.
+    // Defaults are omitted so an unfiltered feed keeps a clean /loot/feed URL.
+    function writeFiltersToUrl() {
+        const url = new URL(window.location.href);
+        const tiers = getActiveTiers();
+        const character = getActiveCharacter();
+
+        if (tiers.length === 0) url.searchParams.set('tiers', NO_TIERS);
+        else if (tiers.length === ALL_TIERS.length) url.searchParams.delete('tiers');
+        else url.searchParams.set('tiers', tiers.join(','));
+
+        if (character) url.searchParams.set('characterId', character);
+        else url.searchParams.delete('characterId');
+
+        window.history.replaceState(window.history.state, '', url);
+    }
+
+
     function getActiveTiers() {
         try {
             const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-            if (Array.isArray(saved) && saved.length > 0) return saved;
+            // An explicitly-saved empty list is a real state (every tier unchecked, or ?tiers=none),
+            // distinct from nothing saved at all, which means "show everything".
+            if (Array.isArray(saved)) return saved;
         } catch {}
         return ALL_TIERS;
     }
@@ -265,6 +321,21 @@ window.initHistoryPanel = function() {
         }
     }
 
+    // "Every tier off" is reachable on FIRST LOAD now that ?tiers=none is a shareable state, not
+    // only by unchecking boxes on a page that already had a grid. The load trigger has to be pulled
+    // off the container before htmx processes it (this runs before DOMContentLoaded), otherwise the
+    // feed fetches a grid with no tiers and the placeholder never shows.
+    function applyEmptyTierState() {
+        if (getActiveTiers().length > 0) return;
+        const container = document.getElementById('feed-grid-container');
+        if (container) {
+            container.removeAttribute('hx-trigger');
+            container.removeAttribute('hx-get');
+            container.innerHTML = '';
+        }
+        document.getElementById('feed-no-tiers')?.classList.remove('hidden');
+    }
+
     window.toggleFeedFilter = function() {
         const panel = document.getElementById('feed-filter-panel');
         if (panel) panel.classList.toggle('hidden');
@@ -273,6 +344,7 @@ window.initHistoryPanel = function() {
     window.saveFeedFilter = function() {
         const checked = Array.from(document.querySelectorAll('.feed-filter-checkbox:checked')).map(cb => cb.value);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(checked));
+        writeFiltersToUrl();
         const panel = document.getElementById('feed-filter-panel');
         if (panel) panel.classList.add('hidden');
         const noTiers = document.getElementById('feed-no-tiers');
@@ -316,6 +388,7 @@ window.initHistoryPanel = function() {
     window.saveFeedCharacter = function(value) {
         if (value) localStorage.setItem(CHARACTER_KEY, value);
         else localStorage.removeItem(CHARACTER_KEY);
+        writeFiltersToUrl();
 
         // Refetch the grid: the backfill is server-filtered, so the lanes have to come back.
         const container = document.getElementById('feed-grid-container');
@@ -341,8 +414,17 @@ window.initHistoryPanel = function() {
         const path = evt.detail.path;
         if (!path || !path.startsWith('/api/loot/feed')) return;
 
+        const tiers = getActiveTiers();
+        // No tiers selected means no feed to fetch. Cancelling here rather than sending tiers=''
+        // matters because the server reads an empty value as "no filter" and would answer with
+        // every lane — which is the opposite of what was asked for.
+        if (tiers.length === 0 && (path.endsWith(GRID_PATH_SUFFIX) || path.includes('/column/'))) {
+            evt.preventDefault();
+            return;
+        }
+
         if (path.endsWith(GRID_PATH_SUFFIX)) {
-            evt.detail.parameters['tiers'] = getActiveTiers().join(',');
+            evt.detail.parameters['tiers'] = tiers.join(',');
         }
         if (path.endsWith(GRID_PATH_SUFFIX) || path.includes('/column/')) {
             const character = getActiveCharacter();
@@ -394,13 +476,18 @@ window.initHistoryPanel = function() {
         }
     });
 
-    // Initialize on page load
+    // Initialize on page load. URL first, so the checkboxes and the first grid fetch agree with the
+    // link that was opened.
+    syncFiltersFromUrl();
     initFeedFilter();
+    applyEmptyTierState();
 
     // Re-initialize only when the page-level container is swapped (HTMX navigation)
     document.body.addEventListener('htmx:afterSettle', function(evt) {
         if (evt.detail.target && evt.detail.target.id === 'hx-page-container') {
+            syncFiltersFromUrl();
             initFeedFilter();
+            applyEmptyTierState();
         }
     });
 })();

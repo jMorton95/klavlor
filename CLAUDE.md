@@ -123,6 +123,8 @@ That one grid response carries **both** halves of the feed together — the back
 
 The saved tier filter is appended by site.js's `htmx:configRequest` hook (it matches any `/api/loot/feed/**/grid` request), so the initial fetch is already filtered and `initFeedFilter` must NOT re-fetch — that would double-request and re-open every stream.
 
+**The filters live in the URL as well as in localStorage.** `?tiers=rare,epic` and `?characterId=42` on the feed page (same names as the API params, so page URL and grid request read alike). A present param WINS over localStorage — a link someone sends must beat your own last choice — and an absent one means "no opinion", never "clear", because an in-app HTMX navigation pushes `/loot/feed` with no query. Writes use `replaceState`, so Back leaves the feed rather than stepping through each checkbox. `?tiers=none` is the all-off state, and it is the reason `getActiveTiers` now distinguishes a saved empty list from nothing saved: the `configRequest` hook cancels a grid/lane fetch outright when no tiers are active, because the server reads an empty `tiers=` as no filter and would answer with every lane.
+
 `StreamFeed` flushes an SSE comment (`: connected`) immediately. Without it the response head is withheld until the first drop, leaving the browser's EventSource in CONNECTING — indistinguishable from a failed connection, unable to fire `onopen` or detect a dead socket.
 
 ### Luck Maths: One Path Only
