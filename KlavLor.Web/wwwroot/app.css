@@ -207,50 +207,84 @@ body:not(.history-panel-open) #completion-history-panel {
 
 /* A card whose TOTAL exceeds its own lane's ceiling (ILootFeedService.ExceedsTier): several drops
    that each classify into this tier, summing past it - three 90M drops from one source make one
-   Epic card worth 270M. It pulses in the card's OWN tier colour, so the cue says "this lane is
-   carrying more than it looks" rather than pretending the card belongs a lane up.
+   Epic card worth 270M. The cue is the card's OWN tier colour, so it says "this lane is carrying
+   more than it looks" rather than pretending the card belongs a lane up.
+
+   THREE LAYERS, BECAUSE A BRIGHTER BORDER IS INVISIBLE HERE. The first version only brightened the
+   card's border and pulsed a soft glow behind it, and in production dark mode it could not be
+   picked out at all: every card in a swimlane already carries a coloured border and a ring in the
+   same hue, so more of that colour in the same place registers as nothing. What a neighbour cannot
+   have is a DETACHED second outline (::after, standing 5px clear of the card) and a tinted BODY -
+   a shape difference and an area difference, not a brightness difference.
 
    One animation, one colour variable. Splitting it into five keyframe blocks would be five places
    to keep the timing in step; the hue arrives from the .tier-overflow-* class instead. The timing
    deliberately matches .legendary-card so two cards pulsing side by side don't beat against each
-   other. */
+   other. Only opacity animates now, so the browser composites it instead of repainting a box-shadow
+   every frame - a feed page can hold several of these at once. */
 @keyframes tier-overflow-pulse {
-    0%, 100% {
-        box-shadow:
-            0 0 6px rgb(var(--tier-overflow-rgb) / 0.40),
-            0 0 14px rgb(var(--tier-overflow-rgb) / 0.22);
-    }
-    50% {
-        box-shadow:
-            0 0 12px rgb(var(--tier-overflow-rgb) / 0.85),
-            0 0 28px rgb(var(--tier-overflow-rgb) / 0.45),
-            0 0 48px rgb(var(--tier-overflow-rgb) / 0.20);
-    }
+    0%, 100% { opacity: 0.5; }
+    50%      { opacity: 1; }
 }
 
 .tier-overflow {
     position: relative;
     isolation: isolate;
-    border-color: rgb(var(--tier-overflow-rgb)) !important;
-    animation: tier-overflow-pulse 1.8s ease-in-out infinite;
+    /* Edge colour and tint strength are theme-split: on the dark feed the tier hue is mixed toward
+       white so the outline separates from slate-950, which on the light theme would wash it out
+       against a near-white page instead. */
+    --tier-overflow-edge: rgb(var(--tier-overflow-rgb));
+    --tier-overflow-tint: 0.10;
+    border-color: var(--tier-overflow-edge) !important;
+    /* A tint layer, not a background-color: background-image paints over the card's own
+       bg-slate-50 / dark:bg-slate-900 utility and under its text, so one declaration covers both
+       themes and survives the hover:bg change without having to restate either. */
+    background-image: linear-gradient(
+        rgb(var(--tier-overflow-rgb) / var(--tier-overflow-tint)),
+        rgb(var(--tier-overflow-rgb) / var(--tier-overflow-tint)));
+    /* Deliberately replaces the card's Tailwind shadow/ring rather than adding to them: both are
+       box-shadow, so they cannot coexist, and this cue is the rarer signal of the two. */
+    box-shadow:
+        0 0 0 1px rgb(var(--tier-overflow-rgb) / 0.70),
+        0 0 22px 3px rgb(var(--tier-overflow-rgb) / 0.45);
 }
 
-/* Hues match GetValueTierClasses' border colours exactly (Tailwind's *-400 ramp), so the pulse is
-   the card's existing border brightening rather than a new colour appearing. */
+:where(.dark, .dark *) .tier-overflow {
+    --tier-overflow-edge: color-mix(in srgb, rgb(var(--tier-overflow-rgb)) 55%, white);
+    --tier-overflow-tint: 0.16;
+}
+
+/* The halo: a second outline standing clear of the card, which is the part no neighbouring card
+   has. pointer-events:none keeps the card's own hover popover trigger working through it. */
+.tier-overflow::after {
+    content: "";
+    position: absolute;
+    inset: -5px;
+    border-radius: 0.75rem;
+    border: 2px solid var(--tier-overflow-edge);
+    box-shadow:
+        0 0 16px 3px rgb(var(--tier-overflow-rgb) / 0.90),
+        0 0 36px 10px rgb(var(--tier-overflow-rgb) / 0.50);
+    animation: tier-overflow-pulse 1.8s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* Hues match GetValueTierClasses' border colours exactly (Tailwind's *-400 ramp), so the effect
+   reads as the card's existing colour intensifying rather than a new colour arriving. */
 .tier-overflow-legendary { --tier-overflow-rgb: 251 191 36; }   /* amber-400 */
 .tier-overflow-epic      { --tier-overflow-rgb: 192 132 252; }  /* purple-400 */
 .tier-overflow-rare      { --tier-overflow-rgb: 96 165 250; }   /* blue-400 */
 .tier-overflow-uncommon  { --tier-overflow-rgb: 74 222 128; }   /* green-400 */
 .tier-overflow-standard  { --tier-overflow-rgb: 148 163 184; }  /* slate-400 */
 
-/* Respect a reduced-motion preference: keep the brighter border, drop the throb. The other card
-   effects predate this rule and are left as they are rather than changed by a side wind. */
+/* Respect a reduced-motion preference: keep every static layer (outline, halo, tint) and drop only
+   the throb. The other card effects predate this rule and are left as they are rather than changed
+   by a side wind. */
 @media (prefers-reduced-motion: reduce) {
-    .tier-overflow {
+    .tier-overflow::after {
         animation: none;
-        box-shadow:
-            0 0 10px rgb(var(--tier-overflow-rgb) / 0.55),
-            0 0 24px rgb(var(--tier-overflow-rgb) / 0.30);
+        opacity: 0.9;
     }
 }
 
