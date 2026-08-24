@@ -270,7 +270,22 @@ window.initHistoryPanel = function() {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(tiers));
         }
 
-        if (params.has('characterId')) {
+        // The character travels as a NAME, because the URL is the shareable surface and an opaque
+        // id tells the person reading the link nothing. Internally it stays an id: the select's
+        // option values, localStorage and the lane API are all id-based, so the name is resolved
+        // against the select's options rather than sent to the server.
+        //
+        // Resolution is DEFERRED, not done here: the select arrives out-of-band with the grid
+        // response, so on a cold load of a shared link it does not exist yet. That is safe because
+        // the grid shell ignores the character (only the LANES filter by it) and the lanes are
+        // requested from the grid response's own markup - by which point the select is in the DOM.
+        // Resolving lazily in getActiveCharacter therefore still catches the first lane request, so
+        // no refetch is ever needed.
+        if (params.has('character')) {
+            pendingCharacterName = params.get('character') || '';
+            if (!pendingCharacterName) localStorage.removeItem(CHARACTER_KEY);
+        } else if (params.has('characterId')) {
+            // Old links, and anything still pointing at the id form.
             const character = params.get('characterId');
             if (character) localStorage.setItem(CHARACTER_KEY, character);
             else localStorage.removeItem(CHARACTER_KEY);
@@ -289,8 +304,11 @@ window.initHistoryPanel = function() {
         else if (tiers.length === ALL_TIERS.length) url.searchParams.delete('tiers');
         else url.searchParams.set('tiers', tiers.join(','));
 
-        if (character) url.searchParams.set('characterId', character);
-        else url.searchParams.delete('characterId');
+        // Written as the name; the id form is stripped so a URL never carries both.
+        url.searchParams.delete('characterId');
+        const characterName = character ? characterNameFor(character) : '';
+        if (characterName) url.searchParams.set('character', characterName);
+        else url.searchParams.delete('character');
 
         window.history.replaceState(window.history.state, '', url);
     }
@@ -370,7 +388,44 @@ window.initHistoryPanel = function() {
     // delivered out-of-band by the grid response, so this restores the saved value once it lands.
     const CHARACTER_KEY = 'klavlor.feed.character';
 
+    // A name lifted from ?character= that has not been matched to an option yet. Held until the
+    // select lands rather than dropped, so a shared link survives the gap between the page painting
+    // and the grid response arriving.
+    let pendingCharacterName = null;
+
+    function characterSelect() {
+        const select = document.getElementById('feed-character-filter');
+        return select && !select.disabled ? select : null;
+    }
+
+    function characterNameFor(id) {
+        const option = characterSelect()?.querySelector(`option[value="${id}"]`);
+        return option ? option.textContent.trim() : '';
+    }
+
+    // Match a URL name to an option, case-insensitively and only once the list exists. A name that
+    // matches nothing is discarded rather than left filtering to nothing - the same rule as a stale
+    // saved id - and the URL is rewritten so the dead name doesn't persist in the address bar.
+    function resolvePendingCharacter() {
+        if (pendingCharacterName === null) return;
+        const select = characterSelect();
+        if (!select) return;
+
+        const wanted = pendingCharacterName.trim().toLowerCase();
+        pendingCharacterName = null;
+        if (!wanted) return;
+
+        const match = Array.from(select.options)
+            .find(o => o.value && o.textContent.trim().toLowerCase() === wanted);
+        if (match) localStorage.setItem(CHARACTER_KEY, match.value);
+        else {
+            localStorage.removeItem(CHARACTER_KEY);
+            writeFiltersToUrl();
+        }
+    }
+
     function getActiveCharacter() {
+        resolvePendingCharacter();
         return localStorage.getItem(CHARACTER_KEY) || '';
     }
 
@@ -386,6 +441,9 @@ window.initHistoryPanel = function() {
     }
 
     window.saveFeedCharacter = function(value) {
+        // An explicit choice settles the question: drop any name still waiting to be resolved from
+        // the URL, or it would overwrite this the next time something asked.
+        pendingCharacterName = null;
         if (value) localStorage.setItem(CHARACTER_KEY, value);
         else localStorage.removeItem(CHARACTER_KEY);
         writeFiltersToUrl();
