@@ -1,4 +1,4 @@
-@using KlavLor.Application.Features.CollectionLog
+﻿@using KlavLor.Application.Features.CollectionLog
 @using KlavLor.Web.Components.Layout
 
 @* One category compared across the roster: a panel per character side by side, each listing every
@@ -78,9 +78,10 @@
                             {
                                 var has = standing.Has(item.ItemId);
                                 var count = standing.CountOf(item.ItemId);
+                                var receipt = standing.ReceiptOf(item.ItemId);
                                 <a hx-get="@ItemUrl(item.ItemId).FromApi()" hx-target="#hx-page-container"
                                    hx-push-url="@ItemUrl(item.ItemId)" hx-swap="innerHTML transition:true"
-                                   title="@CellTitle(standing.CharacterName, item.Name, has, count)"
+                                   title="@CellTitle(standing.CharacterName, item.Name, has, count, receipt)"
                                    class="flex items-center gap-2 px-2.5 py-1 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors">
                                     @* Missing items keep their row and grey out — icon desaturated,
                                        name dimmed — so the panels stay aligned row for row. *@
@@ -88,6 +89,16 @@
                                          class="w-5 h-5 object-contain shrink-0 @(has ? "" : "grayscale opacity-40")"
                                          loading="lazy" onerror="this.style.visibility='hidden'" />
                                     <span class="text-[11px] truncate flex-1 min-w-0 @(has ? "text-slate-700 dark:text-slate-200" : "text-slate-400 dark:text-slate-600")">@item.Name</span>
+                                    @* THE ROLL IT LANDED ON, per character. Without it two panels of
+                                       ticks say only who has what, never whose grind was worse - which
+                                       is the question a comparison exists to answer. Same figure and
+                                       same amber as the character page, so the two agree by eye.
+                                       Omitted, never zeroed, when we hold no drop for it: absent means
+                                       obtained before tracking began. *@
+                                    @if (has && receipt is { KillCount: > 0 } r)
+                                    {
+                                        <span class="text-[10px] font-semibold tabular-nums shrink-0 text-amber-600 dark:text-amber-400">#@r.KillCount!.Value.ToString("N0")</span>
+                                    }
                                     @if (has && count > 0)
                                     {
                                         <span class="text-[11px] font-semibold tabular-nums shrink-0 text-emerald-600 dark:text-emerald-400">@count.ToString("N0")</span>
@@ -123,7 +134,18 @@
     private static double Percent(CollectionLogCategoryStanding s) =>
         s.Total > 0 ? s.Obtained * 100.0 / s.Total : 0;
 
-    private static string CellTitle(string character, string item, bool has, int count) => has
-        ? count > 1 ? $"{character} — {item} ×{count:N0}" : $"{character} — {item}"
-        : $"{character} — {item} not obtained";
+    private static string CellTitle(
+        string character, string item, bool has, int count, CollectionLogFirstReceipt? receipt)
+    {
+        if (!has) return $"{character} — {item} not obtained";
+
+        var parts = new List<string> { $"{character} — {item}" };
+        if (count > 1) parts.Add($"×{count:N0}");
+        // The roll and the source that actually dropped it: the number on its own invites the wrong
+        // question ("roll of what?") on an item several sources can drop.
+        if (receipt is { KillCount: > 0 } r) parts.Add($"first on roll {r.KillCount!.Value:N0} at {r.SourceName}");
+        else if (receipt is { } s) parts.Add($"from {s.SourceName}");
+
+        return string.Join(" — ", parts);
+    }
 }

@@ -195,10 +195,21 @@ public sealed record CollectionLogCategoryStanding(
     /// shows quantities: two characters both "having" a Bandos hilt is not the same story when one
     /// has eleven of them.
     /// </summary>
-    IReadOnlyDictionary<int, int> Counts)
+    IReadOnlyDictionary<int, int> Counts,
+    /// <summary>
+    /// Item id → where and on which roll it first arrived FOR THIS CHARACTER, from our own loot
+    /// records. The comparison is about whose grind was worse, and a tick alone cannot say that: two
+    /// characters both holding a Bandos hilt is a different story when one got it on roll 40 and the
+    /// other on roll 900. Absent for anything we never tracked, which must stay blank rather than
+    /// read as roll zero.
+    /// </summary>
+    IReadOnlyDictionary<int, CollectionLogFirstReceipt>? FirstReceipts = null)
 {
     public bool Has(int itemId) => Counts.ContainsKey(itemId);
     public int CountOf(int itemId) => Counts.TryGetValue(itemId, out var n) ? n : 0;
+
+    public CollectionLogFirstReceipt? ReceiptOf(int itemId) =>
+        FirstReceipts is not null && FirstReceipts.TryGetValue(itemId, out var receipt) ? receipt : null;
 }
 
 /// <summary>A row in the item search, with how many characters hold it.</summary>

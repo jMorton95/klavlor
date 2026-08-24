@@ -243,13 +243,28 @@ internal sealed class CollectionLogQueryRepository(
                 // "has it", so a zero must still produce an entry.
                 .ToDictionary(g => g.Key, g => (IReadOnlyDictionary<int, int>)g.ToDictionary(x => x.ItemId, x => x.Count));
 
+            // Every character first receipt for every item in the category, in ONE query — the rolls
+            // are the point of the comparison, so they are not optional detail fetched per panel.
+            // Rows come back only where we actually hold a drop, so an untracked item is absent
+            // rather than reported as roll zero.
+            var receipts = await ResolveFirstReceipts(
+                characters.Select(c => c.Id).ToList(), itemIds.ToList());
+
+            var receiptsByCharacter = receipts
+                .GroupBy(kv => kv.Key.CharacterId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => (IReadOnlyDictionary<int, CollectionLogFirstReceipt>)g.ToDictionary(kv => kv.Key.ItemId, kv => kv.Value));
+
             var standings = characters
                 .Select(c =>
                 {
                     var owned = byCharacter.TryGetValue(c.Id, out var counts)
                         ? counts
                         : new Dictionary<int, int>();
-                    return new CollectionLogCategoryStanding(c.Id, c.CharacterName, owned.Count, items.Count, owned);
+                    receiptsByCharacter.TryGetValue(c.Id, out var characterReceipts);
+                    return new CollectionLogCategoryStanding(
+                        c.Id, c.CharacterName, owned.Count, items.Count, owned, characterReceipts);
                 })
                 .OrderByDescending(s => s.Obtained)
                 .ThenBy(s => s.CharacterName)
@@ -399,12 +414,31 @@ internal sealed class CollectionLogQueryRepository(
     private async Task<Dictionary<int, CollectionLogFirstReceipt>> ResolveFirstReceipts(
         int gameCharacterId, List<int> itemIds)
     {
-        var result = new Dictionary<int, CollectionLogFirstReceipt>();
-        if (itemIds.Count == 0) return result;
+        var byPair = await ResolveFirstReceipts([gameCharacterId], itemIds);
+        return byPair.ToDictionary(kv => kv.Key.ItemId, kv => kv.Value);
+    }
+
+    /// <summary>
+    /// The same attribution for a whole ROSTER at once, keyed by character and item. The comparison
+    /// page needs every character&apos;s roll for every item in a category, and that is one query
+    /// here rather than one per character.
+    /// </summary>
+    /// <remarks>
+    /// The single-character overload above delegates to this, deliberately: the roll number is a
+    /// rule (RuneLite&apos;s reported count, else our own chronological position at that source, plus
+    /// any admin baseline) and two copies of it would drift — which is exactly how the character page
+    /// and this page would come to disagree about the same drop.
+    /// </remarks>
+    private async Task<Dictionary<(int CharacterId, int ItemId), CollectionLogFirstReceipt>> ResolveFirstReceipts(
+        List<int> gameCharacterIds, List<int> itemIds)
+    {
+        var result = new Dictionary<(int, int), CollectionLogFirstReceipt>();
+        if (itemIds.Count == 0 || gameCharacterIds.Count == 0) return result;
 
         const string sql = """
             WITH firsts AS (
-                SELECT DISTINCT ON (ld."ItemId")
+                SELECT DISTINCT ON (lr."GameCharacterId", ld."ItemId")
+                       lr."GameCharacterId" AS character_id,
                        ld."ItemId"      AS item_id,
                        lr."Id"          AS record_id,
                        lr."SourceName"  AS source_name,
@@ -412,20 +446,21 @@ internal sealed class CollectionLogQueryRepository(
                        lr."KillCount"   AS kill_count
                 FROM "LootDrops" ld
                 JOIN "LootRecords" lr ON lr."Id" = ld."LootRecordId"
-                WHERE lr."GameCharacterId" = @cid AND ld."ItemId" = ANY(@items)
-                ORDER BY ld."ItemId", lr."OccurredAt", lr."Id"
+                WHERE lr."GameCharacterId" = ANY(@cids) AND ld."ItemId" = ANY(@items)
+                ORDER BY lr."GameCharacterId", ld."ItemId", lr."OccurredAt", lr."Id"
             )
-            SELECT f.item_id,
+            SELECT f.character_id,
+                   f.item_id,
                    f.source_name,
                    f.kill_count,
                    (SELECT COUNT(*)::int
                       FROM "LootRecords" o
-                     WHERE o."GameCharacterId" = @cid
+                     WHERE o."GameCharacterId" = f.character_id
                        AND o."SourceName" = f.source_name
                        AND (o."OccurredAt" < f.occurred_at
                             OR (o."OccurredAt" = f.occurred_at AND o."Id" <= f.record_id))) AS ordinal,
                    COALESCE((SELECT b."BaselineKc" FROM "CharacterSourceBaselines" b
-                              WHERE b."GameCharacterId" = @cid AND b."SourceName" = f.source_name), 0) AS baseline
+                              WHERE b."GameCharacterId" = f.character_id AND b."SourceName" = f.source_name), 0) AS baseline
             FROM firsts f
             """;
 
@@ -435,22 +470,23 @@ internal sealed class CollectionLogQueryRepository(
 
         await using var cmd = connection.CreateCommand();
         cmd.CommandText = sql;
-        cmd.Parameters.Add(new NpgsqlParameter("@cid", gameCharacterId));
+        cmd.Parameters.Add(new NpgsqlParameter("@cids", gameCharacterIds.ToArray()));
         cmd.Parameters.Add(new NpgsqlParameter("@items", itemIds.ToArray()));
 
         await using var reader = await cmd.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
-            var itemId = reader.GetInt32(0);
-            var source = reader.GetString(1);
-            var reported = reader.IsDBNull(2) ? (int?)null : reader.GetInt32(2);
-            var ordinal = reader.IsDBNull(3) ? 0 : reader.GetInt32(3);
-            var baseline = reader.IsDBNull(4) ? 0 : reader.GetInt32(4);
+            var characterId = reader.GetInt32(0);
+            var itemId = reader.GetInt32(1);
+            var source = reader.GetString(2);
+            var reported = reader.IsDBNull(3) ? (int?)null : reader.GetInt32(3);
+            var ordinal = reader.IsDBNull(4) ? 0 : reader.GetInt32(4);
+            var baseline = reader.IsDBNull(5) ? 0 : reader.GetInt32(5);
 
-            // RuneLite's own count when it sent one, else our derived position. Chest sources
+            // RuneLite reported count when it sent one, else our derived position. Chest sources
             // routinely report none, which is why the fallback exists.
             var kc = reported ?? (ordinal > 0 ? ordinal + baseline : null);
-            result[itemId] = new CollectionLogFirstReceipt(source, kc);
+            result[(characterId, itemId)] = new CollectionLogFirstReceipt(source, kc);
         }
 
         return result;
