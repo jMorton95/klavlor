@@ -748,25 +748,41 @@ body:not(.history-panel-open) #completion-history-panel {
     }
 }
 
+/* THE ICON IS THE ONLY THING ALLOWED TO GIVE WAY.
+   Every part of a tile scales with cqmin, but the font sizes are CLAMPED at the small end - so on a
+   short tile (a 26-item category packed into several columns) the icon, two lines of name and the
+   roll add up to more than the square, and overflow:hidden ate the tail of the name: Dharok's
+   platebody showed as Dharok's with the second line clipped between the icon and the roll number.
+
+   Clipped text is unreadable; a smaller icon is still an icon. So the labels are flex-shrink:0 and
+   the ICON yields instead - which needs min-height:0 as well, or flexbox refuses to take it below
+   its intrinsic height. object-contain (set in the markup) keeps the sprite square while it does.
+   Padding and gap are a shade tighter for the same reason: at 148px they cost nothing, at 60px they
+   were a tenth of the height. */
 .clog-tile {
     container-type: size;
     min-width: 0;
     overflow: hidden;
-    padding: 4cqmin;
-    gap: 3cqmin;
+    padding: 3cqmin;
+    gap: 2cqmin;
 }
 
 .clog-tile-icon {
-    width: clamp(1.75rem, 44cqmin, 5.5rem);
-    height: clamp(1.75rem, 44cqmin, 5.5rem);
+    width: clamp(1.25rem, 44cqmin, 5.5rem);
+    height: clamp(1.25rem, 44cqmin, 5.5rem);
+    min-height: 0;
+    flex-shrink: 1;
 }
 
 .clog-tile-name {
-    font-size: clamp(0.625rem, 9.5cqmin, 0.9375rem);
+    font-size: clamp(0.5625rem, 9.5cqmin, 0.9375rem);
     line-height: 1.15;
+    flex-shrink: 0;
+    max-width: 100%;
 }
 
 .clog-tile-roll {
-    font-size: clamp(0.625rem, 8.5cqmin, 0.875rem);
+    font-size: clamp(0.5625rem, 8.5cqmin, 0.875rem);
     line-height: 1.1;
+    flex-shrink: 0;
 }
