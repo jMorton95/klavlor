@@ -229,67 +229,45 @@ body:not(.history-panel-open) #completion-history-panel {
    to keep the timing in step; the hue arrives from the .tier-overflow-* class instead. The timing
    deliberately matches .legendary-card so two cards pulsing side by side don't beat against each
    other. */
-/* HALVED, TWICE ASKED FOR. The alphas below are the quiet end of the range, not the middle of it:
-   this cue lands on roughly a fifth of the cards on a feed page, so anything that reads as "bright"
-   on one card reads as a light show across a column. It only has to be findable next to its
-   neighbours, which the tint alone nearly manages. */
-@keyframes tier-overflow-pulse {
-    0%, 100% {
-        box-shadow:
-            0 0 0 1px rgb(var(--tier-overflow-rgb) / 0.30),
-            inset 0 0 8px 0 rgb(var(--tier-overflow-rgb) / 0.06);
-    }
-    50% {
-        box-shadow:
-            0 0 0 1px rgb(var(--tier-overflow-rgb) / 0.50),
-            inset 0 0 12px 0 rgb(var(--tier-overflow-rgb) / 0.16);
-    }
-}
+/* A TINT, AND NOTHING ELSE. No pulse, no glow, no ring - three rounds of turning the brightness
+   down all missed the point, which is that MOTION is what made it shout. A throb is a demand for
+   attention wherever it appears on the page, and this cue appears on roughly a fifth of the cards
+   on a feed page (42 of 189 on a normal day, 25 of them Standard, where a session card passes its
+   lane ceiling as a matter of routine). A cue that common has to be readable when you look at the
+   card, not visible from across the page.
 
+   So it is a still, faint wash of the lane's own colour across the card body - the layer that was
+   doing the work all along - and the border is left exactly as the tier gave it. Nothing here
+   animates and nothing is drawn outside the card's box, so a column of these reads as texture
+   rather than as a light show. If it ever needs strengthening, raise the tint alpha; do not bring
+   back a glow or a pulse. */
 .tier-overflow {
-    position: relative;
-    isolation: isolate;
-    /* Edge colour and tint strength are theme-split: on the dark feed the tier hue is mixed toward
-       white so the border separates from slate-950, which on the light theme would wash it out
-       against a near-white page instead. */
-    --tier-overflow-edge: rgb(var(--tier-overflow-rgb));
-    --tier-overflow-tint: 0.055;
-    border-color: var(--tier-overflow-edge) !important;
     /* A tint layer, not a background-color: background-image paints over the card's own
        bg-slate-50 / dark:bg-slate-900 utility and under its text, so one declaration covers both
-       themes and survives the hover:bg change without having to restate either. */
+       themes and survives the hover:bg change without having to restate either. Nothing else is
+       set - the card keeps its own border, shadow and ring, which is why this no longer has to
+       fight Tailwind's box-shadow for the edge. */
+    --tier-overflow-tint: 0.05;
     background-image: linear-gradient(
         rgb(var(--tier-overflow-rgb) / var(--tier-overflow-tint)),
         rgb(var(--tier-overflow-rgb) / var(--tier-overflow-tint)));
-    /* Replaces the card's Tailwind shadow/ring rather than adding to them: both are box-shadow, so
-       they cannot coexist, and this cue is the rarer signal of the two. */
-    animation: tier-overflow-pulse 1.8s ease-in-out infinite;
 }
 
+/* Slightly stronger on the dark theme, where the same alpha over slate-900 reads fainter than it
+   does over slate-50. */
 :where(.dark, .dark *) .tier-overflow {
-    --tier-overflow-edge: color-mix(in srgb, rgb(var(--tier-overflow-rgb)) 80%, white);
-    --tier-overflow-tint: 0.085;
+    --tier-overflow-tint: 0.075;
 }
 
-/* Hues match GetValueTierClasses' border colours exactly (Tailwind's *-400 ramp), so the effect
-   reads as the card's existing colour intensifying rather than a new colour arriving. */
+/* Hues match GetValueTierClasses' border colours exactly (Tailwind's *-400 ramp), so the wash is
+   the card's existing colour rather than a new one arriving. */
 .tier-overflow-legendary { --tier-overflow-rgb: 251 191 36; }   /* amber-400 */
 .tier-overflow-epic      { --tier-overflow-rgb: 192 132 252; }  /* purple-400 */
 .tier-overflow-rare      { --tier-overflow-rgb: 96 165 250; }   /* blue-400 */
 .tier-overflow-uncommon  { --tier-overflow-rgb: 74 222 128; }   /* green-400 */
 .tier-overflow-standard  { --tier-overflow-rgb: 148 163 184; }  /* slate-400 */
 
-/* Respect a reduced-motion preference: keep the tint, the border and a steady inset glow, and drop
-   only the throb. The other card effects predate this rule and are left as they are rather than
-   changed by a side wind. */
-@media (prefers-reduced-motion: reduce) {
-    .tier-overflow {
-        animation: none;
-        box-shadow:
-            0 0 0 1px rgb(var(--tier-overflow-rgb) / 0.40),
-            inset 0 0 10px 0 rgb(var(--tier-overflow-rgb) / 0.11);
-    }
-}
+/* No reduced-motion block: there is no motion left to reduce. */
 
 @keyframes fade-in {
     from { opacity: 0; }

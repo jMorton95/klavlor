@@ -19,15 +19,17 @@
     var entryHasSpecial = Entry.Drops.Any(d => d.IsSpecial);
     var gigaCardClass = entryHasSpecial ? "giga-card" : "";
 
-    // A card whose TOTAL is worth more than its own lane pulses in that lane's colour: three 90M
+    // A card whose TOTAL is worth more than its own lane is washed in that lane's colour: three 90M
     // drops from one source merge into one Epic card worth 270M, which is Legendary money sitting
-    // in the Epic column. The pulse is the card's own tier hue, not the tier the total would
-    // reach - the card has not been promoted, it is just carrying more than the lane implies.
+    // in the Epic column. The wash is the card's own tier hue, not the tier the total would reach -
+    // the card has not been promoted, it is just carrying more than the lane implies. It is a faint
+    // static tint and nothing else; see .tier-overflow in app.css for why it is not allowed to be
+    // anything louder.
     //
-    // Yielded to the two effects that also animate the border, so they cannot fight over it. In
-    // practice they never collide (a 250M+ drop and an injected special both classify as
-    // Legendary, which has no ceiling to exceed) but the precedence is stated rather than left to
-    // stylesheet ordering.
+    // A card already carrying the legendary or giga treatment is left alone: those two are loud by
+    // design and a tint underneath them says nothing. In practice they never collide (a 250M+ drop
+    // and an injected special both classify as Legendary, which has no ceiling to exceed) but the
+    // precedence is stated rather than implied.
     var exceedsTier = ILootFeedService.ExceedsTier(Entry.Tier, Entry.TotalValue);
     var tierOverflowClass = exceedsTier && !entryHasLegendaryDrop && !entryHasSpecial
         ? GetTierOverflowClasses(Entry.Tier)
