@@ -229,16 +229,20 @@ body:not(.history-panel-open) #completion-history-panel {
    to keep the timing in step; the hue arrives from the .tier-overflow-* class instead. The timing
    deliberately matches .legendary-card so two cards pulsing side by side don't beat against each
    other. */
+/* HALVED, TWICE ASKED FOR. The alphas below are the quiet end of the range, not the middle of it:
+   this cue lands on roughly a fifth of the cards on a feed page, so anything that reads as "bright"
+   on one card reads as a light show across a column. It only has to be findable next to its
+   neighbours, which the tint alone nearly manages. */
 @keyframes tier-overflow-pulse {
     0%, 100% {
         box-shadow:
-            0 0 0 1px rgb(var(--tier-overflow-rgb) / 0.55),
-            inset 0 0 10px 0 rgb(var(--tier-overflow-rgb) / 0.14);
+            0 0 0 1px rgb(var(--tier-overflow-rgb) / 0.30),
+            inset 0 0 8px 0 rgb(var(--tier-overflow-rgb) / 0.06);
     }
     50% {
         box-shadow:
-            0 0 0 1px rgb(var(--tier-overflow-rgb) / 0.85),
-            inset 0 0 16px 0 rgb(var(--tier-overflow-rgb) / 0.34);
+            0 0 0 1px rgb(var(--tier-overflow-rgb) / 0.50),
+            inset 0 0 12px 0 rgb(var(--tier-overflow-rgb) / 0.16);
     }
 }
 
@@ -249,7 +253,7 @@ body:not(.history-panel-open) #completion-history-panel {
        white so the border separates from slate-950, which on the light theme would wash it out
        against a near-white page instead. */
     --tier-overflow-edge: rgb(var(--tier-overflow-rgb));
-    --tier-overflow-tint: 0.10;
+    --tier-overflow-tint: 0.055;
     border-color: var(--tier-overflow-edge) !important;
     /* A tint layer, not a background-color: background-image paints over the card's own
        bg-slate-50 / dark:bg-slate-900 utility and under its text, so one declaration covers both
@@ -263,8 +267,8 @@ body:not(.history-panel-open) #completion-history-panel {
 }
 
 :where(.dark, .dark *) .tier-overflow {
-    --tier-overflow-edge: color-mix(in srgb, rgb(var(--tier-overflow-rgb)) 55%, white);
-    --tier-overflow-tint: 0.16;
+    --tier-overflow-edge: color-mix(in srgb, rgb(var(--tier-overflow-rgb)) 80%, white);
+    --tier-overflow-tint: 0.085;
 }
 
 /* Hues match GetValueTierClasses' border colours exactly (Tailwind's *-400 ramp), so the effect
@@ -282,8 +286,8 @@ body:not(.history-panel-open) #completion-history-panel {
     .tier-overflow {
         animation: none;
         box-shadow:
-            0 0 0 1px rgb(var(--tier-overflow-rgb) / 0.70),
-            inset 0 0 13px 0 rgb(var(--tier-overflow-rgb) / 0.24);
+            0 0 0 1px rgb(var(--tier-overflow-rgb) / 0.40),
+            inset 0 0 10px 0 rgb(var(--tier-overflow-rgb) / 0.11);
     }
 }
 
