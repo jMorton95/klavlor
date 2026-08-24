@@ -183,7 +183,13 @@ public sealed record CollectionLogCategoryComparison(
     string GroupName,
     int Total,
     IReadOnlyList<CollectionLogItemState> Items,
-    IReadOnlyList<CollectionLogCategoryStanding> Standings);
+    IReadOnlyList<CollectionLogCategoryStanding> Standings,
+    /// <summary>
+    /// The loot source the rolls are counted at, derived from our own records rather than from the
+    /// category name - so it works for a category whose name is nothing like its boss. Null when no
+    /// tracked drop in this category can name one.
+    /// </summary>
+    string? RollSourceName = null);
 
 public sealed record CollectionLogCategoryStanding(
     int GameCharacterId,
@@ -203,7 +209,13 @@ public sealed record CollectionLogCategoryStanding(
     /// other on roll 900. Absent for anything we never tracked, which must stay blank rather than
     /// read as roll zero.
     /// </summary>
-    IReadOnlyDictionary<int, CollectionLogFirstReceipt>? FirstReceipts = null)
+    IReadOnlyDictionary<int, CollectionLogFirstReceipt>? FirstReceipts = null,
+    /// <summary>
+    /// This character's TOTAL rolls at the source behind the category, admin baseline included -
+    /// the denominator every per-item roll on the panel is measured against. Null when we hold no
+    /// loot data for them there.
+    /// </summary>
+    int? Rolls = null)
 {
     public bool Has(int itemId) => Counts.ContainsKey(itemId);
     public int CountOf(int itemId) => Counts.TryGetValue(itemId, out var n) ? n : 0;

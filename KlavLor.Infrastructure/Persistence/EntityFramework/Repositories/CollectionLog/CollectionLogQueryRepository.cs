@@ -256,6 +256,14 @@ internal sealed class CollectionLogQueryRepository(
                     g => g.Key,
                     g => (IReadOnlyDictionary<int, CollectionLogFirstReceipt>)g.ToDictionary(kv => kv.Key.ItemId, kv => kv.Value));
 
+            // The per-item rolls need a denominator or they say nothing: 40 rolls for a hilt reads
+            // very differently against 300 chests than against 3,000. That figure is the character's
+            // TOTAL rolls at the source behind the category, resolved from our own loot records.
+            var rollSource = await ResolveCategoryRollSource(itemIds.ToList());
+            var rolls = rollSource is null
+                ? []
+                : await ResolveSourceRolls(characters.Select(c => c.Id).ToList(), rollSource);
+
             var standings = characters
                 .Select(c =>
                 {
@@ -264,14 +272,16 @@ internal sealed class CollectionLogQueryRepository(
                         : new Dictionary<int, int>();
                     receiptsByCharacter.TryGetValue(c.Id, out var characterReceipts);
                     return new CollectionLogCategoryStanding(
-                        c.Id, c.CharacterName, owned.Count, items.Count, owned, characterReceipts);
+                        c.Id, c.CharacterName, owned.Count, items.Count, owned, characterReceipts,
+                        rolls.TryGetValue(c.Id, out var total) ? total : null);
                 })
                 .OrderByDescending(s => s.Obtained)
                 .ThenBy(s => s.CharacterName)
                 .ToList();
 
             return new CollectionLogCategoryComparison(
-                category.Slug, category.DisplayName, category.GroupName, items.Count, items, standings);
+                category.Slug, category.DisplayName, category.GroupName, items.Count, items, standings,
+                rollSource);
         }
         catch (Exception ex)
         {
@@ -398,6 +408,56 @@ internal sealed class CollectionLogQueryRepository(
     /// adding queries.
     /// </remarks>
     private const int RecentUnlockCount = 100;
+
+    /// <summary>
+    /// The loot source a category's rolls are counted at: the one our own records most often
+    /// credited for items in it.
+    /// </summary>
+    /// <remarks>
+    /// Derived from the data rather than matched on the category's name, because the two
+    /// vocabularies do not line up - the log calls it "Barrows Chests" and the loot source is
+    /// "Barrows" - and name matching would silently give up on exactly the categories where it is
+    /// most wanted. Taking the modal source also survives an item that several sources drop: a Bandos
+    /// hilt logged once from a clue does not move the count off Bandos.
+    /// </remarks>
+    private async Task<string?> ResolveCategoryRollSource(List<int> itemIds)
+    {
+        if (itemIds.Count == 0) return null;
+
+        return await (
+            from ld in dataContext.LootDrops.AsNoTracking().Where(d => itemIds.Contains(d.ItemId))
+            join lr in dataContext.LootRecords.AsNoTracking() on ld.LootRecordId equals lr.Id
+            group lr by lr.SourceName into bySource
+            orderby bySource.Count() descending, bySource.Key
+            select bySource.Key)
+            .FirstOrDefaultAsync();
+    }
+
+    /// <summary>
+    ///每 character's total rolls at one source, admin baseline included - the same definition the
+    /// character and source pages use, so the figures agree.
+    /// </summary>
+    private async Task<Dictionary<int, int>> ResolveSourceRolls(List<int> gameCharacterIds, string sourceName)
+    {
+        var tracked = await dataContext.LootRecords.AsNoTracking()
+            .Where(r => r.SourceName == sourceName && r.GameCharacterId != null
+                        && gameCharacterIds.Contains(r.GameCharacterId!.Value))
+            .GroupBy(r => r.GameCharacterId!.Value)
+            .Select(g => new { CharacterId = g.Key, Rolls = g.Count() })
+            .ToListAsync();
+
+        var baselines = await dataContext.CharacterSourceBaselines.AsNoTracking()
+            .Where(b => b.SourceName == sourceName && gameCharacterIds.Contains(b.GameCharacterId))
+            .Select(b => new { b.GameCharacterId, b.BaselineKc })
+            .ToListAsync();
+
+        var result = tracked.ToDictionary(t => t.CharacterId, t => t.Rolls);
+        foreach (var baseline in baselines)
+            result[baseline.GameCharacterId] =
+                (result.TryGetValue(baseline.GameCharacterId, out var n) ? n : 0) + baseline.BaselineKc;
+
+        return result;
+    }
 
     /// <summary>
     /// For each item, the source that FIRST dropped it to this character and the roll it landed on.

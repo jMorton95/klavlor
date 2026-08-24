@@ -64,6 +64,14 @@
                             <a hx-get="@CharacterUrl(standing.GameCharacterId).FromApi()" hx-target="#hx-page-container"
                                hx-push-url="@CharacterUrl(standing.GameCharacterId)" hx-swap="innerHTML transition:true"
                                class="block text-sm font-semibold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer truncate">@standing.CharacterName</a>
+                            @* The denominator for every per-item roll below it: without the total,
+                               "#40" says nothing about whether 40 was lucky. Absent when we hold no
+                               loot data for this character at the source. *@
+                            @if (standing.Rolls is > 0)
+                            {
+                                <div class="text-[10px] tabular-nums text-slate-500 dark:text-white"
+                                     title="@RollsTitle(standing)">@standing.Rolls!.Value.ToString("N0") rolls</div>
+                            }
                             <div class="flex items-center gap-2 mt-1">
                                 <div class="h-1 flex-1 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
                                     <div class="h-full rounded-full @(complete ? "bg-emerald-500" : "bg-amber-500")"
@@ -128,6 +136,13 @@
     [Parameter] public string Slug { get; set; } = "";
 
     private static string CharacterUrl(int id) => AppRoutes.CollectionLogCharacter.WithId(id);
+
+    /// Names the source the total is counted at, since the category's name and the loot source's
+    /// rarely match ("Barrows Chests" against "Barrows").
+    private string RollsTitle(CollectionLogCategoryStanding standing) =>
+        Comparison?.RollSourceName is { } source
+            ? $"{standing.Rolls:N0} rolls at {source}"
+            : $"{standing.Rolls:N0} rolls";
 
     private static string ItemUrl(int itemId) => AppRoutes.CollectionLogItem.Replace("{itemId:int}", itemId.ToString());
 
