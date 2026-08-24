@@ -40,25 +40,29 @@
     else
     {
         @* grow + min-h-0 makes the scroll area take exactly the height the grid cell gives the
-           panel. justify-center centres the tiles; content-start pins them to the top. *@
-        <div class="grow min-h-0 overflow-y-auto themed-scrollbar px-3 pt-3 pb-2">
-            <div class="flex flex-wrap justify-center content-start gap-2">
+           panel, which is what .clog-tiles' stretching rows resolve against. The tiles are sized
+           by the panel (see .clog-tiles in app.css): the column count comes from the item count so
+           a four-item category gets four large tiles filling the box rather than four small ones in
+           its top-left corner, and the rows stretch to the panel's height until there are more of
+           them than fits, at which point this container scrolls. *@
+        <div class="clog-focus-body grow min-h-0 overflow-y-auto themed-scrollbar px-3 pt-3 pb-2">
+            <div class="clog-tiles" style="--clog-cols:@Columns;--clog-rows:@Rows">
                 @foreach (var item in Items)
                 {
                     <a hx-get="@ItemUrl(item.ItemId).FromApi()" hx-target="#hx-page-container"
                        hx-push-url="@ItemUrl(item.ItemId)" hx-swap="innerHTML transition:true"
                        title="@Tooltip(item)"
-                       class="relative w-[5.25rem] flex flex-col items-center gap-1 rounded-lg border px-1.5 py-2 cursor-pointer transition-colors @(item.Obtained ? "border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-800/50 hover:border-amber-400" : "border-slate-200/80 dark:border-slate-700/80 bg-slate-100/70 dark:bg-slate-950/40 hover:border-amber-400")">
+                       class="clog-tile relative flex flex-col items-center justify-center rounded-lg border cursor-pointer transition-colors @(item.Obtained ? "border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-800/50 hover:border-amber-400" : "border-slate-200/80 dark:border-slate-700/80 bg-slate-100/70 dark:bg-slate-950/40 hover:border-amber-400")">
                         <img src="/api/images/item-icon?name=@Uri.EscapeDataString(item.Name)" alt=""
-                             class="w-9 h-9 object-contain @(item.Obtained ? "" : "grayscale opacity-70")" loading="lazy" onerror="this.style.display='none'" />
-                        <span class="text-[10px] leading-tight text-center line-clamp-2 @(item.Obtained ? "text-slate-700 dark:text-slate-200" : "text-slate-500 dark:text-slate-400")">@item.Name</span>
+                             class="clog-tile-icon object-contain @(item.Obtained ? "" : "grayscale opacity-70")" loading="lazy" onerror="this.style.display='none'" />
+                        <span class="clog-tile-name text-center line-clamp-2 @(item.Obtained ? "text-slate-700 dark:text-slate-200" : "text-slate-500 dark:text-slate-400")">@item.Name</span>
 
                         @* The roll it landed on, from OUR loot records, attributed to the source
                            that actually dropped it. Absent for anything obtained before tracking
                            began, and omitted rather than shown as zero. *@
                         @if (item.FirstReceipt is { KillCount: > 0 } receipt)
                         {
-                            <span class="text-[10px] font-semibold tabular-nums text-amber-600 dark:text-amber-400">#@receipt.KillCount!.Value.ToString("N0")</span>
+                            <span class="clog-tile-roll font-semibold tabular-nums text-amber-600 dark:text-amber-400">#@receipt.KillCount!.Value.ToString("N0")</span>
                         }
 
                         @if (item.Obtained && item.Count > 1)
@@ -81,13 +85,70 @@
     [Parameter] public string? IconName { get; set; }
 
     /// <summary>
-    /// Categories from this size up get the wider cell. Below it the tiles fit comfortably in the
-    /// standard width and a wider panel would just be whitespace; at ten and above they start
-    /// wrapping into a tall narrow column, which is when the extra track earns its place.
+    /// Categories from this size up get the wider cell. Six rather than ten, now that the tiles are
+    /// squares sized to the panel: in the standard cell six of them come out two across and three
+    /// down at ~114px, where the wide cell fits them three across at the 9.25rem ceiling. The old
+    /// threshold was set when tiles were a fixed width and the narrow cell held a six-item log
+    /// without wrapping, so there was nothing to gain from the extra tracks.
     /// </summary>
-    private const int WideThreshold = 10;
+    private const int WideThreshold = 6;
 
     private bool IsWide => Items.Count >= WideThreshold;
+
+    /// <summary>
+    /// The panel's tile grid: how many columns, and therefore how many rows. Both go to the CSS,
+    /// which sizes one square tile to fit the panel in both directions.
+    /// </summary>
+    /// <remarks>
+    /// The count has to come from the ITEM COUNT, not from the available width: an auto-fill grid
+    /// puts four items in one row of small tiles however wide the panel is, which is what started
+    /// this. Given square tiles, a c×r arrangement in a cell of aspect A (width over height) admits
+    /// a tile of side min(A/c, 1/r) in units of the cell's height — so the best layout is simply the
+    /// candidate column count that MAXIMISES that, and it is cheap enough to search directly rather
+    /// than approximate with sqrt(n · A).
+    ///
+    /// The aspect depends on which cell the panel got, and <see cref="IsWide"/> is what decides
+    /// that. Measured at the 8-column breakpoint the standard cell is markedly TALLER than it is
+    /// wide (~0.62) and the wide one is about 2:1, and the optimum genuinely differs between them:
+    /// three items want a single column in the tall cell and a single row in the wide one.
+    ///
+    /// Ties go to the layout leaving the fewest empty cells, since a ragged last row reads as a
+    /// mistake next to a full one. Eight columns is the ceiling: past that the tiles are smaller
+    /// than the fixed size this replaced, and scrolling is the better answer for a 100-item log.
+    /// </remarks>
+    private int Columns => ColumnsFor(Items.Count, IsWide);
+
+    private int Rows => (int)Math.Ceiling(Items.Count / (double)Columns);
+
+    internal static int ColumnsFor(int count, bool isWide)
+    {
+        if (count <= 1) return 1;
+
+        var panelAspect = isWide ? 2.0 : 0.62;
+        const int maxColumns = 8;
+
+        var best = 1;
+        var bestSide = 0.0;
+        var bestEmpty = int.MaxValue;
+
+        for (var columns = 1; columns <= Math.Min(count, maxColumns); columns++)
+        {
+            var rows = (int)Math.Ceiling(count / (double)columns);
+            var side = Math.Min(panelAspect / columns, 1.0 / rows);
+            var empty = columns * rows - count;
+
+            // A hair of tolerance, so a layout that is a fraction of a percent smaller but fills
+            // its rows completely is preferred to a ragged one.
+            if (side > bestSide * 1.02 || (side > bestSide * 0.98 && empty < bestEmpty))
+            {
+                best = columns;
+                bestSide = Math.Max(bestSide, side);
+                bestEmpty = empty;
+            }
+        }
+
+        return best;
+    }
 
     private int Obtained => Items.Count(i => i.Obtained);
     private bool IsComplete => Items.Count > 0 && Obtained == Items.Count;

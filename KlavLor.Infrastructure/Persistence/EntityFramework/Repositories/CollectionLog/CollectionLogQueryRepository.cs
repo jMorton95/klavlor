@@ -370,7 +370,19 @@ internal sealed class CollectionLogQueryRepository(
         }
     }
 
-    private const int RecentUnlockCount = 12;
+    /// <summary>
+    /// How far back the "recent unlocks" strip reaches. A hundred rather than a dozen: the strip is
+    /// a horizontal scroller, so its length costs layout nothing, and a dozen covered days rather
+    /// than months for anyone actively playing - it read as though the character had barely unlocked
+    /// anything. The tile icons are lazy-loaded, so the ones off-screen cost no requests either.
+    /// </summary>
+    /// <remarks>
+    /// The cost is flat in this number, not linear in queries: the name, category and first-receipt
+    /// lookups all take the whole id list at once (<see cref="CategoryNamesFor"/>,
+    /// <see cref="ResolveFirstReceipts"/>), so raising it adds rows to three queries rather than
+    /// adding queries.
+    /// </remarks>
+    private const int RecentUnlockCount = 100;
 
     /// <summary>
     /// For each item, the source that FIRST dropped it to this character and the roll it landed on.

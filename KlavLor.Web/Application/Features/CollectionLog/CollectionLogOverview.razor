@@ -32,32 +32,25 @@
     else
     {
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            @* Rank is counted over characters that actually have data. Ranking the whole list gave a
-               silver medal to an account we hold nothing for, which reads as a placing it hasn't
-               earned — those sort last and show no rank at all. *@
+            @* No placing on the cards. The medal and the ordinal in the top-right corner turned a
+               roster into a league table, which is not what this page is for — the cards still sort
+               by completion, but a character is not ranked against the others on its own card.
+               Percent, counts and the hiscores rank are facts about the character and stay. *@
             @foreach (var standing in Ordered)
             {
-                var rank = RankOf(standing);
                 <a hx-get="@CharacterUrl(standing).FromApi()" hx-target="#hx-page-container"
                    hx-push-url="@CharacterUrl(standing)" hx-swap="innerHTML transition:true"
-                   class="group relative flex flex-col gap-3 rounded-xl border bg-slate-50 dark:bg-slate-900 p-4 cursor-pointer transition-all hover:-translate-y-0.5 @CardClasses(rank, standing)">
+                   class="group relative flex flex-col gap-3 rounded-xl border bg-slate-50 dark:bg-slate-900 p-4 cursor-pointer transition-all hover:-translate-y-0.5 @CardClasses(standing)">
 
-                    @* The leader gets a medal rather than a number; everyone else a quiet ordinal. *@
-                    <div class="flex items-start justify-between gap-2">
-                        <div class="min-w-0">
-                            <div class="flex items-center gap-1.5 min-w-0">
-                                <span class="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate group-hover:text-amber-600 dark:group-hover:text-amber-400">@standing.CharacterName</span>
-                                @if (GameModeLabel(standing.GameMode) is { } mode)
-                                {
-                                    <span class="text-[9px] px-1 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 shrink-0">@mode</span>
-                                }
-                            </div>
-                            <CollectionLogFreshnessBadge Freshness="standing.Freshness" />
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-1.5 min-w-0">
+                            <span class="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate group-hover:text-amber-600 dark:group-hover:text-amber-400">@standing.CharacterName</span>
+                            @if (GameModeLabel(standing.GameMode) is { } mode)
+                            {
+                                <span class="text-[9px] px-1 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 shrink-0">@mode</span>
+                            }
                         </div>
-                        @if (rank is { } r)
-                        {
-                            <span class="shrink-0 text-lg leading-none @RankClasses(r)">@RankGlyph(r)</span>
-                        }
+                        <CollectionLogFreshnessBadge Freshness="standing.Freshness" />
                     </div>
 
                     @* A ring reads as a completion figure at a glance in a way a bar in a wide row
@@ -67,7 +60,7 @@
                             <svg class="w-14 h-14 -rotate-90" viewBox="0 0 36 36" aria-hidden="true">
                                 <circle cx="18" cy="18" r="15.5" fill="none" stroke="currentColor" stroke-width="3" class="text-slate-200 dark:text-slate-800" />
                                 <circle cx="18" cy="18" r="15.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"
-                                        class="@RingClasses(rank)"
+                                        class="text-amber-500 dark:text-amber-400"
                                         stroke-dasharray="@Dash(standing.Percent)" />
                             </svg>
                             <span class="absolute inset-0 flex items-center justify-center text-[11px] font-semibold tabular-nums text-slate-700 dark:text-slate-200">@standing.Percent.ToString("0")%</span>
@@ -129,41 +122,17 @@
         1 => "IM", 2 => "UIM", 3 => "HCIM", _ => null
     };
 
-    /// Ranked characters first (by count), then everything we hold no data for.
+    /// Characters we hold data for first (already ordered by count), then everything we don't.
     private IEnumerable<CollectionLogStanding> Ordered =>
         Standings.Where(s => s.Freshness.HasData).Concat(Standings.Where(s => !s.Freshness.HasData));
 
-    /// Null for a character with no data — it takes no placing.
-    private int? RankOf(CollectionLogStanding standing)
-    {
-        if (!standing.Freshness.HasData) return null;
-        var ranked = Standings.Where(s => s.Freshness.HasData).ToList();
-        return ranked.IndexOf(standing) + 1;
-    }
-
-    // The top three get progressively warmer framing; a character with no data is muted so it
-    // can't be mistaken for one sitting at genuine zero.
+    // Two treatments, not four: has data, or doesn't. The warmer framing for the top three went with
+    // the medals — without a visible placing it read as an arbitrary highlight.
     // A character with no data tints its BACKGROUND and nothing else — the previous 60% opacity on
     // the whole card washed out its name, border and ring along with it.
-    private static string CardClasses(int? rank, CollectionLogStanding s) => !s.Freshness.HasData
+    private static string CardClasses(CollectionLogStanding s) => !s.Freshness.HasData
         ? "border-slate-200/80 dark:border-slate-700/80 bg-slate-100/60 dark:bg-slate-950/40 hover:border-amber-300 dark:hover:border-amber-600"
-        : rank switch
-        {
-            1 => "border-amber-300 dark:border-amber-600 shadow-md shadow-amber-500/10 hover:border-amber-400",
-            2 or 3 => "border-slate-300 dark:border-slate-600 hover:border-amber-300 dark:hover:border-amber-600",
-            _ => "border-slate-200 dark:border-slate-700 hover:border-amber-300 dark:hover:border-amber-600"
-        };
-
-    private static string RankGlyph(int rank) => rank switch
-    {
-        1 => "🥇", 2 => "🥈", 3 => "🥉", _ => $"#{rank}"
-    };
-
-    private static string RankClasses(int rank) =>
-        rank <= 3 ? "" : "text-xs font-semibold tabular-nums text-slate-300 dark:text-slate-600 pt-1";
-
-    private static string RingClasses(int? rank) =>
-        rank == 1 ? "text-amber-500" : "text-amber-500/70 dark:text-amber-400/70";
+        : "border-slate-200 dark:border-slate-700 hover:border-amber-300 dark:hover:border-amber-600";
 
     /// SVG dash for a percentage on an r=15.5 circle (circumference ≈ 97.4).
     private static string Dash(double percent)

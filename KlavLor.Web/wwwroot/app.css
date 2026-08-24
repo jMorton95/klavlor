@@ -613,10 +613,10 @@ body:not(.history-panel-open) #completion-history-panel {
     .clog-grid > .clog-focus { grid-column: 2 / span 2; grid-row: 1 / span 8; }
 }
 
-/* THE WIDE PANEL. A category with ten or more items gets an extra track either
+/* THE WIDE PANEL. A category with six or more items gets an extra track either
    side, because at the standard width its tiles wrap into a tall narrow column
    while a four-item category would only gain whitespace. The component decides
-   (CollectionLogItemGrid) and brings .is-wide with it in the swap.
+   (CollectionLogItemGrid's WideThreshold) and brings .is-wide with it in the swap.
 
    Only from five columns up: below that, widening would leave a single card
    column on each side or none at all. Every step stays symmetric — the flanks
@@ -676,4 +676,98 @@ body:not(.history-panel-open) #completion-history-panel {
 :where(.dark, .dark *) .clog-focus-header {
     background: linear-gradient(90deg, rgba(245, 158, 11, 0.25), rgba(245, 158, 11, 0.02));
     border-bottom-color: rgba(245, 158, 11, 0.30);
+}
+
+/* THE PANEL'S TILES ARE SQUARE, AND AS LARGE AS THE PANEL ALLOWS.
+   -----------------------------------------------------------------------------
+   Fixed-width tiles left a four-item category as a small clump in the top-left
+   of a cell ~29rem tall. Sizing them off the column width alone then overshot
+   the other way: three items in the standard cell came out 114 wide by 185 tall,
+   because the rows had a tall box to stretch into. A tile is a square — an icon
+   over a name — so its size has to be one number satisfying BOTH axes.
+
+   That is what --clog-tile-size is: the largest square that fits, taking the
+   smaller of what the width allows and what the height allows, from the panel's
+   own content box via cqw/cqh on .clog-focus-body. Tracks are that size in both
+   directions rather than 1fr, so a tile is square by construction and there is
+   no aspect-ratio to fight the row sizing. Whichever axis is not the binding one
+   keeps the leftover, and justify/align-content centre the block in it.
+
+   The bounds are asymmetric on purpose. The lower bound applies only to the
+   HEIGHT term: a floor on the width term would make eight columns wider than the
+   panel and overflow sideways, where the height simply scrolls, which is what a
+   50-item log should do.
+
+   The 9.25rem ceiling is the size a TEN-item category comes out at in the wide
+   cell, which is as large as a tile wants to be: a 32px game sprite in a 186px
+   box is mostly empty box, and it made six, seven and eight-item categories look
+   inflated next to everything else. Above the cap the grid keeps the slack as
+   centred whitespace rather than growing further, so every wide panel from six
+   items up now shows tiles at one consistent size.
+
+   The component picks the column count (ColumnsFor) to MAXIMISE that square —
+   it is a search over candidate counts, since with square tiles the best layout
+   for a tall narrow cell is not the best for a wide flat one.
+
+   The tile is then a SIZE container: its icon, labels, padding and gaps are all
+   in cqmin, so a large tile carries a proportionally large icon rather than the
+   same 2.25rem sprite adrift in it, and a small one stays inside its box. */
+.clog-focus-body {
+    container-type: size;
+}
+
+.clog-tiles {
+    --clog-gap: 0.5rem;
+    --clog-tile-size: min(
+        (100cqw - (var(--clog-cols, 4) - 1) * var(--clog-gap)) / var(--clog-cols, 4),
+        clamp(6rem, (100cqh - (var(--clog-rows, 1) - 1) * var(--clog-gap)) / var(--clog-rows, 1), 9.25rem)
+    );
+
+    display: grid;
+    grid-template-columns: repeat(var(--clog-cols, 4), var(--clog-tile-size));
+    grid-auto-rows: var(--clog-tile-size);
+    gap: var(--clog-gap);
+    justify-content: center;
+    align-content: center;
+    min-height: 100%;
+}
+
+/* Below the breakpoint where the panel becomes a tall cell it is a single
+   full-width row of auto height, so there is no height to fit a square against
+   and a count-derived column would be far too many. Pack by width instead, and
+   keep the tiles square with aspect-ratio since the size is no longer explicit. */
+@media (max-width: 51.99rem) {
+    .clog-tiles {
+        grid-template-columns: repeat(auto-fill, minmax(4.75rem, 1fr));
+        grid-auto-rows: auto;
+        justify-content: stretch;
+        min-height: 0;
+    }
+
+    .clog-tile {
+        aspect-ratio: 1 / 1;
+    }
+}
+
+.clog-tile {
+    container-type: size;
+    min-width: 0;
+    overflow: hidden;
+    padding: 4cqmin;
+    gap: 3cqmin;
+}
+
+.clog-tile-icon {
+    width: clamp(1.75rem, 44cqmin, 5.5rem);
+    height: clamp(1.75rem, 44cqmin, 5.5rem);
+}
+
+.clog-tile-name {
+    font-size: clamp(0.625rem, 9.5cqmin, 0.9375rem);
+    line-height: 1.15;
+}
+
+.clog-tile-roll {
+    font-size: clamp(0.625rem, 8.5cqmin, 0.875rem);
+    line-height: 1.1;
 }

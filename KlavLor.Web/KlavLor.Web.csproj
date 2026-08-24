@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
     <PropertyGroup>
         <TargetFramework>net10.0</TargetFramework>
@@ -13,6 +13,14 @@
              the uncompressed source files directly. -->
         <CompressionEnabled Condition="'$(Configuration)' == 'Debug'">false</CompressionEnabled>
     </PropertyGroup>
+
+    <ItemGroup>
+        <!-- The focus panel's tile-layout arithmetic (CollectionLogItemGrid.ColumnsFor) is pinned by
+             unit tests: it decides how many columns a category gets, and getting it wrong put ten
+             items in one thin row across a 2K screen. -->
+        <InternalsVisibleTo Include="KlavLor.UnitTests" />
+    </ItemGroup>
+
 
     <Target Name="TailwindOnBuild" BeforeTargets="Compile">
         <Exec Command="npx tailwindcss -i wwwroot/app.css -o wwwroot/styles.css --minify"
