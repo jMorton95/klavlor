@@ -140,7 +140,11 @@
         var grouped = GroupDrops(Entry.Drops);
         @* items-start so each drop is its own block: the chip, with its rate line beneath. *@
         <div class="flex flex-wrap items-start gap-1.5 mt-1.5">
-            @foreach (var drop in grouped.Take(8))
+            @* Every drop the tier filter let onto this card is rendered - no cap. A card can now
+               condense a multi-day session into one entry, and the old "+N more" chip hid most of a
+               big session's loot behind a number. A tall card is the honest shape of a big session;
+               the swimlane scrolls. *@
+            @foreach (var drop in grouped)
             {
                 var isNewUnique = drop.IsFirstTime && drop.IsCollectionLogItem;
                 var dropTotal = (long)drop.Quantity * drop.Price;
@@ -222,12 +226,6 @@
                         }
                     </span>
                 }
-                </span>
-            }
-            @if (grouped.Count > 8)
-            {
-                <span class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-white">
-                    +@(grouped.Count - 8) more
                 </span>
             }
         </div>
