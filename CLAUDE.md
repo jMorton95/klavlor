@@ -193,6 +193,91 @@ The invariant that makes it consistent:
 
 The panel also carries an on-request "Find items with no value" report (`FindZeroValueItems`), which is how you discover what needs an override. It is a full scan of the drop table grouped by item, filtered to `MAX(Price) = 0`, so it is deliberately never given a load trigger — the admin has to press the button. Collection-log membership is stamped from `ICollectionLogCache` rather than joined, and sorts those items to the top, because a clog item at 0 GP is the signal and everything below it is usually junk.
 
+### Superior Slayer Monsters Are A Static Registry, Not A Table
+
+`/loot/superiors` compares every tracked character's kills of each superior slayer monster.
+`SuperiorSlayerMonsters` (Application/Features/Loot/Superiors) is the whole catalogue — name, base
+monster(s), Slayer level, combat level — and it is **code, deliberately**: 38 rows of reference data
+that change only when Jagex ships an update, which is itself a code change. A table would need a
+migration, an admin panel and a sync job to hold a list nobody edits. Same reasoning as the
+hardcoded raid unique lists in `RaidUniqueShareStrategy`.
+`KlavLor.UnitTests/SuperiorSlayerRegistryTests.cs` pins the count, the ordering, the level ranges and
+the absence of name collisions.
+
+**Names are matched case-insensitively, and that is not optional.** Three vocabularies produce a
+source name and they disagree on case for about a third of the list — the wiki's article title
+("Colossal Hydra"), the wiki's own summary table ("Colossal hydra"), and whatever RuneLite reports
+for the NPC. Both queries filter `lower("SourceName") = ANY(@names)` against the registry's lowered
+lists; a case-sensitive match would silently split one monster's kills across rows, or drop it
+entirely. `Name` stores the in-game name (verified against each monster's wiki infobox `name`, not
+the summary table) purely for display. The `Aliases` field is empty today and exists for the one
+failure a lowercased match cannot survive: a rename.
+
+**The shared unique table is why the page is ordered the way it is.** Every superior, level 5 to
+level 95, rolls the same table, and the chance of hitting it is `1 / (200 - (slayerLevel + 55)^2 /
+125)` — so a Colossal Hydra is worth roughly eight Crushing hands. **That formula is recorded on the
+registry and computed nowhere**: the page shows counts only. When a weighted figure is wanted it
+belongs behind `SourceLootService` like every other rate, never hand-rolled at the call site.
+
+**Hardest first, and only monsters someone has killed.** The registry is stored ascending because
+that is how a reference list is naturally written and maintained; `SuperiorSlayerHandler` reverses it
+and drops any row with no kills behind it. Display order is the page's decision, not the registry's.
+The two ends are pinned separately: `SuperiorSlayerRegistryTests` on the stored ascending order,
+`SuperiorSlayerComparisonTests` on the handler's reversal and filtering.
+
+**Each cell shows the player's own base-monster kills under their superior count** (`68` over
+`from 12,920`), summed across both bases where a superior has two. It is **per character, never a
+roster total**: superiors only appear while killing the base, so this is the grind each player's
+count sits on top of, and one shared figure could not say whose grind it was.
+`GetBaseMonsterKills` UNIONs tracked `LootRecords` with `CharacterSourceBaselines` grouped by
+(character, monster). The UNION rather than a `LEFT JOIN` matters: for an ordinary slayer monster a
+baseline with no records at all is the common case, since nobody's loot tracker logged ten thousand
+Gargoyles. Zero renders as nothing, never as "from 0" — untracked and none are not the same fact.
+The wording is **"from N", not "of N"**: 68 superiors turned up over the course of 12,920 Hydra, and
+"of" read as a fraction of a total. The monster it is *from* is named once in the row header rather
+than repeated in every cell, because it is a fact about the row, not about the player.
+
+Kills of the superior itself use the canonical definition, `GREATEST(MAX(KillCount), COUNT(*) +
+baseline)`, matching `LootSourceDetailRepository.GetSourceCollection`. Both halves are near-always
+moot for a superior, but sharing the definition is what stops this page and the character's own
+source page quoting different numbers.
+
+The page is `.AllowAnonymous()`, which **differs from the house rule** stated on
+`CollectionLogEndpoint` that cross-character comparison surfaces are clan-internal. That is a
+deliberate exception, recorded on the endpoint: it exposes kill counts and nothing else, and it sits
+in the public sidebar, where an authorization policy would 401-redirect signed-out visitors. It is
+one route serving one cached aggregate (5-min TTL keyed off `AggregateCacheGeneration`), so the
+routed page queries during SSR like `CollectionLogPage` and needs no `DeferredSection` staggering.
+
+The table is full-bleed. Column widths are fixed via a `colgroup` and the surplus goes to an **empty
+trailing column**, because an auto-layout table hands every spare pixel to the widest text column —
+which parked the monster name most of a screen from the first count. Sharing the surplus among the
+data columns only spread the same gap thinner; putting it after them keeps the counts beside the
+monster they belong to and drops the slack where nothing is read. The `overflow-x` wrapper is a
+backstop for a very large roster only, because the page body must never scroll horizontally.
+
+The header is deliberately **not** sticky: the `overflow-x` wrapper is a scroll container, so a
+sticky header inside it resolves against the wrapper rather than the viewport — `top-16` offset it
+64px *down* from the table's own top instead of pinning it, leaving a blank band at scroll zero.
+Making it stick to the page would mean dropping the wrapper.
+
+**Every header sorts, and the sort lives in the query string** (`?characterId=42&asc=true`), so a
+sorted view is linkable, survives a refresh and steps back through Back. It is applied **in memory,
+after the cache** — every ordering shares one cached read, and because the sort key is a character id
+rather than a column name there is no query to interpolate it into, which sidesteps the sort-column
+whitelist problem the SQL-backed tables have. An unknown character id **falls back** to the default
+ordering rather than throwing or emptying the table: the id comes off a query string, so a stale
+bookmark or a since-hidden character is an ordinary thing to receive.
+
+Each column header also carries **when that character last killed a superior**, because a large total
+says nothing about whether it was earned last week or three years ago. Only the recent state is
+coloured — tinting a stale one red would read as a fault rather than as someone who moved on.
+
+Every count renders the same. There is no per-row leader highlight — it turned a set of facts into a
+scoreboard, and the numbers are already side by side. Monster names are deliberately **not** links:
+the global source page is behind the `User` policy while this page is anonymous, so a link would
+401-redirect the visitors the page exists for.
+
 ### The Admin Area Is One Section Per URL
 
 `AdminSections.All` (in `AdminSection.cs`) is the registry: slug, nav label, title, group, description. It drives the nav, the routable page and the shell endpoint together, so there is one list to add to.
@@ -279,6 +364,7 @@ Shared in both layers:
 - `Feed/` — Live SSE feed streams and cards (main + Leagues scopes)
 - `Log/` — Per-character loot log, source detail, kill sessions, collection progress
 - `Leaderboard/` — Luck leaderboard (spoons / dry streaks) and its source + item exclusion admin
+- `Superiors/` — Superior slayer monster comparison (see "Superior Slayer Monsters" below)
 - `SourceModels/` (Application only) — Pluggable per-source drop maths behind `ISourceLootStrategy`: `DefaultSourceLootStrategy`, `DoomLootStrategy` (per-run delve depth), `RaidUniqueShareStrategy`, dispatched by `SourceLootService`, plus admin rate modifiers. **Strategies are matched by interface dispatch — a new strategy must be registered with `SourceLootService` or it silently never engages** (see commit `abf0996`). Enforced by `KlavLor.UnitTests/SourceLootStrategyRegistrationTests.cs`, which scans the Application assembly and fails if any `ISourceLootStrategy` implementation is unregistered or unreachable through the facade.
 - `Baseline/` (Application only) — Admin-entered pre-tracking kill counts, added to derived KC
 - `Special/` (Application only) — Special/one-off loot item configuration

@@ -16,6 +16,7 @@ using KlavLor.Web.Application.Features.Loot.Ingest;
 using KlavLor.Web.Application.Features.Loot.Ingest.Audit;
 using KlavLor.Web.Application.Features.Loot.Log;
 using KlavLor.Web.Application.Features.Loot.Leaderboard;
+using KlavLor.Web.Application.Features.Loot.Superiors;
 using KlavLor.Web.Application.Features.Search;
 using KlavLor.Web.Application.Features.Source;
 using KlavLor.Web.Application.Features.CollectionLog;
@@ -67,6 +68,7 @@ public static class ConfigureEndpoints
             .MapEndpoints<LootLogEndpoint>()
             .MapEndpoints<LootCharacterProfileEndpoint>()
             .MapEndpoints<LuckLeaderboardEndpoint>()
+            .MapEndpoints<SuperiorSlayerEndpoint>()
             .MapEndpoints<SyncLogEndpoint>()
             .MapEndpoints<ItemIconEndpoint>()
             .MapEndpoints<SourceIconEndpoint>();
