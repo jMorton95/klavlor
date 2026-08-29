@@ -16,6 +16,7 @@
 #   ./sandbox.sh seed           # (re)seed the local API key
 #   ./sandbox.sh gen [N]        # write N fresh kills (default 6)
 #   ./sandbox.sh live [N]       # append N kills (simulate new live drops), then run
+#   ./sandbox.sh stream [N] [S] # drip N kills in, one every S seconds, syncer left running
 #   ./sandbox.sh run [SECONDS]  # run the syncer in isolation for SECONDS (default 12)
 #   ./sandbox.sh verify         # show sandbox rows landed in the DB
 #   ./sandbox.sh clean          # delete sandbox rows + key + character + runtime dir
@@ -73,6 +74,20 @@ SQL
   echo "    key: $API_KEY"
 }
 
+# The SANDBOX character is created implicitly by the first ingest, and an implicitly
+# created character is IsVisible=false with a GUID for a display name. Both matter:
+# every live surface filters on visibility (LootIngestHandler.IsCharacterVisible), so
+# a hidden character publishes to neither the feed nor the roll ticker - the kills
+# store fine and nothing appears on screen, which looks like a broken feature rather
+# than a hidden character. Runs after ingest, so it is a no-op until the first sync.
+show_character() {
+  psql_exec -v ON_ERROR_STOP=1 -q <<SQL
+UPDATE "GameCharacters"
+   SET "IsVisible" = true, "IsAdminHidden" = false, "DisplayName" = '$CHARACTER'
+ WHERE "RuneLiteId" = '$CHARACTER';
+SQL
+}
+
 gen() {
   local n="${1:-6}"
   echo "==> generating $n kills"
@@ -81,8 +96,9 @@ gen() {
 
 gen_append() {
   local n="${1:-3}"
+  local offset="${2:-0}"
   echo "==> appending $n live kills"
-  ( cd "$TOOL_DIR" && go run ./sandbox/gen -dir "$LOOTS_DIR" -character "$CHARACTER" -count "$n" -append )
+  ( cd "$TOOL_DIR" && go run ./sandbox/gen -dir "$LOOTS_DIR" -character "$CHARACTER" -count "$n" -append -offset "$offset" )
 }
 
 run() {
@@ -105,6 +121,7 @@ run() {
     --sync-all &
   local pid=$!
   sleep "$secs"
+  show_character
   # SIGTERM triggers a final flush + state save, then exit.
   kill -TERM "$pid" 2>/dev/null || true
   wait "$pid" 2>/dev/null || true
@@ -162,12 +179,71 @@ all() { reset_runtime; seed; gen "${1:-6}"; run "${2:-12}"; verify; }
 
 live() { gen_append "${1:-3}"; run "${2:-12}"; verify; }
 
+# Drip kills in one at a time with the syncer left running, so the live surfaces
+# actually animate: the roll ticker gets a chip every few seconds and the feed
+# lanes light up whenever the rotation lands on a source with a real drop.
+#
+# NOT --sync-all, and that matters. --sync-all flags everything IsImported, and an
+# imported record is excluded from the ticker outright and damped in the feed - so
+# a simulation using it would show nothing moving. Without it the syncer tails: it
+# takes the current end of each log as its starting offset, so whatever is already
+# there counts as history and only what this loop appends afterwards syncs, live.
+#
+# The rotation offset advances per tick so successive kills hit different sources.
+# One of them, Sandbox Goblin, drops 155gp of junk - under the feed's 10K floor, so
+# those kills appear in the ticker and NOWHERE else, which is the thing worth
+# watching for.
+stream() {
+  local n="${1:-30}"
+  local interval="${2:-4}"
+
+  seed
+  build
+  mkdir -p "$HOME_DIR" "$LOOTS_DIR/$CHARACTER"
+
+  # Something has to exist for the watcher to find and take an offset in.
+  if ! ls "$LOOTS_DIR/$CHARACTER"/*.log >/dev/null 2>&1; then
+    gen 3
+  fi
+
+  local exe="$BIN_DIR/klavlor-sync"; is_windows && exe="$exe.exe"
+  if is_windows; then export USERPROFILE="$(winpath "$HOME_DIR")"; else export HOME="$HOME_DIR"; fi
+
+  echo "==> starting syncer (tailing, so appends land as LIVE kills)"
+  "$exe"     --api-url "$API_URL"     --api-key "$API_KEY"     --loots-dir "$(winpath "$LOOTS_DIR")"     --insecure &
+  local pid=$!
+
+  # Stop the syncer however this exits - finished, Ctrl-C, or error.
+  trap 'kill -TERM '"$pid"' 2>/dev/null || true' EXIT INT TERM
+
+  # The syncer polls every 5s, so an interval under that just means kills arrive
+  # in small batches rather than singly. That is what real play looks like anyway.
+  echo "==> dripping $n kills, one every ${interval}s (Ctrl-C to stop early)"
+  sleep 6   # let the syncer take its offsets before the first append
+  show_character
+  for ((i = 0; i < n; i++)); do
+    gen_append 1 "$i" >/dev/null
+    show_character
+    printf '    kill %d/%d
+' "$((i + 1))" "$n"
+    sleep "$interval"
+  done
+
+  echo "==> done; flushing the syncer"
+  sleep 6
+  kill -TERM "$pid" 2>/dev/null || true
+  wait "$pid" 2>/dev/null || true
+  trap - EXIT INT TERM
+  verify
+}
+
 # ---- dispatch --------------------------------------------------------------
 cmd="${1:-all}"; shift || true
 case "$cmd" in
   seed)   seed ;;
   gen)    gen "$@" ;;
   live)   live "$@" ;;
+  stream) stream "$@" ;;
   run)    run "$@" ;;
   verify) verify ;;
   clean)  clean ;;

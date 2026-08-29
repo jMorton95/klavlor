@@ -12,6 +12,8 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -23,7 +25,10 @@ import (
 )
 
 // dropSpec is one item line within a kill.
-type dropSpec struct{ name string; id, qty, price int }
+type dropSpec struct {
+	name           string
+	id, qty, price int
+}
 
 // source is a fake monster with a fixed drop table. Prices are chosen so the
 // set spans several loot-feed tiers (Standard 10K+, Rare 1M+, Epic 10M+).
@@ -37,8 +42,8 @@ var sources = []struct {
 		{"Bronze dagger", 1205, 1, 35},
 	}},
 	{"Sandbox Zulrah", 725, []dropSpec{
-		{"Zulrah's scales", 12934, 350, 250},   // ~87K — Standard
-		{"Magic fang", 12932, 1, 2_500_000},    // 2.5M — Rare
+		{"Zulrah's scales", 12934, 350, 250}, // ~87K — Standard
+		{"Magic fang", 12932, 1, 2_500_000},  // 2.5M — Rare
 	}},
 	{"Sandbox Vorkath", 732, []dropSpec{
 		{"Superior dragon bones", 22124, 30, 1500},
@@ -51,6 +56,7 @@ func main() {
 	character := flag.String("character", "SANDBOX", "character subdirectory (RuneLite account name)")
 	count := flag.Int("count", 6, "number of kills to write across the source rotation")
 	appendMode := flag.Bool("append", false, "append to existing logs instead of truncating (simulates new live kills)")
+	offset := flag.Int("offset", 0, "start the source rotation here, so successive one-kill appends hit different sources")
 	flag.Parse()
 
 	if *dir == "" {
@@ -74,7 +80,17 @@ func main() {
 	base := time.Now().Add(-time.Duration(*count) * time.Minute)
 
 	// Per-source running kill counts, plus open file handles created lazily.
+	//
+	// In append mode the count CONTINUES from what is already in the log. Restarting it
+	// at 1 per invocation made every appended kill claim "KC 1", which the server takes at
+	// face value - RuneLite is the authority on kill count - so a dripped stream showed a
+	// column of "#1" on the roll ticker instead of a counter climbing.
 	kc := map[string]int{}
+	if *appendMode {
+		for _, src := range sources {
+			kc[src.name] = countLines(filepath.Join(charDir, src.name+".log"))
+		}
+	}
 	files := map[string]*os.File{}
 	defer func() {
 		for _, f := range files {
@@ -84,7 +100,7 @@ func main() {
 
 	written := 0
 	for i := 0; i < *count; i++ {
-		src := sources[i%len(sources)]
+		src := sources[(i+*offset)%len(sources)]
 		kc[src.name]++
 
 		f, ok := files[src.name]
@@ -132,4 +148,25 @@ func main() {
 		mode = "appended"
 	}
 	fmt.Printf("%s %d kills across %d source file(s) under %s\n", mode, written, len(files), charDir)
+}
+
+// countLines returns how many kills a source's log already holds - one JSON record per
+// line. A missing or unreadable log counts as zero, which is the right answer for a
+// source this generation has not written yet.
+func countLines(path string) int {
+	f, err := os.Open(path)
+	if err != nil {
+		return 0
+	}
+	defer f.Close()
+
+	n := 0
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	for scanner.Scan() {
+		if len(bytes.TrimSpace(scanner.Bytes())) > 0 {
+			n++
+		}
+	}
+	return n
 }
