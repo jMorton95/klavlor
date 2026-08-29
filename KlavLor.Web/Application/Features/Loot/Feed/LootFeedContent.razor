@@ -100,6 +100,36 @@
     </div>
 </div>
 
+@* THE ROLL TICKER. Every kill as it lands, with no loot on it - which is exactly what the
+   swimlanes below can never show, because they start at 10k. A dry Vorkath appears here and
+   nowhere else.
+
+   It carries its own hx-ext="sse" because hx-ext is scoped to the subtree it sits on, and the
+   lanes' copy is inside the grid container, a sibling of this.
+
+   Query-free like the rest of this shell: the backfill chips are rendered by the stream itself on
+   connect, out of the service's in-memory ring, so the banner costs no database round-trip and the
+   page still paints without one.
+
+   afterbegin, so the newest roll enters at the left and the row flows right. The trim keeps the
+   DOM at 30 chips - a ticker has no scrollback, and without it a busy session grows the node count
+   forever. *@
+<div class="roll-ticker-band mb-3">
+    @* Outside the scrolling row, so it never moves and the mask never fades it. *@
+    <span class="roll-ticker-live"><span class="roll-ticker-dot"></span>LIVE</span>
+
+    <div id="roll-ticker"
+         hx-ext="sse"
+         sse-connect="@rollStream"
+         sse-swap="message"
+         hx-swap="afterbegin"
+         hx-on::after-settle="while(this.children.length > 30) this.removeChild(this.lastElementChild);"
+         class="roll-ticker"
+         aria-live="off"
+         aria-label="Live roll ticker">
+    </div>
+</div>
+
 @* The swimlanes load AFTER first paint. This component renders no loot at all, so the page
    shell is served without a single DB round-trip; hx-trigger="load" then fetches the grid,
    which carries both halves of the feed's behaviour together:
@@ -139,4 +169,9 @@
     // The full five lanes; the skeleton can't know the user's saved filter (it lives in
     // localStorage), and guessing narrower would make the columns jump when the grid lands.
     private const int SkeletonColumns = 5;
+
+    // One stream per scope, mirroring how TierStyle.StreamRoute picks the lane routes.
+    private string rollStream => (Scope == LootFeedScope.Leagues
+        ? AppRoutes.LootFeedLeaguesStreamRolls
+        : AppRoutes.LootFeedStreamRolls).FromApi();
 }

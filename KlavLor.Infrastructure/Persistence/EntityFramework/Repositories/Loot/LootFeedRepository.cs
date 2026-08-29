@@ -31,6 +31,47 @@ internal sealed class LootFeedRepository(
     /// request of its own, so the filter is populated without adding a round trip and without
     /// putting a query back on the page route.
     /// </summary>
+    public async Task<List<LootRollSeedRow>> GetRecentRolls(LootFeedScope scope, int limit)
+    {
+        try
+        {
+            var isLeagues = scope == LootFeedScope.Leagues;
+
+            // Four columns and no loot: the ticker shows who rolled what, so DropsJson is never
+            // touched. Ordered by (OccurredAt, Id) to match the tie-break every other roll-ordering
+            // query uses, then reversed by the caller for oldest-first seeding.
+            //
+            // Imported records are excluded to match the live publish rule - a banner labelled LIVE
+            // filling itself from a historical backfill would be showing months-old kills as news.
+            return await dataContext.LootRecords
+                .AsNoTracking()
+                .Where(r => r.GameCharacterId != null && !r.IsImported)
+                .Join(dataContext.GameCharacters,
+                    r => r.GameCharacterId, gc => gc.Id, (r, gc) => new { Record = r, Character = gc })
+                .Where(x => x.Character.IsVisible
+                            && !x.Character.IsAdminHidden
+                            && x.Character.IsLeagues == isLeagues)
+                .Join(dataContext.Users,
+                    x => x.Character.UserId, u => u.Id, (x, u) => new { x.Record, x.Character, User = u })
+                .OrderByDescending(x => x.Record.OccurredAt)
+                .ThenByDescending(x => x.Record.Id)
+                .Take(limit)
+                .Select(x => new LootRollSeedRow(
+                    x.Record.Id,
+                    x.Character.Id,
+                    x.Character.DisplayName ?? x.User.FirstName + " " + x.User.LastName,
+                    x.Record.SourceName,
+                    x.Record.KillCount,
+                    x.Record.OccurredAt))
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to load recent rolls for the {Scope} ticker", scope);
+            throw new RepositoryException("Failed to load recent rolls", ex);
+        }
+    }
+
     public async Task<List<FeedCharacterOption>> GetFeedCharacters(LootFeedScope scope)
     {
         try

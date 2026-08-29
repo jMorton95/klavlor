@@ -6,6 +6,11 @@
         <RootNamespace>KlavLor.Application</RootNamespace>
     </PropertyGroup>
     <ItemGroup>
+        <!-- The ingest handler's ticker cap is a pure selection rule over a list, unit-testable on
+             its own; constructing the handler itself would mean standing up thirteen dependencies. -->
+        <InternalsVisibleTo Include="KlavLor.UnitTests" />
+    </ItemGroup>
+    <ItemGroup>
         <ProjectReference Include="..\KlavLor.Domain\KlavLor.Domain.csproj" />
     </ItemGroup>
     <ItemGroup>

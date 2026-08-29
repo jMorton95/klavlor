@@ -768,3 +768,150 @@ body:not(.history-panel-open) #completion-history-panel {
     line-height: 1.1;
     flex-shrink: 0;
 }
+
+/* ---------------------------------------------------------------------------
+   Live roll ticker
+   ---------------------------------------------------------------------------
+   A broadcast-style sidescroller above the swimlanes, newest at the left.
+
+   IT ONLY MOVES WHEN SOMETHING ARRIVES. A continuous marquee has to duplicate its
+   content to loop seamlessly and it scrolls whether or not anything is happening,
+   which on a page whose whole claim is "live" is decoration. Here the row advances
+   exactly once per kill: the new chip grows in from zero width at the left and
+   pushes everything else right by its own width. Motion means a kill landed.
+
+   That push is what the max-width animation below is for - width cannot animate to
+   auto, so the chip animates its max-width from 0 through its natural size while
+   overflow: hidden keeps the text from spilling out of the narrow box on the way.
+   The margin animates with it so the gap opens up as part of the same movement
+   rather than appearing instantly (which is why the row uses margins, not gap).
+
+   Chips run off the right edge and are trimmed from the DOM at 30 by the element's
+   own after-settle handler. No horizontal scrollbar: nobody reads back through a
+   ticker, and one more scroll container on this page is one more thing to catch. */
+/* The band is the broadcast furniture: one continuous strip carrying a fixed LIVE
+   marker and the scrolling row. The chips inside it are separated by rules rather
+   than boxed individually - a row of bordered pills reads as tags, not a ticker. */
+.roll-ticker-band {
+    display: flex;
+    align-items: stretch;
+    overflow: hidden;
+    border-radius: 0.5rem;
+    border: 1px solid var(--color-slate-200);
+    background-color: var(--color-slate-100);
+}
+
+:where(.dark, .dark *) .roll-ticker-band {
+    border-color: var(--color-slate-700);
+    background-color: var(--color-slate-800);
+}
+
+/* Fixed, outside the scrolling row, so it never moves and the mask never fades it. */
+.roll-ticker-live {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    flex: 0 0 auto;
+    padding: 0 0.75rem;
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: #ffffff;
+    background-color: var(--color-amber-600);
+}
+
+.roll-ticker-dot {
+    width: 0.375rem;
+    height: 0.375rem;
+    border-radius: 9999px;
+    background-color: #ffffff;
+    animation: roll-ticker-pulse 2s ease-in-out infinite;
+}
+
+/* The one piece of continuous motion on the banner, and it is deliberately on the
+   marker rather than the content: it says the connection is alive when the clan is
+   idle, without implying rolls are arriving when none are. */
+@keyframes roll-ticker-pulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.25; }
+}
+
+.roll-ticker {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    min-height: 2.5rem;
+    /* Fades the chips into the right edge rather than clipping them mid-word, so the
+       row reads as continuing off-screen instead of as broken. */
+    mask-image: linear-gradient(to right, black 88%, transparent 100%);
+}
+
+.roll-chip {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    /* The resting cap. Also the animation's end state, so a chip does not jump when
+       the animation hands back to the computed style. Wide enough for the longest
+       source name we carry ("Insatiable mutated Bloodveld") at this size. */
+    max-width: 20rem;
+    overflow: hidden;
+    /* A rule between entries, not a box around each - see the note on the band. */
+    border-right: 1px solid var(--color-slate-200);
+    animation: roll-chip-in 420ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+:where(.dark, .dark *) .roll-chip {
+    border-right-color: var(--color-slate-700);
+}
+
+/* The inner box holds its natural width while the outer one animates its cap, so the
+   text never reflows mid-animation - it is revealed, not squeezed. */
+.roll-chip-body {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0.1875rem 0.75rem;
+    white-space: nowrap;
+    line-height: 1.2;
+}
+
+.roll-chip-name {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--color-slate-800);
+}
+
+.roll-chip-line {
+    font-size: 0.625rem;
+    color: var(--color-slate-500);
+}
+
+.roll-chip-kc {
+    margin-left: 0.25rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    color: var(--color-amber-600);
+}
+
+:where(.dark, .dark *) .roll-chip-name { color: var(--color-slate-100); }
+:where(.dark, .dark *) .roll-chip-line { color: #ffffff; }
+:where(.dark, .dark *) .roll-chip-kc   { color: var(--color-amber-400); }
+
+/* Zero width to natural: the growth is what pushes the row along. */
+@keyframes roll-chip-in {
+    from { max-width: 0; opacity: 0; }
+    to   { max-width: 20rem; opacity: 1; }
+}
+
+/* The advance is the only thing that says "this just happened", so with motion
+   reduced it becomes a fade rather than disappearing entirely. */
+@media (prefers-reduced-motion: reduce) {
+    .roll-chip { animation: roll-chip-fade-in 420ms ease-out; }
+    @keyframes roll-chip-fade-in { from { opacity: 0; } to { opacity: 1; } }
+    /* A blinking dot is exactly what this preference is about. */
+    .roll-ticker-dot { animation: none; }
+}

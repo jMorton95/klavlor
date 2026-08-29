@@ -21,6 +21,7 @@ public sealed class LootIngestHandler(
     LootIngestValidator validator,
     ICurrentUser currentUser,
     ILootFeedService lootFeedService,
+    ILootRollFeed lootRollFeed,
     IUserRepository userRepository,
     ICollectionLogCache collectionLogCache,
     IMemoryCache memoryCache,
@@ -29,6 +30,16 @@ public sealed class LootIngestHandler(
     IItemValueOverrideCache itemValues,
     SourceLootService sourceLoot)
 {
+    /// <summary>
+    /// The most rolls one ingest batch may put on the live ticker.
+    /// </summary>
+    /// <remarks>
+    /// Below the ticker buffer's capacity (40) on purpose: anything beyond that is evicted before a
+    /// viewer could read it, so publishing it only costs SSE frames and DOM swaps. The cap is what
+    /// stops a returning player's backlog flooding every open banner.
+    /// </remarks>
+    internal const int MaxRollsPublishedPerBatch = 25;
+
     private static readonly string[] DateFormats =
     [
         "MMM dd, yyyy, h:mm:ss tt",
@@ -90,8 +101,14 @@ public sealed class LootIngestHandler(
         // NOTE: ingest never touches template-node completion. Progression is manual-only —
         // the drop-driven auto-completion (and its generated notes) was removed deliberately.
 
+        // Every visible live kill reaches the roll ticker, whatever it dropped — a dry Vorkath is
+        // exactly what the swimlanes never show. The ordinal is resolved once here and handed to
+        // both the ticker and the feed card, so the two cannot disagree about the same kill.
+        var ordinals = await ResolveOrdinals([(record, character)]);
+        PublishRoll(record, character, ordinals);
+
         if (ShouldPublishToFeed(record, character))
-            await PublishToFeed(userId.Value, record, character);
+            await PublishToFeed(userId.Value, record, character, ordinals);
         return Result.Success();
     }
 
@@ -214,17 +231,38 @@ public sealed class LootIngestHandler(
 
         // NOTE: no template-node completion here either — see the comment in Handle.
 
+        // ONE ordinal resolution for the whole batch, shared by the ticker and the feed. This used
+        // to be two queries per published record inside PublishRecordToFeed; at 250 records to a
+        // sync batch that was up to 500 round-trips on the ingest hot path, and the ticker needs an
+        // ordinal for every kill rather than only the ones valuable enough to publish.
+        // ONLY THE NEWEST FEW REACH THE TICKER. klavlor-sync tails, so a player returning after a
+        // long break syncs thousands of kills as LIVE, 250 to a batch - and every one of those
+        // would be an SSE frame and a DOM swap for every person watching, for a banner that holds
+        // 40 and shows about 16. The older ones would be pushed off before anyone could read them,
+        // so publishing them is pure waste; capping trims exactly the ones nobody would see.
+        //
+        // A normal sync is a handful of kills and is unaffected.
+        var tickerRecords = TrimToNewestRolls(parsedItems
+            .Where(p => IsCharacterVisible(p.Character) && !p.Parsed.Record.IsImported)
+            .Select(p => (p.Parsed.Record, p.Character)));
+
         var liveRecords = parsedItems
             .Where(p => ShouldPublishToFeed(p.Parsed.Record, p.Character))
             .Select(p => (p.Parsed.Record, p.Character))
             .ToList();
+
+        var ordinals = await ResolveOrdinals(tickerRecords.Concat(liveRecords));
+
+        foreach (var (record, character) in tickerRecords)
+            PublishRoll(record, character, ordinals);
+
         if (liveRecords.Count > 0)
         {
             var user = await userRepository.GetById(userId.Value);
             var userName = user is not null ? $"{user.FirstName} {user.LastName}" : "Unknown";
             foreach (var (record, character) in liveRecords)
             {
-                await PublishRecordToFeed(userName, record, character);
+                await PublishRecordToFeed(userName, record, character, ordinals);
             }
         }
 
@@ -278,14 +316,82 @@ public sealed class LootIngestHandler(
         return character.IsVisible && !character.IsAdminHidden;
     }
 
-    private async Task PublishToFeed(int userId, LootRecord record, GameCharacter? character)
+    /// <summary>
+    /// The newest rolls of a batch, oldest first, capped at <see cref="MaxRollsPublishedPerBatch"/>.
+    /// </summary>
+    /// <remarks>
+    /// Oldest first because the banner prepends: publishing in chronological order leaves the newest
+    /// leftmost, the same way live rolls arrive. Ordered by (OccurredAt, Id) - the tie-break every
+    /// other roll-ordering query uses - so two kills sharing a timestamp keep a stable order.
+    /// </remarks>
+    internal static List<(LootRecord Record, GameCharacter? Character)> TrimToNewestRolls(
+        IEnumerable<(LootRecord Record, GameCharacter? Character)> candidates) =>
+        candidates
+            .OrderBy(x => x.Record.OccurredAt)
+            .ThenBy(x => x.Record.Id)
+            .TakeLast(MaxRollsPublishedPerBatch)
+            .ToList();
+
+    /// <summary>
+    /// Kill ordinals for a set of records, in one round-trip, keyed by record id.
+    /// </summary>
+    /// <remarks>
+    /// Only records that actually need one are asked for: a record RuneLite gave a KillCount for
+    /// already has its roll number, and one with no character or no id (the single-record path
+    /// before the save) has no ordinal to resolve. Distinct by record id because the ticker set and
+    /// the feed set overlap - most published records are in both.
+    /// </remarks>
+    private async Task<Dictionary<int, int>> ResolveOrdinals(
+        IEnumerable<(LootRecord Record, GameCharacter? Character)> records)
+    {
+        var requests = records
+            .Where(x => x.Character is not null && x.Record.Id > 0)
+            .DistinctBy(x => x.Record.Id)
+            .Select(x => new KillOrdinalRequest(
+                x.Record.Id, x.Character!.Id, x.Record.SourceName, x.Record.OccurredAt))
+            .ToList();
+
+        return requests.Count == 0 ? [] : await lootRecordRepository.GetKillOrdinals(requests);
+    }
+
+    /// <summary>
+    /// Puts one kill on the live roll ticker. No loot, no value floor, no tier - see LootRollEntry.
+    /// </summary>
+    /// <remarks>
+    /// IMPORTED RECORDS NEVER REACH HERE. A first sync with full history is thousands of kills that
+    /// happened months ago, and a banner labelled live must not replay them; the callers filter on
+    /// IsImported before calling. That is the same reason the feed damps imports, just absolute
+    /// rather than by value.
+    /// </remarks>
+    private void PublishRoll(LootRecord record, GameCharacter? character, Dictionary<int, int> ordinals)
+    {
+        if (!IsCharacterVisible(character) || record.IsImported) return;
+
+        // RuneLite's own count wins where it gave one; otherwise our resolved chronological
+        // position. Same precedence as the feed card.
+        var ordinal = record.KillCount is > 0
+            ? record.KillCount
+            : ordinals.TryGetValue(record.Id, out var resolved) ? resolved : null;
+
+        var scope = character?.IsLeagues == true ? LootFeedScope.Leagues : LootFeedScope.Main;
+
+        lootRollFeed.Publish(scope, new LootRollEntry(
+            character?.GetEffectiveName() ?? "Unknown",
+            character?.Id,
+            record.SourceName,
+            ordinal,
+            record.OccurredAt));
+    }
+
+    private async Task PublishToFeed(int userId, LootRecord record, GameCharacter? character, Dictionary<int, int> ordinals)
     {
         var user = await userRepository.GetById(userId);
         var userName = user is not null ? $"{user.FirstName} {user.LastName}" : "Unknown";
-        await PublishRecordToFeed(userName, record, character);
+        await PublishRecordToFeed(userName, record, character, ordinals);
     }
 
-    private async Task PublishRecordToFeed(string userName, LootRecord record, GameCharacter? character)
+    private async Task PublishRecordToFeed(
+        string userName, LootRecord record, GameCharacter? character, Dictionary<int, int> ordinals)
     {
         // Re-priced through the override cache before anything looks at a value: this is the live
         // path, and it must agree with the backfill path (which reads the already-effective
@@ -313,10 +419,10 @@ public sealed class LootIngestHandler(
         // each one can carry it: falling back to the card's first ordinal instead made every drop
         // on such a card claim the session's opening roll. One lookup per record, shared by all
         // tiers.
-        int? ordinal = null;
-        if (character is not null && record.Id > 0)
-            ordinal = await lootRecordRepository.GetKillOrdinal(
-                character.Id, record.SourceName, record.OccurredAt, record.Id);
+        // Resolved for the whole batch by ResolveOrdinals, not per record: this was two round-trips
+        // each (the count and the admin baseline), and it is the same figure the roll ticker shows,
+        // so both read it from here.
+        int? ordinal = ordinals.TryGetValue(record.Id, out var resolvedOrdinal) ? resolvedOrdinal : null;
 
         var feedDrops = drops.Select(d =>
         {

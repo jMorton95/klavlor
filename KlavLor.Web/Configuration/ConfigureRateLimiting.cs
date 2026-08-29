@@ -34,6 +34,18 @@ public static class ConfigureRateLimiting
     /// hundreds of these, so they cannot share the ordinary read budget — a collection log grid
     /// alone would exhaust it on a single view. High enough never to bite a real page, bounded
     /// enough that enumerating every icon we hold is still a throttled job.</summary>
+    /// <summary>
+    /// Long-lived EventSources a single feed page opens: one per tier swimlane, plus the roll
+    /// ticker. Update this when a stream is added or removed from the feed page.
+    /// </summary>
+    private const int SseStreamsPerFeedPage = 6;
+
+    /// <summary>
+    /// How many feed tabs one address may hold open. Several clan members behind one NAT share this
+    /// budget, so it is the number to raise if legitimate viewers start seeing 429s.
+    /// </summary>
+    private const int SseConcurrentTabsAllowed = 4;
+
     private const int AuthenticatedAssetsPerMinute = 3_000;
 
     private const int AnonymousAssetsPerMinute = 1_200;
@@ -104,13 +116,20 @@ public static class ConfigureRateLimiting
 
             // Per-IP: SSE feed streams. These are long-lived connections, so the meaningful limit is
             // how many a single IP may hold open at once, not requests per minute — a window limiter
-            // would let one client pin 120 sockets for hours. One feed page opens five streams (one
-            // per tier), so 20 permits allows ~4 concurrent tabs. QueueLimit 0 rejects immediately
-            // with 429 rather than parking the request: a queued EventSource just hangs.
+            // would let one client pin 120 sockets for hours. QueueLimit 0 rejects immediately with
+            // 429 rather than parking the request: a queued EventSource just hangs.
+            //
+            // The permit count is DERIVED rather than written down, because the number that matters
+            // is how many tabs a viewer gets, and that silently drops every time a stream is added
+            // to the feed page. Add one and this arithmetic moves with it.
             options.AddPolicy("sse", context =>
                 RateLimitPartition.GetConcurrencyLimiter(
                     IpKey(context),
-                    _ => new ConcurrencyLimiterOptions { PermitLimit = 20, QueueLimit = 0 }));
+                    _ => new ConcurrencyLimiterOptions
+                    {
+                        PermitLimit = SseStreamsPerFeedPage * SseConcurrentTabsAllowed,
+                        QueueLimit = 0
+                    }));
         });
 
     /// <summary>

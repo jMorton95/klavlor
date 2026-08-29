@@ -25,6 +25,19 @@ public interface ILootFeedRepository
     /// Notable play sessions across every visible character in the last <paramref name="windowHours"/>.
     /// </summary>
     Task<RecentSessionsPanel> GetRecentSessions(int windowHours, LootFeedScope scope);
+
+    /// <summary>
+    /// The most recent kills in a scope, newest first - the roll ticker's startup seed.
+    /// </summary>
+    /// <remarks>
+    /// The ticker's buffer is in memory, so without this the banner is empty after every restart
+    /// until the clan's next kill. Carries no loot and no ordinal: it is a projection of four
+    /// columns, and the roll numbers are resolved afterwards by GetKillOrdinals.
+    ///
+    /// Imported records are excluded, matching the live rule - a banner labelled LIVE must not fill
+    /// itself from a historical backfill.
+    /// </remarks>
+    Task<List<LootRollSeedRow>> GetRecentRolls(LootFeedScope scope, int limit);
 }
 
 public sealed record FeedCharacterOption(int Id, string Name);

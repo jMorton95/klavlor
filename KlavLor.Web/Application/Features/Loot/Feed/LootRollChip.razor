@@ -1,0 +1,26 @@
+@using KlavLor.Application.Features.Loot.Feed
+
+@* One chip on the live roll ticker: the character stacked over the source they rolled.
+
+   Two lines rather than one so each chip is about half as wide, which is what lets a useful number
+   of them fit across the banner. Stacking is also why there is no "rolled" between them any more —
+   on one line it carried the sentence; under a name it is a word on its own that costs width and
+   says nothing the layout does not already.
+
+   The source and the roll number sit on ONE source line with no whitespace between the two spans.
+   They are inline, so a newline in the markup would render as a space and stack with the kc chip's
+   own margin. *@
+
+<span id="@Roll.DomId" class="roll-chip">
+    <span class="roll-chip-body">
+        <span class="roll-chip-name">@Roll.CharacterName</span>
+        <span class="roll-chip-line">@if (Roll.KillOrdinal is { } ordinal)
+            {<span class="roll-chip-source">@Roll.SourceName</span><span class="roll-chip-kc">#@ordinal.ToString("N0")</span>}
+            else
+            {<span class="roll-chip-source">@Roll.SourceName</span>}</span>
+    </span>
+</span>
+
+@code {
+    [Parameter] public required LootRollEntry Roll { get; set; }
+}

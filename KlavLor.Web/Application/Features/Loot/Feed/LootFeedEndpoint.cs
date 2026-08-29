@@ -1,4 +1,5 @@
-﻿using KlavLor.Application.Features.Loot.Feed;
+﻿using System.Runtime.CompilerServices;
+using KlavLor.Application.Features.Loot.Feed;
 using KlavLor.Application.Interfaces.Services;
 using KlavLor.Web.Application.HttpResults;
 using Microsoft.AspNetCore.Components;
@@ -69,6 +70,27 @@ public sealed class LootFeedEndpoint : IEndpoint
             })
             .AllowAnonymous()
             .RequireRateLimiting("read");
+
+        // The roll ticker's own stream, one per scope. Same "sse" policy as the lanes.
+        app.MapGet(AppRoutes.LootFeedStreamRolls.FromApi(),
+                (HttpContext ctx, ILootRollFeed rolls, IServiceProvider sp, ILoggerFactory lf) =>
+                    StreamRolls(ctx, rolls, LootFeedScope.Main, sp, lf))
+            .AllowAnonymous()
+            .RequireRateLimiting("sse");
+
+        app.MapGet(AppRoutes.LootFeedLeaguesStreamRolls.FromApi(),
+                async (HttpContext ctx, ILootRollFeed rolls, ISystemSettingsCache settings,
+                       IServiceProvider sp, ILoggerFactory lf) =>
+                {
+                    if (!settings.IsLeaguesEnabled)
+                    {
+                        ctx.Response.StatusCode = StatusCodes.Status404NotFound;
+                        return;
+                    }
+                    await StreamRolls(ctx, rolls, LootFeedScope.Leagues, sp, lf);
+                })
+            .AllowAnonymous()
+            .RequireRateLimiting("sse");
 
         MapLeaguesStream(app, AppRoutes.LootFeedLeaguesStreamStandard, LootFeedTier.Standard);
         MapLeaguesStream(app, AppRoutes.LootFeedLeaguesStreamUncommon, LootFeedTier.Uncommon);
@@ -171,6 +193,96 @@ public sealed class LootFeedEndpoint : IEndpoint
                 result.Add(tier);
         }
         return result.Count > 0 ? result : null;
+    }
+
+    /// <summary>
+    /// The live roll ticker's stream. One chip of markup per kill.
+    /// </summary>
+    /// <remarks>
+    /// NOT a Razor render, and that is the point. StreamFeed below spins up an HtmlRenderer per
+    /// event PER SUBSCRIBER, so one publish costs N component renders with N viewers watching. A
+    /// roll is a name, a source and a number, so it is built here by interpolation - which is what
+    /// lets the ticker carry every kill rather than only the ones worth 10k.
+    ///
+    /// Both interpolated values are HTML-ENCODED. A character's display name is user-supplied and
+    /// goes straight into markup; the feed's Razor path escapes for free, this one must do it.
+    /// </remarks>
+    private static async Task StreamRolls(
+        HttpContext context, ILootRollFeed rolls, LootFeedScope scope,
+        IServiceProvider serviceProvider, ILoggerFactory loggerFactory)
+    {
+        context.Response.ContentType = "text/event-stream";
+        context.Response.Headers.CacheControl = "no-cache";
+        context.Response.Headers.Connection = "keep-alive";
+        context.Response.Headers["X-Accel-Buffering"] = "no";
+
+        var ct = context.RequestAborted;
+
+        // Same reason as StreamFeed: without an immediate write the response head is withheld until
+        // the first kill lands, and the browser's EventSource sits in CONNECTING - indistinguishable
+        // from a dead connection.
+        await context.Response.WriteAsync(": connected\n\n", ct);
+        await context.Response.Body.FlushAsync(ct);
+
+        // Backfill, so the banner is populated the moment the page opens rather than blank until
+        // the clan's next kill. It comes out of the service's in-memory ring, so unlike the
+        // swimlanes' backfill it costs no query - which is what lets it live on the query-free
+        // page shell.
+        //
+        // Replayed OLDEST FIRST because the banner prepends: the last one written ends up leftmost,
+        // matching the order live rolls arrive in. GetRecent hands them back newest-first.
+        foreach (var roll in rolls.GetRecent(scope).Reverse())
+        {
+            await context.Response.WriteAsync(
+                $"{await RenderRollChip(roll, serviceProvider, loggerFactory)}\n\n", ct);
+        }
+        await context.Response.Body.FlushAsync(ct);
+
+        // A roll published between the snapshot above and the subscription below is missed. That
+        // window is microseconds and this is a ticker with no scrollback - nothing reads back
+        // through it and nothing is derived from it - so it is not worth the interleaving the
+        // swimlanes need, where a missed drop would be a hole in the history.
+        await foreach (var roll in rolls.SubscribeAsync(scope, ct))
+        {
+            await context.Response.WriteAsync(
+                $"{await RenderRollChip(roll, serviceProvider, loggerFactory)}\n\n", ct);
+            await context.Response.Body.FlushAsync(ct);
+        }
+    }
+
+    /// <summary>
+    /// The rendered chip for a roll, rendered ONCE however many people are watching.
+    /// </summary>
+    /// <remarks>
+    /// StreamFeed builds an HtmlRenderer per event PER SUBSCRIBER, so one publish costs N renders
+    /// with N viewers. The feed can carry that because it only publishes drops worth 10k or more;
+    /// the ticker carries every kill, so the same arithmetic over a much larger event count is
+    /// worth avoiding - and it is avoidable here for a reason the feed cannot use: a roll chip has
+    /// no per-viewer state at all. No character filter, no merge, no highlight. Every subscriber
+    /// gets byte-identical markup, so it only ever needs rendering once.
+    ///
+    /// ConditionalWeakTable rather than a dictionary so the cache needs no eviction of its own: an
+    /// entry is reachable only while the service's ring buffer holds it, and the markup is collected
+    /// with it. Two subscribers can race to render the same entry on its first appearance; they
+    /// produce identical strings, so the loser is simply discarded.
+    /// </remarks>
+    private static readonly ConditionalWeakTable<LootRollEntry, string> RenderedChips = new();
+
+    private static async Task<string> RenderRollChip(
+        LootRollEntry roll, IServiceProvider serviceProvider, ILoggerFactory loggerFactory)
+    {
+        if (RenderedChips.TryGetValue(roll, out var cached)) return cached;
+
+        var html = await RenderComponentToString<LootRollChip>(
+            serviceProvider, loggerFactory, new Dictionary<string, object?> { ["Roll"] = roll });
+
+        // Razor indents, so the markup is multi-line. An SSE frame is line-delimited: every line
+        // needs its own "data: " prefix or the client sees a truncated fragment. Same treatment
+        // StreamFeed gives its cards.
+        var payload = string.Join("\n", html.Split('\n').Select(line => $"data: {line}"));
+
+        RenderedChips.AddOrUpdate(roll, payload);
+        return payload;
     }
 
     private static async Task StreamFeed(

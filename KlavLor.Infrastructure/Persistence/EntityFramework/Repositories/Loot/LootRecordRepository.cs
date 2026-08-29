@@ -194,6 +194,56 @@ internal sealed class LootRecordRepository(DataContext dataContext, ILogger<Loot
         return ordinal + await GetBaseline(gameCharacterId, sourceName);
     }
 
+    public async Task<Dictionary<int, int>> GetKillOrdinals(IReadOnlyCollection<KillOrdinalRequest> requests)
+    {
+        if (requests.Count == 0) return [];
+
+        // One round-trip for the whole batch. The correlated count is the same indexed range scan
+        // GetKillOrdinal does per record (IX_LootRecords_GameCharacterId_SourceName_OccurredAt_Id
+        // covers it), and the same "< occurredAt, or = and Id <=" tie-break, so a record resolves to
+        // the identical number either way - two spellings of this rule would drift and the feed card
+        // and the roll ticker would disagree about the same kill.
+        //
+        // unnest WITH ORDINALITY rather than a temp table or one query per pair: the inputs arrive
+        // as four parallel arrays and come back positionally, so nothing has to be joined on.
+        var ids = requests.Select(r => r.RecordId).ToArray();
+        var characterIds = requests.Select(r => r.GameCharacterId).ToArray();
+        var sources = requests.Select(r => r.SourceName).ToArray();
+        var occurredAt = requests.Select(r => r.OccurredAt).ToArray();
+
+        const string sql = """
+            SELECT r.rid,
+                   (SELECT COUNT(*)
+                      FROM "LootRecords" o
+                     WHERE o."GameCharacterId" = r.cid
+                       AND o."SourceName" = r.src
+                       AND (o."OccurredAt" < r.at
+                            OR (o."OccurredAt" = r.at AND o."Id" <= r.rid)))
+                   + COALESCE((SELECT b."BaselineKc"
+                                 FROM "CharacterSourceBaselines" b
+                                WHERE b."GameCharacterId" = r.cid AND b."SourceName" = r.src), 0) AS ordinal
+            FROM unnest(@rids, @cids, @srcs, @ats) AS r(rid, cid, src, at)
+            """;
+
+        var connection = dataContext.Database.GetDbConnection();
+        if (connection.State != System.Data.ConnectionState.Open)
+            await connection.OpenAsync();
+
+        await using var cmd = (NpgsqlCommand)connection.CreateCommand();
+        cmd.CommandText = sql;
+        cmd.Parameters.Add(new NpgsqlParameter("@rids", ids));
+        cmd.Parameters.Add(new NpgsqlParameter("@cids", characterIds));
+        cmd.Parameters.Add(new NpgsqlParameter("@srcs", sources));
+        cmd.Parameters.Add(new NpgsqlParameter("@ats", occurredAt));
+
+        var ordinals = new Dictionary<int, int>(requests.Count);
+        await using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+            ordinals[reader.GetInt32(0)] = (int)reader.GetInt64(1);
+
+        return ordinals;
+    }
+
     // Admin baseline KC for a character at a source (kills before we had data), or 0.
     private async Task<int> GetBaseline(int gameCharacterId, string sourceName) =>
         await dataContext.CharacterSourceBaselines

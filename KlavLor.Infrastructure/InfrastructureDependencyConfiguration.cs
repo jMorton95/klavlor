@@ -73,6 +73,9 @@ public static class InfrastructureDependencyConfiguration
             services.AddSingleton<ILootFeedHighlightTracker, LootFeedHighlightTracker>();
             services.AddSingleton<ILootFeedService, LootFeedService>();
 
+        // The roll ticker is its own fan-out — see ILootRollFeed for why it is not part of the feed.
+        services.AddSingleton<ILootRollFeed, LootRollFeedService>();
+
             // Records every background-service cycle into the JobRuns log for the admin health panel.
             services.AddSingleton<KlavLor.Application.Interfaces.Services.IJobRunRecorder, JobRunRecorder>();
 

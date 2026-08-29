@@ -115,6 +115,67 @@ The rules:
 - `No_razor_file_injects_a_repository_type` — a supplementary text scan of the `.razor` files for `@inject` of a repository type, catching declarations the metadata check could miss.
 - `No_component_uses_Task_WhenAll` — flags **any** `Task.WhenAll` inside a component. Deliberately conservative: it does not try to classify the operands, because a false negative here is an outage while a false positive is one line of human review. If a flagged `Task.WhenAll` provably touches neither a handler nor the DB, that still needs a human decision — do not add a silent exemption to the test.
 
+### The Roll Ticker Is Every Kill, And Is Cheap Because It Carries No Loot
+
+The banner above the swimlanes (`#roll-ticker` in `LootFeedContent.razor`) shows every kill as it
+lands — "ClaudeLock rolled Vorkath #1,204" — with **no loot on it at all**. That is what lets it show
+the thing the lanes structurally cannot: a dry kill. The lanes start at 10k, so a Vorkath that
+dropped nothing appears here and nowhere else.
+
+`ILootRollFeed` / `LootRollFeedService` is **deliberately separate from `ILootFeedService`**. The two
+have different shapes: the feed is partitioned by tier, merges kills into grouped cards and has a
+value floor; the ticker has no tiers, no grouping, no floor and no loot, so folding it in would mean
+a tier dimension that is always meaningless and a merge path always skipped. The concurrency model is
+copied from `LootFeedService` on purpose — partitions pre-populated at construction (so a plain
+`Dictionary` is safe under a per-partition lock), one bounded `Channel` per subscriber with
+`DropOldest`, and a synchronous non-blocking `Publish` that fans out with `TryWrite` outside the lock.
+
+Three things make it affordable at one event per kill:
+
+- **One stream per scope**, not one per tier.
+- **The connect backfill is the in-memory ring**, so opening the page costs no query — which is what
+  lets the banner live on the query-free page shell. The lanes' backfill is a database read each.
+- **One render per roll, not one per subscriber.** `StreamFeed` builds an `HtmlRenderer` per event
+  *per subscriber*, so one publish costs N component renders with N viewers. The feed can carry that
+  because it only publishes drops worth 10k or more; the ticker carries every kill. It stays a
+  **Razor component** (`LootRollChip.razor` — markup belongs in a `.razor` file, and Razor escapes
+  the user-supplied character name for free) and the rendered frame is memoised per entry in a
+  `ConditionalWeakTable`, which needs no eviction of its own: an entry is reachable only while the
+  ring buffer holds it, so the markup is collected with it.
+
+**The ticker is seeded from the database at startup**, in the same pass as the swimlanes
+(`LootFeedSeederService`). Its ring is in memory, so without that the banner is blank after every
+restart until the clan's next kill. Two reads, not one: `ILootFeedRepository.GetRecentRolls` for the
+kills, then `GetKillOrdinals` for their roll numbers — inlining the ordinal maths into the seed query
+would be a third spelling of that rule to keep in step. `SeedBuffer` **replaces** rather than appends
+(so a re-run cannot double the banner) and deliberately does **not** notify subscribers — anyone
+connected would otherwise see the whole buffer animate in at once as if 40 kills had just landed.
+The ticker's seeding is wrapped in its own try/catch: it must never abort the swimlanes' seeding.
+
+**Imported records never reach the ticker.** A first sync with full history is thousands of kills
+from months ago and a banner labelled live must not replay them. The feed damps imports by value;
+the ticker excludes them outright.
+
+**Kill ordinals are resolved once per batch, and both surfaces read the same number.**
+`ILootRecordRepository.GetKillOrdinals` does the whole batch in one round-trip;
+`GetKillOrdinal` (two round-trips — the count and the admin baseline) is no longer on the publish
+path. That was up to 500 queries for a 250-record sync batch, and the ticker needs an ordinal for
+every kill rather than only the ones valuable enough to publish. Two spellings of the "roll number"
+rule would drift and the ticker and the feed card would disagree about the same kill, so
+`LootIngestHandler.ResolveOrdinals` is the only caller and hands the result to both.
+`KlavLor.IntegrationTests/KillOrdinalBatchTests.cs` pins the batch resolver against the single-record
+one, plus the same-timestamp tie-break, the baseline, and per-character independence.
+
+**The `sse` permit count moves with the number of streams a feed page opens.** It went 20 → 24 when
+the ticker was added, because the policy is a per-IP *concurrency* limiter and the page went from
+five sockets to six — leaving it at 20 would have silently cut a viewer from ~4 tabs to ~3. Any new
+long-lived stream on this page has to do the same arithmetic.
+
+A roll published between the backfill snapshot and the subscription is missed. That window is
+microseconds, and unlike the lanes — where a missed drop is a hole in the history — nothing reads
+back through a ticker and nothing is derived from it, so it does not get the interleaving the
+swimlanes need.
+
 ### The Loot Feed Loads Its Swimlanes After First Paint
 
 The feed page route (`GetPage`) and both routable feed pages are deliberately **query-free and synchronous** so the shell paints without a DB round-trip (~15ms / 7KB, versus ~1.2s when it was server-rendered). `LootFeedContent` renders skeleton columns plus `hx-trigger="load"` on `#feed-grid-container`, which then fetches `GetGrid`.

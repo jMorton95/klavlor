@@ -88,6 +88,8 @@ public static class AppRoutes
     public const string LootFeedStreamRare = "/loot/feed/stream/rare";
     public const string LootFeedStreamEpic = "/loot/feed/stream/epic";
     public const string LootFeedStreamLegendary = "/loot/feed/stream/legendary";
+    // The roll ticker: ONE stream per scope, not one per tier — it has no tiers.
+    public const string LootFeedStreamRolls = "/loot/feed/stream/rolls";
     public const string LootFeedLeagues = "/loot/feed/leagues";
     public const string LootFeedLeaguesGrid = "/loot/feed/leagues/grid";
     public const string LootFeedLeaguesColumn = "/loot/feed/leagues/column/{tier}";
@@ -97,6 +99,7 @@ public static class AppRoutes
     public const string LootFeedLeaguesStreamRare = "/loot/feed/leagues/stream/rare";
     public const string LootFeedLeaguesStreamEpic = "/loot/feed/leagues/stream/epic";
     public const string LootFeedLeaguesStreamLegendary = "/loot/feed/leagues/stream/legendary";
+    public const string LootFeedLeaguesStreamRolls = "/loot/feed/leagues/stream/rolls";
     public const string LootFeedSourcePopover = "/loot/feed/source-popover/{id:int}";
     public const string LootLog = "/loot/log";
     public const string LootLeaderboard = "/loot/leaderboard";
