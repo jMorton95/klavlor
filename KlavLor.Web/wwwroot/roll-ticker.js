@@ -4,7 +4,7 @@
 }(typeof self !== 'undefined' ? self : this, function () {
     'use strict';
     var DEFAULTS = {
-        slideMs: 550,
+        slideMs: 2000,
         gapMs: 200,
 
         maxQueued: 40

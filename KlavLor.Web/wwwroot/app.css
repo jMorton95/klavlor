@@ -877,7 +877,7 @@ body:not(.history-panel-open) #completion-history-panel {
     min-width: 0;
     white-space: nowrap;
     will-change: transform;
-    transition: transform 550ms cubic-bezier(0.22, 0.61, 0.36, 1);
+    transition: transform 2000ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 .roll-chip {
@@ -894,7 +894,7 @@ body:not(.history-panel-open) #completion-history-panel {
     border-right: 1px solid color-mix(in srgb, var(--color-slate-300) 40%, transparent);
     /* Opacity only: composited, and it softens the moment the chip clears the LIVE badge.
        Timed with the slide so the two finish together rather than stacking two events. */
-    animation: roll-chip-in 550ms ease-out;
+    animation: roll-chip-in 2000ms ease-out;
 }
 
 /* Backfill. The ring is replayed on connect, so these are history and must arrive already
