@@ -1,5 +1,4 @@
-﻿// --- Dark Mode Toggle ---
-function toggleDarkMode() {
+﻿function toggleDarkMode() {
     var isDark = document.documentElement.classList.toggle('dark');
     localStorage.setItem('theme', isDark ? 'dark' : 'light');
 }
@@ -63,7 +62,6 @@ window.fadeOutToast = function(progressBar) {
     setTimeout(() => toast.remove(), 300);
 }
 
-// OSRS Wiki search - delegated click handler for search results
 document.addEventListener('click', function(e) {
     var btn = e.target.closest('.osrs-search-result');
     if (!btn) return;
@@ -71,7 +69,6 @@ document.addEventListener('click', function(e) {
     selectOsrsItem(btn, btn.dataset.itemName, btn.dataset.itemIcon);
 });
 
-// OSRS Wiki search - select an item from the dropdown
 window.selectOsrsItem = function(el, name, iconUrl) {
     var modal = el.closest('#modal-element');
     if (!modal) return;
@@ -79,7 +76,6 @@ window.selectOsrsItem = function(el, name, iconUrl) {
     modal.querySelector('[name=Label]').value = name;
     modal.querySelector('[name=IconUrl]').value = iconUrl || '';
 
-    // Hide search input, show selected item preview
     var searchInput = modal.querySelector('#osrs-search-input');
     if (searchInput) searchInput.classList.add('hidden');
 
@@ -113,12 +109,10 @@ window.selectOsrsItem = function(el, name, iconUrl) {
 
     searchInput.parentElement.insertBefore(preview, searchInput);
 
-    // Clear results
     var results = modal.querySelector('#osrs-search-results');
     if (results) results.innerHTML = '';
 };
 
-// Clear the OSRS item selection and show search input again
 window.clearOsrsSelection = function(el) {
     var modal = el.closest('#modal-element');
     if (!modal) return;
@@ -137,7 +131,6 @@ window.clearOsrsSelection = function(el) {
     }
 };
 
-// --- Session loot modal: toggle between grouped loot and individual rolls ---
 window.toggleSessionView = function(btn) {
     var modal = btn.closest('#modal-element');
     if (!modal) return;
@@ -151,7 +144,6 @@ window.toggleSessionView = function(btn) {
     if (label) label.textContent = showRolls ? 'View grouped loot' : 'View individual rolls';
 };
 
-// Get the center of the builder canvas viewport for placing new nodes
 window.getCanvasViewportCenter = function() {
     var canvas = document.getElementById('builder-canvas');
     if (!canvas) return { x: 400, y: 300 };
@@ -161,9 +153,7 @@ window.getCanvasViewportCenter = function() {
     };
 };
 
-// --- Completion Popover ---
 window.openCompletionPopover = function(nodeId) {
-    // Close any other open popovers first
     document.querySelectorAll('[id^="completion-popover-"]').forEach(function(p) {
         p.classList.add('hidden');
     });
@@ -180,7 +170,6 @@ window.closeCompletionPopover = function(nodeId) {
     if (popover) popover.classList.add('hidden');
 };
 
-// Close completion popover on outside click
 document.addEventListener('click', function(e) {
     if (e.target.closest('[id^="completion-popover-"]')) return;
     if (e.target.closest('[onclick^="openCompletionPopover"]')) return;
@@ -189,8 +178,6 @@ document.addEventListener('click', function(e) {
     });
 });
 
-// --- Completion History Panel toggle ---
-// State lives on <body> (preserved across panel OOB swaps + canvas re-renders); persisted in localStorage.
 window.HISTORY_PANEL_KEY = 'klavlor.viewer.historyOpen';
 
 window.syncHistoryToggleButton = function() {
@@ -227,41 +214,20 @@ window.initHistoryPanel = function() {
     window.syncHistoryToggleButton();
 };
 
-// --- Loot Feed Filter ---
 (() => {
     const ALL_TIERS = ['standard', 'uncommon', 'rare', 'epic', 'legendary'];
     const STORAGE_KEY = 'lootFeedFilter';
-    // Each feed page renders #feed-grid-container with a data-grid-url attribute
-    // pointing at its scope-specific grid endpoint (main vs leagues). Falls back
-    // to the main grid URL if the attribute is missing (defensive).
     function getGridApi() {
         const container = document.getElementById('feed-grid-container');
         return container?.dataset.gridUrl || '/api/loot/feed/grid';
     }
-    // Both main and leagues grid endpoints end in /grid; this lets us inject the
-    // tiers query param onto either via htmx:configRequest.
     const GRID_PATH_SUFFIX = '/grid';
 
-    // FILTERS LIVE IN THE URL AS WELL AS IN localStorage.
-    //
-    // localStorage alone made a filtered feed unshareable and un-bookmarkable: the shell is static
-    // and cached, so the only record of what you were looking at was in your own browser. The query
-    // string is now the authority when it is present (a link someone sent you must win over your own
-    // last choice) and localStorage is the fallback, so a bare /loot/feed still remembers.
-    //
-    // Param names deliberately match the API's own (tiers, characterId), so the page URL and the
-    // grid request read identically and there is no second vocabulary to keep in step.
-    //
-    // Ordering matters: this runs during site.js's deferred execution, which is before htmx
-    // processes hx-trigger="load" on #feed-grid-container (that waits for DOMContentLoaded), so the
-    // very first grid fetch already carries the URL's filter and no follow-up request is needed.
     const NO_TIERS = 'none';
 
     function syncFiltersFromUrl() {
         const params = new URLSearchParams(window.location.search);
 
-        // Absent means "no opinion", NOT "clear" — an in-app HTMX navigation pushes /loot/feed with
-        // no query, and that must not wipe what the viewer had chosen.
         if (params.has('tiers')) {
             const raw = params.get('tiers');
             const tiers = raw === NO_TIERS
@@ -270,31 +236,16 @@ window.initHistoryPanel = function() {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(tiers));
         }
 
-        // The character travels as a NAME, because the URL is the shareable surface and an opaque
-        // id tells the person reading the link nothing. Internally it stays an id: the select's
-        // option values, localStorage and the lane API are all id-based, so the name is resolved
-        // against the select's options rather than sent to the server.
-        //
-        // Resolution is DEFERRED, not done here: the select arrives out-of-band with the grid
-        // response, so on a cold load of a shared link it does not exist yet. That is safe because
-        // the grid shell ignores the character (only the LANES filter by it) and the lanes are
-        // requested from the grid response's own markup - by which point the select is in the DOM.
-        // Resolving lazily in getActiveCharacter therefore still catches the first lane request, so
-        // no refetch is ever needed.
         if (params.has('character')) {
             pendingCharacterName = params.get('character') || '';
             if (!pendingCharacterName) localStorage.removeItem(CHARACTER_KEY);
         } else if (params.has('characterId')) {
-            // Old links, and anything still pointing at the id form.
             const character = params.get('characterId');
             if (character) localStorage.setItem(CHARACTER_KEY, character);
             else localStorage.removeItem(CHARACTER_KEY);
         }
     }
 
-    // replaceState, not pushState: a filter is a view of one page, not a navigation, and pushing
-    // would make Back step through every checkbox the viewer touched instead of leaving the feed.
-    // Defaults are omitted so an unfiltered feed keeps a clean /loot/feed URL.
     function writeFiltersToUrl() {
         const url = new URL(window.location.href);
         const tiers = getActiveTiers();
@@ -304,7 +255,6 @@ window.initHistoryPanel = function() {
         else if (tiers.length === ALL_TIERS.length) url.searchParams.delete('tiers');
         else url.searchParams.set('tiers', tiers.join(','));
 
-        // Written as the name; the id form is stripped so a URL never carries both.
         url.searchParams.delete('characterId');
         const characterName = character ? characterNameFor(character) : '';
         if (characterName) url.searchParams.set('character', characterName);
@@ -313,22 +263,14 @@ window.initHistoryPanel = function() {
         window.history.replaceState(window.history.state, '', url);
     }
 
-
     function getActiveTiers() {
         try {
             const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-            // An explicitly-saved empty list is a real state (every tier unchecked, or ?tiers=none),
-            // distinct from nothing saved at all, which means "show everything".
             if (Array.isArray(saved)) return saved;
         } catch {}
         return ALL_TIERS;
     }
 
-    // Only syncs the checkboxes to the saved filter. It deliberately does NOT re-fetch the grid:
-    // #feed-grid-container carries hx-trigger="load" and fetches itself, and the configRequest
-    // hook below appends the saved tiers to that request — so the first grid the user sees is
-    // already filtered. Re-fetching here would fire a second identical request and re-open every
-    // SSE stream.
     function initFeedFilter() {
         const checkboxes = document.querySelectorAll('.feed-filter-checkbox');
         if (checkboxes.length === 0) return;
@@ -339,10 +281,6 @@ window.initHistoryPanel = function() {
         }
     }
 
-    // "Every tier off" is reachable on FIRST LOAD now that ?tiers=none is a shareable state, not
-    // only by unchecking boxes on a page that already had a grid. The load trigger has to be pulled
-    // off the container before htmx processes it (this runs before DOMContentLoaded), otherwise the
-    // feed fetches a grid with no tiers and the placeholder never shows.
     function applyEmptyTierState() {
         if (getActiveTiers().length > 0) return;
         const container = document.getElementById('feed-grid-container');
@@ -381,16 +319,8 @@ window.initHistoryPanel = function() {
         });
     };
 
-    // CHARACTER FILTER.
-    //
-    // Saved here rather than server-side for the same reason the tier filter is: the feed shell is
-    // static and cached, so a per-viewer preference cannot live in the markup. The select itself is
-    // delivered out-of-band by the grid response, so this restores the saved value once it lands.
     const CHARACTER_KEY = 'klavlor.feed.character';
 
-    // A name lifted from ?character= that has not been matched to an option yet. Held until the
-    // select lands rather than dropped, so a shared link survives the gap between the page painting
-    // and the grid response arriving.
     let pendingCharacterName = null;
 
     function characterSelect() {
@@ -403,9 +333,6 @@ window.initHistoryPanel = function() {
         return option ? option.textContent.trim() : '';
     }
 
-    // Match a URL name to an option, case-insensitively and only once the list exists. A name that
-    // matches nothing is discarded rather than left filtering to nothing - the same rule as a stale
-    // saved id - and the URL is rewritten so the dead name doesn't persist in the address bar.
     function resolvePendingCharacter() {
         if (pendingCharacterName === null) return;
         const select = characterSelect();
@@ -433,31 +360,22 @@ window.initHistoryPanel = function() {
         const select = document.getElementById('feed-character-filter');
         if (!select || select.disabled) return;
         const saved = getActiveCharacter();
-        // Only restore a character still present in the list — one that has been hidden or deleted
-        // would otherwise leave the feed silently filtered to nothing with no way back.
         if (saved && select.querySelector(`option[value="${saved}"]`)) select.value = saved;
         else if (saved) localStorage.removeItem(CHARACTER_KEY);
         applyCharacterFilterToLiveCards();
     }
 
     window.saveFeedCharacter = function(value) {
-        // An explicit choice settles the question: drop any name still waiting to be resolved from
-        // the URL, or it would overwrite this the next time something asked.
         pendingCharacterName = null;
         if (value) localStorage.setItem(CHARACTER_KEY, value);
         else localStorage.removeItem(CHARACTER_KEY);
         writeFiltersToUrl();
 
-        // Refetch the grid: the backfill is server-filtered, so the lanes have to come back.
         const container = document.getElementById('feed-grid-container');
         if (!container) return;
         htmx.ajax('GET', container.dataset.gridUrl, { target: '#feed-grid-container', swap: 'innerHTML' });
     };
 
-    // Live cards arrive over SSE, which is per-tier and not per-character — one stream serves every
-    // viewer, so it cannot be filtered server-side without a stream per character. Each card
-    // carries its character id instead and non-matching ones are hidden as they land. Hidden rather
-    // than dropped so clearing the filter reveals them without a refetch.
     function applyCharacterFilterToLiveCards() {
         const active = getActiveCharacter();
         for (const card of document.querySelectorAll('[data-feed-character]')) {
@@ -465,17 +383,11 @@ window.initHistoryPanel = function() {
         }
     }
 
-    // Inject tiers and the chosen character into HTMX requests for any feed grid or lane API
-    // (main or leagues). The lane carries the backfill, so it needs the character too — the grid
-    // shell alone would filter nothing.
     document.body.addEventListener('htmx:configRequest', function(evt) {
         const path = evt.detail.path;
         if (!path || !path.startsWith('/api/loot/feed')) return;
 
         const tiers = getActiveTiers();
-        // No tiers selected means no feed to fetch. Cancelling here rather than sending tiers=''
-        // matters because the server reads an empty value as "no filter" and would answer with
-        // every lane — which is the opposite of what was asked for.
         if (tiers.length === 0 && (path.endsWith(GRID_PATH_SUFFIX) || path.includes('/column/'))) {
             evt.preventDefault();
             return;
@@ -490,24 +402,16 @@ window.initHistoryPanel = function() {
         }
     });
 
-    // Re-apply after every swap: lanes land one at a time, and live cards are inserted by SSE.
-    // The card pass is NOT gated on the select existing — live cards can land on a page where the
-    // grid has already settled, and they still need hiding.
     document.body.addEventListener('htmx:afterSettle', function() {
         initFeedCharacter();
         applyCharacterFilterToLiveCards();
     });
 
-    // Recent-activity popover. Its contents load on first open (hx-trigger="load" inside the panel
-    // body once revealed is not an option — the body is in the DOM from the start), so the toggle
-    // fires the fetch itself and only once. The feed page therefore pays nothing for this panel
-    // unless someone asks to see it.
     window.toggleFeedSessions = function() {
         const panel = document.getElementById('feed-sessions-panel');
         if (!panel) return;
         const wasHidden = panel.classList.contains('hidden');
         panel.classList.toggle('hidden');
-        // Opening the activity panel closes the filter, and vice versa — they overlap.
         const filter = document.getElementById('feed-filter-panel');
         if (filter) filter.classList.add('hidden');
 
@@ -520,7 +424,6 @@ window.initHistoryPanel = function() {
         }
     };
 
-    // Close either popover when clicking outside it.
     document.addEventListener('click', function(e) {
         const panel = document.getElementById('feed-filter-panel');
         if (panel && !panel.classList.contains('hidden')
@@ -534,13 +437,10 @@ window.initHistoryPanel = function() {
         }
     });
 
-    // Initialize on page load. URL first, so the checkboxes and the first grid fetch agree with the
-    // link that was opened.
     syncFiltersFromUrl();
     initFeedFilter();
     applyEmptyTierState();
 
-    // Re-initialize only when the page-level container is swapped (HTMX navigation)
     document.body.addEventListener('htmx:afterSettle', function(evt) {
         if (evt.detail.target && evt.detail.target.id === 'hx-page-container') {
             syncFiltersFromUrl();
@@ -550,14 +450,10 @@ window.initHistoryPanel = function() {
     });
 })();
 
-// --- Page-transition loader ---
-// Shows #page-loader during full-page HTMX navigations (requests that swap #hx-page-container
-// AND push a URL — i.e. real navigations, not search-as-you-type or sub-panel loads). A short
-// delay keeps instant loads from flashing the spinner; a failsafe prevents a stuck overlay.
 (() => {
     let showTimer = null, failsafe = null;
-    const SHOW_DELAY = 120;     // ms before the spinner appears
-    const MAX_VISIBLE = 20000;  // ms hard cap so a dropped request can't leave it spinning
+    const SHOW_DELAY = 120;
+    const MAX_VISIBLE = 20000;
 
     const loader = () => document.getElementById('page-loader');
     const isPageContainer = (e) => e.detail && e.detail.target && e.detail.target.id === 'hx-page-container';
@@ -580,31 +476,20 @@ window.initHistoryPanel = function() {
         showTimer = setTimeout(show, SHOW_DELAY);
     });
 
-    // afterRequest fires on both success and HTTP errors; the network-failure events cover the rest.
     ['htmx:afterRequest', 'htmx:responseError', 'htmx:sendError', 'htmx:timeout'].forEach((ev) =>
         document.body.addEventListener(ev, (e) => { if (isPageContainer(e)) hide(); })
     );
 
-    // History navigation (browser Back/Forward). beforeHistorySave fires before HTMX snapshots the
-    // DOM — hiding first keeps the cached snapshot from capturing a visible spinner; historyRestore
-    // fires when that snapshot is put back. Neither event carries the page-container detail, so hide
-    // unconditionally rather than gating on isPageContainer.
     ['htmx:beforeHistorySave', 'htmx:historyRestore'].forEach((ev) =>
         document.body.addEventListener(ev, hide)
     );
 })();
 
-// --- Component-swap loader ---
-// Shows a small spinner over the swap target (or the clicked element) whenever a GET HTMX
-// component fetch — tab switch, sub-panel, "show more", modal open — runs longer than ~100ms.
-// Full-page navigations (target #hx-page-container) are handled by the page loader above.
 (() => {
-    const DELAY = 100;          // ms before the spinner appears
-    const MAX_VISIBLE = 30000;  // ms hard cap so nothing can linger
-    const pending = new Map();  // triggering element -> { timer, failsafe, overlay }
+    const DELAY = 100;
+    const MAX_VISIBLE = 30000;
+    const pending = new Map();
 
-    // The portion of an element's box that's actually on screen, so the spinner centres in the
-    // visible area even when the target is taller than the viewport.
     function visibleRect(el) {
         if (!el || !el.getBoundingClientRect) return null;
         const r = el.getBoundingClientRect();
@@ -630,18 +515,14 @@ window.initHistoryPanel = function() {
         const target = e.detail.target;
         if (!elt || pending.has(elt)) return;
 
-        // GET-only — component fetches. Mutations/position-drag POSTs don't get a section loader.
         const verb = ((e.detail.requestConfig && e.detail.requestConfig.verb) || '').toLowerCase();
         const isGet = verb ? verb === 'get' : !!(elt.closest && elt.closest('[hx-get]'));
         if (!isGet) return;
 
-        // Full-page navigations have their own overlay (#page-loader).
         if (target && target.id === 'hx-page-container') return;
 
         const entry = { timer: null, failsafe: null, overlay: null };
         entry.timer = setTimeout(() => {
-            // Prefer the swap target; fall back to the clicked element (e.g. a modal open whose
-            // target is the empty, zero-size #hx-modal-container).
             let rect = (target && target.id !== 'hx-modal-container') ? visibleRect(target) : null;
             if (!rect) rect = visibleRect(elt);
             if (!rect) { pending.delete(elt); return; }
@@ -658,10 +539,6 @@ window.initHistoryPanel = function() {
         pending.set(elt, entry);
     });
 
-    // Clear on any terminal event. A swap with hx-swap="outerHTML" can detach the triggering
-    // element (e.g. tab buttons that live inside their own swap target), so its afterRequest
-    // won't bubble here — afterSwap/afterSettle still fire on the attached new content, and we
-    // also sweep any entry whose trigger is no longer in the document.
     function sweep(e) {
         const elt = e.detail && e.detail.elt;
         for (const key of [...pending.keys()]) {
@@ -671,15 +548,12 @@ window.initHistoryPanel = function() {
     ['htmx:afterRequest', 'htmx:afterSwap', 'htmx:afterSettle', 'htmx:responseError', 'htmx:sendError', 'htmx:timeout']
         .forEach((ev) => document.body.addEventListener(ev, sweep));
 
-    // History navigation can't be matched by trigger element — the saved snapshot would otherwise
-    // keep a body-appended overlay around forever. Clear every pending overlay on save/restore.
     function clearAll() { for (const key of [...pending.keys()]) remove(key); }
     ['htmx:beforeHistorySave', 'htmx:historyRestore'].forEach((ev) =>
         document.body.addEventListener(ev, clearAll)
     );
 })();
 
-// Include antiforgery token in all HTMX requests
 document.body.addEventListener('htmx:configRequest', function(e) {
     const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
     if (token) {
@@ -687,7 +561,6 @@ document.body.addEventListener('htmx:configRequest', function(e) {
     }
 });
 
-// --- Last Viewed Template Tracking ---
 function trackLastViewedTemplate() {
     var match = window.location.pathname.match(/^\/templates\/(\d+)(\/builder)?$/);
     if (match) {
@@ -699,7 +572,6 @@ document.body.addEventListener('htmx:afterSettle', function() {
     updateSidebarActive();
     trackLastViewedTemplate();
 
-    // Auto-close mobile sidebar after navigation
     var sidebar = document.getElementById('mobile-sidebar');
     var backdrop = document.getElementById('sidebar-backdrop');
     if (sidebar && !sidebar.classList.contains('-translate-x-full')) {
@@ -711,11 +583,6 @@ window.addEventListener('popstate', updateSidebarActive);
 
 updateSidebarActive();
 
-// The live roll ticker lives in roll-ticker.js, which self-initialises. Its own file so the
-// queue and the reconnect dedupe can be tested without a browser - see tests/js/roll-ticker.test.js.
-
-// --- Activity heatmap hover tooltip ---
-// Document-level delegation so it keeps working after HTMX swaps the heatmap in/out.
 (function () {
     let tip = null;
 
@@ -766,7 +633,6 @@ updateSidebarActive();
     document.addEventListener('mouseout', function (e) {
         const cell = e.target.closest && e.target.closest('.heatmap-cell');
         if (!cell || !tip) return;
-        // Don't flicker when sliding straight onto an adjacent cell.
         const to = e.relatedTarget;
         if (to && to.closest && to.closest('.heatmap-cell')) return;
         tip.classList.remove('is-visible');

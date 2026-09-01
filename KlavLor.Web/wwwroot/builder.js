@@ -1,4 +1,3 @@
-// builder.js - DAG Builder Canvas Interactions
 
 (function () {
     let dragState = null;
@@ -8,8 +7,6 @@
     let regionDragState = null;
     let resizeState = null;
     var selectedGroupIds = new Set();
-
-    // --- Helpers ---
 
     function getAntiforgeryToken() {
         const input = document.querySelector('input[name="__RequestVerificationToken"]');
@@ -52,16 +49,9 @@
         }
     }
 
-    // --- Orthogonal routing ---
-    //
-    // Each edge is drawn as a sequence of axis-aligned segments connected by
-    // small rounded corners. The first and last segments are perpendicular
-    // "stubs" pointing away from the group; the middle segment(s) thread
-    // between obstacles.
-
-    var STUB_LENGTH = 30;          // px between port and first turn
-    var CORNER_RADIUS = 8;         // px rounding at each turn
-    var OBSTACLE_PADDING = 6;      // px halo around groups for clearance
+    var STUB_LENGTH = 30;
+    var CORNER_RADIUS = 8;
+    var OBSTACLE_PADDING = 6;
 
     function getSideNormal(side) {
         if (side === 'right') return { x: 1, y: 0 };
@@ -70,14 +60,11 @@
         return { x: 0, y: -1 };
     }
 
-    // Returns true when an axis-aligned segment from a to b enters rect's
-    // interior (touching the boundary does not count).
     function segmentIntersectsRect(ax, ay, bx, by, rect) {
         var minSegX = Math.min(ax, bx), maxSegX = Math.max(ax, bx);
         var minSegY = Math.min(ay, by), maxSegY = Math.max(ay, by);
         var rx1 = rect.x, rx2 = rect.x + rect.w;
         var ry1 = rect.y, ry2 = rect.y + rect.h;
-        // Overlap of bounding boxes (strict for the dimension the segment spans)
         if (maxSegX <= rx1 || minSegX >= rx2) return false;
         if (maxSegY <= ry1 || minSegY >= ry2) return false;
         return true;
@@ -93,8 +80,6 @@
         return false;
     }
 
-    // Build the obstacle list for an edge — every group except its two
-    // endpoints, expanded by a small padding so curves don't graze borders.
     function buildObstacleList(allRects, fromGid, toGid) {
         var out = [];
         for (var i = 0; i < allRects.length; i++) {
@@ -110,14 +95,10 @@
         return out;
     }
 
-    // Returns true if every segment in the candidate waypoints list is
-    // axis-aligned and the segments collectively connect p0 to p1.
     function tryRoute(waypoints, obstacles) {
         return !waypointsCrossAny(waypoints, obstacles);
     }
 
-    // Z-route along the X axis: vertical-horizontal-vertical or
-    // horizontal-vertical-horizontal connector through a single midpoint.
     function zRouteX(q0, q1) {
         var mid = (q0.x + q1.x) / 2;
         return [q0, { x: mid, y: q0.y }, { x: mid, y: q1.y }, q1];
@@ -127,11 +108,8 @@
         return [q0, { x: q0.x, y: mid }, { x: q1.x, y: mid }, q1];
     }
 
-    // Sweep the midpoint of a Z-route along its routing axis until the middle
-    // segment clears every obstacle. Returns null if no clear position exists.
     function clearedZRoute(q0, q1, obstacles, axis) {
         var candidates = [];
-        // Natural midpoint first, then increasingly off-centre alternatives.
         if (axis === 'x') {
             var lo = Math.min(q0.x, q1.x), hi = Math.max(q0.x, q1.x);
             var natural = (q0.x + q1.x) / 2;
@@ -167,17 +145,12 @@
         }
     }
 
-    // L-route: one corner, used when the two side normals are perpendicular.
     function lRoute(q0, q1, side0, side1) {
         var n0 = getSideNormal(side0), n1 = getSideNormal(side1);
-        // The corner sits at the intersection of q0's stub line and q1's stub line.
-        // n0 is horizontal ⇒ corner.x = q1.x, corner.y = q0.y. And vice versa.
         if (n0.x !== 0) return [q0, { x: q1.x, y: q0.y }, q1];
         return [q0, { x: q0.x, y: q1.y }, q1];
     }
 
-    // U-route: both ports exit the same side. The connecting segment sits
-    // further out along the side normal.
     function uRoute(q0, q1, side, p0, p1, fromRect, toRect) {
         var extra = STUB_LENGTH;
         if (side === 'right') {
@@ -196,7 +169,6 @@
         return [q0, { x: q0.x, y: yt }, { x: q1.x, y: yt }, q1];
     }
 
-    // Main routing entry point. Returns a list of waypoints from p0 to p1.
     function routeOrthogonal(p0, side0, p1, side1, obstacles) {
         var n0 = getSideNormal(side0), n1 = getSideNormal(side1);
         var q0 = { x: p0.x + n0.x * STUB_LENGTH, y: p0.y + n0.y * STUB_LENGTH };
@@ -208,28 +180,19 @@
 
         var route;
         if (opposite) {
-            // Z-route on the axis the ports face along
             var axis = n0.x !== 0 ? 'x' : 'y';
             route = clearedZRoute(q0, q1, obstacles, axis) || (axis === 'x' ? zRouteX(q0, q1) : zRouteY(q0, q1));
         } else if (same) {
             route = uRoute(q0, q1, side0);
         } else {
-            // Perpendicular ⇒ L-route
             route = lRoute(q0, q1, side0, side1);
         }
 
-        // Prepend p0 and append p1 so the stub segments are explicit.
         return [p0].concat(route).concat([p1]);
     }
 
-    // Convert a list of waypoints into an SVG path string. Each interior
-    // corner is replaced by a quadratic curve of radius r, clamped to a third
-    // of either adjacent segment so corners don't overshoot.
     function waypointsToPath(points, radius) {
         if (points.length < 2) return '';
-        // De-dup adjacent identical waypoints, then collapse collinear
-        // triples so degenerate "corners" from stub prepend/append don't
-        // appear in the path string.
         var pts = [points[0]];
         for (var i = 1; i < points.length; i++) {
             var prev = pts[pts.length - 1];
@@ -238,7 +201,6 @@
         }
         for (var c = 1; c < pts.length - 1; ) {
             var a = pts[c - 1], b = pts[c], n = pts[c + 1];
-            // Collinear if the cross product of (b-a) and (n-b) is ~0
             var cross = (b.x - a.x) * (n.y - b.y) - (b.y - a.y) * (n.x - b.x);
             if (Math.abs(cross) < 0.5) {
                 pts.splice(c, 1);
@@ -255,11 +217,9 @@
             var ab = Math.hypot(b.x - a.x, b.y - a.y);
             var bc = Math.hypot(c.x - b.x, c.y - b.y);
             var r = Math.min(radius, ab / 2, bc / 2);
-            // Point along a→b, r before b
             var t1 = ab > 0 ? (ab - r) / ab : 0;
             var p1x = a.x + (b.x - a.x) * t1;
             var p1y = a.y + (b.y - a.y) * t1;
-            // Point along b→c, r after b
             var t2 = bc > 0 ? r / bc : 0;
             var p2x = b.x + (c.x - b.x) * t2;
             var p2y = b.y + (c.y - b.y) * t2;
@@ -285,7 +245,6 @@
         return { x: x, y: y, w: w, h: h, cx: x + w / 2, cy: y + h / 2 };
     }
 
-    // Determine which side an edge connects on for a given group
     function determineSide(from, to) {
         var dx = to.cx - from.cx;
         var dy = to.cy - from.cy;
@@ -296,18 +255,14 @@
         }
     }
 
-    // Compute attachment point on a group side with offset for multiple edges
     function getSidePoint(group, side, index, total) {
         var fraction = (index + 1) / (total + 1);
         if (side === 'right') return { x: group.x + group.w, y: group.y + fraction * group.h };
         if (side === 'left') return { x: group.x, y: group.y + fraction * group.h };
         if (side === 'bottom') return { x: group.x + fraction * group.w, y: group.y + group.h };
-        /* top */ return { x: group.x + fraction * group.w, y: group.y };
+         return { x: group.x + fraction * group.w, y: group.y };
     }
 
-    // Perpendicular pixel bias applied to one direction of a reverse-edge pair,
-    // so A→B and B→A don't render on top of each other. Shifts the endpoint
-    // along the group side (left/right sides → shift Y; top/bottom → shift X).
     var REVERSE_EDGE_BIAS = 8;
 
     function applyReverseBias(point, side, bias) {
@@ -315,7 +270,6 @@
         return { x: point.x + bias, y: point.y };
     }
 
-    // Collect all edges and compute distributed endpoints
     function computeDistributedEdges(canvasSelector, edgeSelector, getGroupFn) {
         var canvas = document.querySelector(canvasSelector);
         if (!canvas) return [];
@@ -323,8 +277,6 @@
         var edges = Array.from(canvas.querySelectorAll(edgeSelector));
         if (!edges.length) return [];
 
-        // Build edge data. Identify reverse-edge pairs in a single pass and tag
-        // the second one with a perpendicular bias so it doesn't overlap.
         var edgeData = [];
         var seenPairs = {};
         edges.forEach(function(edge) {
@@ -350,10 +302,6 @@
             edgeData.push({ edge: edge, from: from, to: to, fromGid: fromGid, toGid: toGid, fromSide: fromSide, toSide: toSide, bias: bias });
         });
 
-        // Bucket edges per (groupId, side), then sort each bucket by the spatial
-        // position of the *other* group so an edge whose partner is above
-        // attaches near the top of the side, etc. Insertion order would let
-        // edges cross over each other on the same side.
         var sideMap = {};
         function pushSide(key, entry) {
             if (!sideMap[key]) sideMap[key] = [];
@@ -374,7 +322,6 @@
             });
         });
 
-        // Compute endpoints with offsets using the sorted slot positions
         edgeData.forEach(function(d, i) {
             var fromList = sideMap[d.fromGid + ':' + d.fromSide];
             var toList = sideMap[d.toGid + ':' + d.toSide];
@@ -406,7 +353,6 @@
         var groupEl = document.querySelector(`.builder-group[data-group-id="${groupId}"]`);
         if (!groupEl) return;
 
-        // After moving a group, recalculate all builder edges with distribution
         recalculateBuilderEdges();
     }
 
@@ -434,7 +380,6 @@
         var from = getGroupEdgePoints(fromEl);
         var to = getGroupEdgePoints(toEl);
 
-        // Simple center-to-center for the initial insert; recalculation will distribute
         var fromSide = determineSide(from, to);
         var toSide = determineSide(to, from);
         var p1 = getSidePoint(from, fromSide, 0, 1);
@@ -470,7 +415,6 @@
             svg.appendChild(g);
         }
 
-        // Recalculate all edges to distribute properly
         requestAnimationFrame(function() { recalculateBuilderEdges(); });
     }
 
@@ -492,14 +436,11 @@
         var toNode = toGroup.querySelector('[data-node-id]');
         if (!fromNode || !toNode) return;
 
-        // Check for duplicate group-to-group edge in DOM
         var existing = document.querySelector('.builder-edge[data-from-group="' + fromGroupId + '"][data-to-group="' + toGroupId + '"]');
         if (existing) return;
 
-        // Insert edge SVG immediately
         insertEdgeSVG(fromGroupId, toGroupId);
 
-        // Persist to server
         var body = new FormData();
         body.append('TemplateId', templateId);
         body.append('FromGroupId', fromGroupId);
@@ -515,8 +456,6 @@
             console.error('Failed to save edge:', err);
         });
     }
-
-    // --- Multi-select helpers ---
 
     function updateSelectionVisuals() {
         document.querySelectorAll('.builder-group').forEach(function (el) {
@@ -549,7 +488,6 @@
         updateSelectionVisuals();
     }
 
-    // Ctrl+A to select all groups
     document.addEventListener('keydown', function (e) {
         if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
             var canvas = document.getElementById('builder-canvas');
@@ -558,8 +496,6 @@
             selectAllGroups();
         }
     });
-
-    // --- Edge Connection (pointerdown on ANY port) ---
 
     document.addEventListener('pointerdown', function (e) {
         const port = e.target.closest('.builder-port');
@@ -596,8 +532,6 @@
         }
     }, true);
 
-    // --- Group Dragging (pointerdown) ---
-
     document.addEventListener('pointerdown', function (e) {
         if (e.target.closest('.builder-port')) return;
         if (e.target.closest('button')) return;
@@ -609,7 +543,6 @@
 
         var groupId = groupEl.dataset.groupId;
 
-        // Ctrl+click toggles selection without starting drag
         if (e.ctrlKey || e.metaKey) {
             e.preventDefault();
             toggleGroupSelection(groupId);
@@ -624,13 +557,10 @@
         const canvasRect = innerEl.getBoundingClientRect();
         const zoom = zoomLevels[canvas.id] || 1;
 
-        // If this group is part of the selection, drag all selected groups
-        // If not, clear selection and drag just this one
         if (!selectedGroupIds.has(groupId)) {
             clearSelection();
         }
 
-        // Build list of groups to drag together
         var draggedGroups = [];
         var allDragIds = selectedGroupIds.size > 0 && selectedGroupIds.has(groupId)
             ? Array.from(selectedGroupIds) : [groupId];
@@ -661,8 +591,6 @@
         };
     });
 
-    // --- Annotation Dragging (pointerdown) ---
-
     document.addEventListener('pointerdown', function (e) {
         if (e.target.closest('button')) return;
         var annotationEl = e.target.closest('.builder-annotation');
@@ -686,8 +614,6 @@
             moved: false
         };
     });
-
-    // --- Region Dragging (pointerdown, NOT on resize handles) ---
 
     document.addEventListener('pointerdown', function (e) {
         if (e.target.closest('.builder-resize-handle')) return;
@@ -713,8 +639,6 @@
             moved: false
         };
     });
-
-    // --- Region Resizing (pointerdown on resize handle) ---
 
     document.addEventListener('pointerdown', function (e) {
         var handle = e.target.closest('.builder-resize-handle');
@@ -746,15 +670,12 @@
         };
     }, true);
 
-    // --- Canvas Panning (pointerdown on empty canvas) ---
-
     document.addEventListener('pointerdown', function (e) {
         if (dragState || connectState || annotationDragState || regionDragState || resizeState) return;
         var canvas = e.target.closest('#builder-canvas') || e.target.closest('#viewer-canvas');
         if (!canvas) return;
         if (e.target.closest('.builder-group') || e.target.closest('.builder-annotation') || e.target.closest('.builder-region') || e.target.closest('.builder-edge') || e.target.closest('.builder-edge-hit') || e.target.closest('.viewer-group') || e.target.closest('.viewer-node')) return;
 
-        // Clicking on empty canvas clears selection
         if (canvas.id === 'builder-canvas' && !(e.ctrlKey || e.metaKey)) {
             clearSelection();
         }
@@ -768,8 +689,6 @@
         };
         canvas.style.cursor = 'grabbing';
     });
-
-    // --- Pointer Move ---
 
     document.addEventListener('pointermove', function (e) {
         if (dragState) {
@@ -786,10 +705,8 @@
                 g.el.style.top = newY + 'px';
             });
 
-            // Recalculate all edges with distribution during drag
             recalculateBuilderEdges();
 
-            // Expand canvas if group is dragged near the edge
             var canvas = document.getElementById('builder-canvas');
             if (canvas) {
                 var innerEl = canvas.firstElementChild;
@@ -893,8 +810,6 @@
         }
     });
 
-    // --- Pointer Up ---
-
     document.addEventListener('pointerup', function (e) {
         if (dragState) {
             if (dragState.moved) {
@@ -941,13 +856,11 @@
             var x = parseFloat(resizeState.el.style.left);
             var y = parseFloat(resizeState.el.style.top);
             var token = getAntiforgeryToken();
-            // Save both size and position (position may change for nw/ne/sw corners)
             fetch('/api/templates/' + resizeState.templateId + '/builder/regions/' + resizeState.id + '/size', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token },
                 body: JSON.stringify({ width: w, height: h })
             }).catch(function (err) { console.error('Failed to save region size:', err); });
-            // Also save position if it changed
             if (resizeState.corner !== 'se') {
                 fetch('/api/templates/' + resizeState.templateId + '/builder/regions/' + resizeState.id + '/position', {
                     method: 'PUT',
@@ -977,8 +890,6 @@
         }
     });
 
-    // --- Add Item Dropdown Toggle ---
-
     document.addEventListener('click', function (e) {
         var toggle = e.target.closest('.builder-add-item-toggle');
         if (toggle) {
@@ -989,13 +900,10 @@
             return;
         }
 
-        // Close all open dropdowns when clicking elsewhere
         document.querySelectorAll('.builder-add-item-dropdown').forEach(function (dd) {
             if (!dd.contains(e.target)) dd.classList.add('hidden');
         });
     });
-
-    // --- Viewer: Update edge colors after completion toggle ---
 
     function isGroupCompleted(groupEl) {
         var items = groupEl.querySelectorAll('[data-completed]');
@@ -1022,14 +930,10 @@
         });
     }
 
-    // --- Edge Recalculation (DOM-measured, with distribution) ---
-
     function getGroupRectFromDOM(canvasInnerEl, groupEl, zoom) {
         var z = zoom || 1;
         var canvasRect = canvasInnerEl.getBoundingClientRect();
         var groupRect = groupEl.getBoundingClientRect();
-        // getBoundingClientRect returns post-transform (scaled) viewport
-        // coordinates; SVG paths are in unscaled canvas coordinates, so divide.
         var x = (groupRect.left - canvasRect.left) / z;
         var y = (groupRect.top - canvasRect.top) / z;
         var w = groupRect.width / z;
@@ -1037,8 +941,6 @@
         return { x: x, y: y, w: w, h: h, cx: x + w / 2, cy: y + h / 2 };
     }
 
-    // Collect all rendered group rectangles for obstacle avoidance. Includes a
-    // `gid` field so the router can exclude an edge's own source/destination.
     function collectAllGroupRects(canvas, innerEl, zoom) {
         return Array.from(canvas.querySelectorAll('.viewer-group, .builder-group')).map(function(el) {
             var r = getGroupRectFromDOM(innerEl, el, zoom);
@@ -1101,8 +1003,6 @@
         if (!targetId) return;
 
         if (targetId === 'hx-page-container' || targetId === 'viewer-canvas' || targetId === 'builder-canvas') {
-            // Reset zoom to 1 on page navigation — stale zoom from a previous
-            // template would distort edge calculations on the new one.
             zoomLevels['builder-canvas'] = 1;
             zoomLevels['viewer-canvas'] = 1;
             ['builder-canvas', 'viewer-canvas'].forEach(function (id) {
@@ -1110,9 +1010,6 @@
                 if (canvas) applyZoom(canvas, 1);
             });
 
-            // Double-rAF: first rAF queues after the browser commits layout for the
-            // new HTMX content; the second fires after that frame is painted, ensuring
-            // getBoundingClientRect() returns final dimensions.
             requestAnimationFrame(function () {
                 requestAnimationFrame(function () {
                     recalculateViewerEdges();
@@ -1123,7 +1020,6 @@
             });
         }
 
-        // After a targeted group swap (add item, edit node), recalculate edges
         if (targetId.startsWith('builder-group-') || targetId === 'builder-canvas-inner') {
             requestAnimationFrame(function () {
                 requestAnimationFrame(function () {
@@ -1136,8 +1032,6 @@
             updateViewerEdgeColors();
         }
     });
-
-    // --- Confirmation Modal ---
 
     function showConfirmModal(message, onConfirm) {
         var existing = document.getElementById('builder-confirm-modal');
@@ -1190,17 +1084,13 @@
                 headers: { 'RequestVerificationToken': getAntiforgeryToken() }
             }).then(function (res) {
                 if (!res.ok) return;
-                // Remove edges connected to this group
                 if (groupId) removeEdgesByGroup(groupId);
-                // Remove the group element
                 if (groupEl) groupEl.remove();
             }).catch(function (err) {
                 console.error('Failed to delete:', err);
             });
         });
     });
-
-    // --- Node Deletion (fetch + targeted group refresh) ---
 
     document.addEventListener('click', function (e) {
         var btn = e.target.closest('.builder-delete-node');
@@ -1220,7 +1110,6 @@
             return res.json();
         }).then(function (data) {
             if (!data) return;
-            // Remove SVG edges for group connections that no longer exist
             if (data.removedGroupPairs && data.removedGroupPairs.length > 0) {
                 data.removedGroupPairs.forEach(function (pair) {
                     var fromGid = String(pair[0]);
@@ -1233,15 +1122,12 @@
                     });
                 });
             }
-            // Refresh the group to show updated node list
             if (data.groupStillExists && groupId) {
                 htmx.ajax('GET', '/api/templates/' + templateId + '/builder/groups/' + groupId, {
                     target: '#builder-group-' + groupId,
                     swap: 'outerHTML'
                 });
-                // afterSettle will trigger recalculateBuilderEdges
             } else if (groupId) {
-                // Group was removed — remove it from DOM
                 var groupEl = document.getElementById('builder-group-' + groupId);
                 if (groupEl) groupEl.remove();
                 removeEdgesByGroup(groupId);
@@ -1250,8 +1136,6 @@
             console.error('Failed to delete node:', err);
         });
     });
-
-    // --- Edge Deletion (no confirm, just delete on click) ---
 
     document.addEventListener('click', function (e) {
         var edgeHit = e.target.closest('.builder-edge-hit');
@@ -1264,13 +1148,10 @@
         var edgeId = edgePath.dataset.edgeId;
         var edgeGroup = edgePath.closest('.builder-edge-group');
 
-        // Remove from DOM immediately
         if (edgeGroup) edgeGroup.remove();
 
-        // Recalculate remaining edges to redistribute
         requestAnimationFrame(function() { recalculateBuilderEdges(); });
 
-        // Persist to server
         if (edgeId) {
             fetch('/api/templates/' + templateId + '/builder/edges/' + edgeId, {
                 method: 'DELETE',
@@ -1280,8 +1161,6 @@
             });
         }
     });
-
-    // --- Annotation Deletion ---
 
     document.addEventListener('click', function (e) {
         var btn = e.target.closest('.builder-annotation-delete');
@@ -1305,8 +1184,6 @@
         });
     });
 
-    // --- Region Deletion ---
-
     document.addEventListener('click', function (e) {
         var btn = e.target.closest('.builder-region-delete');
         if (!btn) return;
@@ -1329,8 +1206,6 @@
         });
     });
 
-    // --- Canvas Zoom & Scroll ---
-
     var zoomLevels = { 'builder-canvas': 1, 'viewer-canvas': 1 };
     var MIN_ZOOM = 0.25;
     var MAX_ZOOM = 2;
@@ -1350,13 +1225,11 @@
         var canvasId = canvas.id;
 
         if (e.ctrlKey || e.metaKey) {
-            // Zoom
             var oldZoom = zoomLevels[canvasId] || 1;
             var delta = e.deltaY > 0 ? -0.1 : 0.1;
             var newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, oldZoom + delta));
             if (newZoom === oldZoom) return;
 
-            // Zoom toward cursor position
             var rect = canvas.getBoundingClientRect();
             var cursorX = e.clientX - rect.left + canvas.scrollLeft;
             var cursorY = e.clientY - rect.top + canvas.scrollTop;
@@ -1364,18 +1237,14 @@
             zoomLevels[canvasId] = newZoom;
             applyZoom(canvas, newZoom);
 
-            // Adjust scroll to keep cursor position stable
             var ratio = newZoom / oldZoom;
             canvas.scrollLeft = cursorX * ratio - (e.clientX - rect.left);
             canvas.scrollTop = cursorY * ratio - (e.clientY - rect.top);
         } else {
-            // Pan
             canvas.scrollLeft += e.deltaX || 0;
             canvas.scrollTop += e.deltaY || 0;
         }
     }, { passive: false });
-
-    // --- Auto-Center Canvas on Nodes ---
 
     function centerCanvasOnNodes(canvasId) {
         var canvas = document.getElementById(canvasId);
@@ -1404,12 +1273,9 @@
         canvas.scrollTop = contentCenterY * zoom - canvas.clientHeight / 2;
     }
 
-    // --- Node Search ---
-
     var searchDebounceTimer = null;
 
     function searchAndHighlightNodes(query) {
-        // Clear previous highlights
         document.querySelectorAll('.search-highlight').forEach(function(el) {
             el.classList.remove('search-highlight');
         });
@@ -1438,7 +1304,6 @@
             }
         });
 
-        // Scroll to first match
         if (firstMatch && canvas) {
             var zoom = zoomLevels[canvasId] || 1;
             var x = parseFloat(firstMatch.style.left) || 0;
@@ -1460,7 +1325,6 @@
     });
 
     document.addEventListener('keydown', function(e) {
-        // Escape clears search
         if (e.key === 'Escape') {
             var input = document.getElementById('canvas-search-input');
             if (input && (document.activeElement === input || input.value)) {
@@ -1471,7 +1335,6 @@
                 return;
             }
         }
-        // Ctrl+F / Cmd+F focuses search
         if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
             var canvas = document.getElementById('builder-canvas') || document.getElementById('viewer-canvas');
             if (canvas) {
@@ -1485,8 +1348,6 @@
         }
     });
 
-    // --- Initial edge recalculation and centering on page load ---
-
     document.addEventListener('DOMContentLoaded', function () {
         requestAnimationFrame(function () {
             requestAnimationFrame(function () {
@@ -1498,8 +1359,6 @@
         });
     });
 
-    // Recompute on viewport resize. Debounced because group bounding boxes
-    // can shift if a label wraps differently at the new width.
     var resizeDebounce = null;
     window.addEventListener('resize', function () {
         clearTimeout(resizeDebounce);
