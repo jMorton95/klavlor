@@ -16,6 +16,8 @@ public sealed class SourceLootService
     // whose stored EffectiveKillsVersion is below this. Never lower it.
     public const int DerivationVersion = 2;
 
+    private const double MaxCredibleExpectedKc = 10_000_000;
+
     private readonly IReadOnlyDictionary<string, ISourceLootStrategy> _special;
     private readonly ISourceLootStrategy _default;
     private readonly ISourceRateModifierCache _modifiers;
@@ -72,8 +74,12 @@ public sealed class SourceLootService
             return double.MaxValue;
 
         var baseline = strategy.ExpectedCompletions(itemName, numerator, denominator, rolls);
+        if (NoUsableRate(baseline)) return double.MaxValue;
         return baseline * _modifiers.GetMultiplier(sourceName, itemName);
     }
+
+    private static bool NoUsableRate(double expected) =>
+        double.IsNaN(expected) || expected >= double.MaxValue;
 
     // Effective expected KC plus its display form ("1/540"), or null when there is no usable
     // rate. Use this anywhere a rate is shown to a user: it already includes the source model and
@@ -84,7 +90,7 @@ public sealed class SourceLootService
         IReadOnlyList<int>? runDepths = null)
     {
         var expected = ExpectedCompletions(sourceName, itemName, numerator ?? 1, denominator ?? 0, rolls, runDepths);
-        if (expected is <= 0 or >= double.MaxValue || double.IsNaN(expected)) return null;
+        if (expected <= 0 || NoUsableRate(expected) || expected > MaxCredibleExpectedKc) return null;
         // Depth-modelled sources get the per-ELIGIBLE-ROLL rate as the headline, because that is the
         // figure comparable to the wiki's per-level band: at depth 8, Avernic treads is 1/801, inside
         // the wiki's 1/1,350-to-1/540 range. Dividing by every delve instead gave 1/1,281 — outside

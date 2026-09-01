@@ -1,4 +1,4 @@
-using KlavLor.Application.Features.Loot.SourceModels;
+﻿using KlavLor.Application.Features.Loot.SourceModels;
 using KlavLor.Application.Interfaces.Services;
 
 namespace KlavLor.UnitTests;
@@ -65,6 +65,45 @@ public sealed class SourceLootServiceTests
         // A rate-owning source with no run depths to work from: no fallback to the stored value.
         Assert.Null(svc.EffectiveRate(Doom, "Demon tears", 1, 15, 1));
         Assert.Null(svc.EffectiveRate(Doom, Cloth, 1, 540, 1));
+    }
+
+    // The shipped bug: double.MaxValue is the "no usable rate" sentinel, and it was being scaled by
+    // the admin modifier before anything checked it. A multiplier below 1 turned it into a finite
+    // number that slipped past every ">= double.MaxValue" guard, so an unrated item at Cerberus
+    // rendered "1/89,884,656,..." — 308 digits — where its name should have been.
+    [Theory]
+    [InlineData(0.5)]
+    [InlineData(0.25)]
+    [InlineData(0.001)]
+    [InlineData(2.0)]
+    public void An_unrated_item_still_has_no_rate_however_the_source_is_modified(double multiplier)
+    {
+        var svc = Service(new FixedRateModifier(OrdinarySource, item: null, multiplier));
+
+        Assert.Equal(double.MaxValue, svc.ExpectedCompletions(OrdinarySource, OrdinaryItem, 1, 0, 1));
+        Assert.Null(svc.EffectiveRate(OrdinarySource, OrdinaryItem, null, null, 1));
+        Assert.Null(svc.EffectiveRate(OrdinarySource, OrdinaryItem, 1, 0, 1));
+    }
+
+    // A rate-owning source must not leak its sentinel either, by the same route.
+    [Fact]
+    public void A_rate_owning_source_still_has_no_rate_under_a_modifier()
+    {
+        var svc = Service(new FixedRateModifier(Doom, item: null, multiplier: 0.5));
+
+        Assert.Equal(double.MaxValue, svc.ExpectedCompletions(Doom, "Demon tears", 1, 15, 1));
+        Assert.Null(svc.EffectiveRate(Doom, "Demon tears", 1, 15, 1));
+    }
+
+    // Backstop: nothing in the game takes ten million kills, so a figure that large is arithmetic on
+    // a sentinel rather than a drop rate, and must not reach a page.
+    [Fact]
+    public void An_implausibly_rare_rate_is_not_displayed()
+    {
+        var svc = Service();
+
+        Assert.NotNull(svc.EffectiveRate(OrdinarySource, OrdinaryItem, 1, 1_000_000, 1));
+        Assert.Null(svc.EffectiveRate(OrdinarySource, OrdinaryItem, 1, 2_000_000_000, rolls: 1));
     }
 
     // THE single-path rule: the numeric answer and the displayed answer must be the same
