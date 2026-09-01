@@ -1,0 +1,32 @@
+@page "/loot/superiors"
+@using KlavLor.Application.Features.Loot.Superiors
+@using KlavLor.Web.Components.Layout
+
+@* Routable shell for direct browser navigation / refresh. In-app HTMX navigation from the sidebar
+   is served by SuperiorsContent via the /api/loot/superiors endpoint instead.
+
+   No [Authorize]: a routable page carries no fallback policy, so this is anonymous, which is what
+   the endpoint is too. The two must agree or a direct URL load and an in-app navigation would
+   disagree about who may see the page. *@
+@inject SuperiorSlayerHandler Handler
+
+<PageLayout PageTitle="KlavLor - Superior Slayer Monsters"
+            Title="Superior Slayer Monsters"
+            Description="Every superior slayer monster by Slayer level, across every tracked character">
+    <SuperiorsContent Comparison="_comparison" Sort="Sort" UpdateHeader="false" />
+</PageLayout>
+
+@code {
+    private SuperiorComparison _comparison = SuperiorComparison.Empty;
+
+    // Same two parameters the endpoint reads, so a direct load of a sorted URL and an in-app
+    // navigation to it produce the same table.
+    [SupplyParameterFromQuery] public int? CharacterId { get; set; }
+    [SupplyParameterFromQuery] public bool? Asc { get; set; }
+
+    private SuperiorSort Sort => new(CharacterId, Asc ?? false);
+
+    // The routed page component is the ONE component allowed to query during SSR (see CLAUDE.md).
+    // Everything below it is parameter-driven.
+    protected override async Task OnInitializedAsync() => _comparison = await Handler.Get(Sort);
+}

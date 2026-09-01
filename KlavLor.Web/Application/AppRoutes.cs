@@ -104,6 +104,10 @@ public static class AppRoutes
     public const string LootLog = "/loot/log";
     public const string LootLeaderboard = "/loot/leaderboard";
 
+    // Superior slayer monster comparison. One route: the whole page is a single cached aggregate,
+    // so there is no fragment to fetch separately and nothing for a caller to vary.
+    public const string LootSuperiors = "/loot/superiors";
+
     // Collection log (TempleOSRS-sourced). Its own top-level area, not nested under /loot, because
     // it is not derived from our loot data — see CollectionLogHandler for the split.
     public const string CollectionLog = "/collection-log";

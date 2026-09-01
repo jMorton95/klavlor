@@ -1,0 +1,45 @@
+@using KlavLor.Application.Features.Loot.Superiors
+@using KlavLor.Web.Components.Layout
+
+@* Emitted only when served as a standalone content fragment (in-app HTMX nav), so it OOB-swaps the
+   top-bar title/heading. The routable page passes UpdateHeader=false because PageLayout already set
+   them on the first full render. *@
+@if (UpdateHeader)
+{
+    <TopBarMetaData PageTitle="KlavLor - Superior Slayer Monsters"
+                    Title="Superior Slayer Monsters"
+                    Description="Every superior slayer monster by Slayer level, across every tracked character" />
+}
+
+@* Full bleed. This is a wide comparison table and nothing else, so a max-width container would only
+   squeeze the columns and force the table to scroll inside itself. *@
+<div class="space-y-3 pb-32">
+
+    @if (Comparison.Rows.Count == 0)
+    {
+        <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-12 text-center">
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">No superiors tracked yet</h3>
+            <p class="text-sm text-slate-500 dark:text-white max-w-lg mx-auto">
+                Nothing has killed a superior slayer monster since tracking began. They spawn rarely,
+                so it can take a while for the first one to appear.
+            </p>
+        </div>
+    }
+    else
+    {
+        @* Straight into the table. The blurb that used to sit here explained the descending order and
+           the unique table behind it; the top bar's own description already says the page is by
+           Slayer level, and a paragraph of preamble on a page that is one table earns less than the
+           row of data it pushes below the fold. *@
+        <SuperiorMatrix Comparison="Comparison" Sort="Sort" />
+    }
+</div>
+
+@code {
+    /// True when served as an HTMX fragment (emits the OOB header); false inside PageLayout, which
+    /// renders the header itself. Without this an in-app navigation draws the title twice.
+    [Parameter] public bool UpdateHeader { get; set; } = true;
+
+    [Parameter] public SuperiorComparison Comparison { get; set; } = SuperiorComparison.Empty;
+    [Parameter] public SuperiorSort Sort { get; set; } = SuperiorSort.Default;
+}

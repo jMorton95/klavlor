@@ -1,0 +1,228 @@
+@using KlavLor.Application.Features.Loot.Superiors
+
+@* The comparison itself: one row per superior anyone has killed, one column per character.
+
+   HIGHEST SLAYER LEVEL FIRST — the handler hands the rows over in that order, and filters out any
+   superior nobody has met. The high-level ones roll the shared unique table many times more often,
+   so they are the rows worth reading.
+
+   COLUMN WIDTHS ARE FIXED, AND THE SURPLUS GOES TO A TRAILING SPACER. Left to itself an auto-layout
+   table gives every spare pixel to the widest text column, which parked the monster name most of a
+   screen away from the first count. Sharing the surplus among the data columns instead only spread
+   the same gap thinner. So every real column is pinned to the width it actually needs and an empty
+   final column soaks up whatever is left: the counts sit immediately beside the monster they belong
+   to, and the slack lands at the end of the row where nothing is read. The table still spans the
+   page, so the header band and row rules run its full width.
+
+   The overflow-x wrapper is a backstop for a very large roster only: the page body must never scroll
+   horizontally (CLAUDE.md), and without it a wide table would push the whole layout instead of just
+   itself.
+
+   Monster names are deliberately NOT links. The global source page (/source?name=…) is behind the
+   User policy while this page is anonymous, so a link would 401-redirect a signed-out visitor —
+   the exact mismatch CLAUDE.md warns about between a page and the surface it links to. *@
+
+<div class="overflow-x-auto themed-scrollbar">
+    <table class="w-full table-fixed border-collapse text-sm" style="min-width:@MinWidth">
+        <colgroup>
+            <col style="width:24rem" />
+            @foreach (var _ in Comparison.Characters)
+            {
+                <col style="width:12rem" />
+            }
+            <col />
+        </colgroup>
+        <thead>
+            @* NOT sticky, and it cannot be. The overflow-x wrapper above is a scroll container, so
+               it — not the viewport — is what a sticky header inside it resolves against: `top-16`
+               offset the header 64px DOWN from the table's own top instead of pinning it to the
+               page, leaving a blank band above it at scroll zero. Making it stick to the page would
+               mean dropping the wrapper, and the wrapper is what stops a very wide roster scrolling
+               the whole body. A plain header is the right trade for a table this short. *@
+            @* Every header sorts. The link carries the whole sort in the query string and pushes it,
+               so a sorted view is linkable, survives a refresh and steps back through Back. Clicking
+               the column you are already sorted by flips the direction. *@
+            <tr>
+                <th class="@HeadCell text-left border-y border-slate-200 dark:border-slate-700">
+                    <a hx-get="@SortUrl(null).FromApi()" hx-target="#hx-page-container"
+                       hx-push-url="@SortUrl(null)" hx-swap="innerHTML transition:true"
+                       href="@SortUrl(null)"
+                       class="inline-flex items-center gap-1 cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-white hover:text-amber-600 dark:hover:text-amber-400 transition-colors">
+                        Superior @SortMark(Sort.IsByLevel)
+                    </a>
+                </th>
+                @foreach (var character in Comparison.Characters)
+                {
+                    <th class="@HeadCell text-center border-y border-slate-200 dark:border-slate-700">
+                        <a hx-get="@SortUrl(character.GameCharacterId).FromApi()" hx-target="#hx-page-container"
+                           hx-push-url="@SortUrl(character.GameCharacterId)" hx-swap="innerHTML transition:true"
+                           href="@SortUrl(character.GameCharacterId)"
+                           class="block cursor-pointer group">
+                            <div class="text-xs font-semibold truncate transition-colors @(Sort.IsBy(character.GameCharacterId) ? "text-amber-600 dark:text-amber-400" : "text-slate-800 dark:text-slate-100 group-hover:text-amber-600 dark:group-hover:text-amber-400")">
+                                @character.CharacterName @SortMark(Sort.IsBy(character.GameCharacterId))
+                            </div>
+                            <div class="text-[10px] font-normal tabular-nums text-slate-500 dark:text-white">@character.TotalKills.ToString("N0") total</div>
+                            @* Whether they are still doing slayer. A big total says nothing about
+                               whether it was earned last week or three years ago. *@
+                            @if (character.LastKilled is { } last)
+                            {
+                                <div class="text-[10px] font-normal @RecencyClasses(last)" title="Last superior: @last.ToLocalTime().ToString("d MMM yyyy")">
+                                    @Ago(last)
+                                </div>
+                            }
+                        </a>
+                    </th>
+                }
+                @* The spacer. Empty by design — see the note at the top of the file. *@
+                <th class="@HeadCell border-y border-slate-200 dark:border-slate-700"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var row in Comparison.Rows)
+            {
+                <tr class="border-b border-slate-200/60 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors">
+                    <td class="px-4 py-2">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <img src="/api/images/source-icon?name=@Uri.EscapeDataString(row.Name)" alt=""
+                                 class="w-7 h-7 object-contain shrink-0" loading="lazy" onerror="this.style.visibility='hidden'" />
+                            <div class="min-w-0">
+                                <div class="text-[13px] font-medium text-slate-800 dark:text-slate-100 truncate">@row.Name</div>
+                                @* Just the name. How many of the base monster have been killed is a
+                                   per-player figure and lives in each player's own cell — a single
+                                   roster total here could not say whose grind it was. *@
+                                <div class="text-[11px] text-slate-500 dark:text-white truncate">
+                                    from @string.Join(" / ", row.BaseMonsters)
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+
+                    @foreach (var character in Comparison.Characters)
+                    {
+                        var cell = row.CellFor(character.GameCharacterId);
+                        var baseKills = row.BaseKillsFor(character.GameCharacterId);
+                        @* Every count reads the same. Highlighting the row leader turned a set of
+                           facts into a scoreboard, which is not what this page is for — the numbers
+                           are already side by side, so whoever is ahead is plain to see. *@
+                        <td class="px-4 py-2 text-center tabular-nums text-[13px] font-medium text-slate-700 dark:text-slate-200"
+                            title="@CellTitle(row, character, cell, baseKills)">
+                            @* A zero and a never-killed are the same fact here, and a wall of zeros
+                               buries the counts that matter — so both render as a dash. *@
+                            @if (cell is null || cell.Kills == 0)
+                            {
+                                <span class="text-slate-300 dark:text-slate-700">–</span>
+                            }
+                            else
+                            {
+                                @cell.Kills.ToString("N0")
+                            }
+
+                            @* THIS player's kills of the base monster — the grind their superior
+                               count sits on top of. "from N", not "of N": the relationship is that
+                               68 superiors turned up over the course of 12,920 Hydra, which "of"
+                               made read as a fraction of a total. The monster it is FROM is named
+                               once in the row header rather than repeated in all four cells, since
+                               it is a fact about the row, not about the player. Omitted, never
+                               zeroed, when we hold nothing for them there. *@
+                            @if (baseKills > 0)
+                            {
+                                <div class="text-[10px] font-normal text-slate-400 dark:text-white">from @baseKills.ToString("N0")</div>
+                            }
+                        </td>
+                    }
+                    <td></td>
+                </tr>
+            }
+        </tbody>
+        <tfoot>
+            <tr class="bg-slate-100 dark:bg-slate-800">
+                <td class="px-4 py-2.5 border-t border-slate-200 dark:border-slate-700">
+                    <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-white">Total superiors</span>
+                </td>
+                @foreach (var character in Comparison.Characters)
+                {
+                    <td class="px-4 py-2.5 text-center tabular-nums text-[13px] font-bold text-slate-800 dark:text-slate-100 border-t border-slate-200 dark:border-slate-700">
+                        @character.TotalKills.ToString("N0")
+                    </td>
+                }
+                <td class="border-t border-slate-200 dark:border-slate-700"></td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+
+@code {
+    [Parameter] public SuperiorComparison Comparison { get; set; } = SuperiorComparison.Empty;
+
+    [Parameter] public SuperiorSort Sort { get; set; } = SuperiorSort.Default;
+
+    /// Shared by every header cell.
+    private const string HeadCell = "bg-slate-100 dark:bg-slate-800 px-4 py-2.5";
+
+    /// Clicking the active column flips direction; clicking any other switches to it, descending —
+    /// "most first" is what you want from a fresh column, every time.
+    private string SortUrl(int? characterId)
+    {
+        var active = characterId is null ? Sort.IsByLevel : Sort.IsBy(characterId.Value);
+        var ascending = active && !Sort.Ascending;
+
+        var query = new List<string>();
+        if (characterId is { } id) query.Add($"characterId={id}");
+        if (ascending) query.Add("asc=true");
+
+        return query.Count == 0
+            ? AppRoutes.LootSuperiors
+            : $"{AppRoutes.LootSuperiors}?{string.Join("&", query)}";
+    }
+
+    private MarkupString SortMark(bool active) =>
+        new(active ? (Sort.Ascending ? "&uarr;" : "&darr;") : "");
+
+    /// Coarse buckets, not an exact age: the question is "are they still doing this", and a day
+    /// count invites reading precision into a figure that only matters at the scale of months.
+    private static string Ago(DateTimeOffset at)
+    {
+        var days = (DateTimeOffset.UtcNow - at).TotalDays;
+        return days switch
+        {
+            < 1 => "today",
+            < 2 => "yesterday",
+            < 30 => $"{(int)days}d ago",
+            < 365 => $"{(int)(days / 30)}mo ago",
+            _ => $"{(int)(days / 365)}y ago"
+        };
+    }
+
+    /// Emerald for active, plain for the rest. Only the positive state is coloured — tinting the
+    /// stale ones red would read as a fault when it is just someone who moved on to other content.
+    private static string RecencyClasses(DateTimeOffset at) =>
+        (DateTimeOffset.UtcNow - at).TotalDays < 30
+            ? "text-emerald-600 dark:text-emerald-400"
+            : "text-slate-400 dark:text-white";
+
+    /// The width the real columns need. Below it the spacer collapses to nothing and the table
+    /// scrolls inside its wrapper, rather than the counts being squeezed.
+    private string MinWidth => $"{24 + Comparison.Characters.Count * 12}rem";
+
+    // First and last killed live in the tooltip rather than in columns of their own: the grid is
+    // already one column per character, and two dates per cell would make it unreadable.
+    private static string CellTitle(
+        SuperiorMonsterRow row, SuperiorCharacterColumn character, SuperiorCell? cell, long baseKills)
+    {
+        var bases = string.Join(" / ", row.BaseMonsters);
+
+        if (cell is null)
+        {
+            return baseKills > 0
+                ? $"{character.CharacterName} has killed {baseKills:N0} {bases} and never seen a {row.Name}"
+                : $"{character.CharacterName} has not killed a {row.Name}";
+        }
+
+        // Spelled out in full here, because the cell only has room for the two numbers.
+        var grind = baseKills > 0 ? $" from {baseKills:N0} {bases} killed" : "";
+        return $"{character.CharacterName} got {cell.Kills:N0} {row.Name}{grind} · "
+             + $"first {Date(cell.FirstKilled)}, last {Date(cell.LastKilled)}";
+    }
+
+    private static string Date(DateTimeOffset at) => at.ToLocalTime().ToString("d MMM yyyy");
+}

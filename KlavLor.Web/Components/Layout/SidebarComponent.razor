@@ -47,12 +47,22 @@
                     </a>
                 }
 
-                @foreach (var item in GetNavItems())
+                @* Grouped, because the flat list outgrew the point where you could find a page by
+                   scanning it. GroupBy preserves first-appearance order, so the headings fall out of
+                   the order the items are declared in and nothing moved when they were introduced.
+                   The first group skips the divider — there is already one above it. *@
+                @foreach (var (group, index) in GetNavItems().GroupBy(i => i.Group).Select((g, i) => (g, i)))
                 {
-                    <a href="@item.Route" data-section="@item.ActiveArea" hx-get="@item.HxRoute" hx-swap="innerHTML transition:true" hx-target="#hx-page-container" hx-push-url="@item.Route" class="@GetNavItemClasses()">
-                        @item.Icon
-                        <span class="ml-3">@item.Label</span>
-                    </a>
+                    <div class="@(index == 0 ? "" : "pt-4 mt-4 border-t border-slate-700")">
+                        <span class="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">@group.Key</span>
+                        @foreach (var item in group)
+                        {
+                            <a href="@item.Route" data-section="@item.ActiveArea" hx-get="@item.HxRoute" hx-swap="innerHTML transition:true" hx-target="#hx-page-container" hx-push-url="@item.Route" class="@GetNavItemClasses()">
+                                @item.Icon
+                                <span class="ml-3">@item.Label</span>
+                            </a>
+                        }
+                    </div>
                 }
 
                 @if (IsAuthenticated)
@@ -101,7 +111,18 @@
         IsAuditor = SessionStateManager.IsInRole(RoleName.Auditor);
     }
 
-    private record NavItem(string Route, string HxRoute, string Label, RenderFragment Icon, string ActiveArea);
+    /// <summary>
+    /// One sidebar link. <paramref name="Group"/> is the heading it sits under; items are rendered
+    /// in declaration order and grouped by first appearance, so adding an item to an existing group
+    /// means putting it beside its siblings here.
+    /// </summary>
+    private record NavItem(string Route, string HxRoute, string Label, RenderFragment Icon, string ActiveArea, string Group);
+
+    // Group headings. Constants rather than literals so a typo cannot silently split one group in
+    // two — GroupBy keys on the string, and two spellings would render two headings.
+    private const string Progression = "Progression";
+    private const string Live = "Live";
+    private const string Clan = "Clan";
 
     private NavItem[] GetNavItems()
     {
@@ -109,30 +130,34 @@
         {
             new(AppRoutes.TemplatesSearch, AppRoutes.TemplatesSearch.FromApi(), "Templates",
                 @<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/></svg>,
-                "templates"),
+                "templates", Progression),
             new(AppRoutes.LootFeed, AppRoutes.LootFeed.FromApi(), "Loot Feed",
                 @<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>,
-                "loot-feed"),
+                "loot-feed", Live),
         };
 
         if (SystemSettingsCache.IsLeaguesEnabled)
         {
             items.Add(new(AppRoutes.LootFeedLeagues, AppRoutes.LootFeedLeagues.FromApi(), "Leagues Feed",
                 @<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 008 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>,
-                "loot-feed-leagues"));
+                "loot-feed-leagues", Live));
         }
 
         items.Add(new(AppRoutes.LootLog, AppRoutes.LootLog.FromApi(), "Characters",
             @<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>,
-            "loot-log"));
+            "loot-log", Clan));
 
         items.Add(new(AppRoutes.CollectionLog, AppRoutes.CollectionLog.FromApi(), "Collection Log",
             @<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>,
-            "collection-log"));
+            "collection-log", Clan));
 
         items.Add(new(AppRoutes.LootLeaderboard, AppRoutes.LootLeaderboard.FromApi(), "Luck Leaderboard",
             @<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 4h2a2 2 0 012 2v1a4 4 0 01-4 4M8 4H6a2 2 0 00-2 2v1a4 4 0 004 4m0 0a4 4 0 008 0M8 11V4h8v7m-4 4v3m-3 3h6"/></svg>,
-            "loot-leaderboard"));
+            "loot-leaderboard", Clan));
+
+        items.Add(new(AppRoutes.LootSuperiors, AppRoutes.LootSuperiors.FromApi(), "Superiors",
+            @<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>,
+            "loot-superiors", Clan));
 
         return items.ToArray();
     }

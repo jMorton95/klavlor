@@ -57,6 +57,11 @@ END $$;
 DELETE FROM "LootRecords"
 WHERE "GameCharacterId" IN (SELECT "Id" FROM "GameCharacters" WHERE "RuneLiteId" LIKE 'seed-%');
 
+-- Baselines have no cascade off GameCharacters, so they must go explicitly or a re-run
+-- leaves the previous seed's base-monster counts behind attached to nothing.
+DELETE FROM "CharacterSourceBaselines"
+WHERE "GameCharacterId" IN (SELECT "Id" FROM "GameCharacters" WHERE "RuneLiteId" LIKE 'seed-%');
+
 DELETE FROM "GameCharacters" WHERE "RuneLiteId" LIKE 'seed-%';
 
 -- ----------------------------------------------------------------------------
@@ -66,16 +71,19 @@ DELETE FROM "GameCharacters" WHERE "RuneLiteId" LIKE 'seed-%';
 --    is the one high enough KC to rack up real dry streaks on the near-misses),
 --    the mid account is partway, and the fresh account is mostly still chasing.
 -- ----------------------------------------------------------------------------
-CREATE TEMP TABLE seed_char (rl text, dn text, weight numeric) ON COMMIT DROP;
+-- `slayer` gates the superior slayer monsters in section 5b: a character never killed a superior
+-- whose base task they cannot be assigned. It is what gives the Superiors page real gaps to show
+-- rather than four near-identical columns.
+CREATE TEMP TABLE seed_char (rl text, dn text, weight numeric, slayer int) ON COMMIT DROP;
 INSERT INTO seed_char VALUES
-    ('seed-claudelock', 'ClaudeLock',  1.00),  -- veteran: high KC, most uniques
-    ('seed-zukkenmir',  'Zukkenmir',   0.40),  -- mid-tier
-    ('seed-ironfodder', 'Iron Fodder', 0.12),  -- fresh, mostly dry / still chasing
+    ('seed-claudelock', 'ClaudeLock',  1.00, 99),  -- veteran: high KC, most uniques
+    ('seed-zukkenmir',  'Zukkenmir',   0.40, 85),  -- mid-tier
+    ('seed-ironfodder', 'Iron Fodder', 0.12, 62),  -- fresh, mostly dry / still chasing
     -- Klavelon is a REAL RSN that syncs to TempleOSRS. Its loot below is fabricated like the
     -- others, but because DisplayName is the RSN the collection-log sync will pull this
     -- character's genuine Temple log — so local dev exercises the real upstream end to end,
     -- including the case where Temple reports items we hold no drop (and so no kill count) for.
-    ('seed-klavelon',   'Klavelon',    0.65);  -- real account, mid-to-veteran volume
+    ('seed-klavelon',   'Klavelon',    0.65, 93);  -- real account, mid-to-veteran volume
 
 INSERT INTO "GameCharacters"
     ("UserId", "RuneLiteId", "DisplayName", "IsVisible", "IsAdminHidden", "SavedAt", "SavedById")
@@ -88,23 +96,25 @@ CROSS JOIN seed_char c;
 --    combat 0 -> stored as NULL (raids/events have no combat level). The kills
 --    column is the veteran (weight 1.0) volume; other characters get a fraction.
 -- ----------------------------------------------------------------------------
-CREATE TEMP TABLE seed_source (source text, stype text, combat int, kills int) ON COMMIT DROP;
+-- `slayer_level` is 0 for anything that is not a superior slayer monster. Section 5b appends the
+-- 38 superiors with their real Slayer requirement; section 6 gates on it.
+CREATE TEMP TABLE seed_source (source text, stype text, combat int, kills int, slayer_level int) ON COMMIT DROP;
 INSERT INTO seed_source VALUES
-    ('Vorkath',           'Npc',         732, 1300),
-    ('Zulrah',            'Npc',         725, 1500),
-    ('Alchemical Hydra',  'Npc',         426, 1150),
-    ('Cerberus',          'Npc',         318, 1150),
-    ('General Graardor',  'Npc',         624,  520),
-    ('Kree''arra',        'Npc',         580,  430),
-    ('Corporeal Beast',   'Npc',         785,  360),
-    ('Nex',               'Npc',        1001,  380),
-    ('Vardorvis',         'Npc',         784,  540),
-    ('Chambers of Xeric', 'Event',         0,  520),
-    ('Theatre of Blood',  'Event',         0,  430),
-    ('Tombs of Amascut',  'Event',         0,  560),
-    ('Master Farmer',     'Pickpocket',   38, 3000),
-    ('PvP Kill',          'Player',      126,  150),
-    ('Doom of Mokhaiotl', 'Npc',           0,  320);
+    ('Vorkath',           'Npc',         732, 1300, 0),
+    ('Zulrah',            'Npc',         725, 1500, 0),
+    ('Alchemical Hydra',  'Npc',         426, 1150, 0),
+    ('Cerberus',          'Npc',         318, 1150, 0),
+    ('General Graardor',  'Npc',         624,  520, 0),
+    ('Kree''arra',        'Npc',         580,  430, 0),
+    ('Corporeal Beast',   'Npc',         785,  360, 0),
+    ('Nex',               'Npc',        1001,  380, 0),
+    ('Vardorvis',         'Npc',         784,  540, 0),
+    ('Chambers of Xeric', 'Event',         0,  520, 0),
+    ('Theatre of Blood',  'Event',         0,  430, 0),
+    ('Tombs of Amascut',  'Event',         0,  560, 0),
+    ('Master Farmer',     'Pickpocket',   38, 3000, 0),
+    ('PvP Kill',          'Player',      126,  150, 0),
+    ('Doom of Mokhaiotl', 'Npc',           0,  320, 0);
 
 -- ----------------------------------------------------------------------------
 -- 5. Drop tables: (source, item name, OSRS item id, unit GE price, max qty, drop chance)
@@ -248,6 +258,178 @@ INSERT INTO seed_drop VALUES
     ('Doom of Mokhaiotl', 'Dom',                       30630,         0,   1, 0.00040);
 
 -- ----------------------------------------------------------------------------
+-- 5b. Superior slayer monsters — the 38 rare upgraded task spawns, with their real
+--     Slayer requirement and combat level. Backs the /loot/superiors comparison.
+--
+--     Kill counts are small on purpose: superiors spawn rarely, so a few dozen each
+--     over a long slayer career is the realistic shape. Section 6 gates them on the
+--     character's `slayer` level, so the mid and fresh accounts genuinely cannot have
+--     killed the high-level ones and the matrix has honest gaps in it.
+--
+--     Names are the in-game NPC names, matching SuperiorSlayerMonsters — the page
+--     matches case-insensitively, but seeding a name the registry does not know would
+--     silently drop the row from the comparison with nothing to notice.
+-- ----------------------------------------------------------------------------
+INSERT INTO seed_source VALUES
+    ('Crushing hand',                 'Npc',  45, 22,  5),
+    ('Chasm Crawler',                 'Npc',  68, 18, 10),
+    ('Screaming banshee',             'Npc',  70, 26, 15),
+    ('Screaming twisted banshee',     'Npc', 144, 20, 15),
+    ('Giant rockslug',                'Npc',  86, 14, 20),
+    ('Cockathrice',                   'Npc',  89, 17, 25),
+    ('Flaming pyrelord',              'Npc',  97, 19, 30),
+    ('Infernal pyrelord',             'Npc', 134, 12, 30),
+    ('Monstrous basilisk',            'Npc', 135, 24, 40),
+    ('Malevolent Mage',               'Npc', 162, 31, 45),
+    ('Insatiable Bloodveld',          'Npc', 202, 44, 50),
+    ('Insatiable mutated Bloodveld',  'Npc', 278, 38, 50),
+    ('Dire gryphon',                  'Npc', 209, 16, 51),
+    ('Vitreous Chilled Jelly',        'Npc', 241, 11, 52),
+    ('Vitreous Jelly',                'Npc', 206, 29, 52),
+    ('Vitreous Warped Jelly',         'Npc', 241, 25, 52),
+    ('Spiked Turoth',                 'Npc', 244, 27, 55),
+    ('Mutated Terrorbird',            'Npc', 178,  9, 56),
+    ('Mutated Tortoise',              'Npc', 247,  8, 56),
+    ('Cave abomination',              'Npc', 206, 33, 58),
+    ('Abhorrent spectre',             'Npc', 253, 41, 60),
+    ('Basilisk Sentinel',             'Npc', 358, 15, 60),
+    ('Repugnant spectre',             'Npc', 335, 36, 60),
+    ('Magma strykewyrm',              'Npc', 249, 13, 62),
+    ('Shadow Wyrm',                   'Npc', 267, 47, 62),
+    ('Choke devil',                   'Npc', 264, 52, 65),
+    ('King kurask',                   'Npc', 295, 34, 70),
+    ('Blood-starved venator',         'Npc', 246, 10, 74),
+    ('Marble gargoyle',               'Npc', 349, 58, 75),
+    ('Ancient Custodian',             'Npc', 239,  7, 76),
+    ('Elder aquanite',                'Npc', 305, 12, 78),
+    ('Nechryarch',                    'Npc', 300, 63, 80),
+    ('Guardian Drake',                'Npc', 376, 46, 84),
+    ('Greater abyssal demon',         'Npc', 342, 71, 85),
+    ('Night beast',                   'Npc', 374, 55, 90),
+    ('Dreadborn Araxyte',             'Npc', 281, 21, 92),
+    ('Nuclear smoke devil',           'Npc', 280, 49, 93),
+    ('Colossal Hydra',                'Npc', 309, 68, 95);
+
+-- ----------------------------------------------------------------------------
+-- 5c. Base monsters — the ordinary slayer monster each superior spawns from, which the
+--     Superiors page shows in each player's cell beneath their superior count ("from 12,400").
+--
+--     Seeded as ADMIN BASELINES rather than as LootRecords, and that is the point rather
+--     than a shortcut. A superior appears roughly once per 200 base kills, so realistic
+--     numbers here are hundreds of thousands of rows — minutes of seeding and a table an
+--     order of magnitude bigger than everything else — to back a single figure per row.
+--     A baseline is one row per (character, monster) and is exactly the mechanism the app
+--     already has for "kills we know happened but did not track", which is the honest
+--     description of a slayer task nobody's loot tracker was watching.
+--
+--     It also means the seed exercises the UNION half of GetBaseMonsterKills, which a pile
+--     of LootRecords would not.
+--
+--     This mapping duplicates SuperiorSlayerMonsters.BaseMonsters. A seed cannot read C#,
+--     so that is unavoidable; if you add a superior there, add its base here too or its
+--     row will show no base count.
+-- ----------------------------------------------------------------------------
+CREATE TEMP TABLE seed_base (superior text, base text) ON COMMIT DROP;
+INSERT INTO seed_base VALUES
+    ('Crushing hand',                   'Crawling Hand'),
+    ('Chasm Crawler',                   'Cave crawler'),
+    ('Screaming banshee',               'Banshee'),
+    ('Screaming twisted banshee',       'Twisted Banshee'),
+    ('Giant rockslug',                  'Rockslug'),
+    ('Cockathrice',                     'Cockatrice'),
+    ('Cockathrice',                     'Moonlight Cockatrice'),
+    ('Flaming pyrelord',                'Pyrefiend'),
+    ('Infernal pyrelord',               'Pyrelord'),
+    ('Monstrous basilisk',              'Basilisk'),
+    ('Malevolent Mage',                 'Infernal Mage'),
+    ('Insatiable Bloodveld',            'Bloodveld'),
+    ('Insatiable mutated Bloodveld',    'Mutated Bloodveld'),
+    ('Dire gryphon',                    'Gryphon'),
+    ('Vitreous Chilled Jelly',          'Chilled jelly'),
+    ('Vitreous Jelly',                  'Jelly'),
+    ('Vitreous Warped Jelly',           'Warped Jelly'),
+    ('Spiked Turoth',                   'Turoth'),
+    ('Mutated Terrorbird',              'Warped Terrorbird'),
+    ('Mutated Tortoise',                'Warped Tortoise'),
+    ('Cave abomination',                'Cave horror'),
+    ('Abhorrent spectre',               'Aberrant spectre'),
+    ('Basilisk Sentinel',               'Basilisk Knight'),
+    ('Repugnant spectre',               'Deviant spectre'),
+    ('Magma strykewyrm',                'Lava Strykewyrm'),
+    ('Shadow Wyrm',                     'Wyrm'),
+    ('Choke devil',                     'Dust devil'),
+    ('King kurask',                     'Kurask'),
+    ('Blood-starved venator',           'Venator'),
+    ('Marble gargoyle',                 'Gargoyle'),
+    ('Ancient Custodian',               'Elder custodian stalker'),
+    ('Elder aquanite',                  'Aquanite'),
+    ('Nechryarch',                      'Nechryael'),
+    ('Nechryarch',                      'Greater Nechryael'),
+    ('Guardian Drake',                  'Drake'),
+    ('Greater abyssal demon',           'Abyssal demon'),
+    ('Night beast',                     'Dark beast'),
+    ('Dreadborn Araxyte',               'Araxyte'),
+    ('Nuclear smoke devil',             'Smoke devil'),
+    ('Colossal Hydra',                  'Hydra');
+
+-- One baseline per (character, base monster), gated on the same Slayer level as the
+-- superior — a character who cannot be given the task has not killed the base either.
+-- ~190 base kills per superior kill, split evenly where a superior has two bases.
+INSERT INTO "CharacterSourceBaselines" ("GameCharacterId", "SourceName", "BaselineKc")
+SELECT c."Id",
+       b.base,
+       GREATEST(25, round(s.kills * ch.weight * 190.0 / cnt.n)::int)
+FROM "GameCharacters" c
+JOIN seed_char ch   ON ch.rl = c."RuneLiteId"
+JOIN seed_base b    ON true
+JOIN seed_source s  ON s.source = b.superior
+JOIN (SELECT superior, count(*) AS n FROM seed_base GROUP BY 1) cnt ON cnt.superior = b.superior
+WHERE c."RuneLiteId" LIKE 'seed-%'
+  AND ch.slayer >= s.slayer_level
+-- (GameCharacterId, SourceName) is the primary key. No two superiors share a base today, but a
+-- future update could, and a duplicate here would abort the whole seed rather than the one row.
+ON CONFLICT ("GameCharacterId", "SourceName") DO NOTHING;
+
+-- ----------------------------------------------------------------------------
+-- 5d. Superior drop tables, generated rather than hand-listed: every superior rolls
+--     the SAME unique table, so the only per-monster variation is the filler.
+--
+--     The unique chance uses the real in-game formula, 1/(200 - (slayerLevel+55)^2/125),
+--     because it is the whole point of the page: a Colossal Hydra rolls the table about
+--     1 in 20 kills where a Crushing hand is about 1 in 171. Within a hit of the first
+--     table it is Imbued heart 1/8, Dust battlestaff 7/16, Mist battlestaff 7/16;
+--     Eternal gem is 1/8 of the second table.
+--
+--     Consequence worth expecting: at these kill counts the staves land a few times and
+--     a heart or gem is a coin flip across the whole roster. That is correct, not a bug.
+--     These drops back the feed and the luck maths; the Superiors page itself shows counts
+--     only and does not read them.
+-- ----------------------------------------------------------------------------
+INSERT INTO seed_drop
+SELECT s.source, 'Coins', 995, 1, 2000 + s.slayer_level * 90, 1.00
+FROM seed_source s WHERE s.slayer_level > 0;
+
+INSERT INTO seed_drop
+SELECT s.source, 'Death rune', 560, 180, 40, 0.55
+FROM seed_source s WHERE s.slayer_level > 0;
+
+INSERT INTO seed_drop
+SELECT s.source, 'Grimy ranarr weed', 207, 7000, 2, 0.08
+FROM seed_source s WHERE s.slayer_level > 0;
+
+INSERT INTO seed_drop
+SELECT s.source, u.name, u.item_id, u.unit_price, 1,
+       (1.0 / (200 - power(s.slayer_level + 55, 2) / 125.0)) * u.share
+FROM seed_source s
+CROSS JOIN (VALUES
+    ('Imbued heart',     20724, 120000000::bigint, 1.0 / 8.0),
+    ('Eternal gem',      21270,  45000000::bigint, 1.0 / 8.0),
+    ('Dust battlestaff', 20736,    250000::bigint, 7.0 / 16.0),
+    ('Mist battlestaff', 20730,    200000::bigint, 7.0 / 16.0)
+) AS u(name, item_id, unit_price, share)
+WHERE s.slayer_level > 0;
+
+-- ----------------------------------------------------------------------------
 -- 6. Generate one row per (character, source, kill) with a random timestamp over
 --    the last 150 days. The per-character weight scales each source's kill count.
 -- ----------------------------------------------------------------------------
@@ -263,7 +445,11 @@ FROM "GameCharacters" c
 JOIN seed_char ch ON ch.rl = c."RuneLiteId"
 CROSS JOIN seed_source s
 CROSS JOIN LATERAL generate_series(1, GREATEST(1, round(s.kills * ch.weight)::int)) AS g(n)
-WHERE c."RuneLiteId" LIKE 'seed-%';
+WHERE c."RuneLiteId" LIKE 'seed-%'
+  -- Superiors only for characters high enough to be given the base task. Ordinary sources carry
+  -- slayer_level = 0 and so are unaffected. A gated pair produces no rows at all, which is the
+  -- right shape: Iron Fodder has not killed a Colossal Hydra, they have not killed zero of them.
+  AND ch.slayer >= s.slayer_level;
 
 -- ----------------------------------------------------------------------------
 -- 7. Roll drops for each kill, build the DropsJson array and TotalValue.
