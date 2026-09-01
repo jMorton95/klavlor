@@ -111,22 +111,34 @@
    connect, out of the service's in-memory ring, so the banner costs no database round-trip and the
    page still paints without one.
 
-   afterbegin, so the newest roll enters at the left and the row flows right. The trim keeps the
-   DOM at 30 chips - a ticker has no scrollback, and without it a busy session grows the node count
-   forever. *@
+   afterbegin, so the newest roll enters at the left and the row flows right. That insertion is
+   also what drives the slide: it shoves the existing chips right by the new one's width, and
+   roll-ticker.js cancels the shove with a transform before the browser paints, then releases it.
+
+   roll-ticker.js also PACES them. htmx swaps each SSE frame in the moment it lands, so a sync
+   carrying several kills would put several chips in at once and slide them in as one block; the
+   arrivals are queued instead and released one at a time, which is the whole point of a ticker.
+   It also dedupes on the chip id, because a reconnect replays the server's whole ring. The trim
+   (data-max-chips) keeps the DOM bounded - a ticker has no scrollback, and without it a busy
+   session grows the node count forever. *@
 <div class="roll-ticker-band mb-3">
     @* Outside the scrolling row, so it never moves and the mask never fades it. *@
     <span class="roll-ticker-live"><span class="roll-ticker-dot"></span>LIVE</span>
 
-    <div id="roll-ticker"
-         hx-ext="sse"
-         sse-connect="@rollStream"
-         sse-swap="message"
-         hx-swap="afterbegin"
-         hx-on::after-settle="while(this.children.length > 30) this.removeChild(this.lastElementChild);"
-         class="roll-ticker"
-         aria-live="off"
-         aria-label="Live roll ticker">
+    @* Frame and track are two elements ON PURPOSE. The frame clips and carries the edge mask; the
+       track is what moves. With the mask on the moving element the fade travels with the chips
+       instead of staying at the right edge. *@
+    <div class="roll-ticker">
+        <div id="roll-ticker"
+             hx-ext="sse"
+             sse-connect="@rollStream"
+             sse-swap="message"
+             hx-swap="afterbegin"
+             data-max-chips="@ILootRollFeed.BacklogSize"
+             class="roll-ticker-track"
+             aria-live="off"
+             aria-label="Live roll ticker">
+        </div>
     </div>
 </div>
 

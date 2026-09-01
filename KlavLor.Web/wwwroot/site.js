@@ -711,6 +711,9 @@ window.addEventListener('popstate', updateSidebarActive);
 
 updateSidebarActive();
 
+// The live roll ticker lives in roll-ticker.js, which self-initialises. Its own file so the
+// queue and the reconnect dedupe can be tested without a browser - see tests/js/roll-ticker.test.js.
+
 // --- Activity heatmap hover tooltip ---
 // Document-level delegation so it keeps working after HTMX swaps the heatmap in/out.
 (function () {

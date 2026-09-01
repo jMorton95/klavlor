@@ -1,4 +1,5 @@
-@using KlavLor.Application.Features.Loot.Feed
+﻿@using KlavLor.Application.Features.Loot.Feed
+@using KlavLor.Web.Application.Features.Loot.Feed
 
 @* One chip on the live roll ticker: the character stacked over the source they rolled.
 
@@ -11,7 +12,7 @@
    They are inline, so a newline in the markup would render as a space and stack with the kc chip's
    own margin. *@
 
-<span id="@Roll.DomId" class="roll-chip">
+<span id="@Roll.DomId" class="roll-chip @RollChipHues.ClassFor(Roll.CharacterName)" data-seed="@(Seeded ? "true" : null)">
     <span class="roll-chip-body">
         <span class="roll-chip-name">@Roll.CharacterName</span>
         <span class="roll-chip-line">@if (Roll.KillOrdinal is { } ordinal)
@@ -23,4 +24,9 @@
 
 @code {
     [Parameter] public required LootRollEntry Roll { get; set; }
+
+    // A backfill chip: replayed out of the ring when someone opens the page, not a kill that just
+    // happened. roll-ticker.js skips the slide for these — forty of them arrive within a few milliseconds
+    // of each other, and animating each one makes opening the feed look like a raid just ended.
+    [Parameter] public bool Seeded { get; set; }
 }

@@ -1,4 +1,4 @@
-using KlavLor.Application.Features.Loot.Feed;
+﻿using KlavLor.Application.Features.Loot.Feed;
 
 namespace KlavLor.Application.Interfaces.Services;
 
@@ -24,6 +24,17 @@ namespace KlavLor.Application.Interfaces.Services;
 /// </remarks>
 public interface ILootRollFeed
 {
+    /// <summary>
+    /// How many rolls the ring holds, and therefore how many a connecting page is replayed. Enough
+    /// to fill the banner and no more - this is the backfill, not a history, and the ticker has no
+    /// scrollback.
+    ///
+    /// The banner's DOM cap is this same number (data-max-chips on the track), which is why it is
+    /// public. When the two disagreed - a ring of 40 against a cap of 30 - every connect built ten
+    /// chips, animated them and immediately destroyed them.
+    /// </summary>
+    public const int BacklogSize = 40;
+
     /// <summary>The recent rolls held in memory, newest first - the connect backfill.</summary>
     IReadOnlyList<LootRollEntry> GetRecent(LootFeedScope scope);
 

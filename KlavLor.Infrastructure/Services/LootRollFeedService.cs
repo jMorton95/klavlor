@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 using KlavLor.Application.Features.Loot.Feed;
@@ -24,11 +24,7 @@ namespace KlavLor.Infrastructure.Services;
 /// </remarks>
 internal sealed class LootRollFeedService : ILootRollFeed
 {
-    /// <summary>
-    /// How many rolls a connecting page is given. Enough to fill the banner and no more - this is
-    /// the backfill, not a history, and the ticker has no scrollback.
-    /// </summary>
-    private const int BufferCapacity = 40;
+    private const int BufferCapacity = ILootRollFeed.BacklogSize;
 
     /// <summary>
     /// Per subscriber. Small on purpose: a client this far behind on a ticker wants the newest

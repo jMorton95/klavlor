@@ -25,6 +25,9 @@ dotnet test KlavLor.IntegrationTests/KlavLor.IntegrationTests.csproj
 
 # Run the unit tests (no database, no Docker)
 dotnet test KlavLor.UnitTests/KlavLor.UnitTests.csproj
+
+# Run the JS tests (roll-ticker.js under jsdom — no browser, no Docker)
+npm run test:js
 ```
 
 **App URL:** https://localhost:7081
@@ -141,7 +144,47 @@ Three things make it affordable at one event per kill:
   **Razor component** (`LootRollChip.razor` — markup belongs in a `.razor` file, and Razor escapes
   the user-supplied character name for free) and the rendered frame is memoised per entry in a
   `ConditionalWeakTable`, which needs no eviction of its own: an entry is reachable only while the
-  ring buffer holds it, so the markup is collected with it.
+  ring buffer holds it, so the markup is collected with it. **TWO** such tables, not one — the same
+  roll is legitimately rendered both ways, streamed live as it lands and later replayed out of the
+  ring as backfill, and one cache would hand the second caller the first one's markup.
+
+**The banner paces arrivals: one roll at a time.** `roll-ticker.js` — its own file, not a block in
+`site.js`, so the logic below can be tested without a browser (`tests/js/roll-ticker.test.js`, jsdom).
+htmx swaps every SSE frame in the moment it arrives, so a sync landing five kills at once inserts
+five chips in one task and slides them in as a single block, which reads as a jolt rather than as
+news arriving. Arrivals are detached on sight, queued, and released one per `SLIDE_MS + GAP_MS`.
+Order is preserved, so the row ends up exactly where htmx would have left it.
+
+Three things about that file are load-bearing and each has already been got wrong once:
+
+- **A `MutationObserver`, not an htmx event.** The callback is a microtask and therefore runs before
+  the next paint, which is what lets a chip be detached, deduped or shifted without ever having been
+  drawn. `htmx:afterSettle` is a `setTimeout` away — at least one frame too late.
+- **The cadence is held against the CLOCK, not against the queue being non-empty.** Rolls land a
+  millisecond or two apart, so an "is anything queued" gate is already empty by the time the second
+  one arrives, and the batch stacks into one slide anyway.
+- **Chips are deduped on `LootRollEntry.DomId`.** An `EventSource` reconnects on any blip — a sleep,
+  a proxy timeout, a deploy — and the server answers by replaying its whole ring. That id existed
+  for exactly this, and its doc comment claimed the ticker keyed on it while nothing did; a partial
+  replay put the same roll on the banner twice.
+
+The slide itself is a **transform on the track**, never a width on the chips: a prepended chip shoves
+the row right by its own width, the shove is cancelled before paint and then released, so one
+composited transform carries the whole row. It reads the COMPUTED transform, not the inline one —
+inline is the target (`translateX(0px)`) the instant it is set, so a roll released mid-slide would
+start from zero and jerk the row backwards. The DOM cap (`data-max-chips`) is
+`ILootRollFeed.BacklogSize`: when it was smaller, every connect built chips, animated them and
+destroyed them in the same breath. The file's `slideMs` must stay equal to `.roll-ticker-track`'s
+transition duration in `app.css` — a test pins the two together.
+
+**Each character gets a colour, assigned in order and remembered.** `RollChipHues` — first come,
+first served across twelve hues, held in a static map for the life of the process, deliberately the
+same lifetime as the ring buffer so nothing on screen can disagree with it. Not a hash of the name:
+a hash needs no memory but can collide, and on a clan this size two of five characters sharing a
+colour defeats the point. The classes are ours (`.roll-hue-N` in `app.css`), not Tailwind utilities,
+because computed class names are invisible to Tailwind's scanner. Unlike the profile charts'
+`StackPalette` each hue carries a light/dark PAIR: those are fills behind dark text, these are small
+semibold text, and a 400 that reads on the dark band is barely there on the near-white one.
 
 **The ticker is seeded from the database at startup**, in the same pass as the swimlanes
 (`LootFeedSeederService`). Its ring is in memory, so without that the banner is blank after every
@@ -361,6 +404,7 @@ Web-only:
 - **HTMX** — Server-driven interactivity, bundled as `wwwroot/htmx.min.js`.
 - **builder.js** — Canvas drag/drop, node/edge creation, Bezier paths, zoom/pan. This is the most complex client-side file.
 - **sse.js** — Server-Sent Events client for live loot feed streams (per-tier subscriptions). **site.js** holds shared misc client helpers.
+- **roll-ticker.js** — The loot feed's live roll banner: the queue that paces arrivals, the reconnect dedupe, and the slide. Self-initialising, loaded before site.js, and the only front-end file with tests (see "JS Tests").
 - **CSP note:** `img-src` allows `https://oldschool.runescape.wiki` for OSRS item images. Update the CSP in Program.cs if adding new external image sources.
 
 ### Domain Model
@@ -405,7 +449,8 @@ Coverage is targeted at the loot-derivation maths and query surface, not the web
 dotnet test KlavLor.IntegrationTests/KlavLor.IntegrationTests.csproj
 ```
 
-The top-level `tests/` directory holds manual testing-plan docs (Markdown), not runnable tests.
+The top-level `tests/` directory holds manual testing-plan docs (Markdown) plus `tests/js/`, which
+is runnable — see "JS Tests" below.
 
 ## Unit Tests
 
@@ -426,8 +471,27 @@ What it covers, and why each file exists:
 - `RazorComponentDataAccessTests` — the SSR data-access rules; see "Razor Component Data-Access Rules".
 - `ItemValueOverrideTests` — the intrinsic item-value cache and the tier consequence; see "Item Values".
 - `FeedLuckShouldRateTests` — which feed drops get a lucky/dry line at all: collection-log items only, first receipt only, not admin-excluded, rare enough to judge. Each condition is pinned separately, plus a check that no two of them cancel out.
+- `RollChipHueTests` — the ticker's per-character colour: distinctness across a palette-sized clan, stability, case-insensitivity, and that every class the assigner can emit has a rule in `app.css` (the names are computed, so nothing else would catch the two drifting apart).
 
 There is still no coverage of Web endpoints.
+
+## JS Tests
+
+`tests/js/` runs under Node's built-in test runner with jsdom. **No browser, no Docker, no database.**
+
+```bash
+npm run test:js
+```
+
+- `roll-ticker.test.js` — the loot feed's roll banner: that a batch is released one at a time and
+  not slid in as a block, that a roll landing a millisecond after another still waits its turn, that
+  a reconnect replaying the server ring adds no duplicates (including against a roll still queued),
+  the trim, the queue's overflow policy, reduced motion, and that `slideMs` still matches the CSS
+  transition it paces against.
+
+Everything it covers fails **visibly but silently** — a batching regression still shows every chip,
+just all at once, and a duplicate is just a chip — which is why it is asserted rather than eyeballed.
+Both of those bugs shipped before this file existed.
 
 ## Deployment
 
@@ -516,7 +580,8 @@ tools/klavlor-sync/
 
 ## Tests
 
-Two test projects. See "Integration Tests" and "Unit Tests" above.
+Two test projects plus a JS suite. See "Integration Tests", "Unit Tests" and "JS Tests" above.
 
 - `KlavLor.IntegrationTests` — the raw-ADO query surface, against a real Postgres via Testcontainers. **Needs Docker.**
 - `KlavLor.UnitTests` — the pure loot maths plus the architecture rules (repository registration, SSR data-access). **No database, no Docker.**
+- `tests/js/` — the roll ticker's client behaviour, under jsdom via `npm run test:js`. **No browser.**

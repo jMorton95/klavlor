@@ -234,7 +234,7 @@ public sealed class LootFeedEndpoint : IEndpoint
         foreach (var roll in rolls.GetRecent(scope).Reverse())
         {
             await context.Response.WriteAsync(
-                $"{await RenderRollChip(roll, serviceProvider, loggerFactory)}\n\n", ct);
+                $"{await RenderRollChip(roll, seeded: true, serviceProvider, loggerFactory)}\n\n", ct);
         }
         await context.Response.Body.FlushAsync(ct);
 
@@ -245,7 +245,7 @@ public sealed class LootFeedEndpoint : IEndpoint
         await foreach (var roll in rolls.SubscribeAsync(scope, ct))
         {
             await context.Response.WriteAsync(
-                $"{await RenderRollChip(roll, serviceProvider, loggerFactory)}\n\n", ct);
+                $"{await RenderRollChip(roll, seeded: false, serviceProvider, loggerFactory)}\n\n", ct);
             await context.Response.Body.FlushAsync(ct);
         }
     }
@@ -268,20 +268,30 @@ public sealed class LootFeedEndpoint : IEndpoint
     /// </remarks>
     private static readonly ConditionalWeakTable<LootRollEntry, string> RenderedChips = new();
 
+    /// <summary>
+    /// The same rolls again, marked as backfill so the banner does not animate them. Two tables
+    /// rather than one because the same entry is legitimately both: it is streamed live as it
+    /// lands, and then replayed out of the ring to whoever opens the page next. One cache would
+    /// hand the second caller the first one's markup and the backfill would slide in after all.
+    /// </summary>
+    private static readonly ConditionalWeakTable<LootRollEntry, string> RenderedSeedChips = new();
+
     private static async Task<string> RenderRollChip(
-        LootRollEntry roll, IServiceProvider serviceProvider, ILoggerFactory loggerFactory)
+        LootRollEntry roll, bool seeded, IServiceProvider serviceProvider, ILoggerFactory loggerFactory)
     {
-        if (RenderedChips.TryGetValue(roll, out var cached)) return cached;
+        var chips = seeded ? RenderedSeedChips : RenderedChips;
+        if (chips.TryGetValue(roll, out var cached)) return cached;
 
         var html = await RenderComponentToString<LootRollChip>(
-            serviceProvider, loggerFactory, new Dictionary<string, object?> { ["Roll"] = roll });
+            serviceProvider, loggerFactory,
+            new Dictionary<string, object?> { ["Roll"] = roll, ["Seeded"] = seeded });
 
         // Razor indents, so the markup is multi-line. An SSE frame is line-delimited: every line
         // needs its own "data: " prefix or the client sees a truncated fragment. Same treatment
         // StreamFeed gives its cards.
         var payload = string.Join("\n", html.Split('\n').Select(line => $"data: {line}"));
 
-        RenderedChips.AddOrUpdate(roll, payload);
+        chips.AddOrUpdate(roll, payload);
         return payload;
     }
 

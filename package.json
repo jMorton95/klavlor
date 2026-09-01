@@ -4,12 +4,14 @@
     "tailwindcss": "4.1.17"
   },
   "devDependencies": {
-    "concurrently": "^8.2.0"
+    "concurrently": "^8.2.0",
+    "jsdom": "^29.1.1"
   },
   "scripts": {
     "dev": "concurrently \"npm run tailwind-watch\" \"dotnet watch --non-interactive --project KlavLor.Web/KlavLor.Web.csproj\" \"npm run start:browser\"",
     "tailwind-watch": "tailwindcss --input KlavLor.Web/wwwroot/app.css --output KlavLor.Web/wwwroot/styles.css --watch",
     "build:css": "tailwindcss --input KlavLor.Web/wwwroot/app.css --output KlavLor.Web/wwwroot/styles.css",
-    "start:browser": "node -e \"setTimeout(()=>{},3000)\" && start https://localhost:7081/\""
+    "start:browser": "node -e \"setTimeout(()=>{},3000)\" && start https://localhost:7081/\"",
+    "test:js": "node --test tests/js/*.test.js"
   }
 }
