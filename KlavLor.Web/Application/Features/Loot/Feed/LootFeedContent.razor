@@ -18,7 +18,7 @@
     <TopBarMetaData PageTitle="@pageTitle" Title="@title" Description="@description" />
 }
 
-<div class="flex justify-start items-center gap-2 mb-3">
+<div class="relative flex justify-start items-center gap-2 mb-3">
     @* Empty placeholder: the grid response fills this out-of-band with the real options. Rendering
        it here would need a query on the page route, which must stay query-free. *@
     <select id="feed-character-filter" disabled
@@ -70,31 +70,33 @@
        4,000-kill grind that paid out nothing is invisible there even though it was the day's real
        activity. This answers "what has everyone actually been doing" without taking any room from
        the feed itself — it's a popover, loaded only when opened (see toggleFeedSessions). *@
-    <div class="relative">
-        <button onclick="toggleFeedSessions()"
-                class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            Recent activity
-        </button>
-        @* A definite width, NOT w-max. The character columns live in an overflow-auto scroller, and a
-           scroll container inside a max-content parent is a circular width dependency: the browser
-           breaks it by falling back to available space, which clipped the last column. With a real
-           width the columns flex to fill it when there are few and scroll sideways when there are
-           many.
-           The cap subtracts more than the page gutter because the panel opens from the second
-           button in the row, so its left edge already sits ~7rem in; using 100vw-2rem made the panel
-           itself push the whole page into a horizontal scroll on a narrow window. *@
-        <div id="feed-sessions-panel"
-             data-url="@sessionsUrl"
-             class="hidden absolute left-0 mt-1.5 w-[min(52rem,calc(100vw-11rem))] bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 p-3 z-50">
-            <p class="text-[10px] font-semibold text-slate-500 dark:text-white uppercase tracking-wide mb-2">Sessions — last 48 hours</p>
-            <div id="feed-sessions-body">
-                <div class="flex items-center justify-center py-6">
-                    <svg class="w-5 h-5 animate-spin text-amber-500 dark:text-amber-400" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
-                        <path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                    </svg>
-                </div>
+    <button onclick="toggleFeedSessions()"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        Recent activity
+    </button>
+    @* A definite width, NOT w-max. The character columns live in an overflow-auto scroller, and a
+       scroll container inside a max-content parent is a circular width dependency: the browser
+       breaks it by falling back to available space, which clipped the last column. With a real
+       width the columns flex to fill it when there are few and scroll sideways when there are many.
+
+       ANCHORED TO THE TOOLBAR, NOT TO ITS BUTTON. It used to hang off the button's own relative
+       wrapper, which meant the width cap had to guess how far in that button starts - and that
+       offset is not a constant: the character select to its left is as wide as whoever is selected,
+       so a longer name pushes the whole row along. The guess (100vw-11rem) was ~2rem short of the
+       real 13rem offset and, once the panel grew, overflowed the viewport and put the BODY into a
+       horizontal scroll, which CLAUDE.md forbids outright. Anchoring to the toolbar makes left-0
+       the page gutter, so the cap is just the two gutters and no name can move it. *@
+    <div id="feed-sessions-panel"
+         data-url="@sessionsUrl"
+         class="hidden absolute left-0 top-full mt-1.5 w-[min(66rem,calc(100vw-4rem))] bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 p-4 z-50">
+        <p class="text-xs font-semibold text-slate-500 dark:text-white uppercase tracking-wide mb-2.5">Sessions — last 48 hours</p>
+        <div id="feed-sessions-body">
+            <div class="flex items-center justify-center py-6">
+                <svg class="w-6 h-6 animate-spin text-amber-500 dark:text-amber-400" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
+                    <path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
             </div>
         </div>
     </div>

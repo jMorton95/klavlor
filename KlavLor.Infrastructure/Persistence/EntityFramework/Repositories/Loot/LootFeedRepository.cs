@@ -897,8 +897,10 @@ internal sealed class LootFeedRepository(
         }
     }
 
-    // Cap so the popover can't turn into an unbounded render for a very busy 48 hours.
-    private const int MaxSourcesPerCharacter = 12;
+    // Cap so the popover can't turn into an unbounded render for a very busy 48 hours. Sized to
+    // the panel: at its current height a column shows about sixteen sessions before it scrolls, and
+    // a cap below that would have the taller panel rendering whitespace it is not allowed to fill.
+    private const int MaxSourcesPerCharacter = 16;
     private const int MaxCharacters = 30;
 
     public async Task<RecentSessionsPanel> GetRecentSessions(int windowHours, LootFeedScope scope)
