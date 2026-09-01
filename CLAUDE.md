@@ -177,6 +177,16 @@ start from zero and jerk the row backwards. The DOM cap (`data-max-chips`) is
 destroyed them in the same breath. The file's `slideMs` must stay equal to `.roll-ticker-track`'s
 transition duration in `app.css` — a test pins the two together.
 
+**The slide ignores `prefers-reduced-motion`, and is the only thing in the app that does.** It was
+honoured at first, and the result was a bug report: with Windows' animation effects off — an OS
+setting, so every browser on the machine agrees — the chip appeared in place and only faded, which
+reads as a flicker rather than as a gentler version of the same idea. There is no reduced form of
+"this just arrived" that still says it, and the motion here is one ~100px horizontal nudge of a 34px
+band lasting half a second, which is the mild end of what the preference exists to catch. The LIVE
+dot is the other end — it loops forever — and still yields. `tests/js/roll-ticker.test.js` pins the
+override, because restoring the guard would look like an accessibility fix and would put the ticker
+straight back to where it was reported broken.
+
 **Each character gets a colour, assigned in order and remembered.** `RollChipHues` — first come,
 first served across twelve hues, held in a static map for the life of the process, deliberately the
 same lifetime as the ring buffer so nothing on screen can disagree with it. Not a hash of the name:

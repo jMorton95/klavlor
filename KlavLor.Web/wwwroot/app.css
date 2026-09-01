@@ -992,8 +992,14 @@ body:not(.history-panel-open) #completion-history-panel {
 /* The slide is the thing that says "this just happened", so with motion reduced the chip
    still fades in - it just appears in place. site.js skips the transform too, so there is
    nothing left to transition. */
+/* THE SLIDE DELIBERATELY IGNORES prefers-reduced-motion, and is the only thing in the app
+   that does. Suppressing it left the chip appearing in place and fading, which reads as a
+   flicker rather than as a gentler version of the same idea - the motion IS the message here,
+   and there is no reduced form of "this just arrived" that still says it.
+
+   The judgement is about proportion, not preference: this is one ~100px horizontal nudge of a
+   34px band, over in half a second, which is the mild end of what the preference exists to
+   catch. The blinking dot is the other end - it loops forever - so it still yields. */
 @media (prefers-reduced-motion: reduce) {
-    .roll-ticker-track { transition: none; }
-    /* A blinking dot is exactly what this preference is about. */
     .roll-ticker-dot { animation: none; }
 }

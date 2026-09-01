@@ -227,26 +227,35 @@ test('the queue drops the OLDEST pending rolls when it overflows', async () => {
     assert.ok(!h.ids().includes('roll1'), 'the oldest pending rolls were the ones dropped');
 });
 
-test('reduced motion still paces, it just does not move', async () => {
-    // Pacing is not motion. A viewer who asked for less movement should still get one roll at a
-    // time rather than the whole batch appearing at once.
+test('the slide ignores prefers-reduced-motion', async () => {
+    // A DELIBERATE OVERRIDE, and the reason this test exists: suppressing the slide left the chip
+    // appearing in place and fading, which reads as a flicker rather than as a gentler version of
+    // the same idea. Re-adding the guard would look like an accessibility fix and would silently
+    // put the ticker back to where it was reported broken, so it is pinned here.
+    //
+    // Stubbed at the window, which is where the code would have to look. It no longer looks - so
+    // this passes trivially today and fails the moment anyone makes it look again.
     const dom = new JSDOM('<!doctype html><body><div id="roll-ticker"></div></body>');
     const track = dom.window.document.getElementById('roll-ticker');
     Object.defineProperty(dom.window.HTMLElement.prototype, 'offsetWidth', { get: () => 100 });
+    dom.window.matchMedia = () => ({ matches: true, media: '(prefers-reduced-motion: reduce)' });
 
-    const ticker = createRollTicker(track, {
-        slideMs: SLIDE_MS, gapMs: GAP_MS, reducedMotion: () => true,
-    });
+    const ticker = createRollTicker(track, { slideMs: SLIDE_MS, gapMs: GAP_MS });
+
+    const starts = [];
+    new dom.window.MutationObserver(records => {
+        for (const r of records) {
+            const m = /translateX\((-?[\d.]+)px\)/.exec(r.oldValue || '');
+            if (m && parseFloat(m[1]) !== 0) starts.push(parseFloat(m[1]));
+        }
+    }).observe(track, { attributes: true, attributeFilter: ['style'], attributeOldValue: true });
 
     const make = id => { const el = dom.window.document.createElement('span'); el.id = id; return el; };
     [make('a'), make('b')].forEach(el => track.insertAdjacentElement('afterbegin', el));
 
-    await tick();
-    assert.strictEqual(track.children.length, 1, 'still one at a time');
-    assert.strictEqual(track.style.transform || '', '', 'but nothing is translated');
-
     await tick(CADENCE * 3);
-    assert.strictEqual(track.children.length, 2);
+    assert.strictEqual(track.children.length, 2, 'both rolls landed, still one at a time');
+    assert.deepStrictEqual([...new Set(starts)], [-100], 'and each one slid a full chip width');
     ticker.destroy();
 });
 
