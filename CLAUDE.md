@@ -409,12 +409,20 @@ table meets both edges at any size, and the extra pixels carry information inste
 bars now covers 18.5% of the table against 6.8% before, and rows dropped 47px to 38px by putting
 each count and its "from N" on ONE line ("68 from 13k", exact figure in the tooltip).
 
-**The bar is each character's share of that monster's kills**, which is what the row of numbers only
-answers by arithmetic: a row that is one solid colour is somebody's private grind, an even split is
-a monster everyone meets on task. Its colours come from `RollChipHues` — the same assignment the
-live roll ticker uses, so a character is the same colour on both surfaces. Those hue classes set
-`--roll-name`, which the ticker reads as a text colour and this reads as a fill; a dot in each column
-header is the key, without which the colours would be decoration.
+**The bar is unique-table rolls EARNED, not share of kills.** It was share of kills first and that
+was close to useless: the proportions are set by each player's overall activity rather than by
+anything about the monster, so every row drew the same picture — 26 distinct shapes across 38 rows,
+one of them repeating five times. A column of identical stripes is not a chart.
+
+Rolls earned is `TotalKills × UniqueChance`, and it spans **20x** top to bottom (3.40 down to 0.17),
+so the bars actually differ — 37 distinct widths across 38 rows. It also draws the thing the counts
+hide: Greater abyssal demon's 145 kills earn 3.36 rolls, all but identical to Colossal Hydra's 68,
+because one is 1/43 and the other 1/20. That is the page's whole argument, made visible. Scaled
+against the largest row rather than an absolute maximum, because the question is which superiors are
+carrying the clan — an absolute scale leaves all 38 as slivers.
+
+The view multiplies two numbers the row already carries; the rate behind them was resolved in the
+handler through `SourceLootService`, so no rate maths happens in the Razor file.
 
 There is no spacer column and no `tfoot`: the footer repeated the per-character totals the header
 already carried, costing a row of height to say the same thing twice.

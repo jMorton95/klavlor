@@ -1,5 +1,4 @@
 @using KlavLor.Application.Features.Loot.Superiors
-@using KlavLor.Web.Application.Features.Loot.Feed
 
 @* The comparison itself: one row per superior anyone has killed, one column per character.
 
@@ -15,14 +14,19 @@
    table-fixed an unsized column absorbs whatever is left, so the bar grows with the window and the
    table meets both edges at any size, with the extra pixels carrying information rather than air.
 
-   THE BAR IS EACH CHARACTER'S SHARE OF THAT MONSTER. It answers at a glance what the row of numbers
-   only answers by arithmetic: who actually farms this one. A row that is entirely one colour is
-   somebody's private grind; an even split is a monster everybody meets on task.
+   THE BAR IS UNIQUE-TABLE ROLLS EARNED, NOT SHARE OF KILLS. It was share of kills first, and that
+   was close to useless: the proportions are set by each player's overall activity rather than by
+   anything about the monster, so every row drew the same picture - 26 distinct shapes across 38
+   rows, one of them repeating five times. A column of identical stripes is not a chart.
 
-   Colours come from RollChipHues, the same assignment the live roll ticker uses, so a character is
-   the same colour on both surfaces. The hue classes set --roll-name, which the ticker reads as a
-   text colour and this reads as a fill; both light and dark values were picked to carry small text,
-   which makes them more than dark enough to read as a bar.
+   Rolls earned is kills times that monster's own chance, and it spans 20x from top to bottom (3.40
+   down to 0.17), so the bars actually differ. It also shows the thing the counts hide: Greater
+   abyssal demon's 145 kills earn 3.36 rolls, all but identical to Colossal Hydra's 68, because one
+   is 1/43 and the other 1/20. That is the page's whole argument, drawn.
+
+   Scaled against the largest row rather than against an absolute maximum, because the question is
+   which superiors are carrying the clan toward the prize - a relative reading, where an absolute
+   one would leave all 38 bars as slivers.
 
    ROWS ARE ONE LINE OF NUMBERS. "68" over "from 12,920" made every row 47px tall for two lines of
    small type; inline they are ~37px, which is a fifth of the page height back across 38 rows.
@@ -74,13 +78,10 @@
                            hx-push-url="@SortUrl(character.GameCharacterId)" hx-swap="innerHTML transition:true"
                            href="@SortUrl(character.GameCharacterId)"
                            class="block cursor-pointer group">
-                            <div class="flex items-center justify-center gap-1.5">
-                                @* The bar's key. Without it the colours below are decoration. *@
-                                <span class="@RollChipHues.ClassFor(character.CharacterName) w-2 h-2 rounded-sm shrink-0"
-                                      style="background-color: var(--roll-name)"></span>
-                                <span class="text-xs font-semibold truncate transition-colors @(Sort.IsBy(character.GameCharacterId) ? "text-amber-600 dark:text-amber-400" : "text-slate-800 dark:text-slate-100 group-hover:text-amber-600 dark:group-hover:text-amber-400")">
-                                    @character.CharacterName @SortMark(Sort.IsBy(character.GameCharacterId))
-                                </span>
+                            @* No colour key any more: the bar stopped being per character, so a dot
+                               here would key nothing. *@
+                            <div class="text-xs font-semibold truncate transition-colors @(Sort.IsBy(character.GameCharacterId) ? "text-amber-600 dark:text-amber-400" : "text-slate-800 dark:text-slate-100 group-hover:text-amber-600 dark:group-hover:text-amber-400")">
+                                @character.CharacterName @SortMark(Sort.IsBy(character.GameCharacterId))
                             </div>
                             @* The column's own total, which is why there is no footer. *@
                             <div class="text-[10px] font-normal tabular-nums text-slate-500 dark:text-white">@character.TotalKills.ToString("N0") kills</div>
@@ -111,7 +112,10 @@
                     <div class="text-[10px] font-normal tabular-nums text-slate-500 dark:text-white">@Comparison.Rows.Sum(r => r.TotalKills).ToString("N0")</div>
                 </th>
                 <th class="@HeadCell text-left border-y border-slate-200 dark:border-slate-700">
-                    <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-white">Share of kills</span>
+                    <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-white"
+                          title="Unique-table rolls this monster has earned the clan: its kills times its own chance">
+                        Unique-table rolls earned
+                    </span>
                 </th>
             </tr>
         </thead>
@@ -170,21 +174,18 @@
                         @row.TotalKills.ToString("N0")
                     </td>
 
-                    @* WHO ACTUALLY FARMS THIS ONE, which the row of numbers only answers by
-                       arithmetic. The track is the full column width, so the segments read as
-                       proportions of the clan's kills of this monster rather than as absolute
-                       lengths that cannot be compared between rows. *@
+                    @* WHAT THIS MONSTER HAS EARNED THE CLAN. Amber, because that is already the
+                       colour "rolls" wears in the column headers and in the tooltips. *@
                     <td class="px-4 py-1">
-                        <div class="flex h-2 w-full overflow-hidden rounded-sm bg-slate-200/70 dark:bg-slate-800">
-                            @foreach (var character in Comparison.Characters)
-                            {
-                                var kills = row.KillsFor(character.GameCharacterId);
-                                if (kills <= 0) { continue; }
-                                var share = 100.0 * kills / row.TotalKills;
-                                <div class="@RollChipHues.ClassFor(character.CharacterName) h-full"
-                                     style="width:@share.ToString("0.###")%; background-color: var(--roll-name)"
-                                     title="@character.CharacterName: @kills.ToString("N0") of @row.TotalKills.ToString("N0") (@share.ToString("0")%)"></div>
-                            }
+                        <div class="flex items-center gap-3">
+                            <div class="flex-1 h-2 overflow-hidden rounded-sm bg-slate-200/70 dark:bg-slate-800">
+                                <div class="h-full rounded-sm bg-amber-500/90 dark:bg-amber-400/90"
+                                     style="width:@BarWidth(row).ToString("0.###")%"></div>
+                            </div>
+                            <span class="w-8 shrink-0 text-right text-[10px] tabular-nums text-slate-500 dark:text-white"
+                                  title="@RollsTitleForRow(row)">
+                                @RollsFor(row).ToString("0.0")
+                            </span>
                         </div>
                     </td>
                 </tr>
@@ -199,6 +200,23 @@
     /// The ordering the rows are actually in, which the comparison carries so it cannot disagree
     /// with them — an unknown character id falls back to Slayer level inside the handler.
     private SuperiorSort Sort => Comparison.Ordering;
+
+    /// Unique-table rolls this monster has earned the whole clan: its kills times its own chance.
+    /// Both halves come off the row, which the handler resolved through SourceLootService - the view
+    /// multiplies two numbers it was handed and computes no rate of its own.
+    private static double RollsFor(SuperiorMonsterRow row) => row.TotalKills * row.UniqueChance;
+
+    /// Scaled against the biggest row, so the bars read as "which superiors are carrying us". An
+    /// absolute scale would leave all 38 as slivers, the largest being 3.4 rolls.
+    private double MaxRolls =>
+        Comparison.Rows.Count == 0 ? 0 : Comparison.Rows.Max(RollsFor);
+
+    private double BarWidth(SuperiorMonsterRow row) =>
+        MaxRolls > 0 ? 100.0 * RollsFor(row) / MaxRolls : 0;
+
+    private static string RollsTitleForRow(SuperiorMonsterRow row) =>
+        $"{row.TotalKills:N0} {row.Name} at about 1 unique table roll per "
+      + $"{Math.Round(row.KillsPerUnique):N0} kills - {RollsFor(row):0.00} rolls earned";
 
     /// The named columns plus a floor for the bar, below which the table scrolls inside its wrapper
     /// rather than squeezing the counts. The bar is the column that gives, because it is the only
