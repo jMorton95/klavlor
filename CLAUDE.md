@@ -392,21 +392,41 @@ table meets both edges at any size, and the extra pixels carry information inste
 bars now covers 18.5% of the table against 6.8% before, and rows dropped 47px to 38px by putting
 each count and its "from N" on ONE line ("68 from 13k", exact figure in the tooltip).
 
-**The bar is CLAN KILLS, and only after four metrics were measured against the real data.** The
-width has to carry something, and most candidates draw a flat chart:
+**THE LAST COLUMN IS A 26-WEEK ACTIVITY SPARKLINE, and the route to it is worth recording because
+every more obvious option is a dead end.** One fact about this data rules them all out:
 
-- **Share of kills per character** — 26 distinct shapes across 38 rows, one repeating five times.
-  The proportions track each player's overall activity, not the monster.
-- **Unique-table rolls earned** — 20x spread and the most interesting of the four, but not
-  assertable; see the Slayer-master note above. Removed for correctness, not for looks.
-- **Superiors per 1,000 base kills** — 5.07 to 5.50, a 1.1x spread. It is a fixed game constant, so
-  the bar is a straight line and the wobble is sample noise.
-- **Active timespan per monster** — median 97% of the axis, 37 of 38 rows over 80%.
+> **Superior counts and base-monster counts are the same number.** r² between them is **0.9997**
+> across 134 filled cells, and the scatter is *half* the Poisson noise real sampling would produce.
+> Nobody's loot tracker logs ten thousand Gargoyles, so the base figures are admin baselines
+> back-calculated from the superior counts at about **190:1**. Every magnitude on this page is one
+> quantity wearing different clothes.
 
-**Volume is the only one that varies** (10x, 15 to 145), so the bar draws it and the Clan count moved
-into the bar rather than sitting in a column beside it saying the same thing twice. A bar column
-usually is the adjacent number drawn; that is not redundancy, it is what makes a table scannable.
-Scaled against the largest row — an absolute scale leaves all 38 as slivers.
+Measured against the live data, each candidate drew the same picture or none:
+
+| Candidate | Result |
+|---|---|
+| Share of kills per character | 26 distinct shapes / 38 rows — tracks player activity, not the monster |
+| Unique-table rolls earned | Not assertable at all (Slayer master; see above) |
+| Superiors per 1,000 base kills | 1.1× spread — it *is* the 190:1 constant |
+| Active timespan per monster | median 97% of the axis, 37/38 rows over 80% |
+| Clan kills | 10×, but it is the Clan column again — the same number again |
+| **Kills per week** | **38 distinct shapes across 38 rows** |
+
+**Time is the one dimension the constant does not determine**, and it is also what the data *means*:
+a superior kill is a record that somebody was on that task, so the sparkline is the clan's slayer
+history for that monster. Staples draw a continuous line; rare tasks draw a sparse, spiky one.
+
+`GetWeeklyActivity` is a THIRD read and deliberately **excludes admin baselines**, unlike the other
+two. A baseline is a lump sum with no date on it, so it cannot belong to a week and folding it in
+would invent a spike that never happened. This is the only read on the page that asks *when*, and
+`SuperiorSlayerComparisonTests` pins the exclusion — nothing else would catch it being added.
+
+The axis is built from the window rather than from the data, so it is shared by every row and two
+sparklines can be read against each other; the handler pads each row onto it. Rows are scaled to
+their OWN busiest week, so the line shows a pattern rather than a volume — the volume is the count
+printed beside it. Drawn as one SVG area per row rather than a bar per week: 26 bars across a column
+this wide are ~38px each, which reads as a blocky comb, and 38 rows of them would be a thousand
+elements instead of 38.
 
 There is no spacer column and no `tfoot`: the footer repeated the per-character totals the header
 already carried, costing a row of height to say the same thing twice.

@@ -14,23 +14,32 @@
    table-fixed an unsized column absorbs whatever is left, so the bar grows with the window and the
    table meets both edges at any size, with the extra pixels carrying information rather than air.
 
-   THE BAR IS CLAN KILLS, and that is the only honest thing it can be. Four metrics were measured
-   against the real data before settling on it:
+   THE LAST COLUMN IS A 26-WEEK ACTIVITY SPARKLINE, and getting there took ruling out everything
+   that looked more obvious. The reason they all failed is one fact about this data:
 
-     - Share of kills per character: 26 distinct shapes across 38 rows, one repeating five times.
-       The proportions track each player's overall activity, not the monster. A flat chart.
-     - Unique-table rolls earned: 20x spread and genuinely interesting, but NOT ASSERTABLE. The wiki
-       formula is a base rate per Slayer level; a Slayer master's bonus moves it a long way and no
-       loot record says which master a kill was on. Removed for that reason, not for looks.
-     - Superiors per 1,000 base kills: 5.07 to 5.50, a 1.1x spread. It is a fixed game constant, so
-       the bar is a straight line and the wobble is sample noise.
-     - Active timespan per monster: median 97% of the axis, 37 of 38 rows over 80%. Flat again.
+     SUPERIOR COUNTS AND BASE-MONSTER COUNTS ARE THE SAME NUMBER. r-squared between them is 0.9997
+     across 134 filled cells, and the scatter is HALF the Poisson noise real sampling would give -
+     because nobody's loot tracker logs ten thousand Gargoyles, so the base figures are admin
+     baselines back-calculated from the superior counts at about 190:1. Every magnitude on this page
+     is therefore one quantity wearing different clothes.
 
-   Volume is what is left, and it varies 10x (15 to 145). A bar of it is the Clan count drawn rather
-   than a new fact - which is what a bar column usually is, so the count moved INTO the bar instead
-   of sitting in a column beside it saying the same thing twice.
+   So each of these drew the same picture, or none:
 
-   Scaled against the largest row: an absolute scale would leave all 38 as slivers.
+     - Share of kills per character: 26 distinct shapes across 38 rows. Tracks each player's overall
+       activity, not the monster.
+     - Unique-table rolls earned: not assertable at all - a Slayer master's bonus moves the rate and
+       no loot record says which master a kill was on.
+     - Superiors per 1,000 base kills: 1.1x spread. It is the 190:1 constant, measured.
+     - Clan kills: varies 10x, but it is the Clan column again, which is the same number again.
+
+   TIME is the one dimension the constant does not determine, and it gives 38 distinct shapes across
+   38 rows. It is also what the data MEANS: a superior kill is a record that somebody was on that
+   task, so the sparkline is the clan's slayer history for that monster. Staples draw a continuous
+   line; rare tasks draw a sparse, gappy one.
+
+   Each row is scaled to its OWN busiest week, so the line shows a pattern rather than a volume -
+   volume is already the count beside it. The axis is shared, so two rows can be read against each
+   other.
 
    ROWS ARE ONE LINE OF NUMBERS. "68" over "from 12,920" made every row 47px tall for two lines of
    small type; inline they are ~37px, which is a fifth of the page height back across 38 rows.
@@ -101,10 +110,20 @@
                 }
                 @* Clan total per monster, drawn. Without it nothing totals a ROW. *@
                 <th class="@HeadCell text-left border-y border-slate-200 dark:border-slate-700">
-                    <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-white"
-                          title="Superiors the whole clan has killed of each, @Comparison.Rows.Sum(r => r.TotalKills).ToString("N0") in total">
-                        Clan kills
-                    </span>
+                    <div class="flex items-baseline justify-between gap-2">
+                        <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-white"
+                              title="Kills per week over the last @SuperiorSlayerHandler.ActivityWeeks weeks, each row scaled to its own busiest week">
+                            Weekly activity
+                        </span>
+                        @* The axis, stated once. Without it the sparklines are shapes with no span. *@
+                        @if (Comparison.WeekStarts.Count > 0)
+                        {
+                            <span class="text-[10px] font-normal tabular-nums text-slate-400 dark:text-white">
+                                @Comparison.WeekStarts[0].ToLocalTime().ToString("MMM yy") &ndash; now
+                            </span>
+                        }
+                        <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-white shrink-0">Clan</span>
+                    </div>
                 </th>
             </tr>
         </thead>
@@ -159,13 +178,25 @@
                         </td>
                     }
 
-                    @* The clan's total for this monster, as a bar and as the number it draws. *@
+                    @* WHEN the clan was on this task. Drawn as an area rather than as bars: 26
+                       buckets across a column this wide makes each bar ~38px, which reads as a
+                       blocky comb and not as a trend. One SVG per row also keeps the DOM to 38
+                       elements where a bar per week would be a thousand. *@
                     <td class="px-4 py-1">
                         <div class="flex items-center gap-3">
-                            <div class="flex-1 h-2 overflow-hidden rounded-sm bg-slate-200/70 dark:bg-slate-800">
-                                <div class="h-full rounded-sm bg-amber-500/90 dark:bg-amber-400/90"
-                                     style="width:@BarWidth(row).ToString("0.###")%"></div>
-                            </div>
+                            <svg class="flex-1 h-6 text-amber-500/90 dark:text-amber-400/90"
+                                 viewBox="0 0 100 20" preserveAspectRatio="none" aria-hidden="true">
+                                <title>@SparkTitle(row)</title>
+                                @* The baseline, so a row with a long quiet stretch still shows an
+                                   axis rather than nothing at all. *@
+                                <line x1="0" y1="19.5" x2="100" y2="19.5"
+                                      class="text-slate-200 dark:text-slate-800" stroke="currentColor"
+                                      stroke-width="1" vector-effect="non-scaling-stroke" />
+                                <polygon points="@AreaPoints(row)" fill="currentColor" opacity="0.22" />
+                                <polyline points="@LinePoints(row)" fill="none" stroke="currentColor"
+                                          stroke-width="1.25" stroke-linejoin="round"
+                                          vector-effect="non-scaling-stroke" />
+                            </svg>
                             <span class="w-10 shrink-0 text-right text-[11px] font-medium tabular-nums text-slate-600 dark:text-slate-300">
                                 @row.TotalKills.ToString("N0")
                             </span>
@@ -184,12 +215,51 @@
     /// with them — an unknown character id falls back to Slayer level inside the handler.
     private SuperiorSort Sort => Comparison.Ordering;
 
-    /// Scaled against the biggest row: an absolute scale would leave all 38 as slivers.
-    private long MaxKills =>
-        Comparison.Rows.Count == 0 ? 0 : Comparison.Rows.Max(r => r.TotalKills);
+    /// The polyline, in the SVG's own 100x20 space. Scaled to the ROW's own busiest week so the
+    /// line reads as a pattern rather than as a volume - the volume is the count printed beside it,
+    /// and a shared scale would flatten every rare monster against the staples.
+    ///
+    /// preserveAspectRatio="none" stretches this to whatever width the column has, which is exactly
+    /// what is wanted: the shape should fill the space it is given, and the stroke is kept honest
+    /// with vector-effect rather than being stretched with it.
+    private static string LinePoints(SuperiorMonsterRow row)
+    {
+        var weeks = row.Weeks;
+        if (weeks.Count == 0) return "0,20 100,20";
 
-    private double BarWidth(SuperiorMonsterRow row) =>
-        MaxKills > 0 ? 100.0 * row.TotalKills / MaxKills : 0;
+        var peak = Math.Max(1, row.PeakWeek);
+        var step = weeks.Count > 1 ? 100.0 / (weeks.Count - 1) : 100.0;
+
+        return string.Join(' ', weeks.Select((kills, i) =>
+        {
+            // 19.5 is the baseline; 1.5 keeps the peak off the top edge so the stroke is not clipped.
+            var y = 19.5 - 18.0 * kills / peak;
+            return $"{i * step:0.##},{y:0.##}";
+        }));
+    }
+
+    /// The same line closed along the baseline, so it can be filled. The fill is what makes a sparse
+    /// row legible at this height - a bare 1px line across a quiet month reads as nothing.
+    private static string AreaPoints(SuperiorMonsterRow row) =>
+        $"0,19.5 {LinePoints(row)} 100,19.5";
+
+    /// One summary per row rather than a tooltip per week: the weeks are drawn as a continuous area,
+    /// so there is nothing discrete to hover, and the useful reading is the shape plus its peak.
+    private string SparkTitle(SuperiorMonsterRow row)
+    {
+        if (row.Weeks.Count == 0) return string.Empty;
+
+        var active = row.Weeks.Count(w => w > 0);
+        var peakAt = row.Weeks.Select((w, i) => (w, i)).Where(x => x.w == row.PeakWeek)
+            .Select(x => x.i).DefaultIfEmpty(-1).First();
+        var when = peakAt >= 0 && peakAt < Comparison.WeekStarts.Count
+            ? $", busiest the week of {Comparison.WeekStarts[peakAt].ToLocalTime():d MMM yyyy} with {row.PeakWeek}"
+            : string.Empty;
+
+        return active == 0
+            ? $"No {row.Name} in the last {row.Weeks.Count} weeks"
+            : $"{row.Name}: active in {active} of the last {row.Weeks.Count} weeks{when}";
+    }
 
     /// The named columns plus a floor for the bar, below which the table scrolls inside its wrapper
     /// rather than squeezing the counts. The bar is the column that gives, because it is the only

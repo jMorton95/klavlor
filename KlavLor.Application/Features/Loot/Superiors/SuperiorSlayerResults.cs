@@ -13,6 +13,12 @@ public sealed record SuperiorComparison(
     IReadOnlyList<SuperiorCharacterColumn> Characters,
     IReadOnlyList<SuperiorMonsterRow> Rows,
     /// <summary>
+    /// The shared weekly axis every row's <see cref="SuperiorMonsterRow.Weeks"/> is aligned to,
+    /// oldest first. Shared so two sparklines can be read against each other; a row that padded its
+    /// own axis would put the same date in a different place on every line.
+    /// </summary>
+    IReadOnlyList<DateTimeOffset> WeekStarts,
+    /// <summary>
     /// The ordering the rows are ACTUALLY in, which is not always the one that was asked for: an
     /// unknown character id falls back to Slayer level. Carried here so the view marks the column
     /// the table is really sorted by. Passing the requested sort alongside the rows let the two
@@ -20,7 +26,7 @@ public sealed record SuperiorComparison(
     /// </summary>
     SuperiorSort? AppliedSort = null)
 {
-    public static SuperiorComparison Empty { get; } = new([], []);
+    public static SuperiorComparison Empty { get; } = new([], [], []);
 
     /// <summary>The applied ordering, defaulted for the empty case.</summary>
     public SuperiorSort Ordering => AppliedSort ?? SuperiorSort.Default;
@@ -84,8 +90,16 @@ public sealed record SuperiorMonsterRow(
     /// count sits on top of, and one shared figure could not say whose grind it was. A missing key
     /// means we hold nothing for them there, which the view shows as nothing rather than "0".
     /// </summary>
-    IReadOnlyDictionary<int, long> BaseKills)
+    IReadOnlyDictionary<int, long> BaseKills,
+    /// <summary>
+    /// Kills per week, aligned to <see cref="SuperiorComparison.WeekStarts"/> and zero-padded, so
+    /// index N is the same week on every row.
+    /// </summary>
+    IReadOnlyList<int> Weeks)
 {
+    /// <summary>The busiest single week, which each sparkline is scaled against.</summary>
+    public int PeakWeek => Weeks.Count == 0 ? 0 : Weeks.Max();
+
     public SuperiorCell? CellFor(int gameCharacterId) =>
         Cells.TryGetValue(gameCharacterId, out var cell) ? cell : null;
 
@@ -100,6 +114,9 @@ public sealed record SuperiorCell(long Kills, DateTimeOffset FirstKilled, DateTi
 
 // Repository-level rows. Kept apart from the view models above because they arrive keyed by the
 // LOWERCASED source name straight off the query, before the handler maps them onto the registry.
+
+/// <summary>One (superior, week) bucket as the activity query returns it.</summary>
+public sealed record SuperiorWeekRow(string SourceKey, DateTimeOffset WeekStart, int Kills);
 
 /// <summary>One (character, base monster) aggregate as the base-kills query returns it.</summary>
 public sealed record SuperiorBaseKillRow(int GameCharacterId, string SourceKey, long Kills);

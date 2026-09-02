@@ -24,4 +24,14 @@ public interface ISuperiorSlayerRepository
     /// count sits on top of. Only pairs with something recorded come back.
     /// </summary>
     Task<List<SuperiorBaseKillRow>> GetBaseMonsterKills(IReadOnlyCollection<string> loweredBaseNames);
+
+    /// <summary>
+    /// Kills of each superior bucketed by ISO week, over the trailing <paramref name="weeks"/>.
+    /// Rolled up across the roster - this answers "when was the clan on this task", not who.
+    /// </summary>
+    /// <remarks>
+    /// Only weeks with kills come back; the handler pads the rest to a shared axis, because a
+    /// sparkline is only comparable between rows if every row spans the same dates.
+    /// </remarks>
+    Task<List<SuperiorWeekRow>> GetWeeklyActivity(IReadOnlyCollection<string> loweredSourceNames, int weeks);
 }

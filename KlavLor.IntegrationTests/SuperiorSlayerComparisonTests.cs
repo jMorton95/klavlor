@@ -266,4 +266,82 @@ public sealed class SuperiorSlayerComparisonTests(PostgresFixture fx)
         var column = comparison.Characters.Single(c => c.GameCharacterId == charId);
         Assert.Equal(T.AddDays(40), column.LastKilled);
     }
+
+    // ---------------------------------------------------------------- weekly activity
+
+    [Fact]
+    public async Task Weekly_activity_buckets_kills_by_week()
+    {
+        await using var ctx = fx.CreateContext();
+        var (userId, charId) = await Seed.UserAndCharacter(ctx, "sup-weeks");
+
+        // Three in one week, one in the week after. Wednesday and Thursday of the same week must
+        // land in the same bucket; the following Monday must not.
+        var wednesday = new DateTimeOffset(2026, 4, 8, 12, 0, 0, TimeSpan.Zero);
+        foreach (var offset in new[] { 0, 1, 2 })
+            Seed.AddKill(ctx, userId, charId, "Night beast", wednesday.AddDays(offset), null,
+                [new("Coins", 995, 10, 1)]);
+        Seed.AddKill(ctx, userId, charId, "Night beast", wednesday.AddDays(6), null,
+            [new("Coins", 995, 10, 1)]);
+        await ctx.SaveChangesAsync();
+
+        var weeks = (await Repo(ctx).GetWeeklyActivity(["night beast"], 5000))
+            .OrderBy(w => w.WeekStart)
+            .ToList();
+
+        Assert.Equal(2, weeks.Count);
+        Assert.Equal(3, weeks[0].Kills);
+        Assert.Equal(1, weeks[1].Kills);
+        Assert.Equal(7, (weeks[1].WeekStart - weeks[0].WeekStart).TotalDays);
+        Assert.Equal(DayOfWeek.Monday, weeks[0].WeekStart.DayOfWeek);
+    }
+
+    [Fact]
+    public async Task Weekly_activity_ignores_admin_baselines()
+    {
+        // THE POINT OF THE SEPARATE READ. A baseline is a lump sum with no date on it, so it cannot
+        // belong to a week; folding it in would invent a spike on whatever week the query happened
+        // to attribute it to. GetCounts and GetBaseMonsterKills both include baselines on purpose -
+        // this one must not, and nothing else would catch it being added.
+        await using var ctx = fx.CreateContext();
+        var (userId, charId) = await Seed.UserAndCharacter(ctx, "sup-weeks-baseline");
+
+        ctx.CharacterSourceBaselines.Add(new CharacterSourceBaseline
+        {
+            GameCharacterId = charId,
+            SourceName = "Choke devil",
+            BaselineKc = 500
+        });
+        Seed.AddKill(ctx, userId, charId, "Choke devil", T.AddDays(3), null, [new("Coins", 995, 10, 1)]);
+        await ctx.SaveChangesAsync();
+
+        var weeks = await Repo(ctx).GetWeeklyActivity(["choke devil"], 5000);
+
+        Assert.Single(weeks);
+        Assert.Equal(1, weeks[0].Kills);
+    }
+
+    [Fact]
+    public async Task Weekly_activity_honours_the_window_and_visibility()
+    {
+        await using var ctx = fx.CreateContext();
+        var (userId, charId) = await Seed.UserAndCharacter(ctx, "sup-weeks-window");
+        var (hiddenUser, hiddenChar) = await Seed.UserAndCharacter(ctx, "sup-weeks-hidden");
+        var hidden = await ctx.GameCharacters.FindAsync(hiddenChar);
+        hidden!.IsVisible = false;
+
+        Seed.AddKill(ctx, userId, charId, "Spiked Turoth", DateTimeOffset.UtcNow.AddDays(-3), null,
+            [new("Coins", 995, 10, 1)]);
+        Seed.AddKill(ctx, userId, charId, "Spiked Turoth", DateTimeOffset.UtcNow.AddDays(-400), null,
+            [new("Coins", 995, 10, 1)]);
+        Seed.AddKill(ctx, hiddenUser, hiddenChar, "Spiked Turoth", DateTimeOffset.UtcNow.AddDays(-3),
+            null, [new("Coins", 995, 10, 1)]);
+        await ctx.SaveChangesAsync();
+
+        var weeks = await Repo(ctx).GetWeeklyActivity(["spiked turoth"], 4);
+
+        // The 400-day-old kill is outside a four-week window, and the hidden character never counts.
+        Assert.Single(weeks);
+        Assert.Equal(1, weeks[0].Kills);
+    }
 }

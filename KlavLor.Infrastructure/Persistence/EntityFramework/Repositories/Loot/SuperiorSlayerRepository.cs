@@ -133,6 +133,58 @@ internal sealed class SuperiorSlayerRepository(
         }
     }
 
+    public async Task<List<SuperiorWeekRow>> GetWeeklyActivity(
+        IReadOnlyCollection<string> loweredSourceNames, int weeks)
+    {
+        if (loweredSourceNames.Count == 0 || weeks <= 0) return [];
+
+        try
+        {
+            // Tracked records ONLY, and no baselines. A baseline is a lump sum with no date on it -
+            // an admin's "they had about this many before we started" - so it cannot be placed on a
+            // week, and adding it to one would invent a spike that never happened. This is the one
+            // read on this page where that distinction matters, because it is the only one that
+            // asks WHEN.
+            //
+            // date_trunc to the week in UTC, matching how every other timestamp on the site is
+            // grouped. The window is trailing and computed here rather than passed as a date, so a
+            // cached page cannot pin the axis to the moment the cache was filled.
+            const string sql = $"""
+                SELECT lower(lr."SourceName")                      AS source_key,
+                       date_trunc('week', lr."OccurredAt" AT TIME ZONE 'UTC') AS week_start,
+                       COUNT(*)::int                               AS kills
+                FROM "LootRecords" lr
+                JOIN "GameCharacters" gc ON gc."Id" = lr."GameCharacterId"
+                WHERE {SuperiorSourceFilter}
+                  AND {VisibilityFilter}
+                  AND lr."OccurredAt" >= date_trunc('week', now() AT TIME ZONE 'UTC')
+                                       - make_interval(weeks => @weeks - 1)
+                GROUP BY 1, 2
+                """;
+
+            await using var cmd = await CreateCommand(sql);
+            cmd.Parameters.Add(Names(loweredSourceNames));
+            cmd.Parameters.Add(new NpgsqlParameter("@weeks", weeks));
+
+            var rows = new List<SuperiorWeekRow>();
+            await using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                rows.Add(new SuperiorWeekRow(
+                    reader.GetString(0),
+                    new DateTimeOffset(DateTime.SpecifyKind(reader.GetDateTime(1), DateTimeKind.Utc)),
+                    reader.GetInt32(2)));
+            }
+
+            return rows;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get superior weekly activity");
+            throw new RepositoryException("Failed to get superior weekly activity", ex);
+        }
+    }
+
     private static NpgsqlParameter Names(IReadOnlyCollection<string> loweredSourceNames) =>
         new("@names", loweredSourceNames.ToArray());
 
