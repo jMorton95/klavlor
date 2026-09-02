@@ -26,17 +26,6 @@ public interface ISuperiorSlayerRepository
     Task<List<SuperiorBaseKillRow>> GetBaseMonsterKills(IReadOnlyCollection<string> loweredBaseNames);
 
     /// <summary>
-    /// Kills of each superior bucketed by ISO week, over ALL of history. Rolled up across the
-    /// roster - this answers "when was the clan on this task", not who.
-    /// </summary>
-    /// <remarks>
-    /// No window. Each row's sparkline starts at that monster's OWN first kill, so trimming to a
-    /// trailing window here would cut the start off exactly the rows whose history is longest.
-    /// Only weeks with kills come back; the handler fills each row's gaps in.
-    /// </remarks>
-    Task<List<SuperiorWeekRow>> GetWeeklyActivity(IReadOnlyCollection<string> loweredSourceNames);
-
-    /// <summary>
     /// Every unique-table item ever received from a superior, with the monster it came from, who got
     /// it and when. Unbounded by time on purpose - there are a couple of dozen of these in total and
     /// they are the point of the category, so none of them ages out.

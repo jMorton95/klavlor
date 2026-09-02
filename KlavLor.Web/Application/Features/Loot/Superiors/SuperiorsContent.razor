@@ -1,3 +1,4 @@
+@using KlavLor.Application.Common
 @using KlavLor.Application.Features.Loot.Superiors
 @using KlavLor.Web.Components.Layout
 
@@ -13,14 +14,18 @@
 
 @* TRULY full bleed. "Full bleed" used to mean only that no max-width container was added — the
    app-wide 16px page gutter on #hx-page-container still held the table off both edges, which on a
-   page that is one wide table read as a mistake rather than as breathing room. The negative margin
-   cancels that gutter for this page alone; every other page keeps it. The table's own cell
-   padding means text still never sits flush against the glass. *@
-<div class="space-y-3 pb-32 -mx-4">
+   page that is one wide table read as a mistake. The negative margin cancels that gutter for this
+   page alone; every other page keeps it.
+
+   The page is now a HEADER STRIP over a two-column body. It was a bare table on the raw page
+   background, which is what made it read as unfinished: nothing framed it, nothing summarised it,
+   and the wide screen had nowhere to put anything. The strip states the totals a visitor wants
+   before reading 38 rows; the body gives the table the width it needs and the receipts the rest. *@
+<div class="pb-32 -mx-4">
 
     @if (Comparison.Rows.Count == 0)
     {
-        <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-12 text-center">
+        <div class="mx-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-12 text-center">
             <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">No superiors tracked yet</h3>
             <p class="text-sm text-slate-500 dark:text-white max-w-lg mx-auto">
                 Nothing has killed a superior slayer monster since tracking began. They spawn rarely,
@@ -30,11 +35,42 @@
     }
     else
     {
-        @* Straight into the table. The blurb that used to sit here explained the descending order and
-           the unique table behind it; the top bar's own description already says the page is by
-           Slayer level, and a paragraph of preamble on a page that is one table earns less than the
-           row of data it pushes below the fold. *@
-        <SuperiorMatrix Comparison="Comparison" />
+        @* THE HEADER STRIP. Five figures, and every one of them is a fact rather than a derived
+           rate — see the note in SuperiorMatrix on why this page cannot honestly quote a rate.
+           A band with its own ground rather than floating text, so the page reads as having a top
+           rather than simply starting. *@
+        <header class="mb-4 px-4 py-3.5 border-y border-slate-200 dark:border-slate-800
+                       bg-gradient-to-r from-slate-100 via-slate-50 to-slate-100
+                       dark:from-slate-900 dark:via-slate-900/40 dark:to-slate-900">
+            @* Inline rather than the Source feature's Stat component: that one has no subtitle
+               slot, and widening a component another feature owns to suit this header would couple
+               two pages that have no reason to move together. *@
+            <div class="flex flex-wrap items-center gap-x-9 gap-y-3">
+                @Figure("Superiors met", $"{Comparison.Rows.Count} of {SuperiorSlayerMonsters.All.Count}", null, false)
+                @Figure("Clan kills", Comparison.Rows.Sum(r => r.TotalKills).ToString("N0"), null, false)
+                @Figure("Unique drops", Comparison.RecentUniques.Count.ToString("N0"), null, true)
+                @Figure("Characters", Comparison.Characters.Count.ToString("N0"), null, false)
+                @if (Comparison.RecentUniques is [var latest, ..])
+                {
+                    @Figure("Latest unique", latest.ItemName,
+                            $"{latest.CharacterName} · {latest.SourceName} · {latest.OccurredAt.ToLocalTime():d MMM yy}",
+                            true)
+                }
+            </div>
+        </header>
+
+        @* Table left, receipts right. The receipts panel is what the old chart column became: it
+           takes the width the table does not need, and unlike every metric that column ever held it
+           is not a rescaling of the kill count. Stacks below 2xl, where half a screen can no longer
+           hold both. *@
+        <div class="px-4 flex flex-col 2xl:flex-row gap-4 items-start">
+            <div class="flex-1 min-w-0 w-full">
+                <SuperiorMatrix Comparison="Comparison" />
+            </div>
+            <aside class="w-full 2xl:w-[26rem] shrink-0">
+                <SuperiorUniquesPanel Drops="Comparison.RecentUniques" />
+            </aside>
+        </div>
     }
 </div>
 
@@ -44,4 +80,16 @@
     [Parameter] public bool UpdateHeader { get; set; } = true;
 
     [Parameter] public SuperiorComparison Comparison { get; set; } = SuperiorComparison.Empty;
+
+    /// One figure in the header strip. A local fragment rather than a component: it is four lines
+    /// of markup used five times on one page, and nothing else will ever want it.
+    private RenderFragment Figure(string label, string value, string? sub, bool accent) =>
+        @<div>
+            <p class="text-[10px] uppercase tracking-wider text-slate-400 dark:text-white mb-0.5">@label</p>
+            <p class="text-base font-semibold leading-tight @(accent ? "text-amber-600 dark:text-amber-400" : "text-slate-900 dark:text-slate-100")">@value</p>
+            @if (sub is not null)
+            {
+                <p class="text-[10px] text-slate-500 dark:text-white">@sub</p>
+            }
+        </div>;
 }

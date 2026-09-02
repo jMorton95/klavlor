@@ -392,75 +392,45 @@ table meets both edges at any size, and the extra pixels carry information inste
 bars now covers 18.5% of the table against 6.8% before, and rows dropped 47px to 38px by putting
 each count and its "from N" on ONE line ("68 from 13k", exact figure in the tooltip).
 
-**THE LAST COLUMN IS AN ACTIVITY SPARKLINE, and the route to it is worth recording because
-every more obvious option is a dead end.** One fact about this data rules them all out:
+**THERE IS NO CHART COLUMN, and the reason is the most useful thing recorded about this page.** That
+column was, in turn: an empty spacer, a share-of-kills bar, a unique-table-rolls bar, a clan-kills
+bar, and a weekly activity sparkline. Every one of them was chasing the same problem, and the same
+fact rules them all out:
 
 > **Superior counts and base-monster counts are the same number.** r² between them is **0.9997**
 > across 134 filled cells, and the scatter is *half* the Poisson noise real sampling would produce.
-> Nobody's loot tracker logs ten thousand Gargoyles, so the base figures are admin baselines
+> Nobody's loot tracker logs ten thousand Gargoyles — for the five commonest bases the tracked count
+> is literally **0** against **92,678** from baselines — so those base figures are admin estimates
 > back-calculated from the superior counts at about **190:1**. Every magnitude on this page is one
 > quantity wearing different clothes.
 
-Measured against the live data, each candidate drew the same picture or none:
+Measured against the live data: share of kills gave 26 distinct shapes across 38 rows; superiors per
+1,000 base kills gave a 1.1× spread, because it *is* the constant; active timespan covered a median
+97% of its axis. Clan kills varied 10×, but that is the Clan column drawn twice. Unique-table rolls
+varied 20× and was the most interesting of them — and is **not assertable at all**, because a Slayer
+master's bonus moves the true chance and no loot record says which master a kill was on.
 
-| Candidate | Result |
-|---|---|
-| Share of kills per character | 26 distinct shapes / 38 rows — tracks player activity, not the monster |
-| Unique-table rolls earned | Not assertable at all (Slayer master; see above) |
-| Superiors per 1,000 base kills | 1.1× spread — it *is* the 190:1 constant |
-| Active timespan per monster | median 97% of the axis, 37/38 rows over 80% |
-| Clan kills | 10×, but it is the Clan column again — the same number again |
-| **Kills per week** | **38 distinct shapes across 38 rows** |
+**So the width went to a panel instead of a column.** `SuperiorUniquesPanel` lists every unique-table
+receipt, newest first, with the character, the source, the kill it landed on and the date. It is the
+only content on the page not determined by that constant: a receipt is a rare event with real
+variance. Each entry names its source, which is exactly what a per-row column could not do — the
+feed reads as the clan's history rather than one monster's footnote.
 
-**Time is the one dimension the constant does not determine**, and it is also what the data *means*:
-a superior kill is a record that somebody was on that task, so the sparkline is the clan's slayer
-history for that monster. Staples draw a continuous line; rare tasks draw a sparse, spiky one.
+The **kill ordinal** (`#60`) is the character's Nth kill of that superior when it dropped, a
+correlated count plus any admin baseline — the same definition the rest of the site uses for a roll
+number. It is a fact, not a rate: "their 60th Nechryarch" says nothing about what the odds were.
 
-**AND THE UNIQUE-TABLE RECEIPTS SIT ON IT.** Every count on this page measures ATTEMPTS; the unique
-table is the OUTCOME, and 25 of them existed in the data while the page mentioned none. They are
-marked on the sparkline at the week they landed, so a row reads as "this is when we were on this
-task, and this is what came of it" — rare items (Imbued heart, Eternal gem) in amber, battlestaves
-in blue, because giving them equal weight makes a heart look like a Tuesday.
+**The page is a header strip over a two-column body.** Five figures — superiors met, clan kills,
+unique drops, characters, latest unique — every one a count rather than a derived rate, for the
+reason above. It was a bare table on the raw page background before, which is what made it read as
+unfinished: nothing framed it and nothing summarised it.
 
-**The unique count is the only per-character figure that is not the kill count in disguise.** It is a
-rare event with real variance, so ClaudeLock's 1,141 kills for 13 and Klavelon's 700 for 11 is a
-genuine difference between two players rather than a restatement of how much each has played.
-
-It is shown as a plain ratio — "1 per 88" — and **never as an expectation**. That distinction is the
-whole reason the weighting was removed: a Slayer master's bonus moves the true chance and no record
-says which master a kill was on, so the ratio is a description of what happened and not a claim about
-what should have. `GetUniqueDrops` is a FOURTH read, unbounded by time on purpose: there are a couple
-of dozen of these in total and each is the point of the category, so none ages out of a window.
-
-The unique table itself lives on `SuperiorSlayerMonsters` beside the monster list, for the same
-reason — reference data that changes when Jagex ships an update — and is ordered rarest first, which
-is the order a row's receipts are shown in.
-
-**Three things sit on the line.** The area is the weekly volume; a 4px chip marks every week that
-had a kill, so the kills read as events and not only as a shape; and a 12px ball marks a unique-table
-receipt at the week it landed. A chip is a WEEK, not a single kill — 2,291 kills across 38 rows would
-be a smear, and the detail is in the hover card.
-
-**None of them carries a `title`.** Native tooltips fired alongside the hover card and the two
-obscured each other; the card is the only tooltip on the chart now.
-
-Note the line is **superior kills**, not base-monster kills. The base figures cannot be plotted at
-all: they are dateless admin baselines, so there is no "when" to put them on.
-
-**EACH ROW HAS ITS OWN AXIS**, running from the week of that monster's first kill by anyone to the
-current week — so `GetWeeklyActivity` takes no window and the comparison carries no shared
-`WeekStarts`. A shared window made every line start on the same date, which spent most of the width
-on a period the newer monsters did not exist for us in. The trade is real and deliberate: two lines
-are no longer comparable date for date, and in exchange each uses its whole width on the period that
-monster has actually existed for. There is no axis label in the header for the same reason — one
-range would be wrong for 37 of the 38 rows — so the row's real span is stated in its card
-("active 20/23 weeks since Mar 2026"). A row is capped at 104 weeks and keeps the MOST RECENT of
-them, with `FirstWeek` moving to match, so a line never claims a start date it is not drawing.
-
-Rows are scaled to their OWN busiest week, so the line shows a pattern rather than a volume — the
-volume is the count printed beside it. Drawn as one SVG area per row rather than a bar per week: 26
-bars across a column this wide are ~38px each, which reads as a blocky comb, and 38 rows of them
-would be a thousand elements instead of 38.
+**The hover card survives, moved onto the monster name.** Per character: kills, uniques, first and
+last, and *never on task* shown distinctly from a zero — which the grid's dash cannot distinguish.
+It is pre-rendered and hidden in the row, because every figure is already on the page; `site.js`
+lifts it into a **fixed-position** panel, which it must, since the table's `overflow-x-auto` wrapper
+is a scroll container and would clip an absolutely positioned one — the same trap that stops the
+header being sticky.
 
 There is no spacer column and no `tfoot`: the footer repeated the per-character totals the header
 already carried, costing a row of height to say the same thing twice.

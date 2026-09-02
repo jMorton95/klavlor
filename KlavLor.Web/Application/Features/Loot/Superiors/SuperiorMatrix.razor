@@ -14,54 +14,15 @@
    table-fixed an unsized column absorbs whatever is left, so the bar grows with the window and the
    table meets both edges at any size, with the extra pixels carrying information rather than air.
 
-   THE LAST COLUMN IS A 26-WEEK ACTIVITY SPARKLINE, and getting there took ruling out everything
-   that looked more obvious. The reason they all failed is one fact about this data:
+   THERE IS NO CHART COLUMN. It was an activity sparkline, and before that four different bar
+   metrics, all of them chasing the same problem: superior counts are base kills over a fixed
+   190:1, so every magnitude derived from them is one quantity restated. The receipts are the only
+   thing on this page not determined by that constant, and they now have a panel of their own
+   beside the table rather than a marker squeezed onto a line - see SuperiorsContent.
 
-     SUPERIOR COUNTS AND BASE-MONSTER COUNTS ARE THE SAME NUMBER. r-squared between them is 0.9997
-     across 134 filled cells, and the scatter is HALF the Poisson noise real sampling would give -
-     because nobody's loot tracker logs ten thousand Gargoyles, so the base figures are admin
-     baselines back-calculated from the superior counts at about 190:1. Every magnitude on this page
-     is therefore one quantity wearing different clothes.
-
-   So each of these drew the same picture, or none:
-
-     - Share of kills per character: 26 distinct shapes across 38 rows. Tracks each player's overall
-       activity, not the monster.
-     - Unique-table rolls earned: not assertable at all - a Slayer master's bonus moves the rate and
-       no loot record says which master a kill was on.
-     - Superiors per 1,000 base kills: 1.1x spread. It is the 190:1 constant, measured.
-     - Clan kills: varies 10x, but it is the Clan column again, which is the same number again.
-
-   TIME is the one dimension the constant does not determine, and it gives 38 distinct shapes across
-   38 rows. It is also what the data MEANS: a superior kill is a record that somebody was on that
-   task, so the sparkline is the clan's slayer history for that monster. Staples draw a continuous
-   line; rare tasks draw a sparse, gappy one.
-
-   AND THE UNIQUES SIT ON IT, which is the part that makes the page about anything. Every number
-   here counts ATTEMPTS; the unique table is the OUTCOME, and 25 of them exist in the data while the
-   page did not mention one. They are marked on the sparkline at the week they landed, so the line
-   reads as "this is when we were on this task, and this is what came of it".
-
-   The unique count is also the only per-character figure that is not the kill count in disguise: it
-   is a rare event with real variance, so 1,141 kills for 13 and 700 for 11 is a genuine difference
-   between two players rather than a restatement of how much each has played. It is shown as a plain
-   ratio, never as an expectation - a Slayer master's bonus moves the true rate and no record says
-   which master a kill was on, so "one every 88 kills" is a description of what happened and NOT a
-   claim about what should.
-
-   Each row is scaled to its OWN busiest week, so the line shows a pattern rather than a volume -
-   volume is already the count beside it. The axis is shared, so two rows can be read against each
-   other.
-
-   ROWS ARE ONE LINE OF NUMBERS. "68" over "from 12,920" made every row 47px tall for two lines of
-   small type; inline they are ~37px, which is a fifth of the page height back across 38 rows.
-
-   TOTALS LIVE IN THE HEADER, and there is no footer: the old one repeated the per-character totals
-   the header already carried, costing a row of height to say the same thing twice.
-
-   HIGHEST SLAYER LEVEL FIRST, and only superiors someone has actually killed. The high-level ones
-   roll the shared unique table many times more often, so they are the rows worth reading; the
-   handler orders and filters, because display order is the page's decision, not the registry's.
+   What survives from the chart is its HOVER CARD, moved onto the monster name: the per-character
+   breakdown it carries is the one thing the grid genuinely cannot show, because a cell has room
+   for a number and nothing else.
 
    Monster names are deliberately NOT links. The global source page (/source?name=…) is behind the
    User policy while this page is anonymous, so a link would 401-redirect a signed-out visitor. *@
@@ -125,16 +86,9 @@
                         </a>
                     </th>
                 }
-                @* Clan total per monster, drawn. Without it nothing totals a ROW. *@
-                <th class="@HeadCell text-left border-y border-slate-200 dark:border-slate-700">
-                    @* No axis label: each row now spans its OWN dates, so a single range here would
-                       be wrong for 37 of the 38 rows. The row's real span is in its hover card. *@
-                    <div class="flex items-baseline justify-between gap-2">
-                        <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-white">
-                            Weekly activity
-                        </span>
-                        <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-white shrink-0">Clan</span>
-                    </div>
+                @* Clan total per monster. Without it nothing totals a ROW. *@
+                <th class="@HeadCell text-center border-y border-slate-200 dark:border-slate-700">
+                    <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-white">Clan</span>
                 </th>
             </tr>
         </thead>
@@ -142,8 +96,73 @@
             @foreach (var row in Comparison.Rows)
             {
                 <tr class="border-b border-slate-200/60 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors">
+                    @* THE HOVER TARGET, now that the chart it used to hang off is gone. The card is
+                       pre-rendered and hidden here; site.js lifts it into a fixed panel, which it
+                       has to, because the overflow-x wrapper around this table is a scroll
+                       container and would clip an absolutely positioned one. *@
                     <td class="px-4 py-2.5">
-                        <div class="flex items-center gap-2.5 min-w-0">
+                        <div class="superior-card hidden">
+                            <div class="sc-head">
+                                <span class="sc-name">@row.Name</span>
+                                <span class="sc-sub">Slayer @row.SlayerLevel &middot; from @string.Join(" / ", row.BaseMonsters)</span>
+                            </div>
+
+                            <table class="sc-table">
+                                <thead>
+                                    <tr>
+                                        <th>Character</th>
+                                        <th class="sc-num">Kills</th>
+                                        <th class="sc-num">Uniques</th>
+                                        <th>First</th>
+                                        <th>Last</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var character in Comparison.Characters)
+                                    {
+                                        var cell = row.CellFor(character.GameCharacterId);
+                                        var theirs = row.Uniques.Where(u => u.GameCharacterId == character.GameCharacterId).ToList();
+                                        <tr class="@(cell is null ? "sc-absent" : null)">
+                                            <td>@character.CharacterName</td>
+                                            <td class="sc-num">@(cell is null ? "–" : cell.Kills.ToString("N0"))</td>
+                                            <td class="sc-num @(theirs.Count > 0 ? "sc-got" : null)">
+                                                @(theirs.Count > 0 ? theirs.Count.ToString() : "–")
+                                            </td>
+                                            <td>@(cell is null ? "never on task" : cell.FirstKilled.ToLocalTime().ToString("d MMM yy"))</td>
+                                            <td>@(cell is null ? "" : cell.LastKilled.ToLocalTime().ToString("d MMM yy"))</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td>Clan</td>
+                                        <td class="sc-num">@row.TotalKills.ToString("N0")</td>
+                                        <td class="sc-num @(row.Uniques.Count > 0 ? "sc-got" : null)">
+                                            @(row.Uniques.Count > 0 ? row.Uniques.Count.ToString() : "–")
+                                        </td>
+                                        <td colspan="2"></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+
+                            @* The receipts in full. A count of three says nothing about whether it
+                               was three battlestaves or a heart. *@
+                            @if (row.Uniques.Count > 0)
+                            {
+                                <div class="sc-drops">
+                                    @foreach (var drop in row.Uniques)
+                                    {
+                                        <div class="sc-drop">
+                                            <span class="sc-dot @(SuperiorSlayerMonsters.UniqueRank(drop.ItemName) <= 1 ? "sc-rare" : "sc-common")"></span>
+                                            <span class="sc-item">@drop.ItemName</span>
+                                            <span class="sc-who">@drop.CharacterName</span>
+                                            <span class="sc-when">@drop.OccurredAt.ToLocalTime().ToString("d MMM yy")</span>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                        <div class="superior-chart flex items-center gap-2.5 min-w-0">
                             <img src="/api/images/source-icon?name=@Uri.EscapeDataString(row.Name)" alt=""
                                  class="w-6 h-6 object-contain shrink-0" loading="lazy" onerror="this.style.visibility='hidden'" />
                             <div class="min-w-0">
@@ -189,131 +208,11 @@
                         </td>
                     }
 
-                    @* WHEN the clan was on this task. Drawn as an area rather than as bars: 26
-                       buckets across a column this wide makes each bar ~38px, which reads as a
-                       blocky comb and not as a trend. One SVG per row also keeps the DOM to 38
-                       elements where a bar per week would be a thousand. *@
-                    <td class="px-4 py-2.5">
-                        @* THE ROW'S FULL STORY, pre-rendered and hidden. site.js lifts it into a
-                           fixed-position panel on hover.
-
-                           Pre-rendered rather than fetched, because every figure in it is already
-                           on the page - the cells, the dates, the receipts - so an HTMX request per
-                           hover would be 38 round-trips to redisplay data the browser already has.
-
-                           FIXED positioning, and it has to be. The table sits in an overflow-x-auto
-                           wrapper, which is a scroll container: an absolutely positioned panel
-                           inside it is clipped by it, exactly as a sticky header inside it resolves
-                           against the wrapper rather than the viewport. Lifting the markup out to a
-                           fixed element is what escapes that, and it follows the heatmap tooltip,
-                           which solved the same problem the same way. *@
-                        <div class="superior-card hidden">
-                            <div class="sc-head">
-                                <span class="sc-name">@row.Name</span>
-                                <span class="sc-sub">Slayer @row.SlayerLevel &middot; from @string.Join(" / ", row.BaseMonsters)</span>
-                            </div>
-
-                            <table class="sc-table">
-                                <thead>
-                                    <tr>
-                                        <th>Character</th>
-                                        <th class="sc-num">Kills</th>
-                                        <th class="sc-num">Uniques</th>
-                                        <th>First</th>
-                                        <th>Last</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var character in Comparison.Characters)
-                                    {
-                                        var cell = row.CellFor(character.GameCharacterId);
-                                        var theirs = row.Uniques.Where(u => u.GameCharacterId == character.GameCharacterId).ToList();
-                                        <tr class="@(cell is null ? "sc-absent" : null)">
-                                            <td>@character.CharacterName</td>
-                                            <td class="sc-num">@(cell is null ? "–" : cell.Kills.ToString("N0"))</td>
-                                            <td class="sc-num @(theirs.Count > 0 ? "sc-got" : null)">
-                                                @(theirs.Count > 0 ? theirs.Count.ToString() : "–")
-                                            </td>
-                                            <td>@(cell is null ? "never on task" : cell.FirstKilled.ToLocalTime().ToString("d MMM yy"))</td>
-                                            <td>@(cell is null ? "" : cell.LastKilled.ToLocalTime().ToString("d MMM yy"))</td>
-                                        </tr>
-                                    }
-                                </tbody>
-                                <tfoot>
-                                    <tr>
-                                        <td>Clan</td>
-                                        <td class="sc-num">@row.TotalKills.ToString("N0")</td>
-                                        <td class="sc-num @(row.Uniques.Count > 0 ? "sc-got" : null)">
-                                            @(row.Uniques.Count > 0 ? row.Uniques.Count.ToString() : "–")
-                                        </td>
-                                        <td colspan="2">@ActiveSummary(row)</td>
-                                    </tr>
-                                </tfoot>
-                            </table>
-
-                            @* The receipts in full. A count of three says nothing about whether it
-                               was three battlestaves or a heart. *@
-                            @if (row.Uniques.Count > 0)
-                            {
-                                <div class="sc-drops">
-                                    @foreach (var drop in row.Uniques)
-                                    {
-                                        <div class="sc-drop">
-                                            <span class="sc-dot @(SuperiorSlayerMonsters.UniqueRank(drop.ItemName) <= 1 ? "sc-rare" : "sc-common")"></span>
-                                            <span class="sc-item">@drop.ItemName</span>
-                                            <span class="sc-who">@drop.CharacterName</span>
-                                            <span class="sc-when">@drop.OccurredAt.ToLocalTime().ToString("d MMM yy")</span>
-                                        </div>
-                                    }
-                                </div>
-                            }
-                        </div>
-                        <div class="superior-chart relative flex items-center gap-3">
-                            <svg class="flex-1 h-9 text-amber-500/90 dark:text-amber-400/90"
-                                 viewBox="0 0 100 20" preserveAspectRatio="none" aria-hidden="true">
-                                @* The baseline, so a row with a long quiet stretch still shows an
-                                   axis rather than nothing at all. *@
-                                <line x1="0" y1="19.5" x2="100" y2="19.5"
-                                      class="text-slate-200 dark:text-slate-800" stroke="currentColor"
-                                      stroke-width="1" vector-effect="non-scaling-stroke" />
-                                <polygon points="@AreaPoints(row)" fill="currentColor" opacity="0.22" />
-                                <polyline points="@LinePoints(row)" fill="none" stroke="currentColor"
-                                          stroke-width="1.25" stroke-linejoin="round"
-                                          vector-effect="non-scaling-stroke" />
-                            </svg>
-                            @* The receipts, pinned to the week they landed on. Absolutely
-                               positioned over the sparkline rather than drawn inside it, so they
-                               keep a circular shape whatever the SVG's preserveAspectRatio="none"
-                               does to its own geometry - a circle in that space becomes an ellipse
-                               the moment the column changes width. *@
-                            @* A CHIP PER ACTIVE WEEK, sitting on the line at that week's height, so
-                               the kills read as events rather than only as a shape. A chip is a
-                               WEEK with kills, not a single kill: 2,291 of those across 38 rows
-                               would be a smear, and the count is in the chip's tooltip anyway. *@
-                            <div class="pointer-events-none absolute inset-0">
-                                @for (var i = 0; i < row.Weeks.Count; i++)
-                                {
-                                    if (row.Weeks[i] == 0) { continue; }
-                                    <span class="absolute -translate-x-1/2 -translate-y-1/2 w-1 h-1 rounded-full
-                                                 bg-amber-500 dark:bg-amber-300"
-                                          style="left:@WeekLeft(row, i).ToString("0.##")%; top:@WeekTop(row, i).ToString("0.##")%"></span>
-                                }
-                            </div>
-                            @if (row.Uniques.Count > 0)
-                            {
-                                <div class="pointer-events-none absolute inset-0">
-                                    @foreach (var drop in row.Uniques)
-                                    {
-                                        <span class="absolute -translate-x-1/2 -translate-y-1/2 flex items-center justify-center
-                                                     w-3 h-3 rounded-full ring-2 ring-white dark:ring-slate-950 @UniqueClasses(drop)"
-                                              style="left:@UniqueLeft(row, drop).ToString("0.##")%; top:50%"></span>
-                                    }
-                                </div>
-                            }
-                            <span class="w-10 shrink-0 text-right text-[11px] font-medium tabular-nums text-slate-600 dark:text-slate-300">
-                                @row.TotalKills.ToString("N0")
-                            </span>
-                        </div>
+                    @* The roster's total for this monster, which is the row's own sum. It briefly
+                       lived inside the chart cell as that bar's label, and came back out to a
+                       column of its own when the chart went. *@
+                    <td class="px-4 py-2.5 text-center tabular-nums text-[13px] font-medium text-slate-600 dark:text-slate-300">
+                        @row.TotalKills.ToString("N0")
                     </td>
                 </tr>
             }
@@ -327,80 +226,6 @@
     /// The ordering the rows are actually in, which the comparison carries so it cannot disagree
     /// with them — an unknown character id falls back to Slayer level inside the handler.
     private SuperiorSort Sort => Comparison.Ordering;
-
-    /// The polyline, in the SVG's own 100x20 space. Scaled to the ROW's own busiest week so the
-    /// line reads as a pattern rather than as a volume - the volume is the count printed beside it,
-    /// and a shared scale would flatten every rare monster against the staples.
-    ///
-    /// preserveAspectRatio="none" stretches this to whatever width the column has, which is exactly
-    /// what is wanted: the shape should fill the space it is given, and the stroke is kept honest
-    /// with vector-effect rather than being stretched with it.
-    private static string LinePoints(SuperiorMonsterRow row)
-    {
-        var weeks = row.Weeks;
-        if (weeks.Count == 0) return "0,20 100,20";
-
-        var peak = Math.Max(1, row.PeakWeek);
-        var step = weeks.Count > 1 ? 100.0 / (weeks.Count - 1) : 100.0;
-
-        return string.Join(' ', weeks.Select((kills, i) =>
-        {
-            // 19.5 is the baseline; 1.5 keeps the peak off the top edge so the stroke is not clipped.
-            var y = 19.5 - 18.0 * kills / peak;
-            return $"{i * step:0.##},{y:0.##}";
-        }));
-    }
-
-    /// The same line closed along the baseline, so it can be filled. The fill is what makes a sparse
-    /// row legible at this height - a bare 1px line across a quiet month reads as nothing.
-    private static string AreaPoints(SuperiorMonsterRow row) =>
-        $"0,19.5 {LinePoints(row)} 100,19.5";
-
-    /// The clan-level line of the card's footer. It now has to state the SPAN as well as the
-    /// activity, because the header no longer can: every row covers its own dates.
-    private static string ActiveSummary(SuperiorMonsterRow row)
-    {
-        if (row.Weeks.Count == 0 || row.FirstWeek is not { } first) return "no tracked activity";
-
-        var active = row.Weeks.Count(w => w > 0);
-        var since = first.ToLocalTime().ToString("MMM yyyy");
-
-        var peakAt = row.Weeks.Select((w, i) => (w, i)).Where(x => x.w == row.PeakWeek)
-            .Select(x => x.i).DefaultIfEmpty(-1).First();
-        var when = peakAt >= 0
-            ? $", busiest {first.AddDays(7 * peakAt).ToLocalTime():d MMM yy}"
-            : string.Empty;
-
-        return $"active {active}/{row.Weeks.Count} weeks since {since}{when}";
-    }
-
-    /// A week's position along THIS ROW's own axis, as a percentage. Each row spans its own dates
-    /// now, so there is no shared axis to measure against.
-    private static double WeekLeft(SuperiorMonsterRow row, int index) =>
-        row.Weeks.Count <= 1 ? 50 : 100.0 * index / (row.Weeks.Count - 1);
-
-    /// The same y the polyline uses, converted from the SVG's 0-20 space into a percentage of the
-    /// overlay. The two have to agree exactly or the chips float off the line they belong to.
-    private static double WeekTop(SuperiorMonsterRow row, int index)
-    {
-        var peak = Math.Max(1, row.PeakWeek);
-        var y = 19.5 - 18.0 * row.Weeks[index] / peak;
-        return y / 20.0 * 100.0;
-    }
-
-    /// Where a receipt sits on the row's own line. Measured in WEEKS from the row's first week
-    /// rather than in days from a shared origin, so a ball lands on the same x as the chip for the
-    /// week it happened in - a day-based fraction drifts off it by up to half a bucket.
-    ///
-    /// Clamped, because a receipt can predate the row's first ACTIVE week when the capped window
-    /// has cut the oldest weeks away.
-    private static double UniqueLeft(SuperiorMonsterRow row, SuperiorUniqueDrop drop)
-    {
-        if (row.Weeks.Count <= 1 || row.FirstWeek is not { } first) return 50;
-
-        var week = Math.Round((drop.OccurredAt - first).TotalDays / 7);
-        return Math.Clamp(100.0 * week / (row.Weeks.Count - 1), 0, 100);
-    }
 
     /// The two rare ones are worth their own colour; the battlestaves are common enough that giving
     /// them the same weight would make an Imbued heart look like a Tuesday.

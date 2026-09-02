@@ -1,0 +1,100 @@
+@using KlavLor.Application.Features.Loot.Superiors
+
+@* Every unique-table receipt, newest first.
+
+   THIS IS THE PAGE'S ONLY REAL CONTENT, in the sense that it is the only thing here not determined
+   by one constant. Superior counts are base-monster kills over a fixed 190:1 — measured at r² 0.9997
+   across 134 cells — so the grid, however it is drawn, restates a single quantity. A receipt is a
+   rare event with real variance: who got it, from what, on which kill, and when.
+
+   It replaced a chart column that had been four different metrics in turn, each of them a rescaling
+   of that same constant. This is not a chart at all, which is the point: the useful shape of two
+   dozen events is a list of them.
+
+   Each entry names its SOURCE, because the feed runs across all 38 monsters — that is what a
+   per-row column could not do, and it is why this reads as the clan's history rather than as one
+   monster's footnote. *@
+
+<section class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 overflow-hidden">
+    <header class="flex items-baseline justify-between gap-3 px-4 py-3 border-b border-slate-200 dark:border-slate-800">
+        <div>
+            <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Unique table</h2>
+            <p class="text-[11px] text-slate-500 dark:text-white">Every superior drop, newest first</p>
+        </div>
+        <span class="text-lg font-bold tabular-nums text-amber-600 dark:text-amber-400">@Drops.Count</span>
+    </header>
+
+    @if (Drops.Count == 0)
+    {
+        <p class="px-4 py-8 text-center text-xs text-slate-500 dark:text-white">
+            No unique-table drops yet. They are rare enough that the first one is an event.
+        </p>
+    }
+    else
+    {
+        @* A tally before the list: four items, and which of them the clan has actually seen is a
+           faster read than counting down the entries. *@
+        <div class="flex flex-wrap gap-x-4 gap-y-1 px-4 py-2 border-b border-slate-200 dark:border-slate-800">
+            @foreach (var item in SuperiorSlayerMonsters.UniqueTable)
+            {
+                var count = Drops.Count(d => string.Equals(d.ItemName, item, StringComparison.OrdinalIgnoreCase));
+                <span class="inline-flex items-center gap-1.5 text-[11px] @(count > 0 ? "text-slate-700 dark:text-slate-200" : "text-slate-400 dark:text-slate-600")">
+                    <span class="w-1.5 h-1.5 rounded-full @DotClasses(item, count > 0)"></span>
+                    @item
+                    <span class="font-semibold tabular-nums">@count</span>
+                </span>
+            }
+        </div>
+
+        @* Capped height rather than the full list: two dozen today, but nothing stops this growing,
+           and the table beside it must stay the page's main subject. *@
+        <ul class="max-h-[38rem] overflow-y-auto themed-scrollbar divide-y divide-slate-200/70 dark:divide-slate-800">
+            @foreach (var drop in Drops)
+            {
+                <li class="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors">
+                    <img src="/api/images/item-icon?name=@Uri.EscapeDataString(drop.ItemName)" alt=""
+                         class="w-7 h-7 object-contain shrink-0" loading="lazy" onerror="this.style.visibility='hidden'" />
+
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-baseline gap-2">
+                            <span class="text-[13px] font-medium truncate @NameClasses(drop)">@drop.ItemName</span>
+                            <span class="text-[11px] text-slate-500 dark:text-white shrink-0">@drop.CharacterName</span>
+                        </div>
+                        <div class="text-[11px] text-slate-500 dark:text-white truncate">
+                            @drop.SourceName
+                            @if (drop.KillOrdinal > 0)
+                            {
+                                @* Their Nth of that superior, which is the figure that says whether
+                                   this was a quick one or a long wait. *@
+                                <span class="tabular-nums text-amber-600 dark:text-amber-400">#@drop.KillOrdinal.ToString("N0")</span>
+                            }
+                        </div>
+                    </div>
+
+                    <span class="text-[11px] tabular-nums text-slate-400 dark:text-white shrink-0">
+                        @drop.OccurredAt.ToLocalTime().ToString("d MMM yy")
+                    </span>
+                </li>
+            }
+        </ul>
+    }
+</section>
+
+@code {
+    [Parameter] public IReadOnlyList<SuperiorUniqueDrop> Drops { get; set; } = [];
+
+    /// The two rare ones carry the amber the page uses for a receipt; the battlestaves are common
+    /// enough that giving them equal weight would make an Imbued heart look like a Tuesday.
+    private static string NameClasses(SuperiorUniqueDrop drop) =>
+        SuperiorSlayerMonsters.UniqueRank(drop.ItemName) <= 1
+            ? "text-amber-600 dark:text-amber-400"
+            : "text-slate-800 dark:text-slate-100";
+
+    private static string DotClasses(string item, bool seen)
+    {
+        if (!seen) return "bg-slate-300 dark:bg-slate-700";
+        return SuperiorSlayerMonsters.UniqueRank(item) <= 1
+            ? "bg-amber-400 dark:bg-amber-300"
+            : "bg-sky-400 dark:bg-sky-300";
+    }
+}

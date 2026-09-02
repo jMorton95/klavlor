@@ -18,12 +18,6 @@ public sealed class SuperiorSlayerHandler(ISuperiorSlayerRepository repository, 
 {
     private static readonly TimeSpan Ttl = TimeSpan.FromMinutes(5);
 
-    /// <summary>
-    /// A cap on how many weekly buckets one row's sparkline can hold, so a very old first kill
-    /// cannot turn into thousands of points. Two years of weeks; nothing here is near it.
-    /// </summary>
-    private const int MaxActivityWeeks = 104;
-
     /// <param name="sort">
     /// Applied AFTER the cache, so every ordering shares one cached read rather than one entry per
     /// column - there are only 38 rows, and reordering them is free next to the two queries.
@@ -38,11 +32,10 @@ public sealed class SuperiorSlayerHandler(ISuperiorSlayerRepository repository, 
         // and both of these run raw ADO on it (see CLAUDE.md, "Strict DI Rules").
         var counts = await repository.GetCounts(SuperiorSlayerMonsters.LoweredNames);
         var baseKills = await repository.GetBaseMonsterKills(SuperiorSlayerMonsters.LoweredBaseMonsterNames);
-        var activity = await repository.GetWeeklyActivity(SuperiorSlayerMonsters.LoweredNames);
         var uniques = await repository.GetUniqueDrops(
             SuperiorSlayerMonsters.LoweredNames, SuperiorSlayerMonsters.LoweredUniqueTable);
 
-        var comparison = Assemble(counts, baseKills, activity, uniques);
+        var comparison = Assemble(counts, baseKills, uniques);
         cache.Set(key, comparison, Ttl);
         return Sorted(comparison, sort);
     }
@@ -86,7 +79,6 @@ public sealed class SuperiorSlayerHandler(ISuperiorSlayerRepository repository, 
     private static SuperiorComparison Assemble(
         IReadOnlyList<SuperiorCountRow> counts,
         IReadOnlyList<SuperiorBaseKillRow> baseKills,
-        IReadOnlyList<SuperiorWeekRow> activity,
         IReadOnlyList<SuperiorUniqueDrop> uniques)
     {
         // Rarest first within a monster, so a row that produced several leads with the one worth
@@ -100,14 +92,7 @@ public sealed class SuperiorSlayerHandler(ISuperiorSlayerRepository repository, 
                     .ThenByDescending(u => u.OccurredAt)
                     .ToList(),
                 StringComparer.Ordinal);
-        // EACH ROW GETS ITS OWN AXIS, running from that monster's first kill to the current week.
-        // A shared window made every line start on the same date, which spent most of the width on
-        // a period the newer monsters did not exist for us in.
-        var thisWeek = StartOfWeek(DateTimeOffset.UtcNow);
 
-        var activityByMonster = activity
-            .GroupBy(a => a.SourceKey, StringComparer.Ordinal)
-            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.Ordinal);
         // base monster name -> character -> kills.
         var baseByMonster = baseKills
             .GroupBy(r => r.SourceKey, StringComparer.Ordinal)
@@ -147,8 +132,6 @@ public sealed class SuperiorSlayerHandler(ISuperiorSlayerRepository repository, 
                         x => new SuperiorCell(x.Row.Kills, x.Row.FirstKilled, x.Row.LastKilled))
                     : [];
 
-                var weeks = WeeksFor(monster, activityByMonster, thisWeek);
-
                 return new SuperiorMonsterRow(
                     monster.Name,
                     monster.BaseMonsters,
@@ -157,14 +140,16 @@ public sealed class SuperiorSlayerHandler(ISuperiorSlayerRepository repository, 
                     cells,
                     cells.Values.Sum(c => c.Kills),
                     BaseKillsFor(monster, baseByMonster),
-                    weeks.Counts,
-                    weeks.FirstWeek,
                     uniquesByMonster.GetValueOrDefault(monster.Name.ToLowerInvariant(), []));
             })
             .Where(row => row.TotalKills > 0)
             .ToList();
 
-        return new SuperiorComparison(characters, rows);
+        // Newest first: the panel beside the table reads as a chronology.
+        return new SuperiorComparison(
+            characters,
+            rows,
+            uniques.OrderByDescending(u => u.OccurredAt).ToList());
     }
 
     /// <summary>
@@ -185,56 +170,6 @@ public sealed class SuperiorSlayerHandler(ISuperiorSlayerRepository repository, 
         }
 
         return totals;
-    }
-
-    /// Monday-based, matching Postgres date_trunc('week', ...) so the buckets the query returns line
-    /// up with the axis built here. They are compared as keys, so a mismatch would silently drop
-    /// every bucket and draw 38 empty sparklines.
-    private static DateTimeOffset StartOfWeek(DateTimeOffset at)
-    {
-        var date = at.UtcDateTime.Date;
-        var offset = ((int)date.DayOfWeek + 6) % 7;   // Sunday = 0 in .NET, but weeks start Monday
-        return new DateTimeOffset(date.AddDays(-offset), TimeSpan.Zero);
-    }
-
-    /// <summary>
-    /// One monster's own weekly axis: from the week of its first kill by anyone, to the current
-    /// week, zero-padded in between.
-    /// </summary>
-    /// <remarks>
-    /// Capped at <see cref="MaxActivityWeeks"/>, taking the MOST RECENT weeks when a row is longer
-    /// than that. A row that hit the cap has lost its oldest activity rather than its newest, which
-    /// is the right end to lose - and its FirstWeek moves with it, so the line never claims a start
-    /// date it is not actually drawing.
-    /// </remarks>
-    private static (IReadOnlyList<int> Counts, DateTimeOffset? FirstWeek) WeeksFor(
-        SuperiorMonster monster,
-        IReadOnlyDictionary<string, List<SuperiorWeekRow>> activityByMonster,
-        DateTimeOffset thisWeek)
-    {
-        if (!activityByMonster.TryGetValue(monster.Name.ToLowerInvariant(), out var buckets)
-            || buckets.Count == 0)
-        {
-            return ([], null);
-        }
-
-        var first = buckets.Min(b => b.WeekStart);
-        var length = (int)Math.Round((thisWeek - first).TotalDays / 7) + 1;
-
-        if (length > MaxActivityWeeks)
-        {
-            first = thisWeek.AddDays(-7 * (MaxActivityWeeks - 1));
-            length = MaxActivityWeeks;
-        }
-
-        var counts = new int[Math.Max(1, length)];
-        foreach (var bucket in buckets)
-        {
-            var i = (int)Math.Round((bucket.WeekStart - first).TotalDays / 7);
-            if (i >= 0 && i < counts.Length) counts[i] += bucket.Kills;
-        }
-
-        return (counts, first);
     }
 
     private static List<SuperiorCharacterColumn> BuildCharacters(

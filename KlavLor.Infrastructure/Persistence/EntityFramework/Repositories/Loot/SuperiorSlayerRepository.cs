@@ -133,54 +133,6 @@ internal sealed class SuperiorSlayerRepository(
         }
     }
 
-    public async Task<List<SuperiorWeekRow>> GetWeeklyActivity(IReadOnlyCollection<string> loweredSourceNames)
-    {
-        if (loweredSourceNames.Count == 0) return [];
-
-        try
-        {
-            // Tracked records ONLY, and no baselines. A baseline is a lump sum with no date on it -
-            // an admin's "they had about this many before we started" - so it cannot be placed on a
-            // week, and adding it to one would invent a spike that never happened. This is the one
-            // read on this page where that distinction matters, because it is the only one that
-            // asks WHEN.
-            //
-            // date_trunc to the week in UTC, matching how every other timestamp on the site is
-            // grouped. NO WINDOW: each row's line starts at its own first kill, so trimming here
-            // would cut the start off exactly the rows with the longest history.
-            const string sql = $"""
-                SELECT lower(lr."SourceName")                      AS source_key,
-                       date_trunc('week', lr."OccurredAt" AT TIME ZONE 'UTC') AS week_start,
-                       COUNT(*)::int                               AS kills
-                FROM "LootRecords" lr
-                JOIN "GameCharacters" gc ON gc."Id" = lr."GameCharacterId"
-                WHERE {SuperiorSourceFilter}
-                  AND {VisibilityFilter}
-                GROUP BY 1, 2
-                """;
-
-            await using var cmd = await CreateCommand(sql);
-            cmd.Parameters.Add(Names(loweredSourceNames));
-
-            var rows = new List<SuperiorWeekRow>();
-            await using var reader = await cmd.ExecuteReaderAsync();
-            while (await reader.ReadAsync())
-            {
-                rows.Add(new SuperiorWeekRow(
-                    reader.GetString(0),
-                    new DateTimeOffset(DateTime.SpecifyKind(reader.GetDateTime(1), DateTimeKind.Utc)),
-                    reader.GetInt32(2)));
-            }
-
-            return rows;
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to get superior weekly activity");
-            throw new RepositoryException("Failed to get superior weekly activity", ex);
-        }
-    }
-
     public async Task<List<SuperiorUniqueDrop>> GetUniqueDrops(
         IReadOnlyCollection<string> loweredSourceNames,
         IReadOnlyCollection<string> loweredItemNames)
@@ -195,20 +147,33 @@ internal sealed class SuperiorSlayerRepository(
             //
             // LootDrops rather than DropsJson: the projection is already per item and indexed, and
             // this reads no price, so none of the effective-price rules apply.
+            // The KILL ORDINAL is a correlated count: how many of that superior this character had
+            // killed up to and including this one, plus any admin baseline. Correlated rather than
+            // windowed because it is evaluated over two dozen rows in total - the cost is nil and
+            // the definition reads the same way it is written down everywhere else on the site.
             const string sql = $"""
                 SELECT lower(lr."SourceName") AS source_key,
                        ld."Name"              AS item_name,
                        gc."Id"                AS character_id,
                        COALESCE(gc."DisplayName", u."FirstName" || ' ' || u."LastName") AS character_name,
-                       lr."OccurredAt"        AS occurred_at
+                       lr."OccurredAt"        AS occurred_at,
+                       (SELECT COUNT(*)
+                        FROM "LootRecords" prior
+                        WHERE prior."GameCharacterId" = lr."GameCharacterId"
+                          AND lower(prior."SourceName") = lower(lr."SourceName")
+                          AND prior."OccurredAt" <= lr."OccurredAt")::int
+                       + COALESCE(bl."BaselineKc", 0) AS kill_ordinal,
+                       lr."SourceName"        AS source_name
                 FROM "LootDrops" ld
                 JOIN "LootRecords" lr    ON lr."Id" = ld."LootRecordId"
                 JOIN "GameCharacters" gc ON gc."Id" = lr."GameCharacterId"
                 JOIN "Users" u           ON u."Id"  = gc."UserId"
+                LEFT JOIN "CharacterSourceBaselines" bl
+                       ON bl."GameCharacterId" = gc."Id" AND bl."SourceName" = lr."SourceName"
                 WHERE {SuperiorSourceFilter}
                   AND lower(ld."Name") = ANY(@items)
                   AND {VisibilityFilter}
-                ORDER BY lr."OccurredAt"
+                ORDER BY lr."OccurredAt" DESC
                 """;
 
             await using var cmd = await CreateCommand(sql);
@@ -224,7 +189,9 @@ internal sealed class SuperiorSlayerRepository(
                     reader.GetString(1),
                     reader.GetInt32(2),
                     reader.GetString(3),
-                    reader.GetFieldValue<DateTimeOffset>(4)));
+                    reader.GetFieldValue<DateTimeOffset>(4),
+                    reader.GetInt32(5),
+                    reader.GetString(6)));
             }
 
             return rows;
