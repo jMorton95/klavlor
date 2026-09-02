@@ -1003,3 +1003,130 @@ body:not(.history-panel-open) #completion-history-panel {
 @media (prefers-reduced-motion: reduce) {
     .roll-ticker-dot { animation: none; }
 }
+
+/* The Superiors row card: the panel site.js lifts out of the table on hover.
+
+   Its own styles rather than Tailwind utilities because the markup is cloned into a
+   detached element at runtime, and utilities on cloned nodes are fine but the panel
+   also needs the same treatment the heatmap tooltip gets - fixed, faded, pointer
+   transparent until placed - which is already expressed here rather than inline.
+
+   Wider and taller than the heatmap tooltip because it carries a table: that one
+   answers "what is this cell", this one answers "what is this monster, for everyone". */
+.superior-card-panel {
+    position: fixed;
+    z-index: 60;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(3px);
+    transition: opacity 0.12s ease, transform 0.12s ease;
+    max-width: 30rem;
+    padding: 0.625rem 0.75rem;
+    border-radius: 0.625rem;
+    border: 1px solid var(--color-slate-200);
+    background: #ffffff;
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.12), 0 4px 6px -4px rgb(0 0 0 / 0.12);
+    font-size: 11px;
+    line-height: 1.45;
+    color: var(--color-slate-600);
+}
+
+:where(.dark, .dark *) .superior-card-panel {
+    border-color: var(--color-slate-700);
+    background: var(--color-slate-900);
+    color: var(--color-slate-300);
+}
+
+.superior-card-panel.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.sc-head { margin-bottom: 0.5rem; }
+
+.sc-name {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-slate-900);
+}
+
+.sc-sub {
+    display: block;
+    font-size: 10px;
+    color: var(--color-slate-500);
+}
+
+:where(.dark, .dark *) .sc-name { color: var(--color-slate-100); }
+:where(.dark, .dark *) .sc-sub  { color: #ffffff; }
+
+.sc-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.sc-table th {
+    text-align: left;
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-slate-400);
+    padding: 0 0.5rem 0.2rem 0;
+    border-bottom: 1px solid var(--color-slate-200);
+}
+
+.sc-table td {
+    padding: 0.2rem 0.5rem 0.2rem 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-slate-200) 55%, transparent);
+}
+
+.sc-table tfoot td {
+    border-bottom: none;
+    border-top: 1px solid var(--color-slate-200);
+    font-weight: 600;
+    color: var(--color-slate-700);
+}
+
+:where(.dark, .dark *) .sc-table th,
+:where(.dark, .dark *) .sc-table tfoot td { border-color: var(--color-slate-700); }
+:where(.dark, .dark *) .sc-table td { border-color: color-mix(in srgb, var(--color-slate-700) 55%, transparent); }
+:where(.dark, .dark *) .sc-table th { color: #ffffff; }
+:where(.dark, .dark *) .sc-table tfoot td { color: var(--color-slate-200); }
+
+.sc-num { text-align: right; }
+
+/* Never on task, which is a different fact from having killed none - so it is dimmed
+   rather than shown as a zero. */
+.sc-absent td { color: var(--color-slate-400); }
+:where(.dark, .dark *) .sc-absent td { color: #ffffff; opacity: 0.55; }
+
+.sc-got { color: var(--color-amber-600); font-weight: 600; }
+:where(.dark, .dark *) .sc-got { color: var(--color-amber-400); }
+
+.sc-drops {
+    margin-top: 0.5rem;
+    padding-top: 0.4rem;
+    border-top: 1px solid var(--color-slate-200);
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+:where(.dark, .dark *) .sc-drops { border-color: var(--color-slate-700); }
+
+.sc-drop { display: flex; align-items: center; gap: 0.4rem; }
+
+.sc-dot { width: 0.5rem; height: 0.5rem; border-radius: 9999px; flex: 0 0 auto; }
+.sc-rare   { background: var(--color-amber-400); }
+.sc-common { background: var(--color-sky-400); }
+
+.sc-item { font-weight: 600; color: var(--color-slate-800); }
+.sc-who  { color: var(--color-slate-500); }
+.sc-when { margin-left: auto; font-size: 10px; color: var(--color-slate-400); font-variant-numeric: tabular-nums; }
+
+:where(.dark, .dark *) .sc-item { color: var(--color-slate-100); }
+:where(.dark, .dark *) .sc-who,
+:where(.dark, .dark *) .sc-when { color: #ffffff; }

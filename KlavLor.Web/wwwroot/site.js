@@ -639,3 +639,52 @@ updateSidebarActive();
     });
 })();
 trackLastViewedTemplate();
+
+(() => {
+    let panel = null;
+
+    function ensurePanel() {
+        if (!panel) {
+            panel = document.createElement('div');
+            panel.className = 'superior-card-panel';
+            panel.setAttribute('role', 'tooltip');
+            document.body.appendChild(panel);
+        }
+        return panel;
+    }
+
+    function place(clientX, clientY) {
+        if (!panel) return;
+        const pad = 16;
+        const r = panel.getBoundingClientRect();
+        let x = clientX + pad;
+        let y = clientY + pad;
+        if (x + r.width > window.innerWidth - 8) x = clientX - r.width - pad;
+        if (y + r.height > window.innerHeight - 8) y = clientY - r.height - pad;
+        panel.style.left = Math.max(8, x) + 'px';
+        panel.style.top = Math.max(8, y) + 'px';
+    }
+
+    document.addEventListener('mouseover', function (e) {
+        const chart = e.target.closest && e.target.closest('.superior-chart');
+        if (!chart) return;
+        const card = chart.parentElement && chart.parentElement.querySelector('.superior-card');
+        if (!card) return;
+        const p = ensurePanel();
+        p.innerHTML = card.innerHTML;
+        p.classList.add('is-visible');
+        place(e.clientX, e.clientY);
+    });
+
+    document.addEventListener('mousemove', function (e) {
+        if (panel && panel.classList.contains('is-visible')) place(e.clientX, e.clientY);
+    });
+
+    document.addEventListener('mouseout', function (e) {
+        const chart = e.target.closest && e.target.closest('.superior-chart');
+        if (!chart || !panel) return;
+        const to = e.relatedTarget;
+        if (to && to.closest && to.closest('.superior-chart') === chart) return;
+        panel.classList.remove('is-visible');
+    });
+})();

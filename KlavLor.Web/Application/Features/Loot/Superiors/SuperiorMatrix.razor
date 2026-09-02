@@ -209,7 +209,81 @@
                        blocky comb and not as a trend. One SVG per row also keeps the DOM to 38
                        elements where a bar per week would be a thousand. *@
                     <td class="px-4 py-1">
-                        <div class="relative flex items-center gap-3">
+                        @* THE ROW'S FULL STORY, pre-rendered and hidden. site.js lifts it into a
+                           fixed-position panel on hover.
+
+                           Pre-rendered rather than fetched, because every figure in it is already
+                           on the page - the cells, the dates, the receipts - so an HTMX request per
+                           hover would be 38 round-trips to redisplay data the browser already has.
+
+                           FIXED positioning, and it has to be. The table sits in an overflow-x-auto
+                           wrapper, which is a scroll container: an absolutely positioned panel
+                           inside it is clipped by it, exactly as a sticky header inside it resolves
+                           against the wrapper rather than the viewport. Lifting the markup out to a
+                           fixed element is what escapes that, and it follows the heatmap tooltip,
+                           which solved the same problem the same way. *@
+                        <div class="superior-card hidden">
+                            <div class="sc-head">
+                                <span class="sc-name">@row.Name</span>
+                                <span class="sc-sub">Slayer @row.SlayerLevel &middot; from @string.Join(" / ", row.BaseMonsters)</span>
+                            </div>
+
+                            <table class="sc-table">
+                                <thead>
+                                    <tr>
+                                        <th>Character</th>
+                                        <th class="sc-num">Kills</th>
+                                        <th class="sc-num">Uniques</th>
+                                        <th>First</th>
+                                        <th>Last</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var character in Comparison.Characters)
+                                    {
+                                        var cell = row.CellFor(character.GameCharacterId);
+                                        var theirs = row.Uniques.Where(u => u.GameCharacterId == character.GameCharacterId).ToList();
+                                        <tr class="@(cell is null ? "sc-absent" : null)">
+                                            <td>@character.CharacterName</td>
+                                            <td class="sc-num">@(cell is null ? "–" : cell.Kills.ToString("N0"))</td>
+                                            <td class="sc-num @(theirs.Count > 0 ? "sc-got" : null)">
+                                                @(theirs.Count > 0 ? theirs.Count.ToString() : "–")
+                                            </td>
+                                            <td>@(cell is null ? "never on task" : cell.FirstKilled.ToLocalTime().ToString("d MMM yy"))</td>
+                                            <td>@(cell is null ? "" : cell.LastKilled.ToLocalTime().ToString("d MMM yy"))</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td>Clan</td>
+                                        <td class="sc-num">@row.TotalKills.ToString("N0")</td>
+                                        <td class="sc-num @(row.Uniques.Count > 0 ? "sc-got" : null)">
+                                            @(row.Uniques.Count > 0 ? row.Uniques.Count.ToString() : "–")
+                                        </td>
+                                        <td colspan="2">@ActiveSummary(row)</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+
+                            @* The receipts in full. A count of three says nothing about whether it
+                               was three battlestaves or a heart. *@
+                            @if (row.Uniques.Count > 0)
+                            {
+                                <div class="sc-drops">
+                                    @foreach (var drop in row.Uniques)
+                                    {
+                                        <div class="sc-drop">
+                                            <span class="sc-dot @(SuperiorSlayerMonsters.UniqueRank(drop.ItemName) <= 1 ? "sc-rare" : "sc-common")"></span>
+                                            <span class="sc-item">@drop.ItemName</span>
+                                            <span class="sc-who">@drop.CharacterName</span>
+                                            <span class="sc-when">@drop.OccurredAt.ToLocalTime().ToString("d MMM yy")</span>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                        <div class="superior-chart relative flex items-center gap-3">
                             <svg class="flex-1 h-6 text-amber-500/90 dark:text-amber-400/90"
                                  viewBox="0 0 100 20" preserveAspectRatio="none" aria-hidden="true">
                                 <title>@SparkTitle(row)</title>
@@ -228,6 +302,20 @@
                                keep a circular shape whatever the SVG's preserveAspectRatio="none"
                                does to its own geometry - a circle in that space becomes an ellipse
                                the moment the column changes width. *@
+                            @* A CHIP PER ACTIVE WEEK, sitting on the line at that week's height, so
+                               the kills read as events rather than only as a shape. A chip is a
+                               WEEK with kills, not a single kill: 2,291 of those across 38 rows
+                               would be a smear, and the count is in the chip's tooltip anyway. *@
+                            <div class="pointer-events-none absolute inset-0">
+                                @for (var i = 0; i < row.Weeks.Count; i++)
+                                {
+                                    if (row.Weeks[i] == 0) { continue; }
+                                    <span class="pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full
+                                                 bg-amber-500 dark:bg-amber-300"
+                                          style="left:@WeekLeft(i).ToString("0.##")%; top:@WeekTop(row, i).ToString("0.##")%"
+                                          title="@WeekTitle(row, i)"></span>
+                                }
+                            </div>
                             @if (row.Uniques.Count > 0)
                             {
                                 <div class="pointer-events-none absolute inset-0">
@@ -285,6 +373,42 @@
     /// row legible at this height - a bare 1px line across a quiet month reads as nothing.
     private static string AreaPoints(SuperiorMonsterRow row) =>
         $"0,19.5 {LinePoints(row)} 100,19.5";
+
+    /// The clan-level line of the card's footer: how much of the window this task was live for.
+    private string ActiveSummary(SuperiorMonsterRow row)
+    {
+        var active = row.Weeks.Count(w => w > 0);
+        if (active == 0) return $"quiet for all {row.Weeks.Count} weeks";
+
+        var peakAt = row.Weeks.Select((w, i) => (w, i)).Where(x => x.w == row.PeakWeek)
+            .Select(x => x.i).DefaultIfEmpty(-1).First();
+        var when = peakAt >= 0 && peakAt < Comparison.WeekStarts.Count
+            ? $", busiest {Comparison.WeekStarts[peakAt].ToLocalTime():d MMM}"
+            : string.Empty;
+
+        return $"active {active}/{row.Weeks.Count} weeks{when}";
+    }
+
+    /// A week's position across the shared axis, as a percentage.
+    private double WeekLeft(int index) =>
+        Comparison.WeekStarts.Count <= 1 ? 50 : 100.0 * index / (Comparison.WeekStarts.Count - 1);
+
+    /// The same y the polyline uses, converted from the SVG's 0-20 space into a percentage of the
+    /// overlay. The two have to agree exactly or the chips float off the line they belong to.
+    private static double WeekTop(SuperiorMonsterRow row, int index)
+    {
+        var peak = Math.Max(1, row.PeakWeek);
+        var y = 19.5 - 18.0 * row.Weeks[index] / peak;
+        return y / 20.0 * 100.0;
+    }
+
+    private string WeekTitle(SuperiorMonsterRow row, int index)
+    {
+        if (index >= Comparison.WeekStarts.Count) return string.Empty;
+        var week = Comparison.WeekStarts[index].ToLocalTime();
+        var kills = row.Weeks[index];
+        return $"Week of {week:d MMM yyyy}: {kills} {row.Name}{(kills == 1 ? "" : "s")}";
+    }
 
     /// Where on the sparkline a receipt landed, as a percentage of the shared axis. Clamped, because
     /// a unique from before the window still belongs on the row - pinned to the left edge - rather
