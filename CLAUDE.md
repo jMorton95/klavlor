@@ -393,20 +393,28 @@ The columns are Superior, one per character, Clan. **Clan totals each row**, whi
 per-character totals could not: "how much has the clan killed of this one" was a question the table
 held every number for and could not answer.
 
-**ONE TABLE, FULL WIDTH, PERCENTAGE COLUMNS.** The layout has been two other things and both were
-worse, so neither is worth trying again:
+**TIGHT COLUMNS, AND A SHARE BAR THAT TAKES THE REST.** The layout has been three other things and
+each failed the same way — the width was spent on padding rather than on content:
 
-- **Fixed columns plus an empty trailing spacer.** A roster of four needs about 1,100px and a
-  desktop offers nearly 1,900, so a third of the page sat blank while the table ran to two screens.
-- **Two half-width blocks side by side.** It filled the width and halved the height, but it filled
-  it by cutting the table in half — and a comparison you have to read in two places is not one.
+- **Fixed columns plus an empty trailing spacer.** A third of the page blank.
+- **Two half-width blocks side by side.** Filled the width by cutting the comparison in half, and a
+  comparison you read in two places is not one.
+- **Percentage columns stretched to full width.** Exactly what the original note warned of: it did
+  not remove the gap, it moved it inside the cells, leaving a two-digit number adrift in a 326px
+  column. Measured, **6.8% of the table's area had any text on it**.
 
-Percentages give the whole width to the real columns: the table meets both edges, nothing is blank,
-and it is still one table read straight down. The surplus goes to the CHARACTER columns rather than
-the monster name — handing it to the name parks it most of a screen from the first count, which is
-the one arrangement that makes a wide table genuinely hard to read. `table-fixed` stops the longest
-name setting the layout, and `MinWidth` is the floor below which the table scrolls inside its own
-wrapper rather than crushing the counts.
+So the counts get only the width they need, and the bar column is declared with **no width at all** —
+under `table-fixed` an unsized column absorbs the remainder, so the bar grows with the window, the
+table meets both edges at any size, and the extra pixels carry information instead of air. Ink plus
+bars now covers 18.5% of the table against 6.8% before, and rows dropped 47px to 38px by putting
+each count and its "from N" on ONE line ("68 from 13k", exact figure in the tooltip).
+
+**The bar is each character's share of that monster's kills**, which is what the row of numbers only
+answers by arithmetic: a row that is one solid colour is somebody's private grind, an even split is
+a monster everyone meets on task. Its colours come from `RollChipHues` — the same assignment the
+live roll ticker uses, so a character is the same colour on both surfaces. Those hue classes set
+`--roll-name`, which the ticker reads as a text colour and this reads as a fill; a dot in each column
+header is the key, without which the colours would be decoration.
 
 There is no spacer column and no `tfoot`: the footer repeated the per-character totals the header
 already carried, costing a row of height to say the same thing twice.
