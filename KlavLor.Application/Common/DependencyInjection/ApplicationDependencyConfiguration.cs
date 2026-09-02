@@ -27,6 +27,10 @@ public static class ApplicationDependencyConfiguration
         // that edits an input to the luck maths — see RecomputeTrigger.
         services.TryAddScoped<Features.Maintenance.RecomputeTrigger>();
 
+        // Not a *Handler, so the assembly scan above does not pick it up. Shared by the startup
+        // seeder and the item-value admin — see FeedBufferSeeder for why the admin needs it.
+        services.TryAddScoped<Features.Loot.Feed.FeedBufferSeeder>();
+
         // Source loot strategies (PVT strategy convention). One line per strategy against the
         // shared interface so SourceLootService receives them all as IEnumerable and dispatches
         // by source name. The default (empty key) covers every ordinary source; add a new

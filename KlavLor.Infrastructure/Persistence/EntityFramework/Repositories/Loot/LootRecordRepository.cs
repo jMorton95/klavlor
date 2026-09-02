@@ -155,9 +155,25 @@ internal sealed class LootRecordRepository(DataContext dataContext, ILogger<Loot
         await RebuildDropsForCharacter(gameCharacterId);
     }
 
-    // Rebuilds the LootDrop projection for one character's records straight from their
-    // (canonical) DropsJson. Used after a first-time reflag; also the recovery path if the
-    // projection ever drifts. Delete + reinsert keeps it provably equal to DropsJson.
+    // Rebuilds the LootDrop projection for one character's records from their (canonical)
+    // DropsJson. Used after a first-time reflag; also the recovery path if the projection ever
+    // drifts. Delete + reinsert keeps it provably equal to DropsJson.
+    //
+    // "EQUAL TO DropsJson" DOES NOT MEAN "COPIED FROM IT". DropsJson holds the RAW RuneLite price by
+    // design, while LootDrops.Price is the DERIVED projection and must hold the EFFECTIVE one - so
+    // the admin's intrinsic value override has to be re-applied here, exactly as FinalizeDrops
+    // applies it on ingest and RebuildForItem applies it on an override write. A straight copy
+    // silently reset every overridden item to the raw figure it was overridden FOR (measured: a
+    // record with TotalValue 5,000,000 left carrying LootDrops.Price 0), and it did so for the whole
+    // character on any imported batch or special-drop injection - long after the admin had set the
+    // value and seen it take effect.
+    //
+    // IsSpecial is carried across for the same reason: it lives in DropsJson, the feed's legendary
+    // lane finds injected specials by querying LootDrops.IsSpecial, and dropping it here un-flagged
+    // a special the moment SpecialLootHandler called RecomputeFirstTimeFlags right after writing it.
+    //
+    // LootRecords.TotalValue is deliberately NOT re-derived: nothing in this pass changes a price,
+    // it only restores the projection to what it should already have been.
     public async Task RebuildDropsForCharacter(int gameCharacterId)
     {
         const string deleteSql = """
@@ -165,16 +181,23 @@ internal sealed class LootRecordRepository(DataContext dataContext, ILogger<Loot
             USING "LootRecords" lr
             WHERE ld."LootRecordId" = lr."Id" AND lr."GameCharacterId" = @cid
             """;
+        // The lateral gives the item id a name so the override join and the projected column can
+        // both read it without spelling the COALESCE twice.
         const string insertSql = """
-            INSERT INTO "LootDrops" ("LootRecordId", "ItemId", "Name", "Quantity", "Price", "IsFirstTime")
+            INSERT INTO "LootDrops" ("LootRecordId", "ItemId", "Name", "Quantity", "Price", "IsFirstTime", "IsSpecial")
             SELECT lr."Id",
-                   COALESCE((d->>'ItemId')::int, 0),
-                   COALESCE(d->>'Name', ''),
-                   COALESCE((d->>'Quantity')::int, 0),
-                   COALESCE((d->>'Price')::int, 0),
-                   COALESCE((d->>'IsFirstTime')::boolean, false)
-            FROM "LootRecords" lr,
-                 jsonb_array_elements(lr."DropsJson") AS d
+                   d.item_id,
+                   COALESCE(d.elem->>'Name', ''),
+                   COALESCE((d.elem->>'Quantity')::int, 0),
+                   COALESCE(ivo."Value", COALESCE((d.elem->>'Price')::int, 0)),
+                   COALESCE((d.elem->>'IsFirstTime')::boolean, false),
+                   COALESCE((d.elem->>'IsSpecial')::boolean, false)
+            FROM "LootRecords" lr
+            CROSS JOIN LATERAL (
+                SELECT elem, COALESCE((elem->>'ItemId')::int, 0) AS item_id
+                FROM jsonb_array_elements(lr."DropsJson") AS elem
+            ) d
+            LEFT JOIN "ItemValueOverrides" ivo ON ivo."ItemId" = d.item_id
             WHERE lr."GameCharacterId" = @cid
             """;
 

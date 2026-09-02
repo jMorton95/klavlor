@@ -468,10 +468,16 @@ internal sealed class LootSourceDetailRepository(
                         FROM "LootRecords" lr
                         JOIN "LootDrops" ld ON ld."LootRecordId" = lr."Id"
                         WHERE lr."GameCharacterId" = @cid AND lr."SourceName" = @source
-                          AND EXISTS (
-                              SELECT 1 FROM "EffectiveCollectionLogItems" cli
-                              WHERE cli."ItemId" = ld."ItemId"
-                          )
+                          -- ID OR NAME, matching the entries query above. It matched on id ALONE,
+                          -- while the query that decides which rows appear matches either way (see
+                          -- ICollectionLogCache.IsCollectionLogItem for why both are needed). An
+                          -- item that qualified by NAME therefore got a row whose KC cell carried
+                          -- cursor-help and an empty popover: the "?" pointer with no tooltip
+                          -- behind it. Split into two EXISTS for the same index reason as above.
+                          AND (EXISTS (SELECT 1 FROM "EffectiveCollectionLogItems" cli
+                                       WHERE cli."ItemId" = ld."ItemId")
+                               OR EXISTS (SELECT 1 FROM "EffectiveCollectionLogItems" cli
+                                          WHERE lower(cli."Name") = lower(ld."Name")))
                     )
                     SELECT r.item_name, r."OccurredAt", r."KillCount",
                            ((SELECT COUNT(*)::int FROM "LootRecords" o
@@ -553,11 +559,15 @@ internal sealed class LootSourceDetailRepository(
                     JOIN "LootDrops" ld ON ld."LootRecordId" = lr."Id"
                     WHERE lr."GameCharacterId" = @cid
                       AND lr."SourceName" = @source
-                      AND EXISTS (
-                          SELECT 1 FROM "EffectiveCollectionLogItems" cli
-                          WHERE cli."ItemId" = ld."ItemId"
-                            AND @source = ANY (cli."Tabs")
-                      )
+                      -- Id or name, the third site of the same rule. Counting only id matches made
+                      -- the "X of Y clog items" fraction disagree with the table under it, which
+                      -- lists a name-matched item as received.
+                      AND (EXISTS (SELECT 1 FROM "EffectiveCollectionLogItems" cli
+                                   WHERE cli."ItemId" = ld."ItemId"
+                                     AND @source = ANY (cli."Tabs"))
+                           OR EXISTS (SELECT 1 FROM "EffectiveCollectionLogItems" cli
+                                      WHERE lower(cli."Name") = lower(ld."Name")
+                                        AND @source = ANY (cli."Tabs")))
                     """;
                 unlockedCmd.Parameters.Add(new NpgsqlParameter("@cid", characterId));
                 unlockedCmd.Parameters.Add(new NpgsqlParameter("@source", sourceName));

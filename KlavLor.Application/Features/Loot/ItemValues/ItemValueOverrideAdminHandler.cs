@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Caching.Memory;
 using KlavLor.Application.Common;
 using KlavLor.Application.Features.Drop;
+using KlavLor.Application.Features.Loot.Feed;
 using KlavLor.Application.Features.Loot.Log;
 using KlavLor.Application.Features.Maintenance;
 using KlavLor.Application.Features.Source;
@@ -16,12 +17,18 @@ namespace KlavLor.Application.Features.Loot.ItemValues;
 // stored loot projection — so the in-memory path (drops read back out of DropsJson) and the SQL path
 // (LootDrops.Price / LootRecords.TotalValue) can never disagree about what an item is worth. The
 // memoised aggregates are then invalidated for exactly the characters, sources and items the rebuild
-// touched.
+// touched, and the live feed's buffers are reseeded.
+//
+// THAT LAST STEP IS NOT OPTIONAL, and leaving it out was a shipped bug. Re-priming the cache and
+// rebuilding the projection fixes every surface that READS from the database on request; the loot
+// feed's swimlanes are an in-memory buffer that is only built at startup, so they went on serving
+// entries priced before the write. See FeedBufferSeeder for what that looked like from the outside.
 public sealed class ItemValueOverrideAdminHandler(
     IItemValueOverrideRepository repository,
     IItemValueOverrideCache cache,
     IMemoryCache memoryCache,
-    RecomputeTrigger recompute)
+    RecomputeTrigger recompute,
+    FeedBufferSeeder feedBuffer)
 {
     public const int SearchLimit = 25;
 
@@ -83,6 +90,11 @@ public sealed class ItemValueOverrideAdminHandler(
             GlobalSourceCache.Invalidate(memoryCache, sourceName);
         foreach (var itemName in rebuilt.ItemNames)
             GlobalDropCache.Invalidate(memoryCache, itemName);
+
+        // The live feed's swimlanes are an in-memory buffer, not a query. Nothing above touches
+        // them, so without this the lanes keep the pre-override pricing until the next restart —
+        // and a drop that was under the 10k floor at its raw price is missing from them entirely.
+        await feedBuffer.Reseed();
 
         // The board's 100k-per-receipt entry floor reads this value, so a newly-valued item can
         // qualify for a slot it previously failed on.

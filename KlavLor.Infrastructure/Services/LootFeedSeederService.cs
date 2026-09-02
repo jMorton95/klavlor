@@ -10,7 +10,6 @@ namespace KlavLor.Infrastructure.Services;
 
 public sealed class LootFeedSeederService(
     IServiceScopeFactory scopeFactory,
-    ILootFeedService feedService,
     ILootRollFeed rollFeed,
     IJobRunRecorder jobRuns,
     ILogger<LootFeedSeederService> logger) : BackgroundService
@@ -25,35 +24,21 @@ public sealed class LootFeedSeederService(
         try
         {
             using var scope = scopeFactory.CreateScope();
-            // Goes through the handler, not straight to the repository, so seeded entries carry the
-            // per-drop effective rates. Buffered entries are merged with live drops on publish, and
-            // a merged card would otherwise show rate chips only on the freshly arrived items.
-            var feedTiers = scope.ServiceProvider.GetRequiredService<LootFeedTiersHandler>();
+            // The ticker's two reads. The swimlanes are seeded below, through FeedBufferSeeder.
             var feedRepository = scope.ServiceProvider.GetRequiredService<ILootFeedRepository>();
             var recordRepository = scope.ServiceProvider.GetRequiredService<ILootRecordRepository>();
 
-            var totalSeeded = 0;
+            // The swimlane seed itself lives in FeedBufferSeeder, because the item-value admin has
+            // to run exactly the same pass after an override write - a value change re-prices
+            // stored drops, and the buffer would otherwise keep serving the old pricing until the
+            // next restart. One spelling, so the two cannot drift.
+            var bufferSeeder = scope.ServiceProvider.GetRequiredService<FeedBufferSeeder>();
+            var totalSeeded = await bufferSeeder.Reseed();
+            if (totalSeeded > 0)
+                logger.LogInformation("Seeded loot feed with {Count} entries", totalSeeded);
 
-            // Seed each scope independently so the main and leagues feeds both have
-            // history available immediately after restart.
             foreach (var feedScope in Enum.GetValues<LootFeedScope>())
             {
-                var tiers = await feedTiers.Handle(feedScope);
-                var seededForScope = 0;
-
-                foreach (var (_, entries) in tiers)
-                {
-                    if (entries.Count > 0)
-                    {
-                        feedService.SeedBuffer(feedScope, entries);
-                        seededForScope += entries.Count;
-                    }
-                }
-
-                totalSeeded += seededForScope;
-                if (seededForScope > 0)
-                    logger.LogInformation("Seeded {Scope} loot feed with {Count} entries", feedScope, seededForScope);
-
                 // Isolated: the ticker is the less important of the two buffers, and without this a
                 // failure seeding it would abort the whole job through the outer catch - taking the
                 // NEXT scope's feed seeding down with it. The swimlanes must not go unseeded because

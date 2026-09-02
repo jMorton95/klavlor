@@ -33,22 +33,39 @@ type dropSpec struct {
 // source is a fake monster with a fixed drop table. Prices are chosen so the
 // set spans several loot-feed tiers (Standard 10K+, Rare 1M+, Epic 10M+).
 var sources = []struct {
-	name  string
-	level int
-	drops []dropSpec
+	name       string
+	level      int
+	drops      []dropSpec
+	oneAtATime bool
 }{
-	{"Sandbox Goblin", 2, []dropSpec{
+	{name: "Sandbox Goblin", level: 2, drops: []dropSpec{
 		{"Coins", 995, 120, 1},
 		{"Bronze dagger", 1205, 1, 35},
 	}},
-	{"Sandbox Zulrah", 725, []dropSpec{
+	{name: "Sandbox Zulrah", level: 725, drops: []dropSpec{
 		{"Zulrah's scales", 12934, 350, 250}, // ~87K — Standard
 		{"Magic fang", 12932, 1, 2_500_000},  // 2.5M — Rare
 	}},
-	{"Sandbox Vorkath", 732, []dropSpec{
+	{name: "Sandbox Vorkath", level: 732, drops: []dropSpec{
 		{"Superior dragon bones", 22124, 30, 1500},
 		{"Draconic visage", 11286, 1, 11_000_000}, // 11M — Epic
 	}},
+	// One untradeable at 0 GP, exactly like an Unsired hand-in: RuneLite reports no
+	// price, so it only reaches a lane at all once an admin item-value override is
+	// set. Its whole point is to exercise the override path on the LIVE publish,
+	// where the price comes from DropsJson rather than the stored projection.
+	// An Unsired hand-in returns ONE piece, a different one each time, and each is
+	// untradeable so RuneLite reports 0 GP - they only reach a lane at all once an
+	// admin item-value override is set. oneAtATime makes the generator emit a single
+	// rotating drop per kill rather than the whole table, which is what produces a
+	// card whose chip LIST grows rather than one chip whose quantity climbs.
+	{name: "Sandbox Unsired", level: 350, drops: []dropSpec{
+		{"Sandbox bludgeon claw", 26476, 1, 0},
+		{"Sandbox bludgeon spine", 26477, 1, 0},
+		{"Sandbox bludgeon axon", 26478, 1, 0},
+		{"Sandbox abyssal dagger", 26479, 1, 0},
+		{"Sandbox abyssal head", 26480, 1, 0},
+	}, oneAtATime: true},
 }
 
 func main() {
@@ -115,9 +132,15 @@ func main() {
 			files[src.name] = f
 		}
 
-		drops := make([]model.LootDrop, len(src.drops))
-		for j, d := range src.drops {
-			drops[j] = model.LootDrop{Name: d.name, Id: d.id, Quantity: d.qty, Price: d.price}
+		var drops []model.LootDrop
+		if src.oneAtATime {
+			d := src.drops[(kc[src.name]-1)%len(src.drops)]
+			drops = []model.LootDrop{{Name: d.name, Id: d.id, Quantity: d.qty, Price: d.price}}
+		} else {
+			drops = make([]model.LootDrop, len(src.drops))
+			for j, d := range src.drops {
+				drops[j] = model.LootDrop{Name: d.name, Id: d.id, Quantity: d.qty, Price: d.price}
+			}
 		}
 
 		rec := model.LootRecord{
