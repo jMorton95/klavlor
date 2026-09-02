@@ -410,8 +410,15 @@ Measured against the live data: share of kills gave 26 distinct shapes across 38
 varied 20× and was the most interesting of them — and is **not assertable at all**, because a Slayer
 master's bonus moves the true chance and no loot record says which master a kill was on.
 
-**So the width went to a panel instead of a column.** `SuperiorUniquesPanel` lists every unique-table
-receipt, newest first, with the character, the source, the kill it landed on and the date. It is the
+**So the receipts segment took the column's place.** `SuperiorUniquesPanel` sits FLUSH against the
+table — no page padding, no gap, no card, just the divider — and occupies exactly the width the
+chart column used to. That matters: the table is sized to the sum of its own columns
+(`TableWidth`, not `w-full`) so it claims what it needs and nothing more, and the segment takes the
+remainder. When the table was left to stretch, the last column swallowed the space the chart had
+held and Clan became a quarter of the page.
+
+It lists every unique-table receipt, newest first, with the character, the source, the kill it
+landed on and the date. It is the
 only content on the page not determined by that constant: a receipt is a rare event with real
 variance. Each entry names its source, which is exactly what a per-row column could not do — the
 feed reads as the clan's history rather than one monster's footnote.

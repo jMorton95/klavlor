@@ -59,17 +59,20 @@
             </div>
         </header>
 
-        @* Table left, receipts right. The receipts panel is what the old chart column became: it
-           takes the width the table does not need, and unlike every metric that column ever held it
-           is not a rescaling of the kill count. Stacks below 2xl, where half a screen can no longer
-           hold both. *@
-        <div class="px-4 flex flex-col 2xl:flex-row gap-4 items-start">
-            <div class="flex-1 min-w-0 w-full">
+        @* ONE FLUSH BAND: the table takes the width of its columns, the receipts segment takes
+           everything to the right of them, and the pair meets both edges of the page. No page
+           padding and no gap between them - the segment sits exactly where the chart column used to,
+           which is what it replaced. A gap and a rounded card made it read as a separate widget
+           parked beside the table rather than as part of it.
+
+           Stacks below xl, where the two can no longer share a line. *@
+        <div class="flex flex-col xl:flex-row items-stretch">
+            <div class="shrink-0 max-w-full">
                 <SuperiorMatrix Comparison="Comparison" />
             </div>
-            <aside class="w-full 2xl:w-[26rem] shrink-0">
+            <div class="flex-1 min-w-0 border-t xl:border-t-0 xl:border-l border-slate-200 dark:border-slate-800">
                 <SuperiorUniquesPanel Drops="Comparison.RecentUniques" />
-            </aside>
+            </div>
         </div>
     }
 </div>

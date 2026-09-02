@@ -15,13 +15,18 @@
    per-row column could not do, and it is why this reads as the clan's history rather than as one
    monster's footnote. *@
 
-<section class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 overflow-hidden">
-    <header class="flex items-baseline justify-between gap-3 px-4 py-3 border-b border-slate-200 dark:border-slate-800">
-        <div>
-            <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Unique table</h2>
-            <p class="text-[11px] text-slate-500 dark:text-white">Every superior drop, newest first</p>
-        </div>
-        <span class="text-lg font-bold tabular-nums text-amber-600 dark:text-amber-400">@Drops.Count</span>
+@* No card. It sits flush against the table as the continuation of the same band, with only the
+   divider between them, because it stands in for a column of that table rather than accompanying
+   it. Its header lines up with the table's header row: the same background, the same height. *@
+<section>
+    <header class="flex items-baseline justify-between gap-3 px-4 py-2 bg-slate-100 dark:bg-slate-800
+                   border-y border-slate-200 dark:border-slate-700">
+        <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-white">
+            Unique table
+        </span>
+        <span class="text-[11px] font-semibold tabular-nums text-amber-600 dark:text-amber-400">
+            @Drops.Count received
+        </span>
     </header>
 
     @if (Drops.Count == 0)
@@ -34,7 +39,7 @@
     {
         @* A tally before the list: four items, and which of them the clan has actually seen is a
            faster read than counting down the entries. *@
-        <div class="flex flex-wrap gap-x-4 gap-y-1 px-4 py-2 border-b border-slate-200 dark:border-slate-800">
+        <div class="flex flex-wrap gap-x-5 gap-y-1 px-4 py-2 border-b border-slate-200/60 dark:border-slate-800">
             @foreach (var item in SuperiorSlayerMonsters.UniqueTable)
             {
                 var count = Drops.Count(d => string.Equals(d.ItemName, item, StringComparison.OrdinalIgnoreCase));
@@ -48,30 +53,35 @@
 
         @* Capped height rather than the full list: two dozen today, but nothing stops this growing,
            and the table beside it must stay the page's main subject. *@
-        <ul class="max-h-[38rem] overflow-y-auto themed-scrollbar divide-y divide-slate-200/70 dark:divide-slate-800">
+        @* No height cap: the receipts are the point of the page, and a scrollbar inside a column
+           that is already as tall as the table beside it only hides them. *@
+        <ul class="divide-y divide-slate-200/60 dark:divide-slate-800">
             @foreach (var drop in Drops)
             {
+                @* Laid out in columns rather than stacked: this segment is as wide as the chart
+                   column it replaced, so the item, who got it, what it came off and when all fit on
+                   one line and line up down the list. *@
                 <li class="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors">
                     <img src="/api/images/item-icon?name=@Uri.EscapeDataString(drop.ItemName)" alt=""
-                         class="w-7 h-7 object-contain shrink-0" loading="lazy" onerror="this.style.visibility='hidden'" />
+                         class="w-6 h-6 object-contain shrink-0" loading="lazy" onerror="this.style.visibility='hidden'" />
 
-                    <div class="min-w-0 flex-1">
-                        <div class="flex items-baseline gap-2">
-                            <span class="text-[13px] font-medium truncate @NameClasses(drop)">@drop.ItemName</span>
-                            <span class="text-[11px] text-slate-500 dark:text-white shrink-0">@drop.CharacterName</span>
-                        </div>
-                        <div class="text-[11px] text-slate-500 dark:text-white truncate">
-                            @drop.SourceName
-                            @if (drop.KillOrdinal > 0)
-                            {
-                                @* Their Nth of that superior, which is the figure that says whether
-                                   this was a quick one or a long wait. *@
-                                <span class="tabular-nums text-amber-600 dark:text-amber-400">#@drop.KillOrdinal.ToString("N0")</span>
-                            }
-                        </div>
-                    </div>
+                    @* Sized to the longest real value and no wider: at 1,280 the table is 880px and
+                       the rest of the line has to fit in what is left, or the pair pushes the page
+                       into a horizontal scroll. *@
+                    <span class="w-32 shrink-0 text-[13px] font-medium truncate @NameClasses(drop)">@drop.ItemName</span>
+                    <span class="w-24 shrink-0 text-[12px] truncate text-slate-700 dark:text-slate-200">@drop.CharacterName</span>
 
-                    <span class="text-[11px] tabular-nums text-slate-400 dark:text-white shrink-0">
+                    <span class="flex-1 min-w-0 text-[12px] text-slate-500 dark:text-white truncate">
+                        @drop.SourceName
+                        @if (drop.KillOrdinal > 0)
+                        {
+                            @* Their Nth of that superior, which is the figure that says whether this
+                               was a quick one or a long wait. *@
+                            <span class="ml-1 tabular-nums text-amber-600 dark:text-amber-400">#@drop.KillOrdinal.ToString("N0")</span>
+                        }
+                    </span>
+
+                    <span class="w-16 shrink-0 text-right text-[11px] tabular-nums text-slate-400 dark:text-white">
                         @drop.OccurredAt.ToLocalTime().ToString("d MMM yy")
                     </span>
                 </li>

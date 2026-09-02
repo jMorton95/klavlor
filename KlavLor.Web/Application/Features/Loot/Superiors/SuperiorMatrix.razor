@@ -28,15 +28,17 @@
    User policy while this page is anonymous, so a link would 401-redirect a signed-out visitor. *@
 
 <div class="overflow-x-auto themed-scrollbar">
-    <table class="w-full table-fixed border-collapse text-sm" style="min-width:@MinWidth">
+    @* NOT w-full. Every column is a fixed width and the table is the sum of them, because the
+       segment beside it takes the remainder. When the table stretched, the last column absorbed
+       everything the sparkline column used to hold and Clan turned into a quarter of the page. *@
+    <table class="table-fixed border-collapse text-sm" style="width:@TableWidth; min-width:@TableWidth">
         <colgroup>
             <col style="width:16rem" />
             @foreach (var _ in Comparison.Characters)
             {
                 <col style="width:8.5rem" />
             }
-            @* No width: table-fixed hands this column everything left over. *@
-            <col />
+            <col style="width:5rem" />
         </colgroup>
         <thead>
             @* NOT sticky, and it cannot be. The overflow-x wrapper above is a scroll container, so
@@ -244,10 +246,10 @@
             .Select(g => $"{g.Count()}x {g.Key}"))
       + $" from {character.TotalKills:N0} superiors";
 
-    /// The named columns plus a floor for the bar, below which the table scrolls inside its wrapper
-    /// rather than squeezing the counts. The bar is the column that gives, because it is the only
-    /// one whose meaning survives being narrower.
-    private string MinWidth => $"{24 + Comparison.Characters.Count * 8.5:0.##}rem";
+    /// The table is exactly the sum of its columns - 16rem of name, 8.5rem per character, 5rem of
+    /// Clan - so it claims the width it needs and not a pixel more. Everything left over belongs to
+    /// the receipts segment beside it.
+    private string TableWidth => $"{21 + Comparison.Characters.Count * 8.5:0.##}rem";
 
     /// Shared by every header cell.
     private const string HeadCell = "bg-slate-100 dark:bg-slate-800 px-3 py-2";
