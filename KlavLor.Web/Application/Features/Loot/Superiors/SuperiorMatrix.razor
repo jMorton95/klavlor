@@ -2,28 +2,24 @@
 
 @* The comparison itself: one row per superior anyone has killed, one column per character.
 
-   TWO BLOCKS SIDE BY SIDE, NOT ONE WIDE TABLE. A roster of four needs about 1,100px; a desktop
-   offers nearly 1,900. The old layout pinned every column to the width it needed and dumped the
-   ~550px of surplus into an empty trailing spacer, which meant a third of the page was blank while
-   the table itself ran to two full screens of scrolling. Splitting the rows in half spends the
-   width on the height instead: both halves fill the page edge to edge, and the whole thing fits in
-   roughly one screen. There is no spacer column left anywhere.
+   ONE TABLE, FULL WIDTH, PERCENTAGE COLUMNS. It has been two other things and both were worse. It
+   was fixed-width columns with the surplus dumped into an empty trailing SPACER column, which left
+   a third of the page blank. It was then two half-width blocks side by side, which filled the page
+   by cutting the table in half — and a comparison you have to read in two places is not one.
+   Percentages give the whole width to the real columns: the table meets both edges, nothing is
+   blank, and it is still one table read straight down.
 
-   Only when it FITS, decided in two places. ShouldSplit is the server's half: past a handful of
-   characters no half-page holds the columns, so the rows are not split at all. The grid's auto-fit
-   is the browser's half: it drops to a single column whenever two blocks would not both clear
-   their min-width. A media query would have had to guess a breakpoint per character count; this
-   asks the real question instead, so the layout is right at four characters and at five.
+   The surplus goes to the CHARACTER columns rather than to the monster name. Handing it to the name
+   parks it most of a screen from the first count, which is the one arrangement that makes a wide
+   table genuinely hard to read; spreading it across the counts keeps every number under its own
+   heading.
 
-   WIDTHS ARE PERCENTAGES, NOT FIXED. Fixed widths are what created the surplus in the first place.
-   Percentages let a block fill whatever it is given, so the table meets both edges at any size, and
-   table-fixed keeps the columns even rather than letting the longest monster name set the layout.
-   A min-width on each table is the floor: below it the block scrolls inside its own wrapper rather
-   than crushing the counts.
+   table-fixed so the longest monster name cannot set the layout, and a min-width so a narrow window
+   scrolls the table inside its own wrapper rather than crushing the counts — the page body must
+   never scroll horizontally (CLAUDE.md).
 
-   TOTALS LIVE IN THE HEADER, and there is no footer. The old footer repeated the per-character
-   totals the header already carried, which cost a row of height to say the same thing twice - and
-   with two blocks it would have said it four times.
+   TOTALS LIVE IN THE HEADER, and there is no footer: the old one repeated the per-character totals
+   the header already carried, costing a row of height to say the same thing twice.
 
    HIGHEST SLAYER LEVEL FIRST, and only superiors someone has actually killed. The high-level ones
    roll the shared unique table many times more often, so they are the rows worth reading; the
@@ -33,23 +29,141 @@
    User policy while this page is anonymous, so a link would 401-redirect a signed-out visitor —
    the exact mismatch CLAUDE.md warns about between a page and the surface it links to. *@
 
-@if (ShouldSplit)
-{
-    @* auto-fit against the blocks' own floor, rather than a guessed breakpoint. A media query has
-       to assume a character count to pick a width at; this asks the real question — is there room
-       for two blocks at the width they actually need — so the split appears and disappears at the
-       right size for four characters or for five, and a block is never handed less than its
-       min-width and forced to scroll inside itself. *@
-    <div class="grid gap-x-6 gap-y-3"
-         style="grid-template-columns: repeat(auto-fit, minmax(@MinWidth, 1fr))">
-        @Block(Comparison.Rows.Take(Half).ToList())
-        @Block(Comparison.Rows.Skip(Half).ToList())
-    </div>
-}
-else
-{
-    @Block(Comparison.Rows)
-}
+<div class="overflow-x-auto themed-scrollbar">
+    <table class="w-full table-fixed border-collapse text-sm" style="min-width:@MinWidth">
+        <colgroup>
+            <col style="width:22%" />
+            @foreach (var _ in Comparison.Characters)
+            {
+                <col style="width:@(CharacterWidth.ToString("0.##"))%" />
+            }
+            <col style="width:10%" />
+        </colgroup>
+        <thead>
+            @* NOT sticky, and it cannot be. The overflow-x wrapper above is a scroll container, so
+               it — not the viewport — is what a sticky header inside it resolves against: `top-16`
+               offset the header 64px DOWN from the table's own top instead of pinning it to the
+               page, leaving a blank band above it at scroll zero. Making it stick to the page would
+               mean dropping the wrapper, and the wrapper is what stops a wide roster scrolling the
+               whole body. *@
+            @* Every header sorts. The link carries the whole sort in the query string and pushes it,
+               so a sorted view is linkable, survives a refresh and steps back through Back. Clicking
+               the column you are already sorted by flips the direction. *@
+            <tr>
+                <th class="@HeadCell text-left border-y border-slate-200 dark:border-slate-700">
+                    <a hx-get="@SortUrl(null).FromApi()" hx-target="#hx-page-container"
+                       hx-push-url="@SortUrl(null)" hx-swap="innerHTML transition:true"
+                       href="@SortUrl(null)"
+                       title="Sort by Slayer level, hardest first"
+                       class="inline-flex items-center gap-1 cursor-pointer text-[11px] font-semibold uppercase tracking-wide @(Sort.IsByLevel ? "text-amber-600 dark:text-amber-400" : "text-slate-500 dark:text-white hover:text-amber-600 dark:hover:text-amber-400") transition-colors">
+                        Superior @SortMark(Sort.IsByLevel)
+                    </a>
+                </th>
+                @foreach (var character in Comparison.Characters)
+                {
+                    <th class="@HeadCell text-center border-y border-slate-200 dark:border-slate-700">
+                        <a hx-get="@SortUrl(character.GameCharacterId).FromApi()" hx-target="#hx-page-container"
+                           hx-push-url="@SortUrl(character.GameCharacterId)" hx-swap="innerHTML transition:true"
+                           href="@SortUrl(character.GameCharacterId)"
+                           class="block cursor-pointer group">
+                            <div class="text-xs font-semibold truncate transition-colors @(Sort.IsBy(character.GameCharacterId) ? "text-amber-600 dark:text-amber-400" : "text-slate-800 dark:text-slate-100 group-hover:text-amber-600 dark:group-hover:text-amber-400")">
+                                @character.CharacterName @SortMark(Sort.IsBy(character.GameCharacterId))
+                            </div>
+                            @* The column's own total, which is why there is no footer. *@
+                            <div class="text-[10px] font-normal tabular-nums text-slate-500 dark:text-white">@character.TotalKills.ToString("N0") kills</div>
+                            @* WHAT THOSE KILLS ARE WORTH. Every superior rolls the same table at a
+                               different rate, so two players a thousand kills apart can be much
+                               closer than that on the prize, or much further. *@
+                            @if (character.ExpectedUniques > 0)
+                            {
+                                <div class="text-[10px] font-medium tabular-nums text-amber-600 dark:text-amber-400"
+                                     title="@RollsTitle(character)">
+                                    @character.ExpectedUniques.ToString("N1") rolls
+                                </div>
+                            }
+                            @* Whether they are still doing slayer. A big total says nothing about
+                               whether it was earned last week or three years ago. *@
+                            @if (character.LastKilled is { } last)
+                            {
+                                <div class="text-[10px] font-normal @RecencyClasses(last)" title="Last superior: @last.ToLocalTime().ToString("d MMM yyyy")">
+                                    @Ago(last)
+                                </div>
+                            }
+                        </a>
+                    </th>
+                }
+                @* The roster's own total per monster. Without it nothing totals a ROW, and "how much
+                   has the clan killed of this one" was a question the table held every number for
+                   and could not answer. *@
+                <th class="@HeadCell text-center border-y border-slate-200 dark:border-slate-700">
+                    <div class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-white">Clan</div>
+                    <div class="text-[10px] font-normal tabular-nums text-slate-500 dark:text-white">@Comparison.Rows.Sum(r => r.TotalKills).ToString("N0") kills</div>
+                    <div class="text-[10px] font-medium tabular-nums text-amber-600 dark:text-amber-400"
+                         title="Unique-table rolls the whole roster's superior kills are worth">
+                        @Comparison.Characters.Sum(c => c.ExpectedUniques).ToString("N1") rolls
+                    </div>
+                </th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var row in Comparison.Rows)
+            {
+                <tr class="border-b border-slate-200/60 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors">
+                    <td class="px-4 py-1.5">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                            <img src="/api/images/source-icon?name=@Uri.EscapeDataString(row.Name)" alt=""
+                                 class="w-6 h-6 object-contain shrink-0" loading="lazy" onerror="this.style.visibility='hidden'" />
+                            <div class="min-w-0">
+                                <div class="text-[13px] font-medium text-slate-800 dark:text-slate-100 truncate">@row.Name</div>
+                                @* Just the name. How many of the base monster have been killed is a
+                                   per-player figure and lives in each player's own cell — a single
+                                   roster total here could not say whose grind it was. *@
+                                <div class="text-[11px] text-slate-500 dark:text-white truncate">
+                                    from @string.Join(" / ", row.BaseMonsters)
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+
+                    @foreach (var character in Comparison.Characters)
+                    {
+                        var cell = row.CellFor(character.GameCharacterId);
+                        var baseKills = row.BaseKillsFor(character.GameCharacterId);
+                        @* Every count reads the same. Highlighting the row leader turned a set of
+                           facts into a scoreboard, which is not what this page is for — the numbers
+                           are already side by side, so whoever is ahead is plain to see. *@
+                        <td class="px-4 py-1.5 text-center tabular-nums text-[13px] font-medium text-slate-700 dark:text-slate-200"
+                            title="@CellTitle(row, character, cell, baseKills)">
+                            @* A zero and a never-killed are the same fact here, and a wall of zeros
+                               buries the counts that matter — so both render as a dash. *@
+                            @if (cell is null || cell.Kills == 0)
+                            {
+                                <span class="text-slate-300 dark:text-slate-700">–</span>
+                            }
+                            else
+                            {
+                                @cell.Kills.ToString("N0")
+                            }
+
+                            @* THIS player's kills of the base monster — the grind their superior
+                               count sits on top of. "from N", not "of N": 68 superiors turned up
+                               over the course of 12,920 Hydra, which "of" made read as a fraction
+                               of a total. Omitted, never zeroed, when we hold nothing for them. *@
+                            @if (baseKills > 0)
+                            {
+                                <div class="text-[10px] font-normal text-slate-400 dark:text-white">from @baseKills.ToString("N0")</div>
+                            }
+                        </td>
+                    }
+
+                    <td class="px-4 py-1.5 text-center tabular-nums text-[13px] font-medium text-slate-600 dark:text-slate-300">
+                        @row.TotalKills.ToString("N0")
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
 
 @code {
     [Parameter] public SuperiorComparison Comparison { get; set; } = SuperiorComparison.Empty;
@@ -58,168 +172,18 @@ else
     /// with them — an unknown character id falls back to Slayer level inside the handler.
     private SuperiorSort Sort => Comparison.Ordering;
 
-    /// <summary>
-    /// Half a page has to hold every column twice. Past a handful of characters it cannot, and the
-    /// split would trade a blank third of the page for two tables that both scroll sideways — so
-    /// above that the single wide table is the better of the two bad options.
-    /// </summary>
-    private bool ShouldSplit => Comparison.Characters.Count <= 5 && Comparison.Rows.Count >= 12;
-
-    /// Rounded up, so the left block is the longer one when the count is odd — reading order runs
-    /// down the left and then down the right, and a short left column looks like a mistake.
-    private int Half => (Comparison.Rows.Count + 1) / 2;
-
-    /// Superior takes a third, Clan a little less than the rest, and the characters share what is
-    /// left. Expressed as percentages so a block fills its grid cell exactly, whatever that is.
+    /// Superior takes 22% and Clan 10%; the characters share the remaining 68%. The surplus on a
+    /// wide screen lands here rather than on the name, which is what keeps each number under its
+    /// own heading instead of stranded a long way from it.
     private double CharacterWidth =>
-        Comparison.Characters.Count == 0 ? 52 : 52.0 / Comparison.Characters.Count;
+        Comparison.Characters.Count == 0 ? 68 : 68.0 / Comparison.Characters.Count;
 
-    /// The floor before a block scrolls rather than squeezing, and — through the grid's auto-fit —
-    /// what decides whether there is room for two blocks at all. Sized so a character column still
-    /// holds "from 12,920" at the narrowest it is allowed to get.
+    /// The floor before the table scrolls inside its wrapper rather than squeezing the counts.
     private string MinWidth => $"{16 + Comparison.Characters.Count * 5.5:0.##}rem";
 
     /// Shared by every header cell.
-    private const string HeadCell = "bg-slate-100 dark:bg-slate-800 px-3 py-2";
-}
+    private const string HeadCell = "bg-slate-100 dark:bg-slate-800 px-4 py-2";
 
-@* One table. Rendered twice when split, so everything about a block — its header, its totals, its
-   widths — is defined once and cannot drift between the halves. *@
-@{
-    RenderFragment Block(IReadOnlyList<SuperiorMonsterRow> rows) =>
-    @<div class="overflow-x-auto themed-scrollbar">
-        <table class="w-full table-fixed border-collapse text-sm" style="min-width:@MinWidth">
-            <colgroup>
-                <col style="width:36%" />
-                @foreach (var _ in Comparison.Characters)
-                {
-                    <col style="width:@(CharacterWidth.ToString("0.##"))%" />
-                }
-                <col style="width:12%" />
-            </colgroup>
-            <thead>
-                @* NOT sticky, and it cannot be. The overflow-x wrapper above is a scroll container,
-                   so it — not the viewport — is what a sticky header inside it resolves against:
-                   `top-16` offset the header 64px DOWN from the table's own top instead of pinning
-                   it, leaving a blank band at scroll zero. Splitting the table halved its height,
-                   which is the better answer to the same problem. *@
-                <tr>
-                    @* Sorts by Slayer level, which is the resting order. *@
-                    <th class="@HeadCell text-left border-y border-slate-200 dark:border-slate-700">
-                        <a hx-get="@SortUrl(null).FromApi()" hx-target="#hx-page-container"
-                           hx-push-url="@SortUrl(null)" hx-swap="innerHTML transition:true"
-                           href="@SortUrl(null)"
-                           title="Sort by Slayer level, hardest first"
-                           class="inline-flex items-center gap-1 cursor-pointer text-[11px] font-semibold uppercase tracking-wide @(Sort.IsByLevel ? "text-amber-600 dark:text-amber-400" : "text-slate-500 dark:text-white hover:text-amber-600 dark:hover:text-amber-400") transition-colors">
-                            Superior @SortMark(Sort.IsByLevel)
-                        </a>
-                    </th>
-                    @foreach (var character in Comparison.Characters)
-                    {
-                        <th class="@HeadCell text-center border-y border-slate-200 dark:border-slate-700">
-                            <a hx-get="@SortUrl(character.GameCharacterId).FromApi()" hx-target="#hx-page-container"
-                               hx-push-url="@SortUrl(character.GameCharacterId)" hx-swap="innerHTML transition:true"
-                               href="@SortUrl(character.GameCharacterId)"
-                               class="block cursor-pointer group">
-                                <div class="text-xs font-semibold truncate transition-colors @(Sort.IsBy(character.GameCharacterId) ? "text-amber-600 dark:text-amber-400" : "text-slate-800 dark:text-slate-100 group-hover:text-amber-600 dark:group-hover:text-amber-400")">
-                                    @character.CharacterName @SortMark(Sort.IsBy(character.GameCharacterId))
-                                </div>
-                                @* The column's own total, which is why there is no footer. *@
-                                <div class="text-[10px] font-normal tabular-nums text-slate-500 dark:text-white">@character.TotalKills.ToString("N0") kills</div>
-                                @* WHAT THOSE KILLS ARE WORTH. Every superior rolls the same table at
-                                   a different rate, so two players a thousand kills apart can be
-                                   much closer than that on the prize, or much further. *@
-                                @if (character.ExpectedUniques > 0)
-                                {
-                                    <div class="text-[10px] font-medium tabular-nums text-amber-600 dark:text-amber-400"
-                                         title="@RollsTitle(character)">
-                                        @character.ExpectedUniques.ToString("N1") rolls
-                                    </div>
-                                }
-                                @if (character.LastKilled is { } last)
-                                {
-                                    <div class="text-[10px] font-normal @RecencyClasses(last)" title="Last superior: @last.ToLocalTime().ToString("d MMM yyyy")">
-                                        @Ago(last)
-                                    </div>
-                                }
-                            </a>
-                        </th>
-                    }
-                    @* The roster's own total per monster. Without it nothing totals a ROW, and "how
-                       much has the clan killed of this one" was a question the table held every
-                       number for and could not answer. *@
-                    <th class="@HeadCell text-center border-y border-slate-200 dark:border-slate-700">
-                        <div class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-white">Clan</div>
-                        <div class="text-[10px] font-normal tabular-nums text-slate-500 dark:text-white">@Comparison.Rows.Sum(r => r.TotalKills).ToString("N0") kills</div>
-                        <div class="text-[10px] font-medium tabular-nums text-amber-600 dark:text-amber-400"
-                             title="Unique-table rolls the whole roster's superior kills are worth">
-                            @Comparison.Characters.Sum(c => c.ExpectedUniques).ToString("N1") rolls
-                        </div>
-                    </th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var row in rows)
-                {
-                    <tr class="border-b border-slate-200/60 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors">
-                        <td class="px-3 py-1.5">
-                            <div class="flex items-center gap-2.5 min-w-0">
-                                <img src="/api/images/source-icon?name=@Uri.EscapeDataString(row.Name)" alt=""
-                                     class="w-6 h-6 object-contain shrink-0" loading="lazy" onerror="this.style.visibility='hidden'" />
-                                <div class="min-w-0">
-                                    <div class="text-[13px] font-medium text-slate-800 dark:text-slate-100 truncate">@row.Name</div>
-                                    @* Just the name. How many of the base monster have been killed
-                                       is a per-player figure and lives in each player's own cell —
-                                       a single roster total here could not say whose grind it was. *@
-                                    <div class="text-[11px] text-slate-500 dark:text-white truncate">
-                                        from @string.Join(" / ", row.BaseMonsters)
-                                    </div>
-                                </div>
-                            </div>
-                        </td>
-
-                        @foreach (var character in Comparison.Characters)
-                        {
-                            var cell = row.CellFor(character.GameCharacterId);
-                            var baseKills = row.BaseKillsFor(character.GameCharacterId);
-                            @* Every count reads the same. Highlighting the row leader turned a set
-                               of facts into a scoreboard, which is not what this page is for. *@
-                            <td class="px-2 py-1.5 text-center tabular-nums text-[13px] font-medium text-slate-700 dark:text-slate-200"
-                                title="@CellTitle(row, character, cell, baseKills)">
-                                @* A zero and a never-killed are the same fact here, and a wall of
-                                   zeros buries the counts that matter — so both render as a dash. *@
-                                @if (cell is null || cell.Kills == 0)
-                                {
-                                    <span class="text-slate-300 dark:text-slate-700">–</span>
-                                }
-                                else
-                                {
-                                    @cell.Kills.ToString("N0")
-                                }
-
-                                @* THIS player's kills of the base monster — the grind their superior
-                                   count sits on top of. "from N", not "of N": 68 superiors turned up
-                                   over the course of 12,920 Hydra, which "of" made read as a
-                                   fraction of a total. Omitted, never zeroed, when we hold nothing
-                                   for them there. *@
-                                @if (baseKills > 0)
-                                {
-                                    <div class="text-[10px] font-normal text-slate-400 dark:text-white">from @baseKills.ToString("N0")</div>
-                                }
-                            </td>
-                        }
-
-                        <td class="px-2 py-1.5 text-center tabular-nums text-[13px] font-medium text-slate-600 dark:text-slate-300">
-                            @row.TotalKills.ToString("N0")
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    </div>;
-}
-
-@code {
     /// Clicking the active column flips direction; clicking any other switches to it, descending —
     /// "most first" is what you want from a fresh column, every time.
     private string SortUrl(int? characterId)
@@ -269,7 +233,9 @@ else
       + $"{Math.Round(character.KillsPerUnique):N0} kills. Expected, not received.";
 
     // First and last killed live in the tooltip rather than in columns of their own: the grid is
-    // already one column per character, and two dates per cell would make it unreadable.
+    // already one column per character, and two dates per cell would make it unreadable. The Slayer
+    // level and the monster's own rate are here too — they had a column briefly and it was not
+    // worth the width.
     private static string CellTitle(
         SuperiorMonsterRow row, SuperiorCharacterColumn character, SuperiorCell? cell, long baseKills)
     {

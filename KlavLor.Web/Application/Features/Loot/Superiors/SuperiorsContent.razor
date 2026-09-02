@@ -14,8 +14,8 @@
 @* TRULY full bleed. "Full bleed" used to mean only that no max-width container was added — the
    app-wide 16px page gutter on #hx-page-container still held the table off both edges, which on a
    page that is one wide table read as a mistake rather than as breathing room. The negative margin
-   cancels that gutter for this page alone; every other page keeps it. The blocks below carry their
-   own inner padding, so text still never sits flush against the glass. *@
+   cancels that gutter for this page alone; every other page keeps it. The table's own cell
+   padding means text still never sits flush against the glass. *@
 <div class="space-y-3 pb-32 -mx-4">
 
     @if (Comparison.Rows.Count == 0)

@@ -393,29 +393,28 @@ The columns are Superior, one per character, Clan. **Clan totals each row**, whi
 per-character totals could not: "how much has the clan killed of this one" was a question the table
 held every number for and could not answer.
 
-**THE ROWS ARE SPLIT INTO TWO BLOCKS SIDE BY SIDE, and that is the whole layout.** A roster of four
-needs about 1,100px and a desktop offers nearly 1,900. The page used to pin every column to the
-width it needed and dump the ~550px of surplus into an **empty trailing spacer column** — so a
-third of the width sat blank while the table ran to two full screens of scrolling. Splitting the
-rows spends the width on the height instead: 2.01 screens to 1.11 at 1920, and both halves meet
-both edges. There is no spacer column left, and no `tfoot`: the footer repeated the per-character
-totals the header already carried, which with two blocks would have said the same thing four times.
+**ONE TABLE, FULL WIDTH, PERCENTAGE COLUMNS.** The layout has been two other things and both were
+worse, so neither is worth trying again:
 
-Widths are **percentages, not fixed** — fixed widths are what created the surplus. A block fills
-whatever it is given, and `table-fixed` stops the longest monster name setting the layout.
+- **Fixed columns plus an empty trailing spacer.** A roster of four needs about 1,100px and a
+  desktop offers nearly 1,900, so a third of the page sat blank while the table ran to two screens.
+- **Two half-width blocks side by side.** It filled the width and halved the height, but it filled
+  it by cutting the table in half — and a comparison you have to read in two places is not one.
 
-The split is decided in two places, and needs both. `ShouldSplit` is the server's half: past a
-handful of characters no half-page holds the columns, so the rows are not split at all. The grid's
-`repeat(auto-fit, minmax(MinWidth, 1fr))` is the browser's half, dropping to one column whenever
-two blocks would not both clear their floor. A media query would have had to guess a breakpoint per
-character count; auto-fit asks the real question, so the layout is right at four characters and at
-five. `MinWidth` therefore does double duty: the table's own floor before it scrolls, and the grid's
-test for whether there is room for two.
+Percentages give the whole width to the real columns: the table meets both edges, nothing is blank,
+and it is still one table read straight down. The surplus goes to the CHARACTER columns rather than
+the monster name — handing it to the name parks it most of a screen from the first count, which is
+the one arrangement that makes a wide table genuinely hard to read. `table-fixed` stops the longest
+name setting the layout, and `MinWidth` is the floor below which the table scrolls inside its own
+wrapper rather than crushing the counts.
+
+There is no spacer column and no `tfoot`: the footer repeated the per-character totals the header
+already carried, costing a row of height to say the same thing twice.
 
 **Full bleed means cancelling the app gutter, not just declining a max-width.** `#hx-page-container`
 carries `p-4`, so "no container" still left the table 16px off both edges, which on a page that is
 one wide table reads as a mistake. `SuperiorsContent` has `-mx-4` to negate it for this page alone;
-the blocks carry their own inner padding, so nothing sits flush against the glass. The `overflow-x`
+the table's own cell padding keeps text off the glass. The `overflow-x`
 wrapper is a backstop for a very large roster only, because the page body must never scroll
 horizontally.
 
@@ -425,9 +424,7 @@ sticky header inside it resolves against the wrapper rather than the viewport �
 Making it stick to the page would mean dropping the wrapper.
 
 **Every header sorts, and the sort lives in the query string** (`?characterId=42&asc=true`), so a
-sorted view is linkable, survives a refresh and steps back through Back. Sorting is applied
-**before** the rows are split, so a sorted view reads down the left block and then down the right;
-both blocks' headers carry the same links and the same arrow. It is applied **in memory,
+sorted view is linkable, survives a refresh and steps back through Back. It is applied **in memory,
 after the cache** — every ordering shares one cached read, and because the sort key is a character id
 rather than a column name there is no query to interpolate it into, which sidesteps the sort-column
 whitelist problem the SQL-backed tables have. An unknown character id **falls back** to the default
