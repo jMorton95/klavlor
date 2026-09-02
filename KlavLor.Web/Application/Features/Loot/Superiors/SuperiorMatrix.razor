@@ -116,38 +116,23 @@
                                 <div class="text-[10px] font-medium tabular-nums text-amber-600 dark:text-amber-400"
                                      title="@UniquesTitle(character)">
                                     @character.UniquesReceived.Count @(character.UniquesReceived.Count == 1 ? "unique" : "uniques")
-                                    <span class="font-normal text-slate-400 dark:text-white">· 1 per @Math.Round(character.KillsPerUnique).ToString("N0")</span>
                                 </div>
                             }
                             else
                             {
                                 <div class="text-[10px] font-normal text-slate-400 dark:text-white">no uniques yet</div>
                             }
-                            @* Whether they are still doing slayer. A big total says nothing about
-                               whether it was earned last week or three years ago. *@
-                            @if (character.LastKilled is { } last)
-                            {
-                                <div class="text-[10px] font-normal @RecencyClasses(last)" title="Last superior: @last.ToLocalTime().ToString("d MMM yyyy")">
-                                    @Ago(last)
-                                </div>
-                            }
                         </a>
                     </th>
                 }
                 @* Clan total per monster, drawn. Without it nothing totals a ROW. *@
                 <th class="@HeadCell text-left border-y border-slate-200 dark:border-slate-700">
+                    @* No axis label: each row now spans its OWN dates, so a single range here would
+                       be wrong for 37 of the 38 rows. The row's real span is in its hover card. *@
                     <div class="flex items-baseline justify-between gap-2">
-                        <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-white"
-                              title="Kills per week over the last @SuperiorSlayerHandler.ActivityWeeks weeks, each row scaled to its own busiest week">
+                        <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-white">
                             Weekly activity
                         </span>
-                        @* The axis, stated once. Without it the sparklines are shapes with no span. *@
-                        @if (Comparison.WeekStarts.Count > 0)
-                        {
-                            <span class="text-[10px] font-normal tabular-nums text-slate-400 dark:text-white">
-                                @Comparison.WeekStarts[0].ToLocalTime().ToString("MMM yy") &ndash; now
-                            </span>
-                        }
                         <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-white shrink-0">Clan</span>
                     </div>
                 </th>
@@ -157,7 +142,7 @@
             @foreach (var row in Comparison.Rows)
             {
                 <tr class="border-b border-slate-200/60 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors">
-                    <td class="px-4 py-1">
+                    <td class="px-4 py-2.5">
                         <div class="flex items-center gap-2.5 min-w-0">
                             <img src="/api/images/source-icon?name=@Uri.EscapeDataString(row.Name)" alt=""
                                  class="w-6 h-6 object-contain shrink-0" loading="lazy" onerror="this.style.visibility='hidden'" />
@@ -179,7 +164,7 @@
                         var baseKills = row.BaseKillsFor(character.GameCharacterId);
                         @* Every count reads the same. Highlighting the row leader turned a set of
                            facts into a scoreboard, which is not what this page is for. *@
-                        <td class="px-2 py-1 text-center tabular-nums text-[13px] text-slate-700 dark:text-slate-200"
+                        <td class="px-2 py-2.5 text-center tabular-nums text-[13px] text-slate-700 dark:text-slate-200"
                             title="@CellTitle(row, character, cell, baseKills)">
                             @* A zero and a never-killed are the same fact here, and a wall of zeros
                                buries the counts that matter — so both render as a dash. *@
@@ -208,7 +193,7 @@
                        buckets across a column this wide makes each bar ~38px, which reads as a
                        blocky comb and not as a trend. One SVG per row also keeps the DOM to 38
                        elements where a bar per week would be a thousand. *@
-                    <td class="px-4 py-1">
+                    <td class="px-4 py-2.5">
                         @* THE ROW'S FULL STORY, pre-rendered and hidden. site.js lifts it into a
                            fixed-position panel on hover.
 
@@ -284,9 +269,8 @@
                             }
                         </div>
                         <div class="superior-chart relative flex items-center gap-3">
-                            <svg class="flex-1 h-6 text-amber-500/90 dark:text-amber-400/90"
+                            <svg class="flex-1 h-9 text-amber-500/90 dark:text-amber-400/90"
                                  viewBox="0 0 100 20" preserveAspectRatio="none" aria-hidden="true">
-                                <title>@SparkTitle(row)</title>
                                 @* The baseline, so a row with a long quiet stretch still shows an
                                    axis rather than nothing at all. *@
                                 <line x1="0" y1="19.5" x2="100" y2="19.5"
@@ -310,10 +294,9 @@
                                 @for (var i = 0; i < row.Weeks.Count; i++)
                                 {
                                     if (row.Weeks[i] == 0) { continue; }
-                                    <span class="pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full
+                                    <span class="absolute -translate-x-1/2 -translate-y-1/2 w-1 h-1 rounded-full
                                                  bg-amber-500 dark:bg-amber-300"
-                                          style="left:@WeekLeft(i).ToString("0.##")%; top:@WeekTop(row, i).ToString("0.##")%"
-                                          title="@WeekTitle(row, i)"></span>
+                                          style="left:@WeekLeft(row, i).ToString("0.##")%; top:@WeekTop(row, i).ToString("0.##")%"></span>
                                 }
                             </div>
                             @if (row.Uniques.Count > 0)
@@ -321,10 +304,9 @@
                                 <div class="pointer-events-none absolute inset-0">
                                     @foreach (var drop in row.Uniques)
                                     {
-                                        <span class="pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 flex items-center justify-center
+                                        <span class="absolute -translate-x-1/2 -translate-y-1/2 flex items-center justify-center
                                                      w-3 h-3 rounded-full ring-2 ring-white dark:ring-slate-950 @UniqueClasses(drop)"
-                                              style="left:@UniqueLeft(drop).ToString("0.##")%; top:50%"
-                                              title="@UniqueTitle(drop)"></span>
+                                              style="left:@UniqueLeft(row, drop).ToString("0.##")%; top:50%"></span>
                                     }
                                 </div>
                             }
@@ -374,24 +356,28 @@
     private static string AreaPoints(SuperiorMonsterRow row) =>
         $"0,19.5 {LinePoints(row)} 100,19.5";
 
-    /// The clan-level line of the card's footer: how much of the window this task was live for.
-    private string ActiveSummary(SuperiorMonsterRow row)
+    /// The clan-level line of the card's footer. It now has to state the SPAN as well as the
+    /// activity, because the header no longer can: every row covers its own dates.
+    private static string ActiveSummary(SuperiorMonsterRow row)
     {
+        if (row.Weeks.Count == 0 || row.FirstWeek is not { } first) return "no tracked activity";
+
         var active = row.Weeks.Count(w => w > 0);
-        if (active == 0) return $"quiet for all {row.Weeks.Count} weeks";
+        var since = first.ToLocalTime().ToString("MMM yyyy");
 
         var peakAt = row.Weeks.Select((w, i) => (w, i)).Where(x => x.w == row.PeakWeek)
             .Select(x => x.i).DefaultIfEmpty(-1).First();
-        var when = peakAt >= 0 && peakAt < Comparison.WeekStarts.Count
-            ? $", busiest {Comparison.WeekStarts[peakAt].ToLocalTime():d MMM}"
+        var when = peakAt >= 0
+            ? $", busiest {first.AddDays(7 * peakAt).ToLocalTime():d MMM yy}"
             : string.Empty;
 
-        return $"active {active}/{row.Weeks.Count} weeks{when}";
+        return $"active {active}/{row.Weeks.Count} weeks since {since}{when}";
     }
 
-    /// A week's position across the shared axis, as a percentage.
-    private double WeekLeft(int index) =>
-        Comparison.WeekStarts.Count <= 1 ? 50 : 100.0 * index / (Comparison.WeekStarts.Count - 1);
+    /// A week's position along THIS ROW's own axis, as a percentage. Each row spans its own dates
+    /// now, so there is no shared axis to measure against.
+    private static double WeekLeft(SuperiorMonsterRow row, int index) =>
+        row.Weeks.Count <= 1 ? 50 : 100.0 * index / (row.Weeks.Count - 1);
 
     /// The same y the polyline uses, converted from the SVG's 0-20 space into a percentage of the
     /// overlay. The two have to agree exactly or the chips float off the line they belong to.
@@ -402,29 +388,18 @@
         return y / 20.0 * 100.0;
     }
 
-    private string WeekTitle(SuperiorMonsterRow row, int index)
+    /// Where a receipt sits on the row's own line. Measured in WEEKS from the row's first week
+    /// rather than in days from a shared origin, so a ball lands on the same x as the chip for the
+    /// week it happened in - a day-based fraction drifts off it by up to half a bucket.
+    ///
+    /// Clamped, because a receipt can predate the row's first ACTIVE week when the capped window
+    /// has cut the oldest weeks away.
+    private static double UniqueLeft(SuperiorMonsterRow row, SuperiorUniqueDrop drop)
     {
-        if (index >= Comparison.WeekStarts.Count) return string.Empty;
-        var week = Comparison.WeekStarts[index].ToLocalTime();
-        var kills = row.Weeks[index];
-        return $"Week of {week:d MMM yyyy}: {kills} {row.Name}{(kills == 1 ? "" : "s")}";
-    }
+        if (row.Weeks.Count <= 1 || row.FirstWeek is not { } first) return 50;
 
-    /// Where on the sparkline a receipt landed, as a percentage of the shared axis. Clamped, because
-    /// a unique from before the window still belongs on the row - pinned to the left edge - rather
-    /// than being dropped or drawn off-screen. There are 25 of these in total; losing one to a
-    /// window boundary would be losing a fortieth of the page's actual content.
-    private double UniqueLeft(SuperiorUniqueDrop drop)
-    {
-        var axis = Comparison.WeekStarts;
-        if (axis.Count == 0) return 0;
-        if (axis.Count == 1) return 50;
-
-        var span = (axis[^1] - axis[0]).TotalDays;
-        if (span <= 0) return 50;
-
-        var offset = (drop.OccurredAt - axis[0]).TotalDays;
-        return Math.Clamp(offset / span * 100, 0, 100);
+        var week = Math.Round((drop.OccurredAt - first).TotalDays / 7);
+        return Math.Clamp(100.0 * week / (row.Weeks.Count - 1), 0, 100);
     }
 
     /// The two rare ones are worth their own colour; the battlestaves are common enough that giving
@@ -434,9 +409,6 @@
             ? "bg-amber-400 dark:bg-amber-300"
             : "bg-sky-400/90 dark:bg-sky-300/90";
 
-    private static string UniqueTitle(SuperiorUniqueDrop drop) =>
-        $"{drop.ItemName} — {drop.CharacterName}, {drop.OccurredAt.ToLocalTime():d MMM yyyy}";
-
     /// Every receipt spelled out, because a count of 13 says nothing about whether it was thirteen
     /// battlestaves or two hearts.
     private static string UniquesTitle(SuperiorCharacterColumn character) =>
@@ -445,30 +417,7 @@
             .GroupBy(u => u.ItemName)
             .OrderBy(g => SuperiorSlayerMonsters.UniqueRank(g.Key))
             .Select(g => $"{g.Count()}x {g.Key}"))
-      + $" — one every {Math.Round(character.KillsPerUnique):N0} superiors, which is what happened "
-      + "rather than what should";
-
-    /// One summary per row rather than a tooltip per week: the weeks are drawn as a continuous area,
-    /// so there is nothing discrete to hover, and the useful reading is the shape plus its peak.
-    private string SparkTitle(SuperiorMonsterRow row)
-    {
-        if (row.Weeks.Count == 0) return string.Empty;
-
-        var active = row.Weeks.Count(w => w > 0);
-        var peakAt = row.Weeks.Select((w, i) => (w, i)).Where(x => x.w == row.PeakWeek)
-            .Select(x => x.i).DefaultIfEmpty(-1).First();
-        var when = peakAt >= 0 && peakAt < Comparison.WeekStarts.Count
-            ? $", busiest the week of {Comparison.WeekStarts[peakAt].ToLocalTime():d MMM yyyy} with {row.PeakWeek}"
-            : string.Empty;
-
-        var got = row.Uniques.Count > 0
-            ? " · " + string.Join(", ", row.Uniques.Select(u => $"{u.ItemName} ({u.CharacterName})"))
-            : string.Empty;
-
-        return active == 0
-            ? $"No {row.Name} in the last {row.Weeks.Count} weeks{got}"
-            : $"{row.Name}: active in {active} of the last {row.Weeks.Count} weeks{when}{got}";
-    }
+      + $" from {character.TotalKills:N0} superiors";
 
     /// The named columns plus a floor for the bar, below which the table scrolls inside its wrapper
     /// rather than squeezing the counts. The bar is the column that gives, because it is the only
@@ -488,28 +437,6 @@
         >= 1_000 => $"{value / 1_000d:0.#}k",
         _ => value.ToString("N0")
     };
-
-    /// Coarse buckets, not an exact age: the question is "are they still doing this", and a day
-    /// count invites reading precision into a figure that only matters at the scale of months.
-    private static string Ago(DateTimeOffset at)
-    {
-        var days = (DateTimeOffset.UtcNow - at).TotalDays;
-        return days switch
-        {
-            < 1 => "today",
-            < 2 => "yesterday",
-            < 30 => $"{(int)days}d ago",
-            < 365 => $"{(int)(days / 30)}mo ago",
-            _ => $"{(int)(days / 365)}y ago"
-        };
-    }
-
-    /// Emerald for active, plain for the rest. Only the positive state is coloured — tinting the
-    /// stale ones red would read as a fault when it is just someone who moved on to other content.
-    private static string RecencyClasses(DateTimeOffset at) =>
-        (DateTimeOffset.UtcNow - at).TotalDays < 30
-            ? "text-emerald-600 dark:text-emerald-400"
-            : "text-slate-400 dark:text-white";
 
     /// Clicking the active column flips direction; clicking any other switches to it, descending —
     /// "most first" is what you want from a fresh column, every time.

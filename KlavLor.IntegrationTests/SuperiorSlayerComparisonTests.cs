@@ -285,7 +285,7 @@ public sealed class SuperiorSlayerComparisonTests(PostgresFixture fx)
             [new("Coins", 995, 10, 1)]);
         await ctx.SaveChangesAsync();
 
-        var weeks = (await Repo(ctx).GetWeeklyActivity(["night beast"], 5000))
+        var weeks = (await Repo(ctx).GetWeeklyActivity(["night beast"]))
             .OrderBy(w => w.WeekStart)
             .ToList();
 
@@ -315,14 +315,14 @@ public sealed class SuperiorSlayerComparisonTests(PostgresFixture fx)
         Seed.AddKill(ctx, userId, charId, "Choke devil", T.AddDays(3), null, [new("Coins", 995, 10, 1)]);
         await ctx.SaveChangesAsync();
 
-        var weeks = await Repo(ctx).GetWeeklyActivity(["choke devil"], 5000);
+        var weeks = await Repo(ctx).GetWeeklyActivity(["choke devil"]);
 
         Assert.Single(weeks);
         Assert.Equal(1, weeks[0].Kills);
     }
 
     [Fact]
-    public async Task Weekly_activity_honours_the_window_and_visibility()
+    public async Task Weekly_activity_covers_all_of_history_and_honours_visibility()
     {
         await using var ctx = fx.CreateContext();
         var (userId, charId) = await Seed.UserAndCharacter(ctx, "sup-weeks-window");
@@ -338,11 +338,13 @@ public sealed class SuperiorSlayerComparisonTests(PostgresFixture fx)
             null, [new("Coins", 995, 10, 1)]);
         await ctx.SaveChangesAsync();
 
-        var weeks = await Repo(ctx).GetWeeklyActivity(["spiked turoth"], 4);
+        var weeks = await Repo(ctx).GetWeeklyActivity(["spiked turoth"]);
 
-        // The 400-day-old kill is outside a four-week window, and the hidden character never counts.
-        Assert.Single(weeks);
-        Assert.Equal(1, weeks[0].Kills);
+        // NO WINDOW: the 400-day-old kill is kept, because a row's line starts at its own first
+        // kill and trimming here would cut the start off exactly the rows with the longest history.
+        // The hidden character still never counts, which is why this is two buckets and not three.
+        Assert.Equal(2, weeks.Count);
+        Assert.All(weeks, w => Assert.Equal(1, w.Kills));
     }
 
     [Fact]

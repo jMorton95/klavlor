@@ -19,10 +19,10 @@ public sealed class SuperiorSlayerHandler(ISuperiorSlayerRepository repository, 
     private static readonly TimeSpan Ttl = TimeSpan.FromMinutes(5);
 
     /// <summary>
-    /// How far the activity sparkline reaches back. Six months is long enough to show a task coming
-    /// and going and short enough that a week is still a readable slice of it.
+    /// A cap on how many weekly buckets one row's sparkline can hold, so a very old first kill
+    /// cannot turn into thousands of points. Two years of weeks; nothing here is near it.
     /// </summary>
-    public const int ActivityWeeks = 26;
+    private const int MaxActivityWeeks = 104;
 
     /// <param name="sort">
     /// Applied AFTER the cache, so every ordering shares one cached read rather than one entry per
@@ -38,7 +38,7 @@ public sealed class SuperiorSlayerHandler(ISuperiorSlayerRepository repository, 
         // and both of these run raw ADO on it (see CLAUDE.md, "Strict DI Rules").
         var counts = await repository.GetCounts(SuperiorSlayerMonsters.LoweredNames);
         var baseKills = await repository.GetBaseMonsterKills(SuperiorSlayerMonsters.LoweredBaseMonsterNames);
-        var activity = await repository.GetWeeklyActivity(SuperiorSlayerMonsters.LoweredNames, ActivityWeeks);
+        var activity = await repository.GetWeeklyActivity(SuperiorSlayerMonsters.LoweredNames);
         var uniques = await repository.GetUniqueDrops(
             SuperiorSlayerMonsters.LoweredNames, SuperiorSlayerMonsters.LoweredUniqueTable);
 
@@ -100,11 +100,10 @@ public sealed class SuperiorSlayerHandler(ISuperiorSlayerRepository repository, 
                     .ThenByDescending(u => u.OccurredAt)
                     .ToList(),
                 StringComparer.Ordinal);
-        // ONE axis for every row, built from the window rather than from the data. Deriving it from
-        // the weeks that happen to have kills would give a different axis on a quiet month and make
-        // two sparklines drawn side by side mean different things.
-        var axis = WeekAxis();
-        var weekIndex = axis.Select((w, i) => (w, i)).ToDictionary(x => x.w, x => x.i);
+        // EACH ROW GETS ITS OWN AXIS, running from that monster's first kill to the current week.
+        // A shared window made every line start on the same date, which spent most of the width on
+        // a period the newer monsters did not exist for us in.
+        var thisWeek = StartOfWeek(DateTimeOffset.UtcNow);
 
         var activityByMonster = activity
             .GroupBy(a => a.SourceKey, StringComparer.Ordinal)
@@ -148,6 +147,8 @@ public sealed class SuperiorSlayerHandler(ISuperiorSlayerRepository repository, 
                         x => new SuperiorCell(x.Row.Kills, x.Row.FirstKilled, x.Row.LastKilled))
                     : [];
 
+                var weeks = WeeksFor(monster, activityByMonster, thisWeek);
+
                 return new SuperiorMonsterRow(
                     monster.Name,
                     monster.BaseMonsters,
@@ -156,13 +157,14 @@ public sealed class SuperiorSlayerHandler(ISuperiorSlayerRepository repository, 
                     cells,
                     cells.Values.Sum(c => c.Kills),
                     BaseKillsFor(monster, baseByMonster),
-                    WeeksFor(monster, activityByMonster, axis.Count, weekIndex),
+                    weeks.Counts,
+                    weeks.FirstWeek,
                     uniquesByMonster.GetValueOrDefault(monster.Name.ToLowerInvariant(), []));
             })
             .Where(row => row.TotalKills > 0)
             .ToList();
 
-        return new SuperiorComparison(characters, rows, axis);
+        return new SuperiorComparison(characters, rows);
     }
 
     /// <summary>
@@ -185,17 +187,6 @@ public sealed class SuperiorSlayerHandler(ISuperiorSlayerRepository repository, 
         return totals;
     }
 
-    /// <summary>
-    /// The trailing window of week starts, oldest first, ending with the week in progress.
-    /// </summary>
-    private static List<DateTimeOffset> WeekAxis()
-    {
-        var thisWeek = StartOfWeek(DateTimeOffset.UtcNow);
-        return Enumerable.Range(0, ActivityWeeks)
-            .Select(i => thisWeek.AddDays(-7 * (ActivityWeeks - 1 - i)))
-            .ToList();
-    }
-
     /// Monday-based, matching Postgres date_trunc('week', ...) so the buckets the query returns line
     /// up with the axis built here. They are compared as keys, so a mismatch would silently drop
     /// every bucket and draw 38 empty sparklines.
@@ -206,24 +197,44 @@ public sealed class SuperiorSlayerHandler(ISuperiorSlayerRepository repository, 
         return new DateTimeOffset(date.AddDays(-offset), TimeSpan.Zero);
     }
 
-    /// <summary>Kills per week for one monster, zero-padded onto the shared axis.</summary>
-    private static IReadOnlyList<int> WeeksFor(
+    /// <summary>
+    /// One monster's own weekly axis: from the week of its first kill by anyone, to the current
+    /// week, zero-padded in between.
+    /// </summary>
+    /// <remarks>
+    /// Capped at <see cref="MaxActivityWeeks"/>, taking the MOST RECENT weeks when a row is longer
+    /// than that. A row that hit the cap has lost its oldest activity rather than its newest, which
+    /// is the right end to lose - and its FirstWeek moves with it, so the line never claims a start
+    /// date it is not actually drawing.
+    /// </remarks>
+    private static (IReadOnlyList<int> Counts, DateTimeOffset? FirstWeek) WeeksFor(
         SuperiorMonster monster,
         IReadOnlyDictionary<string, List<SuperiorWeekRow>> activityByMonster,
-        int length,
-        IReadOnlyDictionary<DateTimeOffset, int> weekIndex)
+        DateTimeOffset thisWeek)
     {
-        var weeks = new int[length];
-        if (!activityByMonster.TryGetValue(monster.Name.ToLowerInvariant(), out var buckets)) return weeks;
-
-        foreach (var bucket in buckets)
+        if (!activityByMonster.TryGetValue(monster.Name.ToLowerInvariant(), out var buckets)
+            || buckets.Count == 0)
         {
-            // A bucket older than the window is simply dropped: the query trims to the window, but
-            // a row on the boundary can still fall outside once the axis is rebuilt per request.
-            if (weekIndex.TryGetValue(bucket.WeekStart, out var i)) weeks[i] += bucket.Kills;
+            return ([], null);
         }
 
-        return weeks;
+        var first = buckets.Min(b => b.WeekStart);
+        var length = (int)Math.Round((thisWeek - first).TotalDays / 7) + 1;
+
+        if (length > MaxActivityWeeks)
+        {
+            first = thisWeek.AddDays(-7 * (MaxActivityWeeks - 1));
+            length = MaxActivityWeeks;
+        }
+
+        var counts = new int[Math.Max(1, length)];
+        foreach (var bucket in buckets)
+        {
+            var i = (int)Math.Round((bucket.WeekStart - first).TotalDays / 7);
+            if (i >= 0 && i < counts.Length) counts[i] += bucket.Kills;
+        }
+
+        return (counts, first);
     }
 
     private static List<SuperiorCharacterColumn> BuildCharacters(

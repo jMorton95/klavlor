@@ -133,10 +133,9 @@ internal sealed class SuperiorSlayerRepository(
         }
     }
 
-    public async Task<List<SuperiorWeekRow>> GetWeeklyActivity(
-        IReadOnlyCollection<string> loweredSourceNames, int weeks)
+    public async Task<List<SuperiorWeekRow>> GetWeeklyActivity(IReadOnlyCollection<string> loweredSourceNames)
     {
-        if (loweredSourceNames.Count == 0 || weeks <= 0) return [];
+        if (loweredSourceNames.Count == 0) return [];
 
         try
         {
@@ -147,8 +146,8 @@ internal sealed class SuperiorSlayerRepository(
             // asks WHEN.
             //
             // date_trunc to the week in UTC, matching how every other timestamp on the site is
-            // grouped. The window is trailing and computed here rather than passed as a date, so a
-            // cached page cannot pin the axis to the moment the cache was filled.
+            // grouped. NO WINDOW: each row's line starts at its own first kill, so trimming here
+            // would cut the start off exactly the rows with the longest history.
             const string sql = $"""
                 SELECT lower(lr."SourceName")                      AS source_key,
                        date_trunc('week', lr."OccurredAt" AT TIME ZONE 'UTC') AS week_start,
@@ -157,14 +156,11 @@ internal sealed class SuperiorSlayerRepository(
                 JOIN "GameCharacters" gc ON gc."Id" = lr."GameCharacterId"
                 WHERE {SuperiorSourceFilter}
                   AND {VisibilityFilter}
-                  AND lr."OccurredAt" >= date_trunc('week', now() AT TIME ZONE 'UTC')
-                                       - make_interval(weeks => @weeks - 1)
                 GROUP BY 1, 2
                 """;
 
             await using var cmd = await CreateCommand(sql);
             cmd.Parameters.Add(Names(loweredSourceNames));
-            cmd.Parameters.Add(new NpgsqlParameter("@weeks", weeks));
 
             var rows = new List<SuperiorWeekRow>();
             await using var reader = await cmd.ExecuteReaderAsync();

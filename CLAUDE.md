@@ -392,7 +392,7 @@ table meets both edges at any size, and the extra pixels carry information inste
 bars now covers 18.5% of the table against 6.8% before, and rows dropped 47px to 38px by putting
 each count and its "from N" on ONE line ("68 from 13k", exact figure in the tooltip).
 
-**THE LAST COLUMN IS A 26-WEEK ACTIVITY SPARKLINE, and the route to it is worth recording because
+**THE LAST COLUMN IS AN ACTIVITY SPARKLINE, and the route to it is worth recording because
 every more obvious option is a dead end.** One fact about this data rules them all out:
 
 > **Superior counts and base-monster counts are the same number.** r² between them is **0.9997**
@@ -436,29 +436,31 @@ The unique table itself lives on `SuperiorSlayerMonsters` beside the monster lis
 reason — reference data that changes when Jagex ships an update — and is ordered rarest first, which
 is the order a row's receipts are shown in.
 
-**Three things sit on the line.** The area is the weekly volume; a small chip marks every week that
-had a kill, so the kills read as events and not only as a shape; and a large ball marks a
-unique-table receipt at the week it landed. A chip is a WEEK, not a single kill — 2,291 kills across
-38 rows would be a smear, and the count is in the chip's own tooltip.
+**Three things sit on the line.** The area is the weekly volume; a 4px chip marks every week that
+had a kill, so the kills read as events and not only as a shape; and a 12px ball marks a unique-table
+receipt at the week it landed. A chip is a WEEK, not a single kill — 2,291 kills across 38 rows would
+be a smear, and the detail is in the hover card.
+
+**None of them carries a `title`.** Native tooltips fired alongside the hover card and the two
+obscured each other; the card is the only tooltip on the chart now.
 
 Note the line is **superior kills**, not base-monster kills. The base figures cannot be plotted at
 all: they are dateless admin baselines, so there is no "when" to put them on.
 
-**Hovering a row's chart opens a card** with the full per-character breakdown — kills, uniques,
-first and last, who was never on the task at all — plus every receipt spelled out. The markup is
-**pre-rendered and hidden in the row**, because every figure in it is already on the page; an HTMX
-fetch per hover would be 38 round-trips to redisplay what the browser has. `site.js` lifts it into a
-**fixed-position** panel, and that is not a style choice: the table sits in an `overflow-x-auto`
-wrapper, which is a scroll container, so an absolutely positioned panel inside it is clipped by it —
-the same trap that stops the header being sticky. The heatmap tooltip solves the same problem the
-same way.
+**EACH ROW HAS ITS OWN AXIS**, running from the week of that monster's first kill by anyone to the
+current week — so `GetWeeklyActivity` takes no window and the comparison carries no shared
+`WeekStarts`. A shared window made every line start on the same date, which spent most of the width
+on a period the newer monsters did not exist for us in. The trade is real and deliberate: two lines
+are no longer comparable date for date, and in exchange each uses its whole width on the period that
+monster has actually existed for. There is no axis label in the header for the same reason — one
+range would be wrong for 37 of the 38 rows — so the row's real span is stated in its card
+("active 20/23 weeks since Mar 2026"). A row is capped at 104 weeks and keeps the MOST RECENT of
+them, with `FirstWeek` moving to match, so a line never claims a start date it is not drawing.
 
-The axis is built from the window rather than from the data, so it is shared by every row and two
-sparklines can be read against each other; the handler pads each row onto it. Rows are scaled to
-their OWN busiest week, so the line shows a pattern rather than a volume — the volume is the count
-printed beside it. Drawn as one SVG area per row rather than a bar per week: 26 bars across a column
-this wide are ~38px each, which reads as a blocky comb, and 38 rows of them would be a thousand
-elements instead of 38.
+Rows are scaled to their OWN busiest week, so the line shows a pattern rather than a volume — the
+volume is the count printed beside it. Drawn as one SVG area per row rather than a bar per week: 26
+bars across a column this wide are ~38px each, which reads as a blocky comb, and 38 rows of them
+would be a thousand elements instead of 38.
 
 There is no spacer column and no `tfoot`: the footer repeated the per-character totals the header
 already carried, costing a row of height to say the same thing twice.

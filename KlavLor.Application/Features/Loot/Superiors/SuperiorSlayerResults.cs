@@ -13,12 +13,6 @@ public sealed record SuperiorComparison(
     IReadOnlyList<SuperiorCharacterColumn> Characters,
     IReadOnlyList<SuperiorMonsterRow> Rows,
     /// <summary>
-    /// The shared weekly axis every row's <see cref="SuperiorMonsterRow.Weeks"/> is aligned to,
-    /// oldest first. Shared so two sparklines can be read against each other; a row that padded its
-    /// own axis would put the same date in a different place on every line.
-    /// </summary>
-    IReadOnlyList<DateTimeOffset> WeekStarts,
-    /// <summary>
     /// The ordering the rows are ACTUALLY in, which is not always the one that was asked for: an
     /// unknown character id falls back to Slayer level. Carried here so the view marks the column
     /// the table is really sorted by. Passing the requested sort alongside the rows let the two
@@ -26,7 +20,7 @@ public sealed record SuperiorComparison(
     /// </summary>
     SuperiorSort? AppliedSort = null)
 {
-    public static SuperiorComparison Empty { get; } = new([], [], []);
+    public static SuperiorComparison Empty { get; } = new([], []);
 
     /// <summary>The applied ordering, defaulted for the empty case.</summary>
     public SuperiorSort Ordering => AppliedSort ?? SuperiorSort.Default;
@@ -108,10 +102,18 @@ public sealed record SuperiorMonsterRow(
     /// </summary>
     IReadOnlyDictionary<int, long> BaseKills,
     /// <summary>
-    /// Kills per week, aligned to <see cref="SuperiorComparison.WeekStarts"/> and zero-padded, so
-    /// index N is the same week on every row.
+    /// Kills per week from <see cref="FirstWeek"/> to the current week, zero-padded. Each row has
+    /// its OWN span: a monster first killed in June draws six months, not the eighteen that the
+    /// oldest row would impose on it. The trade is deliberate - two lines are no longer directly
+    /// comparable date for date, and in exchange every line uses its whole width on the period
+    /// that monster has actually existed for us.
     /// </summary>
     IReadOnlyList<int> Weeks,
+    /// <summary>
+    /// The week of the FIRST kill of this monster by anyone, which is where its line starts.
+    /// Null when there is no tracked activity at all.
+    /// </summary>
+    DateTimeOffset? FirstWeek,
     /// <summary>
     /// Unique-table items this monster has produced, rarest first. Usually empty: 25 receipts across
     /// 38 monsters, which is what makes the ones that exist worth showing.
