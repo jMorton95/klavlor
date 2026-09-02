@@ -44,7 +44,23 @@ public sealed record SuperiorCharacterColumn(
     /// week or three years ago. Null only if they have no superior kills, which cannot happen for a
     /// character that made it into this list.
     /// </summary>
-    DateTimeOffset? LastKilled = null);
+    DateTimeOffset? LastKilled = null,
+    /// <summary>
+    /// Unique-table items this character has received, rarest first. The one column figure that is
+    /// not the kill count in disguise.
+    /// </summary>
+    IReadOnlyList<SuperiorUniqueDrop>? Uniques = null)
+{
+    public IReadOnlyList<SuperiorUniqueDrop> UniquesReceived => Uniques ?? [];
+
+    /// <summary>
+    /// Kills per unique received. DESCRIPTIVE, never predictive: it divides two numbers we hold,
+    /// and says nothing about what the rate should be - which is the claim we cannot make, since a
+    /// Slayer master's bonus moves the real chance and no record says which master a kill was on.
+    /// </summary>
+    public double KillsPerUnique =>
+        UniquesReceived.Count > 0 ? (double)TotalKills / UniquesReceived.Count : 0;
+}
 
 /// <summary>
 /// How the table is ordered.
@@ -95,7 +111,12 @@ public sealed record SuperiorMonsterRow(
     /// Kills per week, aligned to <see cref="SuperiorComparison.WeekStarts"/> and zero-padded, so
     /// index N is the same week on every row.
     /// </summary>
-    IReadOnlyList<int> Weeks)
+    IReadOnlyList<int> Weeks,
+    /// <summary>
+    /// Unique-table items this monster has produced, rarest first. Usually empty: 25 receipts across
+    /// 38 monsters, which is what makes the ones that exist worth showing.
+    /// </summary>
+    IReadOnlyList<SuperiorUniqueDrop> Uniques)
 {
     /// <summary>The busiest single week, which each sparkline is scaled against.</summary>
     public int PeakWeek => Weeks.Count == 0 ? 0 : Weeks.Max();
@@ -114,6 +135,21 @@ public sealed record SuperiorCell(long Kills, DateTimeOffset FirstKilled, DateTi
 
 // Repository-level rows. Kept apart from the view models above because they arrive keyed by the
 // LOWERCASED source name straight off the query, before the handler maps them onto the registry.
+
+/// <summary>
+/// One unique-table item received from a superior: what dropped, from which monster, for whom, when.
+/// </summary>
+/// <remarks>
+/// The PAYOFF, and the only thing on this page that is not a restatement of the kill count. A
+/// superior count is base kills over a constant; a unique is a rare event with real variance, so it
+/// is the one figure here where two players genuinely differ.
+/// </remarks>
+public sealed record SuperiorUniqueDrop(
+    string SourceKey,
+    string ItemName,
+    int GameCharacterId,
+    string CharacterName,
+    DateTimeOffset OccurredAt);
 
 /// <summary>One (superior, week) bucket as the activity query returns it.</summary>
 public sealed record SuperiorWeekRow(string SourceKey, DateTimeOffset WeekStart, int Kills);

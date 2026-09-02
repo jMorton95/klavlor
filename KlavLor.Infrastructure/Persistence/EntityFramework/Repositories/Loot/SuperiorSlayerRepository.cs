@@ -185,6 +185,61 @@ internal sealed class SuperiorSlayerRepository(
         }
     }
 
+    public async Task<List<SuperiorUniqueDrop>> GetUniqueDrops(
+        IReadOnlyCollection<string> loweredSourceNames,
+        IReadOnlyCollection<string> loweredItemNames)
+    {
+        if (loweredSourceNames.Count == 0 || loweredItemNames.Count == 0) return [];
+
+        try
+        {
+            // One row per receipt, not an aggregate: a couple of dozen exist in total and each one
+            // is an event worth naming - which monster, whose, and when. Rolling them up would throw
+            // away the only part anybody would repeat out loud.
+            //
+            // LootDrops rather than DropsJson: the projection is already per item and indexed, and
+            // this reads no price, so none of the effective-price rules apply.
+            const string sql = $"""
+                SELECT lower(lr."SourceName") AS source_key,
+                       ld."Name"              AS item_name,
+                       gc."Id"                AS character_id,
+                       COALESCE(gc."DisplayName", u."FirstName" || ' ' || u."LastName") AS character_name,
+                       lr."OccurredAt"        AS occurred_at
+                FROM "LootDrops" ld
+                JOIN "LootRecords" lr    ON lr."Id" = ld."LootRecordId"
+                JOIN "GameCharacters" gc ON gc."Id" = lr."GameCharacterId"
+                JOIN "Users" u           ON u."Id"  = gc."UserId"
+                WHERE {SuperiorSourceFilter}
+                  AND lower(ld."Name") = ANY(@items)
+                  AND {VisibilityFilter}
+                ORDER BY lr."OccurredAt"
+                """;
+
+            await using var cmd = await CreateCommand(sql);
+            cmd.Parameters.Add(Names(loweredSourceNames));
+            cmd.Parameters.Add(new NpgsqlParameter("@items", loweredItemNames.ToArray()));
+
+            var rows = new List<SuperiorUniqueDrop>();
+            await using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                rows.Add(new SuperiorUniqueDrop(
+                    reader.GetString(0),
+                    reader.GetString(1),
+                    reader.GetInt32(2),
+                    reader.GetString(3),
+                    reader.GetFieldValue<DateTimeOffset>(4)));
+            }
+
+            return rows;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get superior unique drops");
+            throw new RepositoryException("Failed to get superior unique drops", ex);
+        }
+    }
+
     private static NpgsqlParameter Names(IReadOnlyCollection<string> loweredSourceNames) =>
         new("@names", loweredSourceNames.ToArray());
 

@@ -416,10 +416,25 @@ Measured against the live data, each candidate drew the same picture or none:
 a superior kill is a record that somebody was on that task, so the sparkline is the clan's slayer
 history for that monster. Staples draw a continuous line; rare tasks draw a sparse, spiky one.
 
-`GetWeeklyActivity` is a THIRD read and deliberately **excludes admin baselines**, unlike the other
-two. A baseline is a lump sum with no date on it, so it cannot belong to a week and folding it in
-would invent a spike that never happened. This is the only read on the page that asks *when*, and
-`SuperiorSlayerComparisonTests` pins the exclusion — nothing else would catch it being added.
+**AND THE UNIQUE-TABLE RECEIPTS SIT ON IT.** Every count on this page measures ATTEMPTS; the unique
+table is the OUTCOME, and 25 of them existed in the data while the page mentioned none. They are
+marked on the sparkline at the week they landed, so a row reads as "this is when we were on this
+task, and this is what came of it" — rare items (Imbued heart, Eternal gem) in amber, battlestaves
+in blue, because giving them equal weight makes a heart look like a Tuesday.
+
+**The unique count is the only per-character figure that is not the kill count in disguise.** It is a
+rare event with real variance, so ClaudeLock's 1,141 kills for 13 and Klavelon's 700 for 11 is a
+genuine difference between two players rather than a restatement of how much each has played.
+
+It is shown as a plain ratio — "1 per 88" — and **never as an expectation**. That distinction is the
+whole reason the weighting was removed: a Slayer master's bonus moves the true chance and no record
+says which master a kill was on, so the ratio is a description of what happened and not a claim about
+what should have. `GetUniqueDrops` is a FOURTH read, unbounded by time on purpose: there are a couple
+of dozen of these in total and each is the point of the category, so none ages out of a window.
+
+The unique table itself lives on `SuperiorSlayerMonsters` beside the monster list, for the same
+reason — reference data that changes when Jagex ships an update — and is ordered rarest first, which
+is the order a row's receipts are shown in.
 
 The axis is built from the window rather than from the data, so it is shared by every row and two
 sparklines can be read against each other; the handler pads each row onto it. Rows are scaled to

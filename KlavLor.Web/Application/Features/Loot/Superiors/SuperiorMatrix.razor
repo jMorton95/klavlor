@@ -37,6 +37,18 @@
    task, so the sparkline is the clan's slayer history for that monster. Staples draw a continuous
    line; rare tasks draw a sparse, gappy one.
 
+   AND THE UNIQUES SIT ON IT, which is the part that makes the page about anything. Every number
+   here counts ATTEMPTS; the unique table is the OUTCOME, and 25 of them exist in the data while the
+   page did not mention one. They are marked on the sparkline at the week they landed, so the line
+   reads as "this is when we were on this task, and this is what came of it".
+
+   The unique count is also the only per-character figure that is not the kill count in disguise: it
+   is a rare event with real variance, so 1,141 kills for 13 and 700 for 11 is a genuine difference
+   between two players rather than a restatement of how much each has played. It is shown as a plain
+   ratio, never as an expectation - a Slayer master's bonus moves the true rate and no record says
+   which master a kill was on, so "one every 88 kills" is a description of what happened and NOT a
+   claim about what should.
+
    Each row is scaled to its OWN busiest week, so the line shows a pattern rather than a volume -
    volume is already the count beside it. The axis is shared, so two rows can be read against each
    other.
@@ -97,6 +109,20 @@
                             </div>
                             @* The column's own total, which is why there is no footer. *@
                             <div class="text-[10px] font-normal tabular-nums text-slate-500 dark:text-white">@character.TotalKills.ToString("N0") kills</div>
+                            @* THE OUTCOME, next to the effort. The only figure in this header that
+                               is not the kill count restated. *@
+                            @if (character.UniquesReceived.Count > 0)
+                            {
+                                <div class="text-[10px] font-medium tabular-nums text-amber-600 dark:text-amber-400"
+                                     title="@UniquesTitle(character)">
+                                    @character.UniquesReceived.Count @(character.UniquesReceived.Count == 1 ? "unique" : "uniques")
+                                    <span class="font-normal text-slate-400 dark:text-white">· 1 per @Math.Round(character.KillsPerUnique).ToString("N0")</span>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="text-[10px] font-normal text-slate-400 dark:text-white">no uniques yet</div>
+                            }
                             @* Whether they are still doing slayer. A big total says nothing about
                                whether it was earned last week or three years ago. *@
                             @if (character.LastKilled is { } last)
@@ -183,7 +209,7 @@
                        blocky comb and not as a trend. One SVG per row also keeps the DOM to 38
                        elements where a bar per week would be a thousand. *@
                     <td class="px-4 py-1">
-                        <div class="flex items-center gap-3">
+                        <div class="relative flex items-center gap-3">
                             <svg class="flex-1 h-6 text-amber-500/90 dark:text-amber-400/90"
                                  viewBox="0 0 100 20" preserveAspectRatio="none" aria-hidden="true">
                                 <title>@SparkTitle(row)</title>
@@ -197,6 +223,23 @@
                                           stroke-width="1.25" stroke-linejoin="round"
                                           vector-effect="non-scaling-stroke" />
                             </svg>
+                            @* The receipts, pinned to the week they landed on. Absolutely
+                               positioned over the sparkline rather than drawn inside it, so they
+                               keep a circular shape whatever the SVG's preserveAspectRatio="none"
+                               does to its own geometry - a circle in that space becomes an ellipse
+                               the moment the column changes width. *@
+                            @if (row.Uniques.Count > 0)
+                            {
+                                <div class="pointer-events-none absolute inset-0">
+                                    @foreach (var drop in row.Uniques)
+                                    {
+                                        <span class="pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 flex items-center justify-center
+                                                     w-3 h-3 rounded-full ring-2 ring-white dark:ring-slate-950 @UniqueClasses(drop)"
+                                              style="left:@UniqueLeft(drop).ToString("0.##")%; top:50%"
+                                              title="@UniqueTitle(drop)"></span>
+                                    }
+                                </div>
+                            }
                             <span class="w-10 shrink-0 text-right text-[11px] font-medium tabular-nums text-slate-600 dark:text-slate-300">
                                 @row.TotalKills.ToString("N0")
                             </span>
@@ -243,6 +286,44 @@
     private static string AreaPoints(SuperiorMonsterRow row) =>
         $"0,19.5 {LinePoints(row)} 100,19.5";
 
+    /// Where on the sparkline a receipt landed, as a percentage of the shared axis. Clamped, because
+    /// a unique from before the window still belongs on the row - pinned to the left edge - rather
+    /// than being dropped or drawn off-screen. There are 25 of these in total; losing one to a
+    /// window boundary would be losing a fortieth of the page's actual content.
+    private double UniqueLeft(SuperiorUniqueDrop drop)
+    {
+        var axis = Comparison.WeekStarts;
+        if (axis.Count == 0) return 0;
+        if (axis.Count == 1) return 50;
+
+        var span = (axis[^1] - axis[0]).TotalDays;
+        if (span <= 0) return 50;
+
+        var offset = (drop.OccurredAt - axis[0]).TotalDays;
+        return Math.Clamp(offset / span * 100, 0, 100);
+    }
+
+    /// The two rare ones are worth their own colour; the battlestaves are common enough that giving
+    /// them the same weight would make an Imbued heart look like a Tuesday.
+    private static string UniqueClasses(SuperiorUniqueDrop drop) =>
+        SuperiorSlayerMonsters.UniqueRank(drop.ItemName) <= 1
+            ? "bg-amber-400 dark:bg-amber-300"
+            : "bg-sky-400/90 dark:bg-sky-300/90";
+
+    private static string UniqueTitle(SuperiorUniqueDrop drop) =>
+        $"{drop.ItemName} — {drop.CharacterName}, {drop.OccurredAt.ToLocalTime():d MMM yyyy}";
+
+    /// Every receipt spelled out, because a count of 13 says nothing about whether it was thirteen
+    /// battlestaves or two hearts.
+    private static string UniquesTitle(SuperiorCharacterColumn character) =>
+        $"{character.CharacterName}: "
+      + string.Join(", ", character.UniquesReceived
+            .GroupBy(u => u.ItemName)
+            .OrderBy(g => SuperiorSlayerMonsters.UniqueRank(g.Key))
+            .Select(g => $"{g.Count()}x {g.Key}"))
+      + $" — one every {Math.Round(character.KillsPerUnique):N0} superiors, which is what happened "
+      + "rather than what should";
+
     /// One summary per row rather than a tooltip per week: the weeks are drawn as a continuous area,
     /// so there is nothing discrete to hover, and the useful reading is the shape plus its peak.
     private string SparkTitle(SuperiorMonsterRow row)
@@ -256,9 +337,13 @@
             ? $", busiest the week of {Comparison.WeekStarts[peakAt].ToLocalTime():d MMM yyyy} with {row.PeakWeek}"
             : string.Empty;
 
+        var got = row.Uniques.Count > 0
+            ? " · " + string.Join(", ", row.Uniques.Select(u => $"{u.ItemName} ({u.CharacterName})"))
+            : string.Empty;
+
         return active == 0
-            ? $"No {row.Name} in the last {row.Weeks.Count} weeks"
-            : $"{row.Name}: active in {active} of the last {row.Weeks.Count} weeks{when}";
+            ? $"No {row.Name} in the last {row.Weeks.Count} weeks{got}"
+            : $"{row.Name}: active in {active} of the last {row.Weeks.Count} weeks{when}{got}";
     }
 
     /// The named columns plus a floor for the bar, below which the table scrolls inside its wrapper

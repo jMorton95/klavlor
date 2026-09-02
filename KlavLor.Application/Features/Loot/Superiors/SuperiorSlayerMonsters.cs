@@ -111,6 +111,41 @@ public static class SuperiorSlayerMonsters
     /// Lowercased because three vocabularies produce a source name and they disagree on case: the
     /// wiki's article titles, the wiki's summary table, and whatever RuneLite reports for the NPC.
     /// </summary>
+    /// <summary>
+    /// The shared unique table every superior rolls. Four items, and the reason the whole category
+    /// is worth grinding.
+    /// </summary>
+    /// <remarks>
+    /// Reference data, kept here for the same reason the monster list is: it changes only when
+    /// Jagex ships an update. Matched by name, lowercased, against LootDrops - which is why it is a
+    /// list of strings rather than item ids, since a drop row carries the name RuneLite reported.
+    ///
+    /// The ORDER is display order, rarest first, so a row showing several of them leads with the
+    /// one worth talking about.
+    /// </remarks>
+    public static IReadOnlyList<string> UniqueTable { get; } =
+    [
+        "Imbued heart",
+        "Eternal gem",
+        "Dust battlestaff",
+        "Mist battlestaff"
+    ];
+
+    /// <summary>The unique table lowercased, for matching against a drop name.</summary>
+    public static IReadOnlyList<string> LoweredUniqueTable { get; } =
+        UniqueTable.Select(i => i.ToLowerInvariant()).ToList();
+
+    /// <summary>Rarest first, for ordering a row's receipts. Lower is rarer.</summary>
+    public static int UniqueRank(string itemName)
+    {
+        for (var i = 0; i < UniqueTable.Count; i++)
+        {
+            if (string.Equals(UniqueTable[i], itemName, StringComparison.OrdinalIgnoreCase)) return i;
+        }
+
+        return UniqueTable.Count;
+    }
+
     public static IReadOnlyList<string> LoweredNames { get; } =
         Lookup.Keys.Order(StringComparer.Ordinal).ToList();
 

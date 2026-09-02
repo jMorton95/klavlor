@@ -34,4 +34,13 @@ public interface ISuperiorSlayerRepository
     /// sparkline is only comparable between rows if every row spans the same dates.
     /// </remarks>
     Task<List<SuperiorWeekRow>> GetWeeklyActivity(IReadOnlyCollection<string> loweredSourceNames, int weeks);
+
+    /// <summary>
+    /// Every unique-table item ever received from a superior, with the monster it came from, who got
+    /// it and when. Unbounded by time on purpose - there are a couple of dozen of these in total and
+    /// they are the point of the category, so none of them ages out.
+    /// </summary>
+    Task<List<SuperiorUniqueDrop>> GetUniqueDrops(
+        IReadOnlyCollection<string> loweredSourceNames,
+        IReadOnlyCollection<string> loweredItemNames);
 }

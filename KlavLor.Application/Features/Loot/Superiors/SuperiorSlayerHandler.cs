@@ -39,8 +39,10 @@ public sealed class SuperiorSlayerHandler(ISuperiorSlayerRepository repository, 
         var counts = await repository.GetCounts(SuperiorSlayerMonsters.LoweredNames);
         var baseKills = await repository.GetBaseMonsterKills(SuperiorSlayerMonsters.LoweredBaseMonsterNames);
         var activity = await repository.GetWeeklyActivity(SuperiorSlayerMonsters.LoweredNames, ActivityWeeks);
+        var uniques = await repository.GetUniqueDrops(
+            SuperiorSlayerMonsters.LoweredNames, SuperiorSlayerMonsters.LoweredUniqueTable);
 
-        var comparison = Assemble(counts, baseKills, activity);
+        var comparison = Assemble(counts, baseKills, activity, uniques);
         cache.Set(key, comparison, Ttl);
         return Sorted(comparison, sort);
     }
@@ -84,8 +86,20 @@ public sealed class SuperiorSlayerHandler(ISuperiorSlayerRepository repository, 
     private static SuperiorComparison Assemble(
         IReadOnlyList<SuperiorCountRow> counts,
         IReadOnlyList<SuperiorBaseKillRow> baseKills,
-        IReadOnlyList<SuperiorWeekRow> activity)
+        IReadOnlyList<SuperiorWeekRow> activity,
+        IReadOnlyList<SuperiorUniqueDrop> uniques)
     {
+        // Rarest first within a monster, so a row that produced several leads with the one worth
+        // talking about rather than with whichever landed first.
+        var uniquesByMonster = uniques
+            .GroupBy(u => u.SourceKey, StringComparer.Ordinal)
+            .ToDictionary(
+                g => g.Key,
+                g => (IReadOnlyList<SuperiorUniqueDrop>)g
+                    .OrderBy(u => SuperiorSlayerMonsters.UniqueRank(u.ItemName))
+                    .ThenByDescending(u => u.OccurredAt)
+                    .ToList(),
+                StringComparer.Ordinal);
         // ONE axis for every row, built from the window rather than from the data. Deriving it from
         // the weeks that happen to have kills would give a different axis on a quiet month and make
         // two sparklines drawn side by side mean different things.
@@ -112,7 +126,7 @@ public sealed class SuperiorSlayerHandler(ISuperiorSlayerRepository repository, 
             .GroupBy(x => x.Monster!.Name, StringComparer.Ordinal)
             .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.Ordinal);
 
-        var characters = BuildCharacters(counts);
+        var characters = BuildCharacters(counts, uniques);
         if (characters.Count == 0) return SuperiorComparison.Empty;
 
         // HIGHEST SLAYER LEVEL FIRST. The registry is stored ascending because that is how a
@@ -142,7 +156,8 @@ public sealed class SuperiorSlayerHandler(ISuperiorSlayerRepository repository, 
                     cells,
                     cells.Values.Sum(c => c.Kills),
                     BaseKillsFor(monster, baseByMonster),
-                    WeeksFor(monster, activityByMonster, axis.Count, weekIndex));
+                    WeeksFor(monster, activityByMonster, axis.Count, weekIndex),
+                    uniquesByMonster.GetValueOrDefault(monster.Name.ToLowerInvariant(), []));
             })
             .Where(row => row.TotalKills > 0)
             .ToList();
@@ -211,8 +226,20 @@ public sealed class SuperiorSlayerHandler(ISuperiorSlayerRepository repository, 
         return weeks;
     }
 
-    private static List<SuperiorCharacterColumn> BuildCharacters(IReadOnlyList<SuperiorCountRow> counts) =>
-        counts
+    private static List<SuperiorCharacterColumn> BuildCharacters(
+        IReadOnlyList<SuperiorCountRow> counts,
+        IReadOnlyList<SuperiorUniqueDrop> uniques)
+    {
+        var byCharacter = uniques
+            .GroupBy(u => u.GameCharacterId)
+            .ToDictionary(
+                g => g.Key,
+                g => (IReadOnlyList<SuperiorUniqueDrop>)g
+                    .OrderBy(u => SuperiorSlayerMonsters.UniqueRank(u.ItemName))
+                    .ThenByDescending(u => u.OccurredAt)
+                    .ToList());
+
+        return counts
             .Where(row => SuperiorSlayerMonsters.Find(row.SourceKey) is not null)
             .GroupBy(row => row.GameCharacterId)
             .Select(g => new SuperiorCharacterColumn(
@@ -220,8 +247,10 @@ public sealed class SuperiorSlayerHandler(ISuperiorSlayerRepository repository, 
                 g.First().CharacterName,
                 g.First().UserName,
                 g.Sum(row => row.Kills),
-                g.Max(row => row.LastKilled)))
+                g.Max(row => row.LastKilled),
+                byCharacter.GetValueOrDefault(g.Key, [])))
             .OrderByDescending(c => c.TotalKills)
             .ThenBy(c => c.CharacterName, StringComparer.OrdinalIgnoreCase)
             .ToList();
+    }
 }

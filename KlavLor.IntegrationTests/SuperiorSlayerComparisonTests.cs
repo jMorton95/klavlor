@@ -344,4 +344,50 @@ public sealed class SuperiorSlayerComparisonTests(PostgresFixture fx)
         Assert.Single(weeks);
         Assert.Equal(1, weeks[0].Kills);
     }
+
+    [Fact]
+    public async Task Unique_drops_are_the_table_items_only_and_carry_who_and_when()
+    {
+        await using var ctx = fx.CreateContext();
+        var (userId, charId) = await Seed.UserAndCharacter(ctx, "sup-uniques");
+
+        // A unique off a superior, an ordinary drop off the same superior, and a unique off a
+        // monster that is not a superior at all. Only the first may come back.
+        Seed.AddKill(ctx, userId, charId, "Colossal Hydra", T, null,
+            [new("Imbued heart", 20724, 1, 120_000_000)]);
+        Seed.AddKill(ctx, userId, charId, "Colossal Hydra", T.AddDays(1), null,
+            [new("Coins", 995, 5000, 1)]);
+        Seed.AddKill(ctx, userId, charId, "Vorkath", T.AddDays(2), null,
+            [new("Imbued heart", 20724, 1, 120_000_000)]);
+        await ctx.SaveChangesAsync();
+
+        var drops = await Repo(ctx).GetUniqueDrops(
+            SuperiorSlayerMonsters.LoweredNames, SuperiorSlayerMonsters.LoweredUniqueTable);
+        var mine = drops.Where(d => d.GameCharacterId == charId).ToList();
+
+        var only = Assert.Single(mine);
+        Assert.Equal("Imbued heart", only.ItemName);
+        Assert.Equal("colossal hydra", only.SourceKey);
+        Assert.Equal(T, only.OccurredAt);
+    }
+
+    [Fact]
+    public async Task Unique_drops_skip_hidden_characters()
+    {
+        // Same visibility rule as every other read on this page - a hidden character contributes
+        // nothing, and a unique is exactly the sort of thing that would be noticed if it leaked.
+        await using var ctx = fx.CreateContext();
+        var (userId, charId) = await Seed.UserAndCharacter(ctx, "sup-uniques-hidden");
+        var character = await ctx.GameCharacters.FindAsync(charId);
+        character!.IsVisible = false;
+
+        Seed.AddKill(ctx, userId, charId, "Shadow Wyrm", T, null,
+            [new("Eternal gem", 21270, 1, 45_000_000)]);
+        await ctx.SaveChangesAsync();
+
+        var drops = await Repo(ctx).GetUniqueDrops(
+            SuperiorSlayerMonsters.LoweredNames, SuperiorSlayerMonsters.LoweredUniqueTable);
+
+        Assert.DoesNotContain(drops, d => d.GameCharacterId == charId);
+    }
 }
