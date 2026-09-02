@@ -984,6 +984,13 @@ body:not(.history-panel-open) #completion-history-panel {
 :where(.dark, .dark *) .roll-hue-12 { --roll-name: var(--color-blue-400); }
 
 
+/* The superiors uniques history reuses the ticker's per-character hues. Those classes
+   set a CUSTOM PROPERTY rather than a colour - so .roll-chip-name can keep its slate
+   default through the var() fallback - which means a second consumer needs its own
+   one-line rule to actually spend it. Without this every character renders in the
+   inherited colour and the hue assignment silently does nothing. */
+.roll-name-text { color: var(--roll-name, inherit); }
+
 @keyframes roll-chip-in {
     from { opacity: 0; }
     to   { opacity: 1; }

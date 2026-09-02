@@ -418,10 +418,35 @@ remainder. When the table was left to stretch, the last column swallowed the spa
 held and Clan became a quarter of the page.
 
 It lists every unique-table receipt, newest first, with the character, the source, the kill it
-landed on and the date. It is the
-only content on the page not determined by that constant: a receipt is a rare event with real
-variance. Each entry names its source, which is exactly what a per-row column could not do — the
-feed reads as the clan's history rather than one monster's footnote.
+landed on and the date. It is the only content on the page not determined by that constant: a receipt
+is a rare event with real variance. Each entry names its source, which is exactly what a per-row
+column could not do — the feed reads as the clan's history rather than one monster's footnote.
+
+**It is drawn as a COMMIT HISTORY**, after PropelVulnerabilityTracker's `ScanHistoryTimeline`: a
+vertical rail with one node per receipt, grouped under month dividers that carry their own count, so
+a quiet month reads as quiet rather than merely short. **The node is the item's own icon**, which is
+what makes the column skimmable for "what fell" without reading a line of it — a ring of coloured
+dots would need a key. The two rare ones (Imbued heart, Eternal gem) get an amber ring with a halo
+and an amber card; the battlestaves stay plain, because giving them equal weight would make an Imbued
+heart look like a Tuesday.
+
+The rail is ONE absolutely-positioned element, and it has to sit on the node centres or it reads as a
+misprint. Those centres are arithmetic, not eyeballed: the container is `px-4` (16px) and a node is
+`2.625rem` (42px), so every centre is 16 + 21 = 37px = `2.3125rem`, which is the rail's `left`, the
+month dot's `ml` plus half its own width, and where the rail stops top and bottom rather than running
+into the padding.
+
+**The history shows RECEIPTS, never kills.** The table beside it already says how many superiors
+everyone has killed; a log of kills here would be the third spelling of one number. Two versions that
+did exactly that were built and reverted — a daily contribution heatmap (`6bbe931`) and a
+(day, character) commit log of superior kills (`0db9275`). Both were the right shape for the wrong
+quantity. What belongs in this column is the payoff and the gaps between the payoffs.
+
+Characters are named in the live ticker's colours (`RollChipHues`, a process-lifetime map, so a name
+is the same hue on both surfaces). Those classes set a **custom property** (`--roll-name`) rather than
+a colour, so that `.roll-chip-name` can keep its slate default through the var() fallback — which
+means a second consumer needs its own one-line rule to spend it. That rule is `.roll-name-text`;
+without it every character renders in the inherited colour and the assignment silently does nothing.
 
 The **kill ordinal** (`#60`) is the character's Nth kill of that superior when it dropped, a
 correlated count plus any admin baseline — the same definition the rest of the site uses for a roll

@@ -1,19 +1,23 @@
 @using KlavLor.Application.Features.Loot.Superiors
+@using KlavLor.Web.Application.Features.Loot.Feed
 
-@* Every unique-table receipt, newest first.
+@* EVERY UNIQUE-TABLE RECEIPT, newest first, as a commit history.
 
    THIS IS THE PAGE'S ONLY REAL CONTENT, in the sense that it is the only thing here not determined
    by one constant. Superior counts are base-monster kills over a fixed 190:1 — measured at r² 0.9997
-   across 134 cells — so the grid, however it is drawn, restates a single quantity. A receipt is a
-   rare event with real variance: who got it, from what, on which kill, and when.
+   across 134 cells — so the table beside this restates a single quantity however it is drawn. A
+   receipt is a rare event with real variance: who got it, from what, on which kill, and when.
 
-   It replaced a chart column that had been four different metrics in turn, each of them a rescaling
-   of that same constant. This is not a chart at all, which is the point: the useful shape of two
-   dozen events is a list of them.
+   It is a HISTORY, not a list of kills. The table already says how many superiors everyone has
+   killed; repeating that here in another shape would be the third spelling of one number. What this
+   carries is the payoff — 25 events across five months — and the gaps between them, which is the
+   part nobody can read off a count.
 
-   Each entry names its SOURCE, because the feed runs across all 38 monsters — that is what a
-   per-row column could not do, and it is why this reads as the clan's history rather than as one
-   monster's footnote. *@
+   Drawn as a rail with a node per receipt, after PropelVulnerabilityTracker's ScanHistoryTimeline:
+   the node is the item itself, so the column can be skimmed for "what fell" without reading a word,
+   and a month divider gives the run of them a sense of pace. Each entry names its SOURCE, because
+   the feed runs across all 38 monsters — that is what a per-row column could not do, and it is why
+   this reads as the clan's history rather than one monster's footnote. *@
 
 @* No card. It sits flush against the table as the continuation of the same band, with only the
    divider between them, because it stands in for a column of that table rather than accompanying
@@ -22,7 +26,7 @@
     <header class="flex items-baseline justify-between gap-3 px-4 py-2 bg-slate-100 dark:bg-slate-800
                    border-y border-slate-200 dark:border-slate-700">
         <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-white">
-            Unique table
+            Unique table history
         </span>
         <span class="text-[11px] font-semibold tabular-nums text-amber-600 dark:text-amber-400">
             @Drops.Count received
@@ -37,7 +41,7 @@
     }
     else
     {
-        @* A tally before the list: four items, and which of them the clan has actually seen is a
+        @* A tally before the history: four items, and which of them the clan has actually seen is a
            faster read than counting down the entries. *@
         <div class="flex flex-wrap gap-x-5 gap-y-1 px-4 py-2 border-b border-slate-200/60 dark:border-slate-800">
             @foreach (var item in SuperiorSlayerMonsters.UniqueTable)
@@ -51,42 +55,73 @@
             }
         </div>
 
-        @* Capped height rather than the full list: two dozen today, but nothing stops this growing,
-           and the table beside it must stay the page's main subject. *@
-        @* No height cap: the receipts are the point of the page, and a scrollbar inside a column
-           that is already as tall as the table beside it only hides them. *@
-        <ul class="divide-y divide-slate-200/60 dark:divide-slate-800">
-            @foreach (var drop in Drops)
+        <div class="relative px-4 py-4">
+            @* THE RAIL. One absolutely-positioned element rather than a border on every node, inset
+               top and bottom so it begins and ends at a node instead of running into the padding. *@
+            <div class="absolute left-[2.3125rem] top-[1.5625rem] bottom-[2.3125rem] w-px
+                        bg-slate-200 dark:bg-slate-600"></div>
+
+            @foreach (var month in Drops.GroupBy(d => new DateTime(d.OccurredAt.ToLocalTime().Year, d.OccurredAt.ToLocalTime().Month, 1)))
             {
-                @* Laid out in columns rather than stacked: this segment is as wide as the chart
-                   column it replaced, so the item, who got it, what it came off and when all fit on
-                   one line and line up down the list. *@
-                <li class="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors">
-                    <img src="/api/images/item-icon?name=@Uri.EscapeDataString(drop.ItemName)" alt=""
-                         class="w-6 h-6 object-contain shrink-0" loading="lazy" onerror="this.style.visibility='hidden'" />
-
-                    @* Sized to the longest real value and no wider: at 1,280 the table is 880px and
-                       the rest of the line has to fit in what is left, or the pair pushes the page
-                       into a horizontal scroll. *@
-                    <span class="w-32 shrink-0 text-[13px] font-medium truncate @NameClasses(drop)">@drop.ItemName</span>
-                    <span class="w-24 shrink-0 text-[12px] truncate text-slate-700 dark:text-slate-200">@drop.CharacterName</span>
-
-                    <span class="flex-1 min-w-0 text-[12px] text-slate-500 dark:text-white truncate">
-                        @drop.SourceName
-                        @if (drop.KillOrdinal > 0)
-                        {
-                            @* Their Nth of that superior, which is the figure that says whether this
-                               was a quick one or a long wait. *@
-                            <span class="ml-1 tabular-nums text-amber-600 dark:text-amber-400">#@drop.KillOrdinal.ToString("N0")</span>
-                        }
+                @* The "Commits on ..." divider. It carries the month's own count, so a quiet month
+                   reads as quiet rather than just short. *@
+                <div class="relative flex items-center gap-[0.9375rem] mb-2 first:mt-0 mt-4">
+                    <span class="relative z-10 w-[1.125rem] h-[1.125rem] shrink-0 ml-[1.75rem] rounded-full
+                                 border-2 border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-900"></span>
+                    <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-white">
+                        @month.Key.ToString("MMMM yyyy")
                     </span>
-
-                    <span class="w-16 shrink-0 text-right text-[11px] tabular-nums text-slate-400 dark:text-white">
-                        @drop.OccurredAt.ToLocalTime().ToString("d MMM yy")
+                    <span class="text-[11px] tabular-nums text-slate-400 dark:text-white">
+                        @month.Count() received
                     </span>
-                </li>
+                </div>
+
+                <div class="space-y-1.5">
+                    @foreach (var drop in month)
+                    {
+                        <div class="relative flex items-center gap-3">
+
+                            @* THE NODE IS THE ITEM. A ring of coloured dots would need a key; the
+                               icon needs none, and it is what makes the column skimmable for "what
+                               fell" without reading a line of it. *@
+                            <div class="relative z-10 shrink-0 w-[2.625rem] h-[2.625rem] rounded-full flex items-center justify-center
+                                        border-2 @NodeClasses(drop)">
+                                <img src="/api/images/item-icon?name=@Uri.EscapeDataString(drop.ItemName)" alt=""
+                                     class="w-6 h-6 object-contain" loading="lazy"
+                                     onerror="this.style.visibility='hidden'" />
+                            </div>
+
+                            <div class="flex-1 min-w-0 flex items-center gap-3 rounded-lg border px-3.5 py-2 transition-colors @CardClasses(drop)">
+
+                                <span class="w-40 shrink-0 text-[13px] font-semibold truncate @NameClasses(drop)">@drop.ItemName</span>
+
+                                @* The character in their own colour, the same assignment the live
+                                   ticker uses - RollChipHues is a process-lifetime map, so a name is
+                                   the same hue on both surfaces. *@
+                                <span class="w-28 shrink-0 flex items-center gap-1.5 roll-name-text @RollChipHues.ClassFor(drop.CharacterName)">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-current shrink-0"></span>
+                                    <span class="text-[12px] font-medium truncate">@drop.CharacterName</span>
+                                </span>
+
+                                <span class="flex-1 min-w-0 text-[12px] text-slate-500 dark:text-white truncate">
+                                    @drop.SourceName
+                                    @if (drop.KillOrdinal > 0)
+                                    {
+                                        @* Their Nth of that superior, which is the figure that says
+                                           whether this was a quick one or a long wait. *@
+                                        <span class="ml-1 font-mono tabular-nums text-amber-600 dark:text-amber-400">#@drop.KillOrdinal.ToString("N0")</span>
+                                    }
+                                </span>
+
+                                <span class="w-20 shrink-0 text-right text-[11px] tabular-nums text-slate-400 dark:text-white">
+                                    @drop.OccurredAt.ToLocalTime().ToString("d MMM yy")
+                                </span>
+                            </div>
+                        </div>
+                    }
+                </div>
             }
-        </ul>
+        </div>
     }
 </section>
 
@@ -95,10 +130,20 @@
 
     /// The two rare ones carry the amber the page uses for a receipt; the battlestaves are common
     /// enough that giving them equal weight would make an Imbued heart look like a Tuesday.
+    private static bool IsRare(SuperiorUniqueDrop drop) => SuperiorSlayerMonsters.UniqueRank(drop.ItemName) <= 1;
+
     private static string NameClasses(SuperiorUniqueDrop drop) =>
-        SuperiorSlayerMonsters.UniqueRank(drop.ItemName) <= 1
-            ? "text-amber-600 dark:text-amber-400"
-            : "text-slate-800 dark:text-slate-100";
+        IsRare(drop) ? "text-amber-600 dark:text-amber-400" : "text-slate-800 dark:text-slate-100";
+
+    /// The node carries the whole rarity cue, so an Imbued heart is findable by glancing down the
+    /// rail rather than by reading names.
+    private static string NodeClasses(SuperiorUniqueDrop drop) => IsRare(drop)
+        ? "border-amber-400 bg-amber-50 dark:bg-amber-500/15 shadow-[0_0_0_3px_rgba(251,191,36,0.18)]"
+        : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900";
+
+    private static string CardClasses(SuperiorUniqueDrop drop) => IsRare(drop)
+        ? "border-amber-300/70 dark:border-amber-500/40 bg-amber-50/60 dark:bg-amber-500/5"
+        : "border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/60";
 
     private static string DotClasses(string item, bool seen)
     {
