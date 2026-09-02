@@ -13,7 +13,7 @@
 <PageLayout PageTitle="KlavLor - Superior Slayer Monsters"
             Title="Superior Slayer Monsters"
             Description="Every superior slayer monster by Slayer level, across every tracked character">
-    <SuperiorsContent Comparison="_comparison" Sort="Sort" UpdateHeader="false" />
+    <SuperiorsContent Comparison="_comparison" UpdateHeader="false" />
 </PageLayout>
 
 @code {
@@ -24,9 +24,9 @@
     [SupplyParameterFromQuery] public int? CharacterId { get; set; }
     [SupplyParameterFromQuery] public bool? Asc { get; set; }
 
-    private SuperiorSort Sort => new(CharacterId, Asc ?? false);
-
     // The routed page component is the ONE component allowed to query during SSR (see CLAUDE.md).
-    // Everything below it is parameter-driven.
-    protected override async Task OnInitializedAsync() => _comparison = await Handler.Get(Sort);
+    // Everything below it is parameter-driven. The comparison carries the ordering it was built
+    // with, so nothing here needs to hand the sort down a second time.
+    protected override async Task OnInitializedAsync() =>
+        _comparison = await Handler.Get(new SuperiorSort(CharacterId, Asc ?? false));
 }

@@ -42,8 +42,7 @@ public sealed class SuperiorSlayerEndpoint : IEndpoint
         [FromQuery] bool? asc,
         SuperiorSlayerHandler handler)
     {
-        var sort = new SuperiorSort(characterId, asc ?? false);
-        var comparison = await handler.Get(sort);
-        return IResultExtensions.Component<SuperiorsContent>(new { Comparison = comparison, Sort = sort });
+        var comparison = await handler.Get(new SuperiorSort(characterId, asc ?? false));
+        return IResultExtensions.Component<SuperiorsContent>(new { Comparison = comparison });
     }
 }

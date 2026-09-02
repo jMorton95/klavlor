@@ -31,7 +31,7 @@
            the unique table behind it; the top bar's own description already says the page is by
            Slayer level, and a paragraph of preamble on a page that is one table earns less than the
            row of data it pushes below the fold. *@
-        <SuperiorMatrix Comparison="Comparison" Sort="Sort" />
+        <SuperiorMatrix Comparison="Comparison" />
     }
 </div>
 
@@ -41,5 +41,4 @@
     [Parameter] public bool UpdateHeader { get; set; } = true;
 
     [Parameter] public SuperiorComparison Comparison { get; set; } = SuperiorComparison.Empty;
-    [Parameter] public SuperiorSort Sort { get; set; } = SuperiorSort.Default;
 }

@@ -6,6 +6,13 @@
    superior nobody has met. The high-level ones roll the shared unique table many times more often,
    so they are the rows worth reading.
 
+   THE TABLE SHOWS WHY IT IS ORDERED THAT WAY. The Slayer column carries the level and, under it,
+   what a kill at that level is actually worth: 1 in 20 at a Colossal Hydra against 1 in 171 at a
+   Crushing hand. Without it the ordering is an assertion the reader has to take on trust, and the
+   eight-and-a-half-fold spread across the table — the single most important fact about superior
+   slayer — is invisible. The figure comes from the row, computed in the handler through
+   SourceLootService; a Razor file is a call site like any other and does no rate maths.
+
    COLUMN WIDTHS ARE FIXED, AND THE SURPLUS GOES TO A TRAILING SPACER. Left to itself an auto-layout
    table gives every spare pixel to the widest text column, which parked the monster name most of a
    screen away from the first count. Sharing the surplus among the data columns instead only spread
@@ -25,11 +32,13 @@
 <div class="overflow-x-auto themed-scrollbar">
     <table class="w-full table-fixed border-collapse text-sm" style="min-width:@MinWidth">
         <colgroup>
-            <col style="width:24rem" />
+            <col style="width:20rem" />
+            <col style="width:7rem" />
             @foreach (var _ in Comparison.Characters)
             {
                 <col style="width:12rem" />
             }
+            <col style="width:8rem" />
             <col />
         </colgroup>
         <thead>
@@ -39,16 +48,23 @@
                page, leaving a blank band above it at scroll zero. Making it stick to the page would
                mean dropping the wrapper, and the wrapper is what stops a very wide roster scrolling
                the whole body. A plain header is the right trade for a table this short. *@
-            @* Every header sorts. The link carries the whole sort in the query string and pushes it,
-               so a sorted view is linkable, survives a refresh and steps back through Back. Clicking
-               the column you are already sorted by flips the direction. *@
+            @* Every sortable header carries the whole sort in the query string and pushes it, so a
+               sorted view is linkable, survives a refresh and steps back through Back. Clicking the
+               column you are already sorted by flips the direction. *@
             <tr>
+                @* Plain label. The level sort used to live here, which meant the column you clicked
+                   and the column you were sorting by were different ones; it now sits on Slayer,
+                   which is the thing being sorted. The query string is unchanged. *@
                 <th class="@HeadCell text-left border-y border-slate-200 dark:border-slate-700">
+                    <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-white">Superior</span>
+                </th>
+                <th class="@HeadCell text-center border-y border-slate-200 dark:border-slate-700">
                     <a hx-get="@SortUrl(null).FromApi()" hx-target="#hx-page-container"
                        hx-push-url="@SortUrl(null)" hx-swap="innerHTML transition:true"
                        href="@SortUrl(null)"
-                       class="inline-flex items-center gap-1 cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-white hover:text-amber-600 dark:hover:text-amber-400 transition-colors">
-                        Superior @SortMark(Sort.IsByLevel)
+                       title="Sort by Slayer level, which is also the order of the unique-table chance"
+                       class="inline-flex items-center gap-1 cursor-pointer text-[11px] font-semibold uppercase tracking-wide @(Sort.IsByLevel ? "text-amber-600 dark:text-amber-400" : "text-slate-500 dark:text-white hover:text-amber-600 dark:hover:text-amber-400") transition-colors">
+                        Slayer @SortMark(Sort.IsByLevel)
                     </a>
                 </th>
                 @foreach (var character in Comparison.Characters)
@@ -61,7 +77,18 @@
                             <div class="text-xs font-semibold truncate transition-colors @(Sort.IsBy(character.GameCharacterId) ? "text-amber-600 dark:text-amber-400" : "text-slate-800 dark:text-slate-100 group-hover:text-amber-600 dark:group-hover:text-amber-400")">
                                 @character.CharacterName @SortMark(Sort.IsBy(character.GameCharacterId))
                             </div>
-                            <div class="text-[10px] font-normal tabular-nums text-slate-500 dark:text-white">@character.TotalKills.ToString("N0") total</div>
+                            <div class="text-[10px] font-normal tabular-nums text-slate-500 dark:text-white">@character.TotalKills.ToString("N0") kills</div>
+                            @* WHAT THOSE KILLS ARE WORTH, which the total on its own cannot say:
+                               every superior rolls the same table at a different rate, so two
+                               players a thousand kills apart can be much closer than that on the
+                               prize, or much further. *@
+                            @if (character.ExpectedUniques > 0)
+                            {
+                                <div class="text-[10px] font-medium tabular-nums text-amber-600 dark:text-amber-400"
+                                     title="@RollsTitle(character)">
+                                    @character.ExpectedUniques.ToString("N1") rolls
+                                </div>
+                            }
                             @* Whether they are still doing slayer. A big total says nothing about
                                whether it was earned last week or three years ago. *@
                             @if (character.LastKilled is { } last)
@@ -73,6 +100,12 @@
                         </a>
                     </th>
                 }
+                @* The roster's own total per monster. The footer totals each COLUMN; without this
+                   nothing totals a row, and "how much has the clan killed of this one" was a
+                   question the table could not answer despite holding every number needed. *@
+                <th class="@HeadCell text-center border-y border-slate-200 dark:border-slate-700">
+                    <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-white">Clan</span>
+                </th>
                 @* The spacer. Empty by design — see the note at the top of the file. *@
                 <th class="@HeadCell border-y border-slate-200 dark:border-slate-700"></th>
             </tr>
@@ -95,6 +128,17 @@
                                 </div>
                             </div>
                         </div>
+                    </td>
+
+                    @* Level over what a kill here is worth. The two belong in one cell because
+                       neither means much alone: the level is only interesting because it sets the
+                       rate, and the rate is only comparable because the level explains it. *@
+                    <td class="px-3 py-2 text-center" title="@LevelTitle(row)">
+                        <div class="text-[13px] font-medium tabular-nums text-slate-700 dark:text-slate-200">@row.SlayerLevel</div>
+                        @if (row.KillsPerUnique > 0)
+                        {
+                            <div class="text-[10px] tabular-nums text-slate-400 dark:text-white">1 in @Math.Round(row.KillsPerUnique).ToString("N0")</div>
+                        }
                     </td>
 
                     @foreach (var character in Comparison.Characters)
@@ -130,6 +174,10 @@
                             }
                         </td>
                     }
+
+                    <td class="px-4 py-2 text-center tabular-nums text-[13px] font-medium text-slate-600 dark:text-slate-300">
+                        @row.TotalKills.ToString("N0")
+                    </td>
                     <td></td>
                 </tr>
             }
@@ -139,12 +187,28 @@
                 <td class="px-4 py-2.5 border-t border-slate-200 dark:border-slate-700">
                     <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-white">Total superiors</span>
                 </td>
+                @* Nothing to total. A sum of Slayer levels is not a quantity, and an average would
+                   be one the reader would have to guess the weighting of. *@
+                <td class="border-t border-slate-200 dark:border-slate-700"></td>
                 @foreach (var character in Comparison.Characters)
                 {
-                    <td class="px-4 py-2.5 text-center tabular-nums text-[13px] font-bold text-slate-800 dark:text-slate-100 border-t border-slate-200 dark:border-slate-700">
-                        @character.TotalKills.ToString("N0")
+                    <td class="px-4 py-2.5 text-center border-t border-slate-200 dark:border-slate-700">
+                        <div class="tabular-nums text-[13px] font-bold text-slate-800 dark:text-slate-100">@character.TotalKills.ToString("N0")</div>
+                        @if (character.ExpectedUniques > 0)
+                        {
+                            <div class="text-[10px] font-medium tabular-nums text-amber-600 dark:text-amber-400" title="@RollsTitle(character)">
+                                @character.ExpectedUniques.ToString("N1") rolls
+                            </div>
+                        }
                     </td>
                 }
+                <td class="px-4 py-2.5 text-center border-t border-slate-200 dark:border-slate-700">
+                    <div class="tabular-nums text-[13px] font-bold text-slate-800 dark:text-slate-100">@Comparison.Rows.Sum(r => r.TotalKills).ToString("N0")</div>
+                    <div class="text-[10px] font-medium tabular-nums text-amber-600 dark:text-amber-400"
+                         title="Unique-table rolls the whole roster's superior kills are worth">
+                        @Comparison.Characters.Sum(c => c.ExpectedUniques).ToString("N1") rolls
+                    </div>
+                </td>
                 <td class="border-t border-slate-200 dark:border-slate-700"></td>
             </tr>
         </tfoot>
@@ -154,7 +218,9 @@
 @code {
     [Parameter] public SuperiorComparison Comparison { get; set; } = SuperiorComparison.Empty;
 
-    [Parameter] public SuperiorSort Sort { get; set; } = SuperiorSort.Default;
+    /// The ordering the rows are actually in, which the comparison carries so it cannot disagree
+    /// with them - an unknown character id falls back to Slayer level inside the handler.
+    private SuperiorSort Sort => Comparison.Ordering;
 
     /// Shared by every header cell.
     private const string HeadCell = "bg-slate-100 dark:bg-slate-800 px-4 py-2.5";
@@ -202,7 +268,20 @@
 
     /// The width the real columns need. Below it the spacer collapses to nothing and the table
     /// scrolls inside its wrapper, rather than the counts being squeezed.
-    private string MinWidth => $"{24 + Comparison.Characters.Count * 12}rem";
+    private string MinWidth => $"{35 + Comparison.Characters.Count * 12}rem";
+
+    /// Spelled out, because "19.4 rolls" is the unfamiliar half of the page and the cell has room
+    /// for two words. Says what the number is and what it is not: an expectation, not a receipt.
+    private static string RollsTitle(SuperiorCharacterColumn character) =>
+        $"{character.CharacterName}'s {character.TotalKills:N0} superiors are worth "
+      + $"{character.ExpectedUniques:N1} rolls of the shared unique table — about one every "
+      + $"{Math.Round(character.KillsPerUnique):N0} kills. Expected, not received.";
+
+    private static string LevelTitle(SuperiorMonsterRow row) =>
+        row.KillsPerUnique > 0
+            ? $"Slayer {row.SlayerLevel}, combat {row.CombatLevel} — about 1 unique table roll per "
+            + $"{Math.Round(row.KillsPerUnique):N0} kills"
+            : $"Slayer {row.SlayerLevel}, combat {row.CombatLevel}";
 
     // First and last killed live in the tooltip rather than in columns of their own: the grid is
     // already one column per character, and two dates per cell would make it unreadable.

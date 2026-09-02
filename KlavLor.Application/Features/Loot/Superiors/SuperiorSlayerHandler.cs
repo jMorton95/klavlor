@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Caching.Memory;
 using KlavLor.Application.Common;
+using KlavLor.Application.Features.Loot.SourceModels;
 using KlavLor.Application.Interfaces.Repositories;
 
 namespace KlavLor.Application.Features.Loot.Superiors;
@@ -14,7 +15,10 @@ namespace KlavLor.Application.Features.Loot.Superiors;
 /// One entry rather than one per panel because there is nothing a caller can vary - no filters, no
 /// sort, no paging.
 /// </remarks>
-public sealed class SuperiorSlayerHandler(ISuperiorSlayerRepository repository, IMemoryCache cache)
+public sealed class SuperiorSlayerHandler(
+    ISuperiorSlayerRepository repository,
+    SourceLootService sourceLoot,
+    IMemoryCache cache)
 {
     private static readonly TimeSpan Ttl = TimeSpan.FromMinutes(5);
 
@@ -66,10 +70,15 @@ public sealed class SuperiorSlayerHandler(ISuperiorSlayerRepository repository, 
                 ? comparison.Rows.OrderBy(r => r.SlayerLevel).ThenBy(r => r.Name, StringComparer.Ordinal)
                 : comparison.Rows.OrderByDescending(r => r.SlayerLevel).ThenBy(r => r.Name, StringComparer.Ordinal);
 
-        return comparison with { Rows = ordered.ToList() };
+        // The resolved sort, not the requested one: byCharacter is null when the id was unknown.
+        return comparison with
+        {
+            Rows = ordered.ToList(),
+            AppliedSort = new SuperiorSort(byCharacter, sort.Ascending)
+        };
     }
 
-    private static SuperiorComparison Assemble(
+    private SuperiorComparison Assemble(
         IReadOnlyList<SuperiorCountRow> counts,
         IReadOnlyList<SuperiorBaseKillRow> baseKills)
     {
@@ -90,8 +99,7 @@ public sealed class SuperiorSlayerHandler(ISuperiorSlayerRepository repository, 
             .GroupBy(x => x.Monster!.Name, StringComparer.Ordinal)
             .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.Ordinal);
 
-        var characters = BuildCharacters(counts);
-        if (characters.Count == 0) return SuperiorComparison.Empty;
+        if (BuildCharacters(counts).Count == 0) return SuperiorComparison.Empty;
 
         // HIGHEST SLAYER LEVEL FIRST. The registry is stored ascending because that is how a
         // reference list is naturally written and maintained; the page reverses it because the
@@ -119,12 +127,18 @@ public sealed class SuperiorSlayerHandler(ISuperiorSlayerRepository repository, 
                     monster.CombatLevel,
                     cells,
                     cells.Values.Sum(c => c.Kills),
-                    BaseKillsFor(monster, baseByMonster));
+                    BaseKillsFor(monster, baseByMonster),
+                    sourceLoot.SuperiorUniqueChance(monster.SlayerLevel));
             })
             .Where(row => row.TotalKills > 0)
             .ToList();
 
-        return new SuperiorComparison(characters, rows);
+        // Characters are built LAST, from the finished rows: a character's expected uniques is a
+        // sum over the rows, so the weighting has to exist before the column that totals it. Built
+        // from `rows` rather than from `counts` for the same reason the rows are filtered - a
+        // monster that did not make it onto the table must not contribute to a figure the table is
+        // supposed to explain.
+        return new SuperiorComparison(BuildCharacters(counts, rows), rows);
     }
 
     /// <summary>
@@ -147,7 +161,13 @@ public sealed class SuperiorSlayerHandler(ISuperiorSlayerRepository repository, 
         return totals;
     }
 
-    private static List<SuperiorCharacterColumn> BuildCharacters(IReadOnlyList<SuperiorCountRow> counts) =>
+    /// <param name="rows">
+    /// The finished, weighted rows. Null while the caller is only counting heads to decide whether
+    /// there is a table at all, in which case the expected-uniques figure is left at zero.
+    /// </param>
+    private static List<SuperiorCharacterColumn> BuildCharacters(
+        IReadOnlyList<SuperiorCountRow> counts,
+        IReadOnlyList<SuperiorMonsterRow>? rows = null) =>
         counts
             .Where(row => SuperiorSlayerMonsters.Find(row.SourceKey) is not null)
             .GroupBy(row => row.GameCharacterId)
@@ -156,8 +176,21 @@ public sealed class SuperiorSlayerHandler(ISuperiorSlayerRepository repository, 
                 g.First().CharacterName,
                 g.First().UserName,
                 g.Sum(row => row.Kills),
-                g.Max(row => row.LastKilled)))
+                g.Max(row => row.LastKilled),
+                ExpectedUniquesFor(g.Key, rows)))
             .OrderByDescending(c => c.TotalKills)
             .ThenBy(c => c.CharacterName, StringComparer.OrdinalIgnoreCase)
             .ToList();
+
+    /// <summary>
+    /// One character's unique-table rolls: their kills of each superior, each weighted by that
+    /// monster's own chance, summed.
+    /// </summary>
+    /// <remarks>
+    /// The sum is the whole point. A single roster-wide rate would be meaningless here because the
+    /// chance is per monster and every player kills a different mix of them - which is exactly the
+    /// thing the kill totals hide.
+    /// </remarks>
+    private static double ExpectedUniquesFor(int characterId, IReadOnlyList<SuperiorMonsterRow>? rows) =>
+        rows is null ? 0 : rows.Sum(row => row.KillsFor(characterId) * row.UniqueChance);
 }

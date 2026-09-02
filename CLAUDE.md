@@ -329,9 +329,36 @@ failure a lowercased match cannot survive: a rename.
 
 **The shared unique table is why the page is ordered the way it is.** Every superior, level 5 to
 level 95, rolls the same table, and the chance of hitting it is `1 / (200 - (slayerLevel + 55)^2 /
-125)` — so a Colossal Hydra is worth roughly eight Crushing hands. **That formula is recorded on the
-registry and computed nowhere**: the page shows counts only. When a weighted figure is wanted it
-belongs behind `SourceLootService` like every other rate, never hand-rolled at the call site.
+125)` — so a Colossal Hydra (1/20) is worth about eight and a half Crushing hands (1/171).
+
+**That formula is computed in exactly one place: `SourceLootService.SuperiorUniqueChance`.** The
+registry states the rule in its remarks; the facade computes it; nothing else does either, per
+"Luck Maths: One Path Only" — and that includes the Razor file, which is a call site like any
+other. It takes a Slayer level rather than a source name because the level IS the dispatch: there
+is no per-monster variation to look up, and 38 registered `ISourceLootStrategy` implementations
+differing only by a constant would be dispatch for its own sake. It returns a probability rather
+than an expected KC because the figures built on it are sums across monsters at different levels.
+
+**The page shows what the counts are worth, not just the counts.** Two derived figures, both
+resolved in the handler:
+
+- Each row carries its own `UniqueChance`, rendered under the Slayer level as "1 in 20". Without
+  it the hardest-first ordering is an assertion the reader has to take on trust, and the
+  eight-fold spread across the table — the single most important fact about superior slayer — is
+  invisible.
+- Each character carries `ExpectedUniques`: the sum, over every row, of their kills times that
+  monster's chance. This is the thing a kill total structurally cannot say. Kills of all 38
+  accumulate toward ONE prize, so they only become comparable once weighted — 1,141 kills of
+  mostly high-level superiors is worth far more than 1,141 Crushing hands, and a column of totals
+  puts those side by side as though they were equal. It is an expectation, never a receipt:
+  nothing on this page compares it against uniques actually received.
+
+`BuildCharacters` therefore runs LAST, from the finished rows rather than from the raw counts — a
+monster filtered off the table must not contribute to a figure the table is supposed to explain.
+`KlavLor.UnitTests/SuperiorUniqueChanceTests.cs` pins the published rates at both ends of the
+registry, the monotonicity that makes "hardest first" and "most valuable first" the same ordering,
+the zero guard above level 103, and the property the whole thing exists for: that weighting can
+rank two players differently from their raw counts.
 
 **Hardest first, and only monsters someone has killed.** The registry is stored ascending because
 that is how a reference list is naturally written and maintained; `SuperiorSlayerHandler` reverses it
@@ -363,6 +390,10 @@ in the public sidebar, where an authorization policy would 401-redirect signed-o
 one route serving one cached aggregate (5-min TTL keyed off `AggregateCacheGeneration`), so the
 routed page queries during SSR like `CollectionLogPage` and needs no `DeferredSection` staggering.
 
+The columns are Superior, Slayer, one per character, Clan, spacer. **Clan totals each row**, which
+the footer's per-character totals could not: "how much has the clan killed of this one" was a
+question the table held every number for and could not answer.
+
 The table is full-bleed. Column widths are fixed via a `colgroup` and the surplus goes to an **empty
 trailing column**, because an auto-layout table hands every spare pixel to the widest text column —
 which parked the monster name most of a screen from the first count. Sharing the surplus among the
@@ -375,13 +406,21 @@ sticky header inside it resolves against the wrapper rather than the viewport �
 64px *down* from the table's own top instead of pinning it, leaving a blank band at scroll zero.
 Making it stick to the page would mean dropping the wrapper.
 
-**Every header sorts, and the sort lives in the query string** (`?characterId=42&asc=true`), so a
-sorted view is linkable, survives a refresh and steps back through Back. It is applied **in memory,
+**Every character header sorts, plus Slayer, and the sort lives in the query string**
+(`?characterId=42&asc=true`), so a sorted view is linkable, survives a refresh and steps back
+through Back. The level sort sits on the **Slayer** header, not on **Superior**: it used to mean the
+column you clicked and the column you were sorting by were different ones. It is applied **in memory,
 after the cache** — every ordering shares one cached read, and because the sort key is a character id
 rather than a column name there is no query to interpolate it into, which sidesteps the sort-column
 whitelist problem the SQL-backed tables have. An unknown character id **falls back** to the default
 ordering rather than throwing or emptying the table: the id comes off a query string, so a stale
 bookmark or a since-hidden character is an ordinary thing to receive.
+
+**`SuperiorComparison` carries the sort that was actually APPLIED** (`AppliedSort`/`Ordering`), and
+the view reads it from there. The endpoint and the routable page used to build a `SuperiorSort` from
+the query and hand it to the component alongside the rows, which let the two disagree: on a stale
+bookmark the fallback ordered by level while no header said so, because the view was still holding
+the character id that had been discarded. One object now carries both.
 
 Each column header also carries **when that character last killed a superior**, because a large total
 says nothing about whether it was earned last week or three years ago. Only the recent state is
