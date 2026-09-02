@@ -331,33 +331,16 @@ failure a lowercased match cannot survive: a rename.
 level 95, rolls the same table, and the chance of hitting it is `1 / (200 - (slayerLevel + 55)^2 /
 125)` — so a Colossal Hydra (1/20) is worth about eight and a half Crushing hands (1/171).
 
-**That formula is computed in exactly one place: `SourceLootService.SuperiorUniqueChance`.** The
-registry states the rule in its remarks; the facade computes it; nothing else does either, per
-"Luck Maths: One Path Only" — and that includes the Razor file, which is a call site like any
-other. It takes a Slayer level rather than a source name because the level IS the dispatch: there
-is no per-monster variation to look up, and 38 registered `ISourceLootStrategy` implementations
-differing only by a constant would be dispatch for its own sake. It returns a probability rather
-than an expected KC because the figures built on it are sums across monsters at different levels.
+**THAT FORMULA IS DELIBERATELY NOT COMPUTED, and the reason is a domain fact rather than laziness.**
+It gives a BASE chance per Slayer level, but a Slayer master's bonus moves it substantially and
+**nothing in a loot record says which master a kill was on** — the ingest payload has no field for
+it and never will. Any weighted figure would therefore be a precise-looking number nobody can stand
+behind.
 
-**The page shows what the counts are worth, not just the counts.** Two derived figures, both
-resolved in the handler:
-
-- Each row carries its own `UniqueChance`. It had a column of its own briefly, next to the Slayer
-  level, and the column was cut: a whole column of the page's width spent on a figure nobody reads
-  per row. It survives in the cell tooltip, where the level does too.
-- Each character carries `ExpectedUniques`: the sum, over every row, of their kills times that
-  monster's chance. This is the thing a kill total structurally cannot say. Kills of all 38
-  accumulate toward ONE prize, so they only become comparable once weighted — 1,141 kills of
-  mostly high-level superiors is worth far more than 1,141 Crushing hands, and a column of totals
-  puts those side by side as though they were equal. It is an expectation, never a receipt:
-  nothing on this page compares it against uniques actually received.
-
-`BuildCharacters` therefore runs LAST, from the finished rows rather than from the raw counts — a
-monster filtered off the table must not contribute to a figure the table is supposed to explain.
-`KlavLor.UnitTests/SuperiorUniqueChanceTests.cs` pins the published rates at both ends of the
-registry, the monotonicity that makes "hardest first" and "most valuable first" the same ordering,
-the zero guard above level 103, and the property the whole thing exists for: that weighting can
-rank two players differently from their raw counts.
+It was computed, briefly: `SourceLootService.SuperiorUniqueChance` fed a per-row rate and a
+per-character "expected rolls" total. Both were removed once that was pointed out. If it is ever
+wanted again the blocker is the missing master, not the maths — and the honest version would have to
+carry a visible caveat, because the error is not small.
 
 **Hardest first, and only monsters someone has killed.** The registry is stored ascending because
 that is how a reference list is naturally written and maintained; `SuperiorSlayerHandler` reverses it
@@ -409,20 +392,21 @@ table meets both edges at any size, and the extra pixels carry information inste
 bars now covers 18.5% of the table against 6.8% before, and rows dropped 47px to 38px by putting
 each count and its "from N" on ONE line ("68 from 13k", exact figure in the tooltip).
 
-**The bar is unique-table rolls EARNED, not share of kills.** It was share of kills first and that
-was close to useless: the proportions are set by each player's overall activity rather than by
-anything about the monster, so every row drew the same picture — 26 distinct shapes across 38 rows,
-one of them repeating five times. A column of identical stripes is not a chart.
+**The bar is CLAN KILLS, and only after four metrics were measured against the real data.** The
+width has to carry something, and most candidates draw a flat chart:
 
-Rolls earned is `TotalKills × UniqueChance`, and it spans **20x** top to bottom (3.40 down to 0.17),
-so the bars actually differ — 37 distinct widths across 38 rows. It also draws the thing the counts
-hide: Greater abyssal demon's 145 kills earn 3.36 rolls, all but identical to Colossal Hydra's 68,
-because one is 1/43 and the other 1/20. That is the page's whole argument, made visible. Scaled
-against the largest row rather than an absolute maximum, because the question is which superiors are
-carrying the clan — an absolute scale leaves all 38 as slivers.
+- **Share of kills per character** — 26 distinct shapes across 38 rows, one repeating five times.
+  The proportions track each player's overall activity, not the monster.
+- **Unique-table rolls earned** — 20x spread and the most interesting of the four, but not
+  assertable; see the Slayer-master note above. Removed for correctness, not for looks.
+- **Superiors per 1,000 base kills** — 5.07 to 5.50, a 1.1x spread. It is a fixed game constant, so
+  the bar is a straight line and the wobble is sample noise.
+- **Active timespan per monster** — median 97% of the axis, 37 of 38 rows over 80%.
 
-The view multiplies two numbers the row already carries; the rate behind them was resolved in the
-handler through `SourceLootService`, so no rate maths happens in the Razor file.
+**Volume is the only one that varies** (10x, 15 to 145), so the bar draws it and the Clan count moved
+into the bar rather than sitting in a column beside it saying the same thing twice. A bar column
+usually is the adjacent number drawn; that is not redundancy, it is what makes a table scannable.
+Scaled against the largest row — an absolute scale leaves all 38 as slivers.
 
 There is no spacer column and no `tfoot`: the footer repeated the per-character totals the header
 already carried, costing a row of height to say the same thing twice.

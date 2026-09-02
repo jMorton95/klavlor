@@ -1,10 +1,12 @@
 namespace KlavLor.Application.Features.Loot.Superiors;
 
-// Read models for the Superior Slayer comparison: counts, dates, and the unique-table weighting
-// those counts are worth. The weighting comes from SourceLootService.SuperiorUniqueChance and is
-// resolved in the handler, never in the view - a Razor file is a call site like any other, and
-// CLAUDE.md's "Luck Maths: One Path Only" applies to it too. There is still no luck figure here:
-// nothing on this page compares what was received against what was expected.
+// Read models for the Superior Slayer comparison. Counts and dates only.
+//
+// NO UNIQUE-TABLE WEIGHTING, and this is a domain fact rather than an omission. The wiki formula
+// gives a BASE chance per Slayer level, but a Slayer master's bonus moves it substantially and
+// nothing in a loot record says which master a kill was on - so a weighted figure would be a
+// precise-looking number we cannot stand behind. It was briefly computed here and removed; see
+// SuperiorSlayerMonsters for the formula and CLAUDE.md for why it stays uncomputed.
 
 /// <summary>The whole page: who is being compared, and one row per superior anyone has killed.</summary>
 public sealed record SuperiorComparison(
@@ -36,23 +38,7 @@ public sealed record SuperiorCharacterColumn(
     /// week or three years ago. Null only if they have no superior kills, which cannot happen for a
     /// character that made it into this list.
     /// </summary>
-    DateTimeOffset? LastKilled = null,
-    /// <summary>
-    /// Unique-table rolls this character's kills are worth: the sum, over every superior, of their
-    /// kills times that monster's chance. This is what the raw total cannot say. Every superior
-    /// rolls the SAME table, so kills only become comparable once weighted by level - 1,141 kills
-    /// of mostly high-level superiors is worth far more than 1,141 of Crushing hands, and the
-    /// column totals alone put those side by side as if they were equal.
-    /// </summary>
-    double ExpectedUniques = 0)
-{
-    /// <summary>
-    /// Kills per unique-table roll, averaged over what this character actually killed - the quality
-    /// of the grind rather than its size. Two players can be a thousand kills apart on the totals
-    /// and closer than that on the prize, or the reverse. Zero when there is nothing to divide.
-    /// </summary>
-    public double KillsPerUnique => ExpectedUniques > 0 ? TotalKills / ExpectedUniques : 0;
-}
+    DateTimeOffset? LastKilled = null);
 
 /// <summary>
 /// How the table is ordered.
@@ -85,11 +71,7 @@ public sealed record SuperiorSort(int? CharacterId = null, bool Ascending = fals
 public sealed record SuperiorMonsterRow(
     string Name,
     IReadOnlyList<string> BaseMonsters,
-    /// <summary>
-    /// The base task's Slayer level. It is the page's default sort key and, through
-    /// <see cref="UniqueChance"/>, the reason that ordering is worth having - so the table shows it
-    /// rather than leaving the reader to infer why the rows are in the order they are.
-    /// </summary>
+    /// <summary>The base task's Slayer level. The page's default sort key.</summary>
     int SlayerLevel,
     int CombatLevel,
     /// <summary>GameCharacterId to cell. A missing key means never killed, which renders as a dash.</summary>
@@ -102,17 +84,8 @@ public sealed record SuperiorMonsterRow(
     /// count sits on top of, and one shared figure could not say whose grind it was. A missing key
     /// means we hold nothing for them there, which the view shows as nothing rather than "0".
     /// </summary>
-    IReadOnlyDictionary<int, long> BaseKills,
-    /// <summary>
-    /// This monster's chance of rolling the shared unique table, from
-    /// <see cref="Application.Features.Loot.SourceModels.SourceLootService.SuperiorUniqueChance"/>.
-    /// Carried per row rather than recomputed in the view: the view is a call site.
-    /// </summary>
-    double UniqueChance = 0)
+    IReadOnlyDictionary<int, long> BaseKills)
 {
-    /// <summary>Kills per unique-table roll at this monster, for display as "1 in N".</summary>
-    public double KillsPerUnique => UniqueChance > 0 ? 1 / UniqueChance : 0;
-
     public SuperiorCell? CellFor(int gameCharacterId) =>
         Cells.TryGetValue(gameCharacterId, out var cell) ? cell : null;
 

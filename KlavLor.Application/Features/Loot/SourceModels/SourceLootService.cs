@@ -107,36 +107,6 @@ public sealed class SourceLootService
         return (expected, $"1/{Math.Round(expected):N0}");
     }
 
-    /// <summary>
-    /// The chance that ONE superior slayer kill rolls the shared unique table, given the Slayer
-    /// level of the base task: <c>1 / (200 - (level + 55)^2 / 125)</c>. Returns a probability, not
-    /// a kill count, because the interesting figures downstream are sums over many monsters at
-    /// different levels rather than a single expected KC.
-    /// </summary>
-    /// <remarks>
-    /// EVERY SUPERIOR ROLLS THE SAME TABLE, which is what makes this worth computing at all: kills
-    /// of all 38 accumulate toward one prize, so they can only be added up once they are weighted.
-    /// The chance improves sharply with level - a level 95 Colossal Hydra is 1/20 against a level 5
-    /// Crushing hand's 1/171, so it is worth about eight and a half of them.
-    ///
-    /// It lives here rather than on SuperiorSlayerMonsters, which is where the formula is recorded,
-    /// because CLAUDE.md's "Luck Maths: One Path Only" puts every rate behind this facade: the
-    /// registry states the rule, this computes it, and no call site does either. It takes a level
-    /// rather than a source name because the level IS the dispatch - there is no per-monster
-    /// variation to look up, and 38 registered strategies that differ only by a constant would be
-    /// dispatch for its own sake.
-    ///
-    /// Zero for a level the formula cannot answer for. The denominator falls to nothing somewhere
-    /// above level 103, which the game cannot reach and the registry does not contain; guarding it
-    /// costs a comparison and stops a future entry turning a typo into a negative probability.
-    /// </remarks>
-    public double SuperiorUniqueChance(int slayerLevel)
-    {
-        if (slayerLevel <= 0) return 0;
-        var denominator = 200 - Math.Pow(slayerLevel + 55, 2) / 125.0;
-        return denominator > 0 ? 1.0 / denominator : 0;
-    }
-
     // Turns the raw run list the repository returns into the depth profile the luck maths needs.
     // Every consumer of SourceCollection.Runs must go through this, because the repository cannot
     // know which sources model depth:

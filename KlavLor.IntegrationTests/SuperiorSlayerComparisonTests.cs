@@ -1,6 +1,4 @@
-using KlavLor.Application.Features.Loot.SourceModels;
 using KlavLor.Application.Features.Loot.Superiors;
-using KlavLor.Application.Interfaces.Services;
 using KlavLor.Domain.Entities;
 using KlavLor.Infrastructure.Persistence.EntityFramework.Repositories.Loot;
 using Microsoft.Extensions.Caching.Memory;
@@ -141,7 +139,7 @@ public sealed class SuperiorSlayerComparisonTests(PostgresFixture fx)
         });
         await ctx.SaveChangesAsync();
 
-        var handler = new SuperiorSlayerHandler(Repo(ctx), Rates(), new MemoryCache(new MemoryCacheOptions()));
+        var handler = new SuperiorSlayerHandler(Repo(ctx), new MemoryCache(new MemoryCacheOptions()));
         var comparison = await handler.Get();
 
         // The handler reads the whole roster and the fixture database is shared, so these assert
@@ -208,7 +206,7 @@ public sealed class SuperiorSlayerComparisonTests(PostgresFixture fx)
             Seed.AddKill(ctx, userId, charId, "Crushing hand", T.AddHours(i), null, [new("Coins", 995, 10, 1)]);
         await ctx.SaveChangesAsync();
 
-        var handler = new SuperiorSlayerHandler(Repo(ctx), Rates(), new MemoryCache(new MemoryCacheOptions()));
+        var handler = new SuperiorSlayerHandler(Repo(ctx), new MemoryCache(new MemoryCacheOptions()));
 
         // Scoped to the three this test seeded — the fixture database is shared, so other tests'
         // superiors are in the table too.
@@ -239,7 +237,7 @@ public sealed class SuperiorSlayerComparisonTests(PostgresFixture fx)
         Seed.AddKill(ctx, userId, charId, "Night beast", T, null, [new("Coins", 995, 10, 1)]);
         await ctx.SaveChangesAsync();
 
-        var handler = new SuperiorSlayerHandler(Repo(ctx), Rates(), new MemoryCache(new MemoryCacheOptions()));
+        var handler = new SuperiorSlayerHandler(Repo(ctx), new MemoryCache(new MemoryCacheOptions()));
 
         // The id comes off a query string, so a stale bookmark or a since-hidden character is an
         // ordinary thing to receive. It must fall back, not throw and not empty the table.
@@ -262,25 +260,10 @@ public sealed class SuperiorSlayerComparisonTests(PostgresFixture fx)
         Seed.AddKill(ctx, userId, charId, "King kurask", T.AddDays(9), null, [new("Coins", 995, 10, 1)]);
         await ctx.SaveChangesAsync();
 
-        var handler = new SuperiorSlayerHandler(Repo(ctx), Rates(), new MemoryCache(new MemoryCacheOptions()));
+        var handler = new SuperiorSlayerHandler(Repo(ctx), new MemoryCache(new MemoryCacheOptions()));
         var comparison = await handler.Get();
 
         var column = comparison.Characters.Single(c => c.GameCharacterId == charId);
         Assert.Equal(T.AddDays(40), column.LastKilled);
-    }
-
-    /// <summary>
-    /// The handler weights each monster's kills by its unique-table chance, so it needs the rate
-    /// facade. None of these tests exercise a strategy or an admin modifier - SuperiorUniqueChance
-    /// is a pure function of the Slayer level - so the default strategy and a no-op modifier cache
-    /// are the whole of what is required.
-    /// </summary>
-    private static SourceLootService Rates() =>
-        new([new DefaultSourceLootStrategy()], new NoModifiers());
-
-    private sealed class NoModifiers : ISourceRateModifierCache
-    {
-        public double GetMultiplier(string sourceName, string? itemName) => 1.0;
-        public void Replace(IEnumerable<SourceRateModifierValue> modifiers) { }
     }
 }
