@@ -342,10 +342,9 @@ than an expected KC because the figures built on it are sums across monsters at 
 **The page shows what the counts are worth, not just the counts.** Two derived figures, both
 resolved in the handler:
 
-- Each row carries its own `UniqueChance`, rendered under the Slayer level as "1 in 20". Without
-  it the hardest-first ordering is an assertion the reader has to take on trust, and the
-  eight-fold spread across the table — the single most important fact about superior slayer — is
-  invisible.
+- Each row carries its own `UniqueChance`. It had a column of its own briefly, next to the Slayer
+  level, and the column was cut: a whole column of the page's width spent on a figure nobody reads
+  per row. It survives in the cell tooltip, where the level does too.
 - Each character carries `ExpectedUniques`: the sum, over every row, of their kills times that
   monster's chance. This is the thing a kill total structurally cannot say. Kills of all 38
   accumulate toward ONE prize, so they only become comparable once weighted — 1,141 kills of
@@ -390,26 +389,45 @@ in the public sidebar, where an authorization policy would 401-redirect signed-o
 one route serving one cached aggregate (5-min TTL keyed off `AggregateCacheGeneration`), so the
 routed page queries during SSR like `CollectionLogPage` and needs no `DeferredSection` staggering.
 
-The columns are Superior, Slayer, one per character, Clan, spacer. **Clan totals each row**, which
-the footer's per-character totals could not: "how much has the clan killed of this one" was a
-question the table held every number for and could not answer.
+The columns are Superior, one per character, Clan. **Clan totals each row**, which the
+per-character totals could not: "how much has the clan killed of this one" was a question the table
+held every number for and could not answer.
 
-The table is full-bleed. Column widths are fixed via a `colgroup` and the surplus goes to an **empty
-trailing column**, because an auto-layout table hands every spare pixel to the widest text column —
-which parked the monster name most of a screen from the first count. Sharing the surplus among the
-data columns only spread the same gap thinner; putting it after them keeps the counts beside the
-monster they belong to and drops the slack where nothing is read. The `overflow-x` wrapper is a
-backstop for a very large roster only, because the page body must never scroll horizontally.
+**THE ROWS ARE SPLIT INTO TWO BLOCKS SIDE BY SIDE, and that is the whole layout.** A roster of four
+needs about 1,100px and a desktop offers nearly 1,900. The page used to pin every column to the
+width it needed and dump the ~550px of surplus into an **empty trailing spacer column** — so a
+third of the width sat blank while the table ran to two full screens of scrolling. Splitting the
+rows spends the width on the height instead: 2.01 screens to 1.11 at 1920, and both halves meet
+both edges. There is no spacer column left, and no `tfoot`: the footer repeated the per-character
+totals the header already carried, which with two blocks would have said the same thing four times.
+
+Widths are **percentages, not fixed** — fixed widths are what created the surplus. A block fills
+whatever it is given, and `table-fixed` stops the longest monster name setting the layout.
+
+The split is decided in two places, and needs both. `ShouldSplit` is the server's half: past a
+handful of characters no half-page holds the columns, so the rows are not split at all. The grid's
+`repeat(auto-fit, minmax(MinWidth, 1fr))` is the browser's half, dropping to one column whenever
+two blocks would not both clear their floor. A media query would have had to guess a breakpoint per
+character count; auto-fit asks the real question, so the layout is right at four characters and at
+five. `MinWidth` therefore does double duty: the table's own floor before it scrolls, and the grid's
+test for whether there is room for two.
+
+**Full bleed means cancelling the app gutter, not just declining a max-width.** `#hx-page-container`
+carries `p-4`, so "no container" still left the table 16px off both edges, which on a page that is
+one wide table reads as a mistake. `SuperiorsContent` has `-mx-4` to negate it for this page alone;
+the blocks carry their own inner padding, so nothing sits flush against the glass. The `overflow-x`
+wrapper is a backstop for a very large roster only, because the page body must never scroll
+horizontally.
 
 The header is deliberately **not** sticky: the `overflow-x` wrapper is a scroll container, so a
 sticky header inside it resolves against the wrapper rather than the viewport — `top-16` offset it
 64px *down* from the table's own top instead of pinning it, leaving a blank band at scroll zero.
 Making it stick to the page would mean dropping the wrapper.
 
-**Every character header sorts, plus Slayer, and the sort lives in the query string**
-(`?characterId=42&asc=true`), so a sorted view is linkable, survives a refresh and steps back
-through Back. The level sort sits on the **Slayer** header, not on **Superior**: it used to mean the
-column you clicked and the column you were sorting by were different ones. It is applied **in memory,
+**Every header sorts, and the sort lives in the query string** (`?characterId=42&asc=true`), so a
+sorted view is linkable, survives a refresh and steps back through Back. Sorting is applied
+**before** the rows are split, so a sorted view reads down the left block and then down the right;
+both blocks' headers carry the same links and the same arrow. It is applied **in memory,
 after the cache** — every ordering shares one cached read, and because the sort key is a character id
 rather than a column name there is no query to interpolate it into, which sidesteps the sort-column
 whitelist problem the SQL-backed tables have. An unknown character id **falls back** to the default
