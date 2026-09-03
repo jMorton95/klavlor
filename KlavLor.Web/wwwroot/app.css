@@ -989,27 +989,24 @@ body:not(.history-panel-open) #completion-history-panel {
    elements — a <table> and a <section> — so nothing makes their horizontal
    rules meet on their own. They have to be told.
 
-   The table's header row is three lines of per-character stats (name, kills,
-   uniques) and that is what sets the height; the timeline's header is pinned
-   to the same figure so the first data row of each starts on the same pixel.
-   Before this the timeline carried a title band AND a tally band, ruling at
-   220px and 254px against the table's 248px — two staggered joins across one
-   seam, which is what read as "it doesn't align".
+   The table's header row is two lines per character — name, then kills and
+   uniques together — and its natural height is what sets this figure; the
+   timeline's header is pinned to the same one so the first data row of each
+   starts on the same pixel. Before this the timeline carried a title band AND
+   a tally band, ruling twice against the table's once — two staggered joins
+   across one seam, which is what read as "it doesn't align".
 
-   ONE NUMBER, BOTH SIDES. Change the table header's line count and change it
-   here.
+   ONE NUMBER, BOTH SIDES. Change what the table header carries and re-measure
+   it here.
+
+   On the table it is a `height` on a <tr>, which CSS treats as a MINIMUM, so a
+   header that outgrows the figure pushes the row rather than clipping it — the
+   two halves then visibly disagree, which is the right way for this to fail.
    --------------------------------------------------------------------------- */
-:root { --superior-head-h: 3.8125rem; }
+:root { --superior-head-h: 3.0625rem; }
 
-.superior-head { height: var(--superior-head-h); }
-
-/* The timeline's half of that seam. It needs ONE PIXEL MORE than the table's,
-   and the pixel is real rather than a fudge: under border-collapse the table's
-   top rule is drawn ABOVE its header row, so the row's own box starts a pixel
-   lower and its bottom rule lands at 248 where the timeline's landed at 247.
-   The timeline carries its top border inside its own box, so it has to buy that
-   pixel back to rule on the same line. */
-.superior-head-panel { height: calc(var(--superior-head-h) + 1px); }
+.superior-head,
+.superior-head-panel { height: var(--superior-head-h); }
 
 /* The timeline's node column, and therefore where the rail runs. Both the item
    nodes and the month dividers sit in a slot of this width, so the rail lands

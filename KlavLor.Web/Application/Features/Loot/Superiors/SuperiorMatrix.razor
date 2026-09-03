@@ -1,4 +1,5 @@
 @using KlavLor.Application.Features.Loot.Superiors
+@using KlavLor.Web.Application.Features.Loot.Feed
 
 @* The comparison itself: one row per superior anyone has killed, one column per character.
 
@@ -66,27 +67,30 @@
                         <a hx-get="@SortUrl(character.GameCharacterId).FromApi()" hx-target="#hx-page-container"
                            hx-push-url="@SortUrl(character.GameCharacterId)" hx-swap="innerHTML transition:true"
                            href="@SortUrl(character.GameCharacterId)"
-                           class="block cursor-pointer group">
-                            @* No colour key any more: the bar stopped being per character, so a dot
-                               here would key nothing. *@
-                            <div class="text-xs font-semibold truncate transition-colors @(Sort.IsBy(character.GameCharacterId) ? "text-amber-600 dark:text-amber-400" : "text-slate-800 dark:text-slate-100 group-hover:text-amber-600 dark:group-hover:text-amber-400")">
-                                @character.CharacterName @SortMark(Sort.IsBy(character.GameCharacterId))
+                           class="block cursor-pointer group" title="@UniquesTitle(character)">
+                            @* THE CHARACTER'S OWN COLOUR, the same assignment the receipts timeline
+                               beside this table and the live roll ticker both use — so a name is one
+                               colour everywhere on the site rather than three. It also gives this
+                               cell something to align on: three centred lines of text had no anchor
+                               and read as a paragraph. *@
+                            <div class="flex items-center justify-center gap-1.5 min-w-0">
+                                <span class="w-1.5 h-1.5 rounded-full shrink-0 bg-current roll-name-text @RollChipHues.ClassFor(character.CharacterName)"></span>
+                                <span class="text-xs font-semibold truncate transition-colors @(Sort.IsBy(character.GameCharacterId) ? "text-amber-600 dark:text-amber-400" : "text-slate-800 dark:text-slate-100 group-hover:text-amber-600 dark:group-hover:text-amber-400")">
+                                    @character.CharacterName
+                                </span>
+                                @SortMark(Sort.IsBy(character.GameCharacterId))
                             </div>
-                            @* The column's own total, which is why there is no footer. *@
-                            <div class="text-[10px] font-normal tabular-nums text-slate-500 dark:text-white">@character.TotalKills.ToString("N0") kills</div>
-                            @* THE OUTCOME, next to the effort. The only figure in this header that
-                               is not the kill count restated. *@
-                            @if (character.UniquesReceived.Count > 0)
-                            {
-                                <div class="text-[10px] font-medium tabular-nums text-amber-600 dark:text-amber-400"
-                                     title="@UniquesTitle(character)">
-                                    @character.UniquesReceived.Count @(character.UniquesReceived.Count == 1 ? "unique" : "uniques")
-                                </div>
-                            }
-                            else
-                            {
-                                <div class="text-[10px] font-normal text-slate-400 dark:text-white">no uniques yet</div>
-                            }
+
+                            @* Effort and outcome on ONE line. They were two stacked lines plus a
+                               placeholder line for nobody's uniques, which is what made this header
+                               three lines tall for two numbers. *@
+                            <div class="mt-0.5 text-[10px] tabular-nums text-slate-500 dark:text-white">
+                                @character.TotalKills.ToString("N0") kills
+                                @if (character.UniquesReceived.Count > 0)
+                                {
+                                    <span class="ml-1 font-semibold text-amber-600 dark:text-amber-400">@character.UniquesReceived.Count&#9733;</span>
+                                }
+                            </div>
                         </a>
                     </th>
                 }

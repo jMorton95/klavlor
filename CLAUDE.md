@@ -483,10 +483,25 @@ The **kill ordinal** (`#60`) is the character's Nth kill of that superior when i
 correlated count plus any admin baseline — the same definition the rest of the site uses for a roll
 number. It is a fact, not a rate: "their 60th Nechryarch" says nothing about what the odds were.
 
-**The page is a header strip over a two-column body.** Five figures — superiors met, clan kills,
-unique drops, characters, latest unique — every one a count rather than a derived rate, for the
-reason above. It was a bare table on the raw page background before, which is what made it read as
-unfinished: nothing framed it and nothing summarised it.
+**The page opens with a STAT BAR, not a banner.** Same five facts — superiors met, clan kills, unique
+drops, characters, latest unique — and every one is a count rather than a derived rate, for the reason
+above. It was a 76px gradient band of five stacked label-over-value blocks filling the leftmost 700px
+of a 1905px page and leaving the rest empty, which is what made it read as a banner bolted on top
+rather than as part of the page.
+
+Two things fixed that. The counts are a **run of inline figures** (value, then what it counts) rather
+than blocks: none of them earns a block, because every one is also stated somewhere else here — rows
+in the table, the Clan column's sum, the timeline's own "N received", the number of character columns.
+And the **latest unique takes the space they gave back**, pinned right with the item's own icon, since
+it is the only entry on the page that is not a count. 37px instead of 76px, which is four more table
+rows above the fold.
+
+**The table header is two lines, and each character carries their own colour** — the same
+`RollChipHues` assignment the receipts timeline and the live roll ticker use, so a name is one colour
+everywhere rather than three. It was three centred lines (name, kills, uniques) with a "no uniques
+yet" placeholder holding the third line open for people who had none; kills and uniques now share a
+line and the placeholder is gone. That is what sets `--superior-head-h`, so shortening it meant
+re-measuring the token both halves of the seam read from.
 
 **The hover card survives, moved onto the monster name.** Per character: kills, uniques, first and
 last, and *never on task* shown distinctly from a zero — which the grid's dash cannot distinguish.
