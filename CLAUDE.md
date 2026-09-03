@@ -443,19 +443,33 @@ dots would need a key. The two rare ones (Imbued heart, Eternal gem) get an ambe
 and an amber card; the battlestaves stay plain, because giving them equal weight would make an Imbued
 heart look like a Tuesday.
 
-**THE TWO HALVES SHARE THEIR HORIZONTAL RULES BY AGREEMENT, NOT BY LUCK.** This is a `<table>` beside
-a `<section>`, and nothing makes their header rules meet on their own. When they did not, the seam
-ruled three times across one line: the timeline carried a title band AND a tally band, ending at 220px
-and 254px against the table's 248px. The title and tally are now one band, and both headers are pinned
-to `--superior-head-h` in `app.css` — the table's header is three lines of per-character stats, which
-is what sets the figure, so change that and change this. The timeline's half takes **one pixel more**
-(`.superior-head-panel`), and the pixel is real rather than a fudge: under `border-collapse` the
-table's top rule is drawn *above* its header row, so the row's own box starts a pixel lower.
+**THE BAND'S HORIZONTAL RULES ARE DRAWN ONCE, BY THE CONTAINER.** This is a `<table>` beside a
+`<section>`, and every attempt to make their header rules meet by giving each half its own `border-y`
+failed by a pixel — a `<th>` whose borders are halved and shared under `border-collapse`, against a
+plain header whose borders sit inside its own box. The rules landed a pixel apart and the timeline's
+edge stepped over the table's. Two rounds of pixel corrections each fixed it for one layout and broke
+it for the next, because the correction depended on what sat above the band.
+
+So neither half draws them. `.superior-band` carries two absolutely-positioned pseudo-elements
+spanning the full width — one at the top, one at exactly `--superior-head-h` — and the headers keep
+only their background. **One element per rule, so there is nothing for the two halves to disagree
+about.** Measured after: both header boxes start and end on the same sub-pixel, delta 0.000.
+
+Both headers are still pinned to `--superior-head-h`, because the rule is drawn at that height and
+the backgrounds have to reach it. The table's is a `height` on a `<tr>`, which CSS treats as a
+minimum, so a header that outgrows the figure pushes the row rather than clipping — the halves then
+visibly disagree, which is the right way for this to fail. Below `xl` the two stack, and the
+header-height rule is switched off: side by side it is one line across two headers, stacked it would
+cut through the middle of the timeline.
 
 The rail has to sit on the node centres or it reads as a misprint, and that offset is now **derived
 rather than measured**: `.superior-rail` is `gutter + half a node`, and both the item nodes and the
 month dividers sit in the same `.superior-node-slot`, so the line lands on their shared centre by
-construction. The month dots used to place themselves with their own `ml`, measured from the content
+construction. It is also the **last** child of the timeline, deliberately: as the first child it took
+`:first-child` away from the opening month divider, so that divider kept the `mt-4` meant only for the
+ones after it and its dot sat 16px below the top of the rail, leaving the line poking up into the
+padding. Absolute positioning ignores DOM order and the nodes carry `z-10`, so moving it costs
+nothing. The month dots used to place themselves with their own `ml`, measured from the content
 box while the rail is measured from the border box — one page gutter apart, so they sat 16px to the
 right of the line they were supposed to be on, every time.
 
@@ -483,18 +497,14 @@ The **kill ordinal** (`#60`) is the character's Nth kill of that superior when i
 correlated count plus any admin baseline — the same definition the rest of the site uses for a roll
 number. It is a fact, not a rate: "their 60th Nechryarch" says nothing about what the odds were.
 
-**The page opens with a STAT BAR, not a banner.** Same five facts — superiors met, clan kills, unique
-drops, characters, latest unique — and every one is a count rather than a derived rate, for the reason
-above. It was a 76px gradient band of five stacked label-over-value blocks filling the leftmost 700px
-of a 1905px page and leaving the rest empty, which is what made it read as a banner bolted on top
-rather than as part of the page.
-
-Two things fixed that. The counts are a **run of inline figures** (value, then what it counts) rather
-than blocks: none of them earns a block, because every one is also stated somewhere else here — rows
-in the table, the Clan column's sum, the timeline's own "N received", the number of character columns.
-And the **latest unique takes the space they gave back**, pinned right with the item's own icon, since
-it is the only entry on the page that is not a count. 37px instead of 76px, which is four more table
-rows above the fold.
+**THERE IS NO SUMMARY BAND, and there should not be one.** The page opened with five figures —
+superiors met, clan kills, unique drops, characters, latest unique — first as a 76px gradient banner,
+then as a 37px inline stat bar. Both were removed, and the reason the second was no better than the
+first is that shrinking it never addressed the objection: **every figure in it is already on the
+page.** Superiors met is the number of table rows. Clan kills is the Clan column's sum. Unique drops
+is the timeline's own "N received". Characters is the number of character columns. The latest unique
+is the timeline's first entry. A band that restates the page above the page is padding however
+elegantly it is set, so the page now opens on the header row. Do not add it back.
 
 **The table header is two lines, and each character carries their own colour** — the same
 `RollChipHues` assignment the receipts timeline and the live roll ticker use, so a name is one colour

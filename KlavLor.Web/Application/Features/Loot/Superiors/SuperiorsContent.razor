@@ -35,48 +35,6 @@
     }
     else
     {
-        @* THE STAT BAR. Same five facts as before, a third of the height and using the width.
-           It was a 76px gradient band carrying five stacked label-over-value blocks that occupied
-           the leftmost 700px of a 1905px page and left the rest empty — which is what made it read
-           as a banner rather than as part of the page.
-
-           Every count in it is ALSO somewhere else here (rows in the table, the Clan column's sum,
-           the timeline's own "N received", the number of character columns), so none of them earns
-           a block of its own. They are a run of inline figures instead: value first, then its label,
-           which is both shorter and how you would say them out loud.
-
-           The latest unique is the exception and gets the space the counts gave back. It is the only
-           entry on this page that is not a count, so it is pinned right with the item's own icon,
-           the way a receipt is drawn everywhere else on the page. *@
-        <header class="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-2
-                       border-b border-slate-200 dark:border-slate-800">
-            <div class="flex flex-wrap items-center gap-x-5 gap-y-1">
-                @Figure($"{Comparison.Rows.Count}/{SuperiorSlayerMonsters.All.Count}", "superiors met", false)
-                @Figure(Comparison.Rows.Sum(r => r.TotalKills).ToString("N0"), "clan kills", false)
-                @Figure(Comparison.RecentUniques.Count.ToString("N0"), "unique drops", true)
-                @Figure(Comparison.Characters.Count.ToString("N0"), "characters", false)
-            </div>
-
-            @if (Comparison.RecentUniques is [var latest, ..])
-            {
-                <div class="ml-auto flex items-center gap-2 min-w-0">
-                    <span class="text-[10px] uppercase tracking-wider text-slate-400 dark:text-white shrink-0">
-                        Latest
-                    </span>
-                    <img src="/api/images/item-icon?name=@Uri.EscapeDataString(latest.ItemName)" alt=""
-                         class="w-5 h-5 object-contain shrink-0" loading="lazy"
-                         onerror="this.style.visibility='hidden'" />
-                    <span class="text-[13px] font-semibold text-amber-600 dark:text-amber-400 shrink-0">
-                        @latest.ItemName
-                    </span>
-                    <span class="text-[11px] text-slate-500 dark:text-white truncate">
-                        @latest.CharacterName &middot; @latest.SourceName &middot;
-                        @latest.OccurredAt.ToLocalTime().ToString("d MMM yy")
-                    </span>
-                </div>
-            }
-        </header>
-
         @* ONE FLUSH BAND: the table takes the width of its columns, the receipts segment takes
            everything to the right of them, and the pair meets both edges of the page. No page
            padding and no gap between them - the segment sits exactly where the chart column used to,
@@ -84,7 +42,9 @@
            parked beside the table rather than as part of it.
 
            Stacks below xl, where the two can no longer share a line. *@
-        <div class="flex flex-col xl:flex-row items-stretch">
+        @* .superior-band draws the two horizontal rules of the header band ITSELF, across the full
+           width, rather than letting each half draw its own — see app.css. *@
+        <div class="superior-band flex flex-col xl:flex-row items-stretch">
             <div class="shrink-0 max-w-full">
                 <SuperiorMatrix Comparison="Comparison" />
             </div>
@@ -101,13 +61,4 @@
     [Parameter] public bool UpdateHeader { get; set; } = true;
 
     [Parameter] public SuperiorComparison Comparison { get; set; } = SuperiorComparison.Empty;
-
-    /// One figure in the stat bar: the number, then what it counts, on one line. A local fragment
-    /// rather than a component — two lines of markup used four times on one page, and nothing else
-    /// will ever want it.
-    private RenderFragment Figure(string value, string label, bool accent) =>
-        @<span class="inline-flex items-baseline gap-1.5">
-            <span class="text-[15px] font-semibold tabular-nums leading-none @(accent ? "text-amber-600 dark:text-amber-400" : "text-slate-900 dark:text-slate-100")">@value</span>
-            <span class="text-[11px] text-slate-500 dark:text-white">@label</span>
-        </span>;
 }

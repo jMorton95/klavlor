@@ -27,8 +27,9 @@
        them, so this side of the seam ruled twice — at 220px and 254px — against the table's single
        rule at 248px. Both bands now live inside one header whose height is pinned to the table's
        (.superior-head, see app.css), so the two halves rule once, together. *@
-    <header class="superior-head-panel flex flex-col justify-center gap-1 px-4 bg-slate-100 dark:bg-slate-800
-                   border-y border-slate-200 dark:border-slate-700">
+    @* No borders: the band's two rules are drawn once by .superior-band across the full width, so
+       this half and the table's header cannot land them a pixel apart. *@
+    <header class="superior-head-panel flex flex-col justify-center gap-1 px-4 bg-slate-100 dark:bg-slate-800">
         <div class="flex items-baseline justify-between gap-3">
             <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-white">
                 Unique table history
@@ -65,12 +66,6 @@
     else
     {
         <div class="superior-timeline relative px-4 py-4">
-            @* THE RAIL. One absolutely-positioned element rather than a border on every node.
-               Its offset is derived (.superior-rail = gutter + half a node), not measured, so it
-               cannot drift off the nodes when the padding or the node size changes — which is
-               exactly how the month dots ended up 16px to the right of it. *@
-            <div class="superior-rail absolute top-[1.5625rem] bottom-[2.3125rem] w-px
-                        bg-slate-200 dark:bg-slate-600"></div>
 
             @foreach (var month in Drops.GroupBy(d => new DateTime(d.OccurredAt.ToLocalTime().Year, d.OccurredAt.ToLocalTime().Month, 1)))
             {
@@ -147,6 +142,18 @@
                     }
                 </div>
             }
+
+            @* THE RAIL, and it is LAST on purpose. One absolutely-positioned element rather than a
+               border on every node; its offset is derived (.superior-rail = gutter + half a node)
+               rather than measured, so it cannot drift off the nodes when the padding or the node
+               size changes — which is exactly how the month dots once ended up 16px to its right.
+
+               Last because as the FIRST child it stole `:first-child` from the opening month
+               divider, so that divider kept its `mt-4` and its dot sat 16px below the top of the
+               rail, leaving the line poking up into the padding. Position is unaffected by DOM
+               order; the nodes carry z-10, so they still paint over it. *@
+            <div class="superior-rail absolute top-[1.5625rem] bottom-[2.3125rem] w-px
+                        bg-slate-200 dark:bg-slate-600"></div>
         </div>
     }
 </section>

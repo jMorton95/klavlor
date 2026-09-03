@@ -1008,6 +1008,43 @@ body:not(.history-panel-open) #completion-history-panel {
 .superior-head,
 .superior-head-panel { height: var(--superior-head-h); }
 
+/* THE SEAM'S RULES ARE DRAWN ONCE, BY THE CONTAINER, and this is the whole
+   trick. Each half used to draw its own border-y, so the join depended on two
+   independently-boxed elements agreeing on a pixel — a <th> whose borders are
+   halved and shared under border-collapse, and a plain <section> whose borders
+   sit inside its own box. They never quite did: the rules landed a pixel apart
+   and the timeline's header edge stepped over the table's.
+
+   Two absolutely-positioned pseudo-elements span the whole band instead, one at
+   the top and one at exactly the header height. One element per rule, so the
+   two halves cannot disagree about where it is — there is only one of it. The
+   headers keep their background and drop their borders entirely. */
+.superior-band { position: relative; }
+
+.superior-band::before,
+.superior-band::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--color-slate-200);
+    pointer-events: none;
+    z-index: 1;
+}
+
+.superior-band::before { top: 0; }
+.superior-band::after { top: var(--superior-head-h); }
+
+:where(.dark, .dark *) .superior-band::before,
+:where(.dark, .dark *) .superior-band::after { background: var(--color-slate-700); }
+
+/* Below xl the two halves stack, so the timeline is no longer beside the table
+   and a rule drawn at the header height would cut across the middle of it. */
+@media (max-width: 79.99rem) {
+    .superior-band::after { display: none; }
+}
+
 /* The timeline's node column, and therefore where the rail runs. Both the item
    nodes and the month dividers sit in a slot of this width, so the rail lands
    on their shared centre by construction rather than by arithmetic that has to

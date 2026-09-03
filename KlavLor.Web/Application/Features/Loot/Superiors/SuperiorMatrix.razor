@@ -52,7 +52,7 @@
             @* .superior-head pins this row's height to the one the receipts timeline beside it
                also uses, so the two headers rule at the same pixel — see app.css. *@
             <tr class="superior-head">
-                <th class="@HeadCell text-left border-y border-slate-200 dark:border-slate-700">
+                <th class="@HeadCell text-left">
                     <a hx-get="@SortUrl(null).FromApi()" hx-target="#hx-page-container"
                        hx-push-url="@SortUrl(null)" hx-swap="innerHTML transition:true"
                        href="@SortUrl(null)"
@@ -63,7 +63,7 @@
                 </th>
                 @foreach (var character in Comparison.Characters)
                 {
-                    <th class="@HeadCell text-center border-y border-slate-200 dark:border-slate-700">
+                    <th class="@HeadCell text-center">
                         <a hx-get="@SortUrl(character.GameCharacterId).FromApi()" hx-target="#hx-page-container"
                            hx-push-url="@SortUrl(character.GameCharacterId)" hx-swap="innerHTML transition:true"
                            href="@SortUrl(character.GameCharacterId)"
@@ -95,7 +95,7 @@
                     </th>
                 }
                 @* Clan total per monster. Without it nothing totals a ROW. *@
-                <th class="@HeadCell text-center border-y border-slate-200 dark:border-slate-700">
+                <th class="@HeadCell text-center">
                     <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-white">Clan</span>
                 </th>
             </tr>
