@@ -121,8 +121,10 @@
         </div>
 
         @* Kill-history charts load via their own HTMX request (own request scope — layout/SSR
-           components must not query). Lives outside #source-tab-content so it survives tab swaps. *@
-        <DeferredSection Url="@GetKillTrendUrl()" DelayMs="500" HeightClass="h-56" />
+           components must not query). Lives outside #source-tab-content so it survives tab swaps.
+           It is the only deferred section on this page, so the 500ms it used to wait was staggering
+           it against nothing at all. *@
+        <DeferredSection Url="@GetKillTrendUrl()" HeightClass="h-56" />
 
         @if (Detail.NotableDrops is not null && Detail.NotableDrops.Count > 0)
         {

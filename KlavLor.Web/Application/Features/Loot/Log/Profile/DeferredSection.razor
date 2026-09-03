@@ -1,14 +1,22 @@
-@* One lazily-loaded panel on a character/source page.
+@* One lazily-loaded panel on a character/source page. It fetches on `load`, at the same moment as
+   every other section on the page.
 
-   The character page has eight-odd independent panels, each with its own handler and its own
-   (sometimes expensive) query. With every one on hx-trigger="load" they all fired in the same
-   instant, so a single page view opened eight concurrent requests and the server did all of that
-   work at once. DelayMs staggers them instead: the caller spaces sections 500ms apart, so the
-   queries arrive in sequence and the box is never asked for everything simultaneously.
+   IT USED TO BE STAGGERED, 500ms apart down the page, so that "one page view doesn't open six
+   concurrent requests". That was caution rather than a measurement, and the measurement does not
+   support it: the character page's six endpoints cost 127ms of query time BETWEEN THEM, and firing
+   all six at once completes in 68ms — bounded by the slowest one, with every other endpoint as fast
+   or faster than it was alone. The stagger was spending 3,000ms (the last section waited
+   (5+1)x500ms before it even asked) to spread 127ms of work. 90 concurrent requests across three
+   characters returned 90 200s with nothing empty or truncated.
+
+   THIS IS NOT A LICENCE TO QUERY CONCURRENTLY DURING SSR — that rule is untouched and is the one
+   that caused an outage. Each of these panels is its OWN HTMX request with its OWN request scope
+   and its own DbContext, which is precisely why they may overlap. Sibling components loading data
+   in a single render pass share one scoped DbContext and still must not. See CLAUDE.md.
 
    Two distinct waiting states, deliberately:
-     - Deferred (before this section's turn): a flat, unanimated block. No spinner and no pulse,
-       because nothing is happening yet and a spinner would claim otherwise.
+     - Deferred (rendered, request not yet away): a flat, unanimated block. No spinner and no
+       pulse, because nothing is happening yet and a spinner would claim otherwise.
      - Loading (this section's request in flight): the spinner fades in. htmx puts htmx-request on
        the requesting element for exactly that span, and app.css keys .defer-spinner off it — so
        the state is driven by the real request, not a timer that could drift out of step with it.
@@ -16,7 +24,7 @@
    hx-swap="outerHTML" replaces this whole wrapper with the loaded panel, so the placeholder's
    frame and the panel's frame never both exist. *@
 <div hx-get="@Url"
-     hx-trigger="load delay:@(DelayMs)ms"
+     hx-trigger="load"
      hx-swap="outerHTML"
      class="relative bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
     @if (ChildContent is not null)
@@ -39,9 +47,6 @@
 
 @code {
     [Parameter] public required string Url { get; set; }
-
-    /// How long after page load this section fetches. Callers step this by 500ms down the page.
-    [Parameter] public int DelayMs { get; set; }
 
     /// Height of the default placeholder block, sized to the panel it stands in for so the
     /// page doesn't jump when the real content lands.

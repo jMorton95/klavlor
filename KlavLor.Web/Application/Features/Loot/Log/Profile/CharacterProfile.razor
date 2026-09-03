@@ -26,16 +26,17 @@
         <ProfileStatCards Windows="@Windows" />
     }
 
-    @* Everything below loads on its own HTMX request, staggered StaggerMs apart down the page
-       (see DeferredSection) so one page view doesn't fire six queries in the same instant. *@
+    @* Everything below loads on its own HTMX request — all of them at once. Each request gets its
+       own scope, and the six together cost 127ms of query time, so spacing them out only delayed
+       the page (the last section waited 3s before it asked). See DeferredSection. *@
 
     @* Latest collection logs (recent firsts) *@
     <DeferredSection Url="@(AppRoutes.LootLogCharacterRecentFirsts.WithId(CharacterId).FromApi())"
-                     DelayMs="@Delay(0)" HeightClass="h-60" />
+                     HeightClass="h-60" />
 
     @* Activity heatmap — kept silently because it pairs naturally with the trend chart. *@
     <DeferredSection Url="@(AppRoutes.LootLogCharacterHeatmap.WithId(CharacterId).FromApi())"
-                     DelayMs="@Delay(1)">
+                     >
         <div class="flex items-start justify-between mb-3 gap-2">
             <div class="space-y-2">
                 <div class="h-4 w-48 bg-slate-100 dark:bg-slate-800/60 rounded"></div>
@@ -49,7 +50,7 @@
 
     @* Monthly trend *@
     <DeferredSection Url="@(AppRoutes.LootLogCharacterMonthly.WithId(CharacterId).FromApi())"
-                     DelayMs="@Delay(2)">
+                     >
         <div class="flex items-start justify-between mb-3 gap-2">
             <div class="space-y-2">
                 <div class="h-4 w-44 bg-slate-100 dark:bg-slate-800/60 rounded"></div>
@@ -63,7 +64,7 @@
 
     @* Rolls per month — how much the character actually rolled, next to how much it was worth *@
     <DeferredSection Url="@(AppRoutes.LootLogCharacterRolls.WithId(CharacterId).FromApi())"
-                     DelayMs="@Delay(3)">
+                     >
         <div class="flex items-start justify-between mb-3 gap-2">
             <div class="space-y-2">
                 <div class="h-4 w-40 bg-slate-100 dark:bg-slate-800/60 rounded"></div>
@@ -77,7 +78,7 @@
 
     @* Session history (lazy) — cross-source play sessions, newest first *@
     <DeferredSection Url="@(AppRoutes.LootLogCharacterSessions.WithId(CharacterId).FromApi())"
-                     DelayMs="@Delay(4)" HeightClass="h-[26rem]" />
+                     HeightClass="h-[26rem]" />
 
     @* Link to the full per-character sources database, directly beneath the session history. *@
     <div class="flex justify-center">
@@ -93,7 +94,7 @@
 
     @* Lifetime item ranking *@
     <DeferredSection Url="@(AppRoutes.LootLogCharacterTopItems.WithId(CharacterId).FromApi())"
-                     DelayMs="@Delay(5)" HeightClass="h-[34rem]" />
+                     HeightClass="h-[34rem]" />
 </div>
 
 @code {
@@ -102,11 +103,4 @@
     [Parameter] public ProfileWindowStats? Windows { get; set; }
     [Parameter] public LootLogSearchResult? SearchResult { get; set; }
 
-    // Gap between consecutive panel fetches. Every panel is a separate handler and query, so
-    // loading them all on `load` meant six of them hitting the box at once for one page view.
-    // Spacing them keeps the peak at roughly one query in flight, and the panels are stacked
-    // vertically anyway — the later ones are below the fold while their turn comes round.
-    private const int StaggerMs = 500;
-
-    private static int Delay(int position) => (position + 1) * StaggerMs;
 }
