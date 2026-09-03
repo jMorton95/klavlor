@@ -18,6 +18,10 @@
             || (typeof getComputedStyle !== 'undefined' ? getComputedStyle : null);
         var Matrix = (view && view.DOMMatrixReadOnly)
             || (typeof DOMMatrixReadOnly !== 'undefined' ? DOMMatrixReadOnly : null);
+        var doc = track.ownerDocument || null;
+        var isHidden = opts.isHidden || function () {
+            return !!doc && doc.visibilityState === 'hidden';
+        };
         var queue = [];
         var ours = new WeakSet();
         var present = new Set();
@@ -55,9 +59,17 @@
             track.style.transform = 'translateX(0px)';
         }
         function schedule() {
-            if (timer || !queue.length) return;
+            if (timer || !queue.length || isHidden()) return;
             var wait = Math.max(0, lastReleaseAt + opts.slideMs + opts.gapMs - now());
             timer = setTimeout(function () { timer = 0; release(); }, wait);
+        }
+        function onVisibilityChange() {
+            if (isHidden()) {
+                clearTimeout(timer);
+                timer = 0;
+                return;
+            }
+            schedule();
         }
         function release() {
             if (!track.isConnected) { queue.length = 0; return; }
@@ -98,14 +110,17 @@
         }
         var observer = new Observer(onMutations);
         observer.observe(track, { childList: true });
+        if (doc && doc.addEventListener) doc.addEventListener('visibilitychange', onVisibilityChange);
         return {
             destroy: function () {
                 observer.disconnect();
+                if (doc && doc.removeEventListener) doc.removeEventListener('visibilitychange', onVisibilityChange);
                 clearTimeout(timer);
                 timer = 0;
                 queue.length = 0;
             },
-            pending: function () { return queue.length; }
+            pending: function () { return queue.length; },
+            paused: function () { return isHidden(); }
         };
     }
     function initRollTicker(doc, options) {

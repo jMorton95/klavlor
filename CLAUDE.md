@@ -168,6 +168,29 @@ Three things about that file are load-bearing and each has already been got wron
   for exactly this, and its doc comment claimed the ticker keyed on it while nothing did; a partial
   replay put the same roll on the banner twice.
 
+**THE QUEUE HOLDS WHILE THE TAB IS HIDDEN, and drains when it comes back.** A background tab does not
+paint and its timers are throttled hard — Chrome to one second, then to one *minute* after five
+minutes hidden — so a ticker that keeps releasing spends its backlog on slides nobody sees, at a
+cadence nothing is honouring. `schedule()` refuses to arm while hidden and `visibilitychange` cancels
+any timer already armed; coming back re-arms it. Nothing else changes: rolls keep arriving into the
+queue while away, capped at `maxQueued` as always, so what survives a long absence is the newest 40
+rather than the oldest.
+
+The resume needs no catch-up logic, and that is worth knowing before adding some. The cadence is held
+against the CLOCK (see above), so on return `lastReleaseAt + slideMs + gapMs` is long past, the first
+chip is released immediately, and every one after it falls back into the normal spacing on its own. A
+two-second alt-tab is therefore a no-op rather than a special case.
+
+**The signal is VISIBILITY, not focus**, and the difference matters here specifically: this is exactly
+the page people leave open on a second monitor while they play, and that window is visible-but-
+unfocused for hours. Pausing on `blur` would freeze the main way the feed is used. Hidden means tabbed
+away or minimised, which is the only state where nobody can be watching.
+
+Production reads `document.visibilityState`; the tests inject `opts.isHidden`, because jsdom has no
+way to make a document hidden. That seam means the default is not covered by the suite — it was
+verified in a browser instead: six live rolls arriving while hidden left the banner untouched, and
+the leader then changed once every ~2.2s on return rather than all at once.
+
 The slide itself is a **transform on the track**, never a width on the chips: a prepended chip shoves
 the row right by its own width, the shove is cancelled before paint and then released, so one
 composited transform carries the whole row. It reads the COMPUTED transform, not the inline one —
@@ -755,7 +778,10 @@ npm run test:js
   not slid in as a block, that a roll landing a millisecond after another still waits its turn, that
   a reconnect replaying the server ring adds no duplicates (including against a roll still queued),
   the trim, the queue's overflow policy, reduced motion, and that `slideMs` still matches the CSS
-  transition it paces against.
+  transition it paces against. Plus the hidden-tab pause: nothing released while hidden, an armed
+  timer cancelled on the way out, the backlog resuming one at a time rather than as a block, the cap
+  keeping the newest rolls across a long absence, a brief alt-tab costing nothing, and `destroy`
+  unhooking the document listener it added.
 
 Everything it covers fails **visibly but silently** — a batching regression still shows every chip,
 just all at once, and a duplicate is just a chip — which is why it is asserted rather than eyeballed.

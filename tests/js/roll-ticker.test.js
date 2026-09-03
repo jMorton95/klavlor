@@ -53,12 +53,23 @@ function harness({ maxChips = 40, slideMs = SLIDE_MS, gapMs = GAP_MS, maxQueued 
     // Exactly what htmx's sse extension does per frame: hx-swap="afterbegin" on the track.
     const arrive = (...els) => els.forEach(el => track.insertAdjacentElement('afterbegin', el));
 
+    // jsdom has no way to make a document hidden, so visibility is injected. The production
+    // default reads document.visibilityState; this stands in for it and lets a test drive the
+    // same code path the browser would.
+    const visibility = { hidden: false };
+    const setHidden = async (value) => {
+        visibility.hidden = value;
+        document.dispatchEvent(new dom.window.Event('visibilitychange'));
+        await tick(0);
+    };
+
     const ticker = createRollTicker(track, {
         slideMs, gapMs, maxQueued, reducedMotion: () => false,
+        isHidden: () => visibility.hidden,
     });
 
     return {
-        dom, track, ticker, chip, arrive, CHIP_WIDTH,
+        dom, track, ticker, chip, arrive, CHIP_WIDTH, setHidden,
         ids: () => [...track.children].map(c => c.id),
         shift: () => {
             const m = /translateX\((-?[\d.]+)px\)/.exec(track.style.transform || '');
@@ -270,6 +281,141 @@ test('destroy stops the queue draining into a detached track', async () => {
     const after = h.ids().length;
     await h.settle(CADENCE * 5);
     assert.strictEqual(h.ids().length, after, 'nothing is released after destroy');
+});
+
+// ---------------------------------------------------------------------------------------------
+// PAUSING WHILE THE TAB IS HIDDEN.
+//
+// A background tab does not paint, and browsers throttle its timers hard - Chrome to one second,
+// then to one MINUTE after five minutes hidden. So a ticker that keeps releasing while hidden
+// spends its queue on slides nobody sees, at a cadence nothing is honouring, and the viewer comes
+// back to a banner that quietly consumed their backlog. Holding the queue instead means the rolls
+// are still there to watch when they return.
+//
+// The signal is VISIBILITY, not focus. A loot feed is exactly the page people leave open on a
+// second monitor while they play, and that window is visible-but-unfocused for hours at a time -
+// pausing on blur would freeze the main way this page is used.
+
+test('nothing is released while the tab is hidden', async () => {
+    const h = harness();
+    await h.setHidden(true);
+
+    h.arrive(h.chip('a'), h.chip('b'), h.chip('c'));
+    await h.settle(CADENCE * 5);
+
+    assert.deepStrictEqual(h.ids(), [], 'no chip reaches the track while hidden');
+    assert.strictEqual(h.ticker.pending(), 3, 'all three are still queued');
+    assert.strictEqual(h.ticker.paused(), true);
+
+    h.ticker.destroy();
+});
+
+test('a release already scheduled is cancelled when the tab goes hidden', async () => {
+    // The gap between "queued" and "released" is a live timer. Going hidden has to cancel it, or
+    // the browser fires it late and the chip slides in unseen anyway.
+    const h = harness();
+
+    h.arrive(h.chip('a'), h.chip('b'));
+    await h.settle(0);
+    assert.deepStrictEqual(h.ids(), ['a'], 'the first is out before we hide');
+
+    await h.setHidden(true);
+    await h.settle(CADENCE * 5);
+
+    assert.deepStrictEqual(h.ids(), ['a'], 'the second never followed it');
+    assert.strictEqual(h.ticker.pending(), 1);
+
+    h.ticker.destroy();
+});
+
+test('the queue resumes when the tab comes back', async () => {
+    const h = harness();
+    await h.setHidden(true);
+
+    h.arrive(h.chip('a'), h.chip('b'), h.chip('c'));
+    await h.settle(CADENCE * 3);
+    assert.strictEqual(h.ticker.pending(), 3);
+
+    await h.setHidden(false);
+    await h.settle(CADENCE * 4);
+
+    assert.deepStrictEqual(h.ids(), ['c', 'b', 'a'], 'the backlog plays out, oldest first');
+    assert.strictEqual(h.ticker.pending(), 0);
+
+    h.ticker.destroy();
+});
+
+test('the backlog resumes one at a time, not as a block', async () => {
+    // The whole point of the queue. Coming back to twenty rolls must not undo it.
+    const h = harness();
+    await h.setHidden(true);
+
+    h.arrive(h.chip('a'), h.chip('b'), h.chip('c'), h.chip('d'));
+    await h.settle(CADENCE * 2);
+
+    await h.setHidden(false);
+    await h.settle(0);
+    assert.strictEqual(h.ids().length, 1, 'one chip on resume, not four');
+
+    await h.settle(CADENCE);
+    assert.strictEqual(h.ids().length, 2);
+
+    await h.settle(CADENCE * 4);
+    assert.strictEqual(h.ids().length, 4, 'and the rest follow at the cadence');
+
+    h.ticker.destroy();
+});
+
+test('a long absence keeps the newest rolls, not the oldest', async () => {
+    // Hidden for hours, the stream keeps arriving. The queue is capped, so what survives has to be
+    // what just happened - coming back to an hour-old backlog labelled live is worse than a gap.
+    const h = harness({ maxQueued: 3 });
+    await h.setHidden(true);
+
+    h.arrive(h.chip('old-1'), h.chip('old-2'), h.chip('new-1'), h.chip('new-2'), h.chip('new-3'));
+    await h.settle(CADENCE);
+    assert.strictEqual(h.ticker.pending(), 3, 'the queue is still capped while hidden');
+
+    await h.setHidden(false);
+    await h.settle(CADENCE * 5);
+
+    assert.deepStrictEqual(h.ids(), ['new-3', 'new-2', 'new-1']);
+
+    h.ticker.destroy();
+});
+
+test('a brief tab switch costs nothing', async () => {
+    // Hiding and showing between two releases must not drop a chip or restart the cadence - the
+    // common case is an alt-tab, and it should be a no-op.
+    const h = harness();
+
+    h.arrive(h.chip('a'), h.chip('b'), h.chip('c'));
+    await h.settle(0);
+
+    await h.setHidden(true);
+    await h.setHidden(false);
+    await h.settle(CADENCE * 4);
+
+    assert.deepStrictEqual(h.ids(), ['c', 'b', 'a'], 'all three still arrive, in order');
+
+    h.ticker.destroy();
+});
+
+test('destroy unhooks the visibility listener', async () => {
+    // The listener is on the document, which outlives an in-app navigation. Leaving it attached
+    // would keep a destroyed ticker's closure alive and let it schedule into a detached track.
+    const h = harness();
+
+    h.arrive(h.chip('a'), h.chip('b'));
+    await h.settle(0);
+    h.ticker.destroy();
+
+    const after = h.ids().length;
+    await h.setHidden(true);
+    await h.setHidden(false);
+    await h.settle(CADENCE * 4);
+
+    assert.strictEqual(h.ids().length, after, 'a destroyed ticker does not wake on visibility');
 });
 
 test('the default cadence matches the stylesheet it is pacing against', () => {
