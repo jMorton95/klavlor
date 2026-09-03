@@ -443,11 +443,29 @@ dots would need a key. The two rare ones (Imbued heart, Eternal gem) get an ambe
 and an amber card; the battlestaves stay plain, because giving them equal weight would make an Imbued
 heart look like a Tuesday.
 
-The rail is ONE absolutely-positioned element, and it has to sit on the node centres or it reads as a
-misprint. Those centres are arithmetic, not eyeballed: the container is `px-4` (16px) and a node is
-`2.625rem` (42px), so every centre is 16 + 21 = 37px = `2.3125rem`, which is the rail's `left`, the
-month dot's `ml` plus half its own width, and where the rail stops top and bottom rather than running
-into the padding.
+**THE TWO HALVES SHARE THEIR HORIZONTAL RULES BY AGREEMENT, NOT BY LUCK.** This is a `<table>` beside
+a `<section>`, and nothing makes their header rules meet on their own. When they did not, the seam
+ruled three times across one line: the timeline carried a title band AND a tally band, ending at 220px
+and 254px against the table's 248px. The title and tally are now one band, and both headers are pinned
+to `--superior-head-h` in `app.css` — the table's header is three lines of per-character stats, which
+is what sets the figure, so change that and change this. The timeline's half takes **one pixel more**
+(`.superior-head-panel`), and the pixel is real rather than a fudge: under `border-collapse` the
+table's top rule is drawn *above* its header row, so the row's own box starts a pixel lower.
+
+The rail has to sit on the node centres or it reads as a misprint, and that offset is now **derived
+rather than measured**: `.superior-rail` is `gutter + half a node`, and both the item nodes and the
+month dividers sit in the same `.superior-node-slot`, so the line lands on their shared centre by
+construction. The month dots used to place themselves with their own `ml`, measured from the content
+box while the rail is measured from the border box — one page gutter apart, so they sat 16px to the
+right of the line they were supposed to be on, every time.
+
+A receipt row is a **grid** (`.superior-receipt`), not a flex row. As flex — three fixed widths and a
+`flex-1` — the source cell was 506px holding about 120px of text, so every line had a hole in it and
+the dates floated alone at the far edge; fractional tracks spread the surplus across all four columns
+instead, which is what makes columns read as columns. The tracks floor at **0, not at their content
+width**: a `minmax(9rem, …)` floor reads better on a wide screen and pushes the page into a horizontal
+scroll on a narrow one (measured, a 514px row inside a 379px box at a 465px viewport), and the page
+body must never scroll sideways. Below 40rem the row folds to two columns rather than four slivers.
 
 **The history shows RECEIPTS, never kills.** The table beside it already says how many superiors
 everyone has killed; a log of kills here would be the third spelling of one number. Two versions that
