@@ -108,6 +108,11 @@ public static class AppRoutes
     // so there is no fragment to fetch separately and nothing for a caller to vary.
     public const string LootSuperiors = "/loot/superiors";
 
+    // The two halves of the superiors page, each fetched on load so the shell paints without a
+    // query. Deeper than the page route, so neither can shadow it.
+    public const string LootSuperiorsTable = "/loot/superiors/table";
+    public const string LootSuperiorsReceipts = "/loot/superiors/receipts";
+
     // Collection log (TempleOSRS-sourced). Its own top-level area, not nested under /loot, because
     // it is not derived from our loot data — see CollectionLogHandler for the split.
     public const string CollectionLog = "/collection-log";

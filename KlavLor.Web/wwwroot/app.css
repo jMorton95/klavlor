@@ -989,8 +989,9 @@ body:not(.history-panel-open) #completion-history-panel {
    elements — a <table> and a <section> — so nothing makes their horizontal
    rules meet on their own. They have to be told.
 
-   The table's header row is two lines per character — name, then kills and
-   uniques together — and its natural height is what sets this figure; the
+   The table's header row is three lines per character — name, then kills and
+   uniques, then the base-monster total — and its natural height is what sets
+   this figure; the
    timeline's header is pinned to the same one so the first data row of each
    starts on the same pixel. Before this the timeline carried a title band AND
    a tally band, ruling twice against the table's once — two staggered joins
@@ -1003,7 +1004,7 @@ body:not(.history-panel-open) #completion-history-panel {
    header that outgrows the figure pushes the row rather than clipping it — the
    two halves then visibly disagree, which is the right way for this to fail.
    --------------------------------------------------------------------------- */
-:root { --superior-head-h: 3.0625rem; }
+:root { --superior-head-h: 4.1875rem; }
 
 .superior-head,
 .superior-head-panel { height: var(--superior-head-h); }

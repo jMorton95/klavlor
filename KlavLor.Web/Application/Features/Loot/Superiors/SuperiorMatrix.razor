@@ -28,6 +28,24 @@
    Monster names are deliberately NOT links. The global source page (/source?name=…) is behind the
    User policy while this page is anonymous, so a link would 401-redirect a signed-out visitor. *@
 
+@* THIS IS THE SWAP TARGET. The id and the layout classes match the shell's placeholder exactly,
+   because the placeholder is replaced with outerHTML - if they drifted, the table would land in a
+   differently-shaped box than the skeleton it replaced. *@
+<div id="superiors-table" class="shrink-0 max-w-full">
+@if (Comparison.Rows.Count == 0)
+{
+    @* The empty state belongs to this half now. The shell asks nothing, so it cannot know whether
+       anything has been killed. *@
+    <div class="px-4 py-12 text-center">
+        <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">No superiors tracked yet</h3>
+        <p class="text-sm text-slate-500 dark:text-white max-w-lg mx-auto">
+            Nothing has killed a superior slayer monster since tracking began. They spawn rarely,
+            so it can take a while for the first one to appear.
+        </p>
+    </div>
+}
+else
+{
 <div class="overflow-x-auto themed-scrollbar">
     @* NOT w-full. Every column is a fixed width and the table is the sum of them, because the
        segment beside it takes the remainder. When the table stretched, the last column absorbed
@@ -53,8 +71,8 @@
                also uses, so the two headers rule at the same pixel — see app.css. *@
             <tr class="superior-head">
                 <th class="@HeadCell text-left">
-                    <a hx-get="@SortUrl(null).FromApi()" hx-target="#hx-page-container"
-                       hx-push-url="@SortUrl(null)" hx-swap="innerHTML transition:true"
+                    <a hx-get="@TableUrl(null)" hx-target="#superiors-table"
+                       hx-push-url="@SortUrl(null)" hx-swap="outerHTML transition:true"
                        href="@SortUrl(null)"
                        title="Sort by Slayer level, hardest first"
                        class="inline-flex items-center gap-1 cursor-pointer text-[11px] font-semibold uppercase tracking-wide @(Sort.IsByLevel ? "text-amber-600 dark:text-amber-400" : "text-slate-500 dark:text-white hover:text-amber-600 dark:hover:text-amber-400") transition-colors">
@@ -64,8 +82,8 @@
                 @foreach (var character in Comparison.Characters)
                 {
                     <th class="@HeadCell text-center">
-                        <a hx-get="@SortUrl(character.GameCharacterId).FromApi()" hx-target="#hx-page-container"
-                           hx-push-url="@SortUrl(character.GameCharacterId)" hx-swap="innerHTML transition:true"
+                        <a hx-get="@TableUrl(character.GameCharacterId)" hx-target="#superiors-table"
+                           hx-push-url="@SortUrl(character.GameCharacterId)" hx-swap="outerHTML transition:true"
                            href="@SortUrl(character.GameCharacterId)"
                            class="block cursor-pointer group" title="@UniquesTitle(character)">
                             @* THE CHARACTER'S OWN COLOUR, the same assignment the receipts timeline
@@ -91,6 +109,16 @@
                                     <span class="ml-1 font-semibold text-amber-600 dark:text-amber-400">@character.UniquesReceived.Count&#9733;</span>
                                 }
                             </div>
+                            @* The column's own total of the "from N" the cells carry: every ordinary
+                               monster they have killed that can spawn a superior. Same wording as
+                               the cells so the two read as the same figure at two scales, and
+                               abbreviated for the same reason - the exact number is in the card. *@
+                            @if (character.BaseKills > 0)
+                            {
+                                <div class="text-[10px] font-normal tabular-nums text-slate-400 dark:text-white">
+                                    from @Compact(character.BaseKills)
+                                </div>
+                            }
                         </a>
                     </th>
                 }
@@ -227,6 +255,8 @@
         </tbody>
     </table>
 </div>
+}
+</div>
 
 @code {
     [Parameter] public SuperiorComparison Comparison { get; set; } = SuperiorComparison.Empty;
@@ -285,6 +315,21 @@
         return query.Count == 0
             ? AppRoutes.LootSuperiors
             : $"{AppRoutes.LootSuperiors}?{string.Join("&", query)}";
+    }
+
+    /// Where a sort link FETCHES from: this half's own endpoint. hx-push-url pushes the PAGE url
+    /// instead, so the address bar stays linkable while only the table is swapped — the receipts
+    /// beside it are unaffected by any ordering and must not be re-fetched to change one.
+    private string TableUrl(int? characterId)
+    {
+        var query = new List<string>();
+        if (characterId is { } id) query.Add($"characterId={id}");
+
+        var active = characterId is null ? Sort.IsByLevel : Sort.IsBy(characterId.Value);
+        if (active && !Sort.Ascending) query.Add("asc=true");
+
+        return AppRoutes.LootSuperiorsTable.FromApi()
+               + (query.Count == 0 ? "" : "?" + string.Join("&", query));
     }
 
     private MarkupString SortMark(bool active) =>

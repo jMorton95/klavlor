@@ -358,6 +358,17 @@ hardcoded raid unique lists in `RaidUniqueShareStrategy`.
 `KlavLor.UnitTests/SuperiorSlayerRegistryTests.cs` pins the count, the ordering, the level ranges and
 the absence of name collisions.
 
+**Case-insensitive matching needs EXPRESSION INDEXES, and it did not have them.** Every name match
+here is `lower(x) = ANY(...)`, and a plain btree on `"SourceName"` cannot serve a `lower()`
+predicate — so these queries fell back to sequential scans. Measured: `GetCounts` filtered 26,732
+rows off a Seq Scan of `LootRecords` and the receipts query filtered another 39,810 off `LootDrops`,
+143ms of query time on ~29k records, both scans growing with the table.
+`IX_LootRecords_SourceNameLower` and `IX_LootDrops_NameLower` (migration
+`AddLoweredSourceAndItemNameIndexes`, hand-written SQL because EF cannot model an expression index)
+took that to **24ms** — counts 19→6ms, base kills 4→0.1ms, receipts 120→18ms, with every one of
+those scans now an index or bitmap scan. The case-sensitive indexes stay: plenty of queries still
+match a name exactly.
+
 **Names are matched case-insensitively, and that is not optional.** Three vocabularies produce a
 source name and they disagree on case for about a third of the list — the wiki's article title
 ("Colossal Hydra"), the wiki's own summary table ("Colossal hydra"), and whatever RuneLite reports
@@ -408,9 +419,31 @@ source page quoting different numbers.
 The page is `.AllowAnonymous()`, which **differs from the house rule** stated on
 `CollectionLogEndpoint` that cross-character comparison surfaces are clan-internal. That is a
 deliberate exception, recorded on the endpoint: it exposes kill counts and nothing else, and it sits
-in the public sidebar, where an authorization policy would 401-redirect signed-out visitors. It is
-one route serving one cached aggregate (5-min TTL keyed off `AggregateCacheGeneration`), so the
-routed page queries during SSR like `CollectionLogPage` and needs no `DeferredSection` staggering.
+in the public sidebar, where an authorization policy would 401-redirect signed-out visitors.
+
+**THE PAGE PAINTS BEFORE IT QUERIES.** Three routes, not one: `/loot/superiors` serves a query-free
+shell, and `/loot/superiors/table` and `/loot/superiors/receipts` each fetch themselves on `load`,
+in their own request scope. The routed page injects no handler at all. It used to render everything
+during SSR, so nothing appeared until every query had run and **239KB** of markup had been built —
+measured at 1.25s on a cold process. The shell is **20KB**, both halves start within 0ms of each
+other, and the whole band is populated 595ms after navigation on a cold process.
+
+Both halves read the SAME cached aggregate (5-min TTL keyed off `AggregateCacheGeneration`), so the
+pair costs one set of queries: whichever arrives first fills the entry and the other hits it. The
+receipts half asks for the DEFAULT sort deliberately — sorting is applied after the cache and only
+reorders the table, so passing the sort through would be a second cache key for identical receipts.
+
+**A sort re-fetches the table alone.** The header links `hx-get` the table route and target
+`#superiors-table`, while `hx-push-url` pushes the *page* URL — so the address bar stays linkable
+and the receipts beside it, which no ordering affects, are not re-rendered to change one. Verified:
+clicking a character header fires exactly one request and leaves the receipts DOM node untouched.
+
+Each half re-declares the `id` and layout classes of the shell's placeholder it replaces, because
+the swap is `outerHTML` — if they drifted, a panel would land in a differently-shaped box than the
+skeleton it replaced.
+
+Note `AggregateCacheGeneration.Bump` is called from **one** place, `CollectionLogAdminHandler`. Loot
+ingest does **not** invalidate this page; it goes stale for up to the 5-minute TTL after a kill.
 
 The columns are Superior, one per character, Clan. **Clan totals each row**, which the
 per-character totals could not: "how much has the clan killed of this one" was a question the table
@@ -533,12 +566,21 @@ is the timeline's own "N received". Characters is the number of character column
 is the timeline's first entry. A band that restates the page above the page is padding however
 elegantly it is set, so the page now opens on the header row. Do not add it back.
 
-**The table header is two lines, and each character carries their own colour** — the same
+**Each column header also carries that character's cumulative base-monster total** — every ordinary
+monster they have killed that can spawn a superior, in the same "from N" wording the cells use, so
+the two read as one figure at two scales. It is summed from the per-(character, base monster) rows,
+NOT by adding up the table's rows: a superior can have two bases and the row figure already sums
+them, so adding rows would double-count any base shared between two superiors.
+
+**The table header is three lines, and each character carries their own colour** — the same
 `RollChipHues` assignment the receipts timeline and the live roll ticker use, so a name is one colour
 everywhere rather than three. It was three centred lines (name, kills, uniques) with a "no uniques
 yet" placeholder holding the third line open for people who had none; kills and uniques now share a
-line and the placeholder is gone. That is what sets `--superior-head-h`, so shortening it meant
-re-measuring the token both halves of the seam read from.
+line and the placeholder is gone; the base-monster total then took a third line back. That is what
+sets `--superior-head-h`, so every change to it means re-measuring the token both halves of the seam
+read from — and the failure is loud, which is the point: adding the base-kills line pushed the header
+to 66.5px against a token pinned at 49px and the seam visibly stepped by 17.55px until the token was
+re-measured to 4.1875rem.
 
 **The hover card survives, moved onto the monster name.** Per character: kills, uniques, first and
 last, and *never on task* shown distinctly from a zero — which the grid's dash cannot distinguish.

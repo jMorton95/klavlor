@@ -110,7 +110,7 @@ public sealed class SuperiorSlayerHandler(ISuperiorSlayerRepository repository, 
             .GroupBy(x => x.Monster!.Name, StringComparer.Ordinal)
             .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.Ordinal);
 
-        var characters = BuildCharacters(counts, uniques);
+        var characters = BuildCharacters(counts, uniques, baseKills);
         if (characters.Count == 0) return SuperiorComparison.Empty;
 
         // HIGHEST SLAYER LEVEL FIRST. The registry is stored ascending because that is how a
@@ -174,8 +174,15 @@ public sealed class SuperiorSlayerHandler(ISuperiorSlayerRepository repository, 
 
     private static List<SuperiorCharacterColumn> BuildCharacters(
         IReadOnlyList<SuperiorCountRow> counts,
-        IReadOnlyList<SuperiorUniqueDrop> uniques)
+        IReadOnlyList<SuperiorUniqueDrop> uniques,
+        IReadOnlyList<SuperiorBaseKillRow> baseKills)
     {
+        // One entry per base monster, so a base shared between two superiors is counted once - see
+        // the remarks on SuperiorCharacterColumn.BaseKills for why the rows cannot just be summed.
+        var baseTotals = baseKills
+            .GroupBy(r => r.GameCharacterId)
+            .ToDictionary(g => g.Key, g => g.Sum(r => r.Kills));
+
         var byCharacter = uniques
             .GroupBy(u => u.GameCharacterId)
             .ToDictionary(
@@ -194,7 +201,8 @@ public sealed class SuperiorSlayerHandler(ISuperiorSlayerRepository repository, 
                 g.First().UserName,
                 g.Sum(row => row.Kills),
                 g.Max(row => row.LastKilled),
-                byCharacter.GetValueOrDefault(g.Key, [])))
+                byCharacter.GetValueOrDefault(g.Key, []),
+                baseTotals.GetValueOrDefault(g.Key)))
             .OrderByDescending(c => c.TotalKills)
             .ThenBy(c => c.CharacterName, StringComparer.OrdinalIgnoreCase)
             .ToList();

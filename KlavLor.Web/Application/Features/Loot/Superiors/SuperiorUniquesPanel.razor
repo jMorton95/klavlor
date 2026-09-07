@@ -21,8 +21,11 @@
 
 @* No card. It sits flush against the table as the continuation of the same band, with only the
    divider between them, because it stands in for a column of that table rather than accompanying
-   it. Its header lines up with the table's header row: the same background, the same height. *@
-<section>
+   it. Its header lines up with the table's header row: the same background, the same height.
+
+   The id and the layout classes match the shell's placeholder exactly - this replaces it with
+   outerHTML, so a drift between the two would land the panel in a differently-shaped box. *@
+<section id="superiors-receipts" class="flex-1 min-w-0">
     @* ONE BAND, not two. The title and the tally used to be separate rows with a rule between
        them, so this side of the seam ruled twice — at 220px and 254px — against the table's single
        rule at 248px. Both bands now live inside one header whose height is pinned to the table's

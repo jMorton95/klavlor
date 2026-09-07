@@ -49,7 +49,18 @@ public sealed record SuperiorCharacterColumn(
     /// Unique-table items this character has received, rarest first. The one column figure that is
     /// not the kill count in disguise.
     /// </summary>
-    IReadOnlyList<SuperiorUniqueDrop>? Uniques = null)
+    IReadOnlyList<SuperiorUniqueDrop>? Uniques = null,
+    /// <summary>
+    /// Every ordinary monster this character has killed that can spawn a superior — the whole grind
+    /// their superior count sits on top of, which the cells state one row at a time ("68 from 13k").
+    /// </summary>
+    /// <remarks>
+    /// Summed from the per-(character, base monster) rows, NOT by adding up the table's rows. A
+    /// superior can have two bases (a Cockathrice comes off either kind of Cockatrice) and the row
+    /// figure already sums them, so adding rows would double-count any base shared between two
+    /// superiors. Counting the base monsters once each cannot.
+    /// </remarks>
+    long BaseKills = 0)
 {
     public IReadOnlyList<SuperiorUniqueDrop> UniquesReceived => Uniques ?? [];
 

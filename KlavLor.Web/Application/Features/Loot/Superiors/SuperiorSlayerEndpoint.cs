@@ -10,6 +10,16 @@ namespace KlavLor.Web.Application.Features.Loot.Superiors;
 /// character's kill count of each, and the shared unique table's receipts.
 /// </summary>
 /// <remarks>
+/// THREE ROUTES, because the page paints before it queries. The page route serves a query-free
+/// shell; the table and the receipts each fetch themselves on load, in their own request scope. It
+/// was one route rendering everything during SSR, which meant nothing at all appeared until every
+/// query had run and 239KB of markup had been built - measured at 1.25s on a cold process.
+///
+/// Both halves read the SAME cached aggregate, so the pair costs one set of queries rather than
+/// two: whichever arrives first fills the 5-minute entry and the other hits it. The receipts half
+/// deliberately asks for the DEFAULT sort - sorting is applied after the cache and only reorders
+/// the table, so passing the sort through would be a second cache key for identical receipts.
+///
 /// PUBLIC, and deliberately so. The house rule stated on CollectionLogEndpoint is that
 /// cross-character comparison surfaces are clan-internal and authenticated; this one follows the
 /// Luck Leaderboard instead, by explicit decision. What it exposes is a kill count per monster - no
@@ -23,8 +33,17 @@ public sealed class SuperiorSlayerEndpoint : IEndpoint
 {
     public static RouteHandlerBuilder MapEndpoint(IEndpointRouteBuilder app)
     {
-        // One route. The handler serves a single cached aggregate for the whole page, so there is no
-        // second panel to stagger and nothing to fetch on a later trigger.
+        // The two halves. No HtmxNavigationFilter on either: they are fragments swapped into a
+        // shell that already exists, never a whole page, so there is nothing to wrap them in.
+        app.MapGet(AppRoutes.LootSuperiorsTable.FromApi(), GetTable)
+            .AllowAnonymous()
+            .RequireRateLimiting("read");
+
+        app.MapGet(AppRoutes.LootSuperiorsReceipts.FromApi(), GetReceipts)
+            .AllowAnonymous()
+            .RequireRateLimiting("read");
+
+        // The shell, for in-app HTMX navigation. Query-free.
         return app.MapGet(AppRoutes.LootSuperiors.FromApi(), Get)
             .AllowAnonymous()
             .AddEndpointFilter<HtmxNavigationFilter>()
@@ -37,12 +56,24 @@ public sealed class SuperiorSlayerEndpoint : IEndpoint
     // The sort lives in the query string rather than in component state so a sorted view is
     // linkable and survives a refresh - the header links push it with hx-push-url, and the routable
     // page reads the same two parameters.
-    private static async Task<RazorComponentResult> Get(
+    private static RazorComponentResult Get([FromQuery] int? characterId, [FromQuery] bool? asc) =>
+        IResultExtensions.Component<SuperiorsContent>(new { CharacterId = characterId, Asc = asc });
+
+    // The comparison table. Also the target of every sort link, which is why the sort parameters
+    // live here as well as on the shell: a sort re-fetches this half alone and leaves the receipts,
+    // which no ordering affects, exactly where they are.
+    private static async Task<RazorComponentResult> GetTable(
         [FromQuery] int? characterId,
         [FromQuery] bool? asc,
         SuperiorSlayerHandler handler)
     {
         var comparison = await handler.Get(new SuperiorSort(characterId, asc ?? false));
-        return IResultExtensions.Component<SuperiorsContent>(new { Comparison = comparison });
+        return IResultExtensions.Component<SuperiorMatrix>(new { Comparison = comparison });
+    }
+
+    private static async Task<RazorComponentResult> GetReceipts(SuperiorSlayerHandler handler)
+    {
+        var comparison = await handler.Get();
+        return IResultExtensions.Component<SuperiorUniquesPanel>(new { Drops = comparison.RecentUniques });
     }
 }

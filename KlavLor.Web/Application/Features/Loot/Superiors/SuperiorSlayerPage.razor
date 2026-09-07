@@ -8,25 +8,19 @@
    No [Authorize]: a routable page carries no fallback policy, so this is anonymous, which is what
    the endpoint is too. The two must agree or a direct URL load and an in-app navigation would
    disagree about who may see the page. *@
-@inject SuperiorSlayerHandler Handler
-
 <PageLayout PageTitle="KlavLor - Superior Slayer Monsters"
             Title="Superior Slayer Monsters"
             Description="Every superior slayer monster by Slayer level, across every tracked character">
-    <SuperiorsContent Comparison="_comparison" UpdateHeader="false" />
+    <SuperiorsContent CharacterId="CharacterId" Asc="Asc" UpdateHeader="false" />
 </PageLayout>
 
 @code {
-    private SuperiorComparison _comparison = SuperiorComparison.Empty;
-
     // Same two parameters the endpoint reads, so a direct load of a sorted URL and an in-app
-    // navigation to it produce the same table.
+    // navigation to it request the same ordering.
     [SupplyParameterFromQuery] public int? CharacterId { get; set; }
     [SupplyParameterFromQuery] public bool? Asc { get; set; }
 
-    // The routed page component is the ONE component allowed to query during SSR (see CLAUDE.md).
-    // Everything below it is parameter-driven. The comparison carries the ordering it was built
-    // with, so nothing here needs to hand the sort down a second time.
-    protected override async Task OnInitializedAsync() =>
-        _comparison = await Handler.Get(new SuperiorSort(CharacterId, Asc ?? false));
+    // NO QUERY HERE, AND NO HANDLER INJECTED. This page used to be the one component allowed to
+    // query during SSR, which meant nothing painted until every query had run and the whole band
+    // had been rendered. Both halves now fetch themselves - see SuperiorsContent.
 }
