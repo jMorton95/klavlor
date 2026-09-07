@@ -568,9 +568,12 @@ function trackLastViewedTemplate() {
     }
 }
 
-document.body.addEventListener('htmx:afterSettle', function() {
+document.body.addEventListener('htmx:afterSettle', function(evt) {
     updateSidebarActive();
     trackLastViewedTemplate();
+
+    var target = evt && evt.detail && evt.detail.target;
+    if (!target || target.id !== 'hx-page-container') return;
 
     var sidebar = document.getElementById('mobile-sidebar');
     var backdrop = document.getElementById('sidebar-backdrop');
