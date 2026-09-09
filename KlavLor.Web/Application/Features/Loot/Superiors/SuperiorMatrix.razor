@@ -37,8 +37,8 @@
     @* The empty state belongs to this half now. The shell asks nothing, so it cannot know whether
        anything has been killed. *@
     <div class="px-4 py-12 text-center">
-        <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">No superiors tracked yet</h3>
-        <p class="text-sm text-slate-500 dark:text-white max-w-lg mx-auto">
+        <h3 class="text-lg font-semibold text-slate-100 mb-2">No superiors tracked yet</h3>
+        <p class="text-sm text-white max-w-lg mx-auto">
             Nothing has killed a superior slayer monster since tracking began. They spawn rarely,
             so it can take a while for the first one to appear.
         </p>
@@ -75,7 +75,7 @@ else
                        hx-push-url="@SortUrl(null)" hx-swap="outerHTML transition:true"
                        href="@SortUrl(null)"
                        title="Sort by Slayer level, hardest first"
-                       class="inline-flex items-center gap-1 cursor-pointer text-[11px] font-semibold uppercase tracking-wide @(Sort.IsByLevel ? "text-amber-600 dark:text-amber-400" : "text-slate-500 dark:text-white hover:text-amber-600 dark:hover:text-amber-400") transition-colors">
+                       class="inline-flex items-center gap-1 cursor-pointer text-[11px] font-semibold uppercase tracking-wide @(Sort.IsByLevel ? "text-amber-400" : "text-white hover:text-amber-400") transition-colors">
                         Superior @SortMark(Sort.IsByLevel)
                     </a>
                 </th>
@@ -93,7 +93,7 @@ else
                                and read as a paragraph. *@
                             <div class="flex items-center justify-center gap-1.5 min-w-0">
                                 <span class="w-1.5 h-1.5 rounded-full shrink-0 bg-current roll-name-text @RollChipHues.ClassFor(character.CharacterName)"></span>
-                                <span class="text-xs font-semibold truncate transition-colors @(Sort.IsBy(character.GameCharacterId) ? "text-amber-600 dark:text-amber-400" : "text-slate-800 dark:text-slate-100 group-hover:text-amber-600 dark:group-hover:text-amber-400")">
+                                <span class="text-xs font-semibold truncate transition-colors @(Sort.IsBy(character.GameCharacterId) ? "text-amber-400" : "text-slate-100 group-hover:text-amber-400")">
                                     @character.CharacterName
                                 </span>
                                 @SortMark(Sort.IsBy(character.GameCharacterId))
@@ -102,11 +102,11 @@ else
                             @* Effort and outcome on ONE line. They were two stacked lines plus a
                                placeholder line for nobody's uniques, which is what made this header
                                three lines tall for two numbers. *@
-                            <div class="mt-0.5 text-[10px] tabular-nums text-slate-500 dark:text-white">
+                            <div class="mt-0.5 text-[10px] tabular-nums text-white">
                                 @character.TotalKills.ToString("N0") kills
                                 @if (character.UniquesReceived.Count > 0)
                                 {
-                                    <span class="ml-1 font-semibold text-amber-600 dark:text-amber-400">@character.UniquesReceived.Count&#9733;</span>
+                                    <span class="ml-1 font-semibold text-amber-400">@character.UniquesReceived.Count&#9733;</span>
                                 }
                             </div>
                             @* The column's own total of the "from N" the cells carry: every ordinary
@@ -115,7 +115,7 @@ else
                                abbreviated for the same reason - the exact number is in the card. *@
                             @if (character.BaseKills > 0)
                             {
-                                <div class="text-[10px] font-normal tabular-nums text-slate-400 dark:text-white">
+                                <div class="text-[10px] font-normal tabular-nums text-white">
                                     from @Compact(character.BaseKills)
                                 </div>
                             }
@@ -124,14 +124,14 @@ else
                 }
                 @* Clan total per monster. Without it nothing totals a ROW. *@
                 <th class="@HeadCell text-center">
-                    <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-white">Clan</span>
+                    <span class="text-[11px] font-semibold uppercase tracking-wide text-white">Clan</span>
                 </th>
             </tr>
         </thead>
         <tbody>
             @foreach (var row in Comparison.Rows)
             {
-                <tr class="border-b border-slate-200/60 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors">
+                <tr class="border-b border-slate-800 hover:bg-slate-800/60 transition-colors">
                     @* THE HOVER TARGET, now that the chart it used to hang off is gone. The card is
                        pre-rendered and hidden here; site.js lifts it into a fixed panel, which it
                        has to, because the overflow-x wrapper around this table is a scroll
@@ -202,11 +202,11 @@ else
                             <img src="/api/images/source-icon?name=@Uri.EscapeDataString(row.Name)" alt=""
                                  class="w-6 h-6 object-contain shrink-0" loading="lazy" onerror="this.style.visibility='hidden'" />
                             <div class="min-w-0">
-                                <div class="text-[13px] font-medium text-slate-800 dark:text-slate-100 truncate leading-tight">@row.Name</div>
+                                <div class="text-[13px] font-medium text-slate-100 truncate leading-tight">@row.Name</div>
                                 @* Just the name. How many of the base monster have been killed is a
                                    per-player figure and lives in each player's own cell — a single
                                    roster total here could not say whose grind it was. *@
-                                <div class="text-[10px] text-slate-500 dark:text-white truncate leading-tight">
+                                <div class="text-[10px] text-white truncate leading-tight">
                                     from @string.Join(" / ", row.BaseMonsters)
                                 </div>
                             </div>
@@ -219,13 +219,13 @@ else
                         var baseKills = row.BaseKillsFor(character.GameCharacterId);
                         @* Every count reads the same. Highlighting the row leader turned a set of
                            facts into a scoreboard, which is not what this page is for. *@
-                        <td class="px-2 py-2.5 text-center tabular-nums text-[13px] text-slate-700 dark:text-slate-200"
+                        <td class="px-2 py-2.5 text-center tabular-nums text-[13px] text-slate-200"
                             title="@CellTitle(row, character, cell, baseKills)">
                             @* A zero and a never-killed are the same fact here, and a wall of zeros
                                buries the counts that matter — so both render as a dash. *@
                             @if (cell is null || cell.Kills == 0)
                             {
-                                <span class="text-slate-300 dark:text-slate-700">–</span>
+                                <span class="text-slate-700">–</span>
                             }
                             else
                             {
@@ -238,7 +238,7 @@ else
                                    tooltip. Omitted, never zeroed, when we hold nothing there. *@
                                 @if (baseKills > 0)
                                 {
-                                    <span class="ml-1 text-[10px] font-normal text-slate-400 dark:text-white">from @Compact(baseKills)</span>
+                                    <span class="ml-1 text-[10px] font-normal text-white">from @Compact(baseKills)</span>
                                 }
                             }
                         </td>
@@ -247,7 +247,7 @@ else
                     @* The roster's total for this monster, which is the row's own sum. It briefly
                        lived inside the chart cell as that bar's label, and came back out to a
                        column of its own when the chart went. *@
-                    <td class="px-4 py-2.5 text-center tabular-nums text-[13px] font-medium text-slate-600 dark:text-slate-300">
+                    <td class="px-4 py-2.5 text-center tabular-nums text-[13px] font-medium text-slate-300">
                         @row.TotalKills.ToString("N0")
                     </td>
                 </tr>
@@ -269,8 +269,8 @@ else
     /// them the same weight would make an Imbued heart look like a Tuesday.
     private static string UniqueClasses(SuperiorUniqueDrop drop) =>
         SuperiorSlayerMonsters.UniqueRank(drop.ItemName) <= 1
-            ? "bg-amber-400 dark:bg-amber-300"
-            : "bg-sky-400/90 dark:bg-sky-300/90";
+            ? "bg-amber-300"
+            : "bg-sky-300/90";
 
     /// Every receipt spelled out, because a count of 13 says nothing about whether it was thirteen
     /// battlestaves or two hearts.
@@ -288,7 +288,7 @@ else
     private string TableWidth => $"{21 + Comparison.Characters.Count * 8.5:0.##}rem";
 
     /// Shared by every header cell.
-    private const string HeadCell = "bg-slate-100 dark:bg-slate-800 px-3 py-2";
+    private const string HeadCell = "bg-slate-800 px-3 py-2";
 
     /// Base-monster counts share a cell with the superior count now, so they are abbreviated. The
     /// exact figure is one hover away and the rounded one is all the line is really saying: that

@@ -16,7 +16,7 @@
 <div class="@ColumnClass">
     <h2 class="text-xs font-semibold @style.HeaderClass mb-2 px-0.5">
         @style.Label
-        <span class="text-[10px] font-normal text-slate-400 dark:text-white">@style.Range</span>
+        <span class="text-[10px] font-normal text-white">@style.Range</span>
     </h2>
     <div id="feed-col-@style.Slug"
          hx-ext="sse"
@@ -34,8 +34,8 @@
         }
         else
         {
-            <div class="feed-empty-state bg-slate-50 dark:bg-slate-900 rounded-lg shadow-sm border @style.EmptyBorderClass p-5 text-center">
-                <p class="text-xs text-slate-500 dark:text-white">No @style.Label.ToLowerInvariant() drops yet.</p>
+            <div class="feed-empty-state bg-slate-900 rounded-lg shadow-sm border @style.EmptyBorderClass p-5 text-center">
+                <p class="text-xs text-white">No @style.Label.ToLowerInvariant() drops yet.</p>
             </div>
         }
     </div>

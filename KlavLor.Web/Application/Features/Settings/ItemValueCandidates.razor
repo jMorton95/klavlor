@@ -6,11 +6,11 @@
 
 @if (string.IsNullOrWhiteSpace(SearchTerm))
 {
-    <p class="text-sm text-slate-400 dark:text-white py-2">Type an item name to search.</p>
+    <p class="text-sm text-white py-2">Type an item name to search.</p>
 }
 else if (Items.Count == 0)
 {
-    <p class="text-sm text-slate-400 dark:text-white py-2">No dropped items match your search.</p>
+    <p class="text-sm text-white py-2">No dropped items match your search.</p>
 }
 else
 {
@@ -18,15 +18,15 @@ else
         @foreach (var item in Items)
         {
             <button type="button" onclick="@SelectScript(item)"
-                    class="w-full flex items-center gap-2 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-1.5 text-left hover:border-amber-400 dark:hover:border-amber-500 cursor-pointer">
+                    class="w-full flex items-center gap-2 bg-slate-900 rounded-lg border border-slate-700 px-3 py-1.5 text-left hover:border-amber-500 cursor-pointer">
                 <img src="/api/images/item-icon?name=@Uri.EscapeDataString(item.ItemName)" alt="@item.ItemName"
                      class="w-4 h-4 object-contain shrink-0" loading="lazy" onerror="this.style.display='none'" />
-                <span class="text-sm text-slate-700 dark:text-slate-100 truncate">@item.ItemName</span>
+                <span class="text-sm text-slate-100 truncate">@item.ItemName</span>
                 @if (item.OverrideValue is { } configured)
                 {
-                    <span class="text-[10px] font-mono text-amber-600 dark:text-amber-400 shrink-0">@configured.ToString("N0") gp set</span>
+                    <span class="text-[10px] font-mono text-amber-400 shrink-0">@configured.ToString("N0") gp set</span>
                 }
-                <span class="text-[10px] text-slate-400 dark:text-white shrink-0 ml-auto">
+                <span class="text-[10px] text-white shrink-0 ml-auto">
                     id @item.ItemId · @item.RecordCount.ToString("N0") drop@(item.RecordCount == 1 ? "" : "s") · stored @item.RawPrice.ToString("N0") gp
                 </span>
             </button>

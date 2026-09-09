@@ -23,7 +23,7 @@
     <nav class="w-full lg:w-56 shrink-0 lg:sticky lg:top-4 self-start mb-6 lg:mb-0">
         @foreach (var group in AdminSections.Grouped())
         {
-            <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-white mb-1.5 mt-4 first:mt-0 px-3">@group.Key</p>
+            <p class="text-[10px] font-semibold uppercase tracking-wider text-white mb-1.5 mt-4 first:mt-0 px-3">@group.Key</p>
             <ul class="space-y-0.5 text-sm mb-2">
                 @* Loop variable is deliberately not called "section" — Razor parses a leading
                    @section as the section directive, not as an expression. *@
@@ -45,11 +45,11 @@
     </nav>
 
     <div class="flex-1 min-w-0">
-        <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40 p-5">
-            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">@Current.Title</h2>
+        <div class="rounded-xl border border-slate-700 bg-slate-900/40 p-5">
+            <h2 class="text-lg font-semibold text-slate-100 mb-1">@Current.Title</h2>
             @if (Current.Description is { Length: > 0 } description)
             {
-                <p class="text-sm text-slate-500 dark:text-white mb-4">@description</p>
+                <p class="text-sm text-white mb-4">@description</p>
             }
             else
             {
@@ -75,8 +75,8 @@
 
     private string NavClasses(AdminSection section) =>
         section.Slug == Current.Slug
-            ? "block px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 font-medium"
-            : "block px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-amber-700 dark:hover:text-amber-300 transition-colors";
+            ? "block px-3 py-1.5 rounded-lg bg-amber-900/30 text-amber-300 font-medium"
+            : "block px-3 py-1.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-amber-300 transition-colors";
 
     /// One branch per section. Explicit rather than reflective, matching how endpoints and source
     /// loot strategies are registered here — a missing branch is a compile-visible omission.

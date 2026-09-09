@@ -7,7 +7,7 @@
 <div id="char-session-section">
     @if (History.Sessions.Count == 0)
     {
-        <p class="text-sm text-slate-400 dark:text-white">No sessions recorded yet.</p>
+        <p class="text-sm text-white">No sessions recorded yet.</p>
     }
     else
     {
@@ -16,8 +16,8 @@
             {
                 <div>
                     <div class="flex items-center gap-2 mb-2">
-                        <span class="text-xs font-semibold text-slate-500 dark:text-white whitespace-nowrap">@DayLabel(dayGroup.Key)</span>
-                        <span class="h-px flex-1 bg-slate-200 dark:bg-slate-700"></span>
+                        <span class="text-xs font-semibold text-white whitespace-nowrap">@DayLabel(dayGroup.Key)</span>
+                        <span class="h-px flex-1 bg-slate-700"></span>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 items-start">
                         @foreach (var cs in dayGroup)
@@ -36,7 +36,7 @@
             <div class="flex justify-center py-2 mt-1"
                  hx-get="@MoreUrl(PageNumber + 1)" hx-target="#char-session-section" hx-swap="outerHTML" hx-trigger="click">
                 <button type="button"
-                        class="px-6 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer">
+                        class="px-6 py-2.5 text-sm font-medium text-slate-300 bg-slate-900 border border-slate-600 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer">
                     Showing @History.Sessions.Count of @History.TotalSessions sessions
                 </button>
             </div>

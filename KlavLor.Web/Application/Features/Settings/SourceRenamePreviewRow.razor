@@ -1,40 +1,40 @@
 @using KlavLor.Application.Common
 @using KlavLor.Application.Features.Maintenance
 
-<div id="src-row-@RowIndex" class="bg-slate-50 dark:bg-slate-900 rounded-lg border border-amber-300 dark:border-amber-600 ring-1 ring-amber-300/30 dark:ring-amber-600/30 px-3 py-2.5 text-sm">
+<div id="src-row-@RowIndex" class="bg-slate-900 rounded-lg border border-amber-600 ring-1 ring-amber-600/30 px-3 py-2.5 text-sm">
     @if (Preview.IsNoop)
     {
         <div class="flex items-center justify-between gap-2">
-            <span class="text-slate-500 dark:text-white">@Preview.NoopReason</span>
+            <span class="text-white">@Preview.NoopReason</span>
             <button hx-get="@CancelUrl" hx-target="#src-row-@RowIndex" hx-swap="outerHTML"
-                    class="px-2.5 py-1 rounded text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer shrink-0">
+                    class="px-2.5 py-1 rounded text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 cursor-pointer shrink-0">
                 Back
             </button>
         </div>
     }
     else
     {
-        <p class="text-slate-700 dark:text-slate-200 mb-1.5">
+        <p class="text-slate-200 mb-1.5">
             @if (Preview.IsMerge)
             {
-                <span class="font-semibold text-amber-600 dark:text-amber-400">Merge</span>
+                <span class="font-semibold text-amber-400">Merge</span>
             }
             else
             {
-                <span class="font-semibold text-slate-800 dark:text-slate-100">Rename</span>
+                <span class="font-semibold text-slate-100">Rename</span>
             }
             <strong>@Preview.RecordsToMove.ToString("N0")</strong>
             <text>@Records(Preview.RecordsToMove) from &ldquo;</text>@Preview.From<text>&rdquo;</text>
             @if (Preview.IsMerge)
             {
-                <text>into existing &ldquo;@Preview.To&rdquo; <span class="text-slate-500 dark:text-white">(already @Preview.TargetExistingRecords.ToString("N0"))</span>.</text>
+                <text>into existing &ldquo;@Preview.To&rdquo; <span class="text-white">(already @Preview.TargetExistingRecords.ToString("N0"))</span>.</text>
             }
             else
             {
                 <text>to new name &ldquo;@Preview.To&rdquo;.</text>
             }
         </p>
-        <p class="text-[11px] text-slate-500 dark:text-white mb-2.5">
+        <p class="text-[11px] text-white mb-2.5">
             Re-derives @Preview.DropRatesAffected.ToString("N0") drop-rate @(Preview.DropRatesAffected == 1 ? "row" : "rows")@(Preview.HasIcon ? " and the source icon" : ""). This cannot be undone.
         </p>
 
@@ -51,7 +51,7 @@
                 Confirm @(Preview.IsMerge ? "merge" : "rename")
             </button>
             <button hx-get="@CancelUrl" hx-target="#src-row-@RowIndex" hx-swap="outerHTML"
-                    class="px-2.5 py-1 rounded text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer">
+                    class="px-2.5 py-1 rounded text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 cursor-pointer">
                 Cancel
             </button>
         </div>

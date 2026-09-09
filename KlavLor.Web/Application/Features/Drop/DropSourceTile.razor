@@ -9,24 +9,24 @@
    and the admin modifier to be honest, and an "observed rate" computed from a handful of drops
    invites being read as a real one. *@
 <a hx-get="@SourceUrl.FromApi()" hx-target="#hx-page-container" hx-push-url="@SourceUrl" hx-swap="innerHTML transition:true"
-   class="group flex flex-col gap-1.5 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2.5 hover:border-amber-300 dark:hover:border-amber-600 cursor-pointer transition-colors"
+   class="group flex flex-col gap-1.5 bg-slate-900 rounded-lg border border-slate-700 px-3 py-2.5 hover:border-amber-600 cursor-pointer transition-colors"
    title="@($"{Row.SourceName} — {Row.Drops:N0} drop{(Row.Drops == 1 ? "" : "s")}, {Row.TotalQuantity:N0} total, first {LocalDate(Row.FirstSeen)}, last {LocalDate(Row.LastSeen)}")">
     <div class="flex items-center gap-2 min-w-0">
         <img src="/api/images/source-icon?name=@Uri.EscapeDataString(Row.SourceName)" alt=""
              class="w-5 h-5 rounded shrink-0" loading="lazy" onerror="this.style.display='none'" />
-        <span class="text-sm font-medium text-slate-800 dark:text-slate-100 truncate group-hover:text-amber-600 dark:group-hover:text-amber-400">@Row.SourceName</span>
+        <span class="text-sm font-medium text-slate-100 truncate group-hover:text-amber-400">@Row.SourceName</span>
     </div>
     <div class="flex items-baseline justify-between gap-2">
-        <span class="text-xs text-slate-500 dark:text-white tabular-nums whitespace-nowrap">
+        <span class="text-xs text-white tabular-nums whitespace-nowrap">
             @Row.Drops.ToString("N0") drop@(Row.Drops == 1 ? "" : "s")
             @if (Row.TotalQuantity != Row.Drops)
             {
-                <span class="text-slate-400 dark:text-slate-300"> · @Row.TotalQuantity.ToString("N0") qty</span>
+                <span class="text-slate-300"> · @Row.TotalQuantity.ToString("N0") qty</span>
             }
         </span>
-        <span class="text-xs font-medium text-amber-600 dark:text-amber-400 tabular-nums whitespace-nowrap">@GoldFormat.Format(Row.TotalValue)</span>
+        <span class="text-xs font-medium text-amber-400 tabular-nums whitespace-nowrap">@GoldFormat.Format(Row.TotalValue)</span>
     </div>
-    <div class="text-[10px] text-slate-400 dark:text-slate-300 tabular-nums whitespace-nowrap">
+    <div class="text-[10px] text-slate-300 tabular-nums whitespace-nowrap">
         @Ago(Row.FirstSeen) – @Ago(Row.LastSeen)
     </div>
 </a>

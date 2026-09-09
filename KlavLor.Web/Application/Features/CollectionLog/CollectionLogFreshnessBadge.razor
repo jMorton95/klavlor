@@ -33,10 +33,10 @@
     private string Classes => Freshness!.Outcome switch
     {
         CollectionLogSyncOutcome.Ok or CollectionLogSyncOutcome.Unchanged when !Freshness.IsStale
-            => "text-slate-400 dark:text-white",
+            => "text-white",
         CollectionLogSyncOutcome.Ok or CollectionLogSyncOutcome.Unchanged
-            => "text-amber-600 dark:text-amber-400",
-        _ => "text-rose-600 dark:text-rose-400"
+            => "text-amber-400",
+        _ => "text-rose-400"
     };
 
     private string Dot => Freshness!.Outcome switch

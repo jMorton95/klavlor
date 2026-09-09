@@ -15,7 +15,7 @@
 
 <div class="max-w-5xl mx-auto space-y-5 pb-32">
     <a onclick="history.back()"
-       class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-amber-600 dark:text-white dark:hover:text-amber-400 cursor-pointer transition-colors">
+       class="inline-flex items-center gap-1 text-sm text-white hover:text-amber-400 cursor-pointer transition-colors">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
         </svg>
@@ -24,28 +24,28 @@
 
     @if (Comparison is null)
     {
-        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-12 text-center">
-            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">Item not found</h3>
-            <p class="text-sm text-slate-500 dark:text-white">That item isn't in the collection log.</p>
+        <div class="bg-slate-900 rounded-xl shadow-sm border border-slate-700 p-12 text-center">
+            <h3 class="text-lg font-semibold text-slate-100 mb-2">Item not found</h3>
+            <p class="text-sm text-white">That item isn't in the collection log.</p>
         </div>
     }
     else
     {
-        <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-4 py-3">
+        <div class="rounded-xl border border-slate-700 bg-slate-900 px-4 py-3">
             <div class="flex items-center gap-2 min-w-0 mb-1.5">
                 <img src="/api/images/item-icon?name=@Uri.EscapeDataString(Comparison.Name)" alt=""
                      class="w-7 h-7 shrink-0 object-contain" loading="lazy" onerror="this.style.display='none'" />
-                <h1 class="text-lg font-bold text-slate-900 dark:text-slate-100 truncate">@Comparison.Name</h1>
+                <h1 class="text-lg font-bold text-slate-100 truncate">@Comparison.Name</h1>
             </div>
             <div class="flex items-center gap-x-4 gap-y-1 flex-wrap text-sm">
                 <span class="inline-flex items-baseline gap-1 whitespace-nowrap">
-                    <span class="font-semibold tabular-nums text-slate-900 dark:text-slate-100">@Comparison.ObtainedBy/@Comparison.Holders.Count</span>
-                    <span class="text-[11px] text-slate-500 dark:text-white">have it</span>
+                    <span class="font-semibold tabular-nums text-slate-100">@Comparison.ObtainedBy/@Comparison.Holders.Count</span>
+                    <span class="text-[11px] text-white">have it</span>
                 </span>
                 @* Straight through to the existing global drop page, which owns rates, values and
                    the full source breakdown — this page deliberately duplicates none of that. *@
                 <a hx-get="@DropUrl.FromApi()" hx-target="#hx-page-container" hx-push-url="@DropUrl" hx-swap="innerHTML transition:true"
-                   class="text-[11px] text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">
+                   class="text-[11px] text-amber-400 hover:underline cursor-pointer">
                     Drop rates, values and sources →
                 </a>
             </div>
@@ -54,7 +54,7 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
             @foreach (var holder in Comparison.Holders)
             {
-                <div class="rounded-xl border px-3 py-2.5 @(holder.Obtained ? "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900" : "border-slate-200/80 dark:border-slate-700/80 bg-slate-100/60 dark:bg-slate-950/40")">
+                <div class="rounded-xl border px-3 py-2.5 @(holder.Obtained ? "border-slate-700 bg-slate-900" : "border-slate-700/80 bg-slate-950/40")">
                     <div class="flex items-center gap-2 mb-1">
                         <span class="shrink-0">
                             @if (holder.Obtained)
@@ -63,18 +63,18 @@
                             }
                             else
                             {
-                                <svg class="w-4 h-4 text-slate-400 dark:text-slate-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg>
+                                <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg>
                             }
                         </span>
                         <a hx-get="@CharacterUrl(holder.GameCharacterId).FromApi()" hx-target="#hx-page-container"
                            hx-push-url="@CharacterUrl(holder.GameCharacterId)" hx-swap="innerHTML transition:true"
-                           class="text-sm font-semibold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer truncate flex-1 min-w-0">@holder.CharacterName</a>
+                           class="text-sm font-semibold text-amber-400 hover:underline cursor-pointer truncate flex-1 min-w-0">@holder.CharacterName</a>
 
                         @if (holder.Obtained && holder.Count > 1)
                         {
-                            <span class="text-[11px] tabular-nums text-slate-500 dark:text-white shrink-0">@holder.Count.ToString("N0")×</span>
+                            <span class="text-[11px] tabular-nums text-white shrink-0">@holder.Count.ToString("N0")×</span>
                         }
-                        <span class="text-[11px] tabular-nums shrink-0 whitespace-nowrap @(holder.Obtained ? "text-slate-500 dark:text-white" : "text-slate-400 dark:text-slate-500")">
+                        <span class="text-[11px] tabular-nums shrink-0 whitespace-nowrap @(holder.Obtained ? "text-white" : "text-slate-500")">
                             @Obtained(holder)
                         </span>
                     </div>
@@ -84,7 +84,7 @@
                        because an item with several sources makes one meaningless. *@
                     @if (!holder.HasRollData)
                     {
-                        <p class="text-[11px] text-slate-400 dark:text-slate-500 pl-6">Rolls unknown — no tracked loot at a source that drops this.</p>
+                        <p class="text-[11px] text-slate-500 pl-6">Rolls unknown — no tracked loot at a source that drops this.</p>
                     }
                     else
                     {
@@ -95,16 +95,16 @@
                                     <span class="inline-flex items-center gap-1 min-w-0">
                                         <img src="/api/images/source-icon?name=@Uri.EscapeDataString(source.SourceName)" alt=""
                                              class="w-3.5 h-3.5 rounded shrink-0" loading="lazy" onerror="this.style.display='none'" />
-                                        <span class="truncate @(source.DroppedIt ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500 dark:text-white")">@source.SourceName</span>
+                                        <span class="truncate @(source.DroppedIt ? "text-emerald-400" : "text-white")">@source.SourceName</span>
                                     </span>
-                                    <span class="tabular-nums whitespace-nowrap shrink-0 @(source.DroppedIt ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-slate-400 dark:text-slate-400")">
+                                    <span class="tabular-nums whitespace-nowrap shrink-0 @(source.DroppedIt ? "text-emerald-400 font-medium" : "text-slate-400")">
                                         @source.Rolls.ToString("N0") rolls
                                     </span>
                                 </div>
                             }
                             @if (!holder.Obtained && holder.RollSources.Count > 1)
                             {
-                                <div class="text-[10px] text-slate-400 dark:text-slate-500 pt-0.5">@holder.TotalRolls.ToString("N0") rolls across these</div>
+                                <div class="text-[10px] text-slate-500 pt-0.5">@holder.TotalRolls.ToString("N0") rolls across these</div>
                             }
                         </div>
                     }

@@ -15,15 +15,15 @@
 
 <div class="max-w-6xl mx-auto space-y-6 pb-32">
     <div>
-        <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Clan standings</h2>
-        <p class="text-sm text-slate-500 dark:text-white">Collection log completion across every tracked character.</p>
+        <h2 class="text-lg font-semibold text-slate-100">Clan standings</h2>
+        <p class="text-sm text-white">Collection log completion across every tracked character.</p>
     </div>
 
     @if (Standings.Count == 0)
     {
-        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-12 text-center">
-            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">No collection log data</h3>
-            <p class="text-sm text-slate-500 dark:text-white max-w-lg mx-auto">
+        <div class="bg-slate-900 rounded-xl shadow-sm border border-slate-700 p-12 text-center">
+            <h3 class="text-lg font-semibold text-slate-100 mb-2">No collection log data</h3>
+            <p class="text-sm text-white max-w-lg mx-auto">
                 Nothing has been collected yet. A character needs its display name to match its RuneScape name,
                 and its collection log has to have been shared at least once. Data refreshes hourly.
             </p>
@@ -40,14 +40,14 @@
             {
                 <a hx-get="@CharacterUrl(standing).FromApi()" hx-target="#hx-page-container"
                    hx-push-url="@CharacterUrl(standing)" hx-swap="innerHTML transition:true"
-                   class="group relative flex flex-col gap-3 rounded-xl border bg-slate-50 dark:bg-slate-900 p-4 cursor-pointer transition-all hover:-translate-y-0.5 @CardClasses(standing)">
+                   class="group relative flex flex-col gap-3 rounded-xl border bg-slate-900 p-4 cursor-pointer transition-all hover:-translate-y-0.5 @CardClasses(standing)">
 
                     <div class="min-w-0">
                         <div class="flex items-center gap-1.5 min-w-0">
-                            <span class="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate group-hover:text-amber-600 dark:group-hover:text-amber-400">@standing.CharacterName</span>
+                            <span class="text-sm font-semibold text-slate-100 truncate group-hover:text-amber-400">@standing.CharacterName</span>
                             @if (GameModeLabel(standing.GameMode) is { } mode)
                             {
-                                <span class="text-[9px] px-1 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 shrink-0">@mode</span>
+                                <span class="text-[9px] px-1 py-0.5 rounded bg-slate-800 text-slate-300 shrink-0">@mode</span>
                             }
                         </div>
                         <CollectionLogFreshnessBadge Freshness="standing.Freshness" />
@@ -58,22 +58,22 @@
                     <div class="flex items-center gap-3">
                         <div class="relative w-14 h-14 shrink-0">
                             <svg class="w-14 h-14 -rotate-90" viewBox="0 0 36 36" aria-hidden="true">
-                                <circle cx="18" cy="18" r="15.5" fill="none" stroke="currentColor" stroke-width="3" class="text-slate-200 dark:text-slate-800" />
+                                <circle cx="18" cy="18" r="15.5" fill="none" stroke="currentColor" stroke-width="3" class="text-slate-800" />
                                 <circle cx="18" cy="18" r="15.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"
-                                        class="text-amber-500 dark:text-amber-400"
+                                        class="text-amber-400"
                                         stroke-dasharray="@Dash(standing.Percent)" />
                             </svg>
-                            <span class="absolute inset-0 flex items-center justify-center text-[11px] font-semibold tabular-nums text-slate-700 dark:text-slate-200">@standing.Percent.ToString("0")%</span>
+                            <span class="absolute inset-0 flex items-center justify-center text-[11px] font-semibold tabular-nums text-slate-200">@standing.Percent.ToString("0")%</span>
                         </div>
 
                         <div class="min-w-0 space-y-0.5">
-                            <div class="text-base font-bold tabular-nums text-slate-900 dark:text-slate-100 leading-none">
-                                @standing.Obtained.ToString("N0")<span class="text-xs font-normal text-slate-400 dark:text-white">/@standing.Available.ToString("N0")</span>
+                            <div class="text-base font-bold tabular-nums text-slate-100 leading-none">
+                                @standing.Obtained.ToString("N0")<span class="text-xs font-normal text-white">/@standing.Available.ToString("N0")</span>
                             </div>
-                            <div class="text-[11px] text-slate-500 dark:text-white tabular-nums">@standing.CategoriesFinished/@standing.CategoriesAvailable tabs complete</div>
+                            <div class="text-[11px] text-white tabular-nums">@standing.CategoriesFinished/@standing.CategoriesAvailable tabs complete</div>
                             @if (standing.HiscoresRank is { } hiscores)
                             {
-                                <div class="text-[11px] text-slate-400 dark:text-white tabular-nums">rank #@hiscores.ToString("N0")</div>
+                                <div class="text-[11px] text-white tabular-nums">rank #@hiscores.ToString("N0")</div>
                             }
                         </div>
                     </div>
@@ -84,11 +84,11 @@
 
     @* Below the roster, and titled, on purpose. Sitting at the top it appeared immediately under the
        site-wide search in the header, and the two read as the same control. *@
-    <div class="pt-4 border-t border-slate-200 dark:border-slate-700">
+    <div class="pt-4 border-t border-slate-700">
         <div class="flex items-end justify-between gap-3 flex-wrap mb-3">
             <div>
-                <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Find an item</h2>
-                <p class="text-sm text-slate-500 dark:text-white">Search the collection log to see who has what.</p>
+                <h2 class="text-lg font-semibold text-slate-100">Find an item</h2>
+                <p class="text-sm text-white">Search the collection log to see who has what.</p>
             </div>
             <div class="relative w-full sm:w-80">
                 <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -99,7 +99,7 @@
                        hx-trigger="keyup changed delay:300ms"
                        hx-target="#clog-search-results"
                        hx-swap="innerHTML"
-                       class="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+                       class="w-full pl-9 pr-3 py-2 text-sm border border-slate-600 bg-slate-800 text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
             </div>
         </div>
         <div id="clog-search-results"></div>
@@ -131,8 +131,8 @@
     // A character with no data tints its BACKGROUND and nothing else — the previous 60% opacity on
     // the whole card washed out its name, border and ring along with it.
     private static string CardClasses(CollectionLogStanding s) => !s.Freshness.HasData
-        ? "border-slate-200/80 dark:border-slate-700/80 bg-slate-100/60 dark:bg-slate-950/40 hover:border-amber-300 dark:hover:border-amber-600"
-        : "border-slate-200 dark:border-slate-700 hover:border-amber-300 dark:hover:border-amber-600";
+        ? "border-slate-700/80 bg-slate-950/40 hover:border-amber-600"
+        : "border-slate-700 hover:border-amber-600";
 
     /// SVG dash for a percentage on an r=15.5 circle (circumference ≈ 97.4).
     private static string Dash(double percent)

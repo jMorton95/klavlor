@@ -10,31 +10,31 @@
    chart while contributing modestly to the value one. Same months, same positions, so the
    pair can be read together. *@
 
-<div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+<div class="bg-slate-900 rounded-xl shadow-sm border border-slate-700 p-5">
     <div class="flex items-start justify-between mb-3 flex-wrap gap-2">
         <div>
-            <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-200">@Title</h3>
+            <h3 class="text-sm font-semibold text-slate-200">@Title</h3>
             <p class="text-lg font-bold mt-0.5 leading-tight">
-                <span class="text-emerald-600 dark:text-emerald-400 tabular-nums">@TotalRolls.ToString("N0")</span>
-                <span class="text-xs font-normal text-slate-500 dark:text-white">
+                <span class="text-emerald-400 tabular-nums">@TotalRolls.ToString("N0")</span>
+                <span class="text-xs font-normal text-white">
                     rolls across @ActiveMonths active @(ActiveMonths == 1 ? "month" : "months")@(ActiveMonths > 0 ? $" · {TotalRolls / ActiveMonths:N0} per active month" : "")
                 </span>
             </p>
         </div>
         <div class="flex items-center gap-2">
-            <div class="inline-flex rounded-md border border-slate-200 dark:border-slate-700 overflow-hidden text-[11px]">
+            <div class="inline-flex rounded-md border border-slate-700 overflow-hidden text-[11px]">
                 <button type="button"
                         hx-get="@GetUrl("12m", Expanded)"
                         hx-target="closest div.bg-slate-50"
                         hx-swap="outerHTML"
-                        class="px-2 py-1 @(Trend.Range == "12m" ? "bg-amber-500 text-white" : "bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300")">
+                        class="px-2 py-1 @(Trend.Range == "12m" ? "bg-amber-500 text-white" : "bg-slate-900 text-slate-300")">
                     12 months
                 </button>
                 <button type="button"
                         hx-get="@GetUrl("all", Expanded)"
                         hx-target="closest div.bg-slate-50"
                         hx-swap="outerHTML"
-                        class="px-2 py-1 @(Trend.Range == "all" ? "bg-amber-500 text-white" : "bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300")">
+                        class="px-2 py-1 @(Trend.Range == "all" ? "bg-amber-500 text-white" : "bg-slate-900 text-slate-300")">
                     All time
                 </button>
             </div>
@@ -43,7 +43,7 @@
                     hx-target="closest div.bg-slate-50"
                     hx-swap="outerHTML"
                     title="@(Expanded ? "Back to the standard chart" : $"Expand: double the height, naming the top {ExpandedMinPerMonth} sources in every month instead of {StandardMinPerMonth}")"
-                    class="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700 text-[11px] @(Expanded ? "bg-amber-500 text-white" : "bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300")">
+                    class="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-slate-700 text-[11px] @(Expanded ? "bg-amber-500 text-white" : "bg-slate-900 text-slate-300")">
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
                     @if (Expanded)
                     {
@@ -61,7 +61,7 @@
 
     @if (Trend.Months.Count == 0 || TotalRolls == 0)
     {
-        <p class="text-xs text-slate-500 dark:text-white">No rolls in this window yet.</p>
+        <p class="text-xs text-white">No rolls in this window yet.</p>
     }
     else
     {
@@ -74,7 +74,7 @@
                        MaxSegmentFraction="0.35"
                        Scale="HistogramBars.BarScaleMode.Compressed" />
 
-        <p class="text-[10px] text-slate-500 dark:text-white mt-2">
+        <p class="text-[10px] text-white mt-2">
             Bar heights use a compressed scale so a light month is still readable next to a heavy one — the order is unchanged and every bar prints its true total above itself.
             @if (DelveSources.Count > 0)
             {

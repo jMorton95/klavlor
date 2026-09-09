@@ -3,9 +3,9 @@
 
 <div class="flex flex-wrap items-end gap-3 mb-3">
     <div>
-        <label class="block text-[10px] uppercase tracking-wider text-slate-500 dark:text-white mb-1">Character</label>
+        <label class="block text-[10px] uppercase tracking-wider text-white mb-1">Character</label>
         <select id="cdd-char" name="characterId"
-                class="w-56 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none">
+                class="w-56 px-3 py-2 text-sm border border-slate-600 bg-slate-800 text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none">
             @foreach (var c in Characters)
             {
                 <option value="@c.Id">@c.Name</option>
@@ -13,10 +13,10 @@
         </select>
     </div>
     <div>
-        <label class="block text-[10px] uppercase tracking-wider text-slate-500 dark:text-white mb-1">Source</label>
+        <label class="block text-[10px] uppercase tracking-wider text-white mb-1">Source</label>
         @* Only depth-modelled sources can use this, so it's a fixed list rather than free text. *@
         <select id="cdd-source" name="sourceName"
-                class="w-56 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none">
+                class="w-56 px-3 py-2 text-sm border border-slate-600 bg-slate-800 text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none">
             @foreach (var s in CharacterDelveDepthAdminHandler.DepthSources)
             {
                 <option value="@s">@s</option>
@@ -24,10 +24,10 @@
         </select>
     </div>
     <div>
-        <label class="block text-[10px] uppercase tracking-wider text-slate-500 dark:text-white mb-1">Avg delves / run</label>
+        <label class="block text-[10px] uppercase tracking-wider text-white mb-1">Avg delves / run</label>
         <input id="cdd-depth" name="averageDepth" type="number" min="0" max="20" step="1"
                value="@CharacterDelveDepthAdminHandler.DefaultDepth"
-               class="w-28 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+               class="w-28 px-3 py-2 text-sm border border-slate-600 bg-slate-800 text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
     </div>
     <button type="button"
             hx-post="@AppRoutes.AdminDelveDepthSet.FromApi()"
@@ -40,7 +40,7 @@
     </button>
 </div>
 
-<p class="text-xs text-slate-400 dark:text-white mb-3">
+<p class="text-xs text-white mb-3">
     Doom's drop rates are per delve level, but the loot we receive doesn't say how deep a run went — the
     Demon tear count isn't proportional to depth, so it can't be inferred. Every run is therefore assumed
     to average @CharacterDelveDepthAdminHandler.DefaultDepth delves; set a character's real average here to

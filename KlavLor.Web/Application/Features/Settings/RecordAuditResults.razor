@@ -9,63 +9,63 @@
 
 @if (Page.TotalRows == 0)
 {
-    <p class="text-sm text-slate-400 dark:text-white">No records match.</p>
+    <p class="text-sm text-white">No records match.</p>
 }
 else
 {
     <div class="flex items-center justify-between gap-3 mb-2 flex-wrap">
-        <p class="text-xs text-slate-500 dark:text-white">
+        <p class="text-xs text-white">
             @Page.TotalRows.ToString("N0") record@(Page.TotalRows == 1 ? "" : "s")
             · page @Page.Page of @Page.TotalPages
         </p>
         <div class="inline-flex gap-1">
             <button type="button" disabled="@(!Page.HasPrevious)"
                     hx-get="@PageUrl(Page.Page - 1)" hx-target="#ra-results" hx-swap="innerHTML"
-                    class="px-2 py-1 text-[11px] rounded border border-slate-300 dark:border-slate-600 disabled:opacity-40 cursor-pointer disabled:cursor-default dark:text-slate-200">Previous</button>
+                    class="px-2 py-1 text-[11px] rounded border border-slate-600 disabled:opacity-40 cursor-pointer disabled:cursor-default text-slate-200">Previous</button>
             <button type="button" disabled="@(!Page.HasNext)"
                     hx-get="@PageUrl(Page.Page + 1)" hx-target="#ra-results" hx-swap="innerHTML"
-                    class="px-2 py-1 text-[11px] rounded border border-slate-300 dark:border-slate-600 disabled:opacity-40 cursor-pointer disabled:cursor-default dark:text-slate-200">Next</button>
+                    class="px-2 py-1 text-[11px] rounded border border-slate-600 disabled:opacity-40 cursor-pointer disabled:cursor-default text-slate-200">Next</button>
         </div>
     </div>
 
-    <div class="divide-y divide-slate-200 dark:divide-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+    <div class="divide-y divide-slate-800 border border-slate-700 rounded-lg overflow-hidden">
         @foreach (var row in Page.Rows)
         {
-            <div class="flex items-start gap-3 px-3 py-2 bg-slate-50 dark:bg-slate-900">
+            <div class="flex items-start gap-3 px-3 py-2 bg-slate-900">
                 <div class="min-w-0 flex-1">
                     <div class="flex items-baseline gap-2 flex-wrap">
-                        <span class="text-xs font-semibold tabular-nums text-slate-700 dark:text-slate-200">@row.OccurredAt.ToLocalTime().ToString("d MMM yyyy HH:mm")</span>
+                        <span class="text-xs font-semibold tabular-nums text-slate-200">@row.OccurredAt.ToLocalTime().ToString("d MMM yyyy HH:mm")</span>
                         @if (row.KillCount is { } kc)
                         {
-                            <span class="text-[10px] tabular-nums text-amber-600 dark:text-amber-400">KC @kc.ToString("N0")</span>
+                            <span class="text-[10px] tabular-nums text-amber-400">KC @kc.ToString("N0")</span>
                         }
-                        <span class="text-[10px] tabular-nums text-slate-500 dark:text-white">@row.TotalValue.ToString("N0") gp</span>
+                        <span class="text-[10px] tabular-nums text-white">@row.TotalValue.ToString("N0") gp</span>
                         @if (row.IsImported)
                         {
                             @* Imported records came from a historical backfill rather than a live
                                kill, which is worth knowing before deleting one. *@
-                            <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300">imported</span>
+                            <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-300">imported</span>
                         }
                         @if (row.ExcludedFromLuck)
                         {
                             @* States the consequence rather than the flag: "excluded" alone reads as
                                "hidden", and this record is still counted everywhere except luck. *@
-                            <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300"
+                            <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-950/60 text-amber-300"
                                   title="This record's drops are skipped by the luck leaderboard, the collection panel and the feed's lucky/dry line. The kill still counts as a roll.">no luck</span>
                         }
-                        <span class="text-[10px] text-slate-400 dark:text-slate-500">#@row.Id</span>
+                        <span class="text-[10px] text-slate-500">#@row.Id</span>
                     </div>
 
                     <div class="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
                         @if (row.Drops.Count == 0)
                         {
-                            <span class="text-[11px] text-slate-400 dark:text-slate-500">no drops</span>
+                            <span class="text-[11px] text-slate-500">no drops</span>
                         }
                         @foreach (var drop in row.Drops)
                         {
-                            <span class="text-[11px] text-slate-600 dark:text-slate-300">
+                            <span class="text-[11px] text-slate-300">
                                 @drop.Name@(drop.Quantity > 1 ? $" ×{drop.Quantity:N0}" : "")
-                                <span class="text-slate-400 dark:text-slate-500">@(((long)drop.Quantity * drop.Price).ToString("N0"))</span>
+                                <span class="text-slate-500">@(((long)drop.Quantity * drop.Price).ToString("N0"))</span>
                             </span>
                         }
                     </div>
@@ -81,8 +81,8 @@ else
                             ? "Count this record's drops in luck figures again."
                             : "Keep the record and its roll, but stop its drops informing the luck leaderboard, the collection panel and the feed's lucky/dry line.")"
                         class="shrink-0 px-2 py-1 text-[11px] rounded border cursor-pointer @(row.ExcludedFromLuck
-                            ? "border-amber-300 dark:border-amber-800 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40"
-                            : "border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800")">
+                            ? "border-amber-800 text-amber-300 hover:bg-amber-950/40"
+                            : "border-slate-600 text-slate-300 hover:bg-slate-800")">
                     @(row.ExcludedFromLuck ? "Count for luck" : "Exclude from luck")
                 </button>
 
@@ -92,7 +92,7 @@ else
                         hx-target="#ra-results"
                         hx-swap="innerHTML"
                         hx-confirm="Delete this record and its drops? This cannot be undone."
-                        class="shrink-0 px-2 py-1 text-[11px] rounded border border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 cursor-pointer">
+                        class="shrink-0 px-2 py-1 text-[11px] rounded border border-red-800 text-red-400 hover:bg-red-950/40 cursor-pointer">
                     Delete
                 </button>
             </div>

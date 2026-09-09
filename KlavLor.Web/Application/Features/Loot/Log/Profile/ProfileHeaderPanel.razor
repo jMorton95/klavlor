@@ -7,7 +7,7 @@
 }
 else
 {
-    <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+    <div class="bg-slate-900 rounded-xl shadow-sm border border-slate-700 p-5">
         @RenderBody()
     </div>
 }
@@ -20,16 +20,16 @@ else
     {
         <div class="flex items-center justify-between gap-3 flex-wrap">
             <div class="flex items-center gap-2.5 min-w-0">
-                <div class="w-9 h-9 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0">
-                    <span class="text-sm font-semibold text-amber-700 dark:text-amber-300">@GetInitial()</span>
+                <div class="w-9 h-9 rounded-full bg-amber-900/40 flex items-center justify-center shrink-0">
+                    <span class="text-sm font-semibold text-amber-300">@GetInitial()</span>
                 </div>
                 <div class="min-w-0 leading-tight">
-                    <h2 class="text-base font-bold text-slate-900 dark:text-slate-100 truncate">@Header.CharacterName</h2>
-                    <p class="text-[11px] text-slate-500 dark:text-white truncate">
+                    <h2 class="text-base font-bold text-slate-100 truncate">@Header.CharacterName</h2>
+                    <p class="text-[11px] text-white truncate">
                         @Header.UserName
                         @if (Header.FirstSeenAt is not null && Header.LastSeenAt is not null)
                         {
-                            <span class="text-slate-400 dark:text-white"> · @FormatLocal(Header.FirstSeenAt.Value) – @FormatLocal(Header.LastSeenAt.Value)</span>
+                            <span class="text-white"> · @FormatLocal(Header.FirstSeenAt.Value) – @FormatLocal(Header.LastSeenAt.Value)</span>
                         }
                     </p>
                 </div>
@@ -47,11 +47,11 @@ else
     {
         var valueClass = accent switch
         {
-            "amber" => "text-amber-600 dark:text-amber-400",
-            _ => "text-slate-900 dark:text-slate-100"
+            "amber" => "text-amber-400",
+            _ => "text-slate-100"
         };
         <span class="inline-flex items-baseline gap-1.5">
-            <span class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-white">@label</span>
+            <span class="text-[10px] uppercase tracking-wider text-white">@label</span>
             <span class="text-sm font-semibold @valueClass">@value</span>
         </span>
     };

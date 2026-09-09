@@ -15,7 +15,7 @@
 <svg viewBox="0 0 @size @size" class="block" width="@size" height="@size"
      aria-label="Distribution chart" role="img">
     <circle cx="@cx" cy="@cy" r="@radius" fill="none"
-            class="stroke-slate-100 dark:stroke-slate-800" stroke-width="@stroke" />
+            class="stroke-slate-800" stroke-width="@stroke" />
 
     @foreach (var slice in Slices)
     {
@@ -38,14 +38,14 @@
     @if (!string.IsNullOrEmpty(CenterLabel))
     {
         <svg:text x="@cx" y="@(cy - 4)" text-anchor="middle"
-              class="fill-slate-900 dark:fill-slate-100 text-base font-semibold">
+              class="fill-slate-100 text-base font-semibold">
             @CenterLabel
         </svg:text>
     }
     @if (!string.IsNullOrEmpty(CenterSubLabel))
     {
         <svg:text x="@cx" y="@(cy + 12)" text-anchor="middle"
-              class="fill-slate-500 dark:fill-slate-400 text-[10px]">
+              class="fill-slate-400 text-[10px]">
             @CenterSubLabel
         </svg:text>
     }

@@ -1,8 +1,8 @@
 @using KlavLor.Application.Common
 @using KlavLor.Application.Features.Loot.Log
 
-<div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
-    <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-3 inline-flex items-center gap-1.5">
+<div class="bg-slate-900 rounded-xl shadow-sm border border-slate-700 p-5">
+    <h3 class="text-sm font-semibold text-slate-200 mb-3 inline-flex items-center gap-1.5">
         <svg class="w-4 h-4 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
             <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
         </svg>
@@ -11,62 +11,62 @@
 
     @if (!HasAnyRecord)
     {
-        <p class="text-xs text-slate-500 dark:text-white">No records yet — they'll appear here once this character has logged some kills.</p>
+        <p class="text-xs text-white">No records yet — they'll appear here once this character has logged some kills.</p>
     }
     else
     {
     <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
         @if (Records.BiggestKill is not null)
         {
-            <div class="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3">
-                <div class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-white">Biggest roll</div>
-                <div class="text-base font-semibold text-amber-600 dark:text-amber-400 mt-0.5">@GoldFormat.Format(Records.BiggestKill.TotalValue)</div>
-                <div class="text-xs text-slate-700 dark:text-slate-200 mt-1 truncate">@(Records.BiggestKillSource ?? "Unknown source")</div>
-                <div class="text-[10px] text-slate-400 dark:text-white">@FormatLocal(Records.BiggestKill.OccurredAt)</div>
+            <div class="bg-slate-800/50 rounded-lg p-3">
+                <div class="text-[10px] uppercase tracking-wider text-white">Biggest roll</div>
+                <div class="text-base font-semibold text-amber-400 mt-0.5">@GoldFormat.Format(Records.BiggestKill.TotalValue)</div>
+                <div class="text-xs text-slate-200 mt-1 truncate">@(Records.BiggestKillSource ?? "Unknown source")</div>
+                <div class="text-[10px] text-white">@FormatLocal(Records.BiggestKill.OccurredAt)</div>
             </div>
         }
 
         @if (Records.BiggestDay is not null)
         {
-            <div class="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3">
-                <div class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-white">Biggest day</div>
-                <div class="text-base font-semibold text-amber-600 dark:text-amber-400 mt-0.5">@GoldFormat.Format(Records.BiggestDay.Gp)</div>
-                <div class="text-xs text-slate-700 dark:text-slate-200 mt-1">@Records.BiggestDay.Kills.ToString("N0") rolls</div>
-                <div class="text-[10px] text-slate-400 dark:text-white">@Records.BiggestDay.Day.ToString("MMM d, yyyy")</div>
+            <div class="bg-slate-800/50 rounded-lg p-3">
+                <div class="text-[10px] uppercase tracking-wider text-white">Biggest day</div>
+                <div class="text-base font-semibold text-amber-400 mt-0.5">@GoldFormat.Format(Records.BiggestDay.Gp)</div>
+                <div class="text-xs text-slate-200 mt-1">@Records.BiggestDay.Kills.ToString("N0") rolls</div>
+                <div class="text-[10px] text-white">@Records.BiggestDay.Day.ToString("MMM d, yyyy")</div>
             </div>
         }
 
         @if (Records.BestHour is not null)
         {
-            <div class="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3">
-                <div class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-white">Best 1h window</div>
-                <div class="text-base font-semibold text-amber-600 dark:text-amber-400 mt-0.5">@GoldFormat.Format(Records.BestHour.Gp)</div>
-                <div class="text-xs text-slate-700 dark:text-slate-200 mt-1">@Records.BestHour.Kills.ToString("N0") rolls</div>
-                <div class="text-[10px] text-slate-400 dark:text-white">from @FormatLocal(Records.BestHour.WindowStart)</div>
+            <div class="bg-slate-800/50 rounded-lg p-3">
+                <div class="text-[10px] uppercase tracking-wider text-white">Best 1h window</div>
+                <div class="text-base font-semibold text-amber-400 mt-0.5">@GoldFormat.Format(Records.BestHour.Gp)</div>
+                <div class="text-xs text-slate-200 mt-1">@Records.BestHour.Kills.ToString("N0") rolls</div>
+                <div class="text-[10px] text-white">from @FormatLocal(Records.BestHour.WindowStart)</div>
             </div>
         }
 
         @if (Records.TopKcSource is not null)
         {
-            <div class="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3">
-                <div class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-white">Top KC source</div>
-                <div class="text-base font-semibold text-slate-900 dark:text-slate-100 mt-0.5 truncate">@Records.TopKcSource.SourceName</div>
-                <div class="text-xs text-slate-700 dark:text-slate-200 mt-1">@Records.TopKcSource.Kills.ToString("N0") rolls</div>
-                <div class="text-[10px] text-amber-600 dark:text-amber-400">@GoldFormat.Format(Records.TopKcSource.Gp) total</div>
+            <div class="bg-slate-800/50 rounded-lg p-3">
+                <div class="text-[10px] uppercase tracking-wider text-white">Top KC source</div>
+                <div class="text-base font-semibold text-slate-100 mt-0.5 truncate">@Records.TopKcSource.SourceName</div>
+                <div class="text-xs text-slate-200 mt-1">@Records.TopKcSource.Kills.ToString("N0") rolls</div>
+                <div class="text-[10px] text-amber-400">@GoldFormat.Format(Records.TopKcSource.Gp) total</div>
             </div>
         }
 
         @if (Records.BiggestItem is not null)
         {
-            <div class="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3">
-                <div class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-white">Biggest single item</div>
-                <div class="text-base font-semibold text-amber-600 dark:text-amber-400 mt-0.5">@GoldFormat.Format(Records.BiggestItem.Value)</div>
-                <div class="text-xs text-slate-700 dark:text-slate-200 mt-1 truncate inline-flex items-center gap-1">
+            <div class="bg-slate-800/50 rounded-lg p-3">
+                <div class="text-[10px] uppercase tracking-wider text-white">Biggest single item</div>
+                <div class="text-base font-semibold text-amber-400 mt-0.5">@GoldFormat.Format(Records.BiggestItem.Value)</div>
+                <div class="text-xs text-slate-200 mt-1 truncate inline-flex items-center gap-1">
                     <img src="/api/images/item-icon?name=@Uri.EscapeDataString(Records.BiggestItem.ItemName)" alt="@Records.BiggestItem.ItemName"
                          class="w-4 h-4 inline-block" loading="lazy" onerror="this.style.display='none'" />
                     @(Records.BiggestItem.Quantity > 1 ? $"{Records.BiggestItem.Quantity:N0}x " : "")@Records.BiggestItem.ItemName
                 </div>
-                <div class="text-[10px] text-slate-400 dark:text-white">from @Records.BiggestItem.SourceName · @FormatLocal(Records.BiggestItem.OccurredAt)</div>
+                <div class="text-[10px] text-white">from @Records.BiggestItem.SourceName · @FormatLocal(Records.BiggestItem.OccurredAt)</div>
             </div>
         }
     </div>

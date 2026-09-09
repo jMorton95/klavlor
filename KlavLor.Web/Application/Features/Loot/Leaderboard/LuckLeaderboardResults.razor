@@ -2,7 +2,7 @@
 
 @if (Rows.Count == 0)
 {
-    <p class="text-sm text-slate-500 dark:text-white py-4">
+    <p class="text-sm text-white py-4">
         No entries yet — the leaderboard rebuilds hourly. Check back shortly.
     </p>
 }
@@ -16,34 +16,34 @@ else
             // Multiple is the honest ratio on both boards now — ranking lives in Score, so nothing
             // synthetic gets stored and the display no longer has to recompute around it.
             var shownMultiple = r.Multiple;
-            <li class="flex items-center gap-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2">
-                <span class="w-6 shrink-0 text-center text-sm font-semibold tabular-nums text-slate-400 dark:text-white">@(rank++)</span>
+            <li class="flex items-center gap-3 bg-slate-900 rounded-lg border border-slate-700 px-3 py-2">
+                <span class="w-6 shrink-0 text-center text-sm font-semibold tabular-nums text-white">@(rank++)</span>
                 <img src="/api/images/item-icon?name=@Uri.EscapeDataString(r.ItemName)" alt="@r.ItemName"
                      class="w-6 h-6 object-contain shrink-0" loading="lazy" onerror="this.style.display='none'" />
                 <span class="min-w-0 flex-1">
-                    <span class="block text-sm font-medium text-slate-800 dark:text-slate-100 truncate">@r.ItemName</span>
+                    <span class="block text-sm font-medium text-slate-100 truncate">@r.ItemName</span>
                     <span class="block text-xs truncate">
                         <a hx-get="@AppRoutes.LootLogCharacter.WithId(r.GameCharacterId).FromApi()"
                            hx-target="#hx-page-container"
                            hx-push-url="@AppRoutes.LootLogCharacter.WithId(r.GameCharacterId)"
                            hx-swap="innerHTML transition:true"
-                           class="text-slate-600 dark:text-slate-300 hover:text-amber-600 dark:hover:text-amber-400 hover:underline cursor-pointer">@r.CharacterName</a>
-                        <span class="text-slate-400 dark:text-white"> · </span>
+                           class="text-slate-300 hover:text-amber-400 hover:underline cursor-pointer">@r.CharacterName</a>
+                        <span class="text-white"> · </span>
                         <a hx-get="@($"{AppRoutes.LootLogSource.WithId(r.GameCharacterId).FromApi()}?name={Uri.EscapeDataString(r.SourceName)}")"
                            hx-target="#hx-page-container"
                            hx-push-url="@($"{AppRoutes.LootLogSource.WithId(r.GameCharacterId)}?name={Uri.EscapeDataString(r.SourceName)}")"
                            hx-swap="innerHTML transition:true"
-                           class="text-slate-600 dark:text-slate-300 hover:text-amber-600 dark:hover:text-amber-400 hover:underline cursor-pointer">@r.SourceName</a>
+                           class="text-slate-300 hover:text-amber-400 hover:underline cursor-pointer">@r.SourceName</a>
                     </span>
                 </span>
                 <span class="shrink-0 text-right">
-                    <span class="block text-sm font-semibold tabular-nums @(isSpoon ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400")">
+                    <span class="block text-sm font-semibold tabular-nums @(isSpoon ? "text-emerald-400" : "text-rose-400")">
                         @shownMultiple.ToString("N1")× @(isSpoon ? "faster" : "dry")@(!isSpoon && !r.Obtained ? " (ongoing)" : "")
                     </span>
                     @* A depth-modelled source is counted in delves, which is the unit its rates are
                        per; everything else is counted in rolls. The flag comes off the entry so the
                        view never has to know which sources those are. *@
-                    <span class="block text-[11px] text-slate-400 dark:text-white tabular-nums">
+                    <span class="block text-[11px] text-white tabular-nums">
                         @r.ObservedKc.ToString("N0") @(r.ScoredInDelves ? "delves" : "rolls") vs @Math.Round(r.ExpectedKc).ToString("N0") expected
                     </span>
                 </span>

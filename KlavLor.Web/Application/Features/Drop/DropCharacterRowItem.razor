@@ -1,24 +1,24 @@
 ﻿@using KlavLor.Application.Common
 @using KlavLor.Application.Features.Drop
 
-<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+<tr class="hover:bg-slate-800/40">
     <td class="px-3 py-1.5">
         @* Goes to this character's page FOR THIS ITEM, not their whole profile — from an item page
            the useful next step is the same data scoped to them, and their profile drops the item
            context entirely. Their profile is still one click on from there. *@
         <a hx-get="@SourcesUrl.FromApi()" hx-target="#hx-page-container" hx-push-url="@SourcesUrl" hx-swap="innerHTML transition:true"
-           class="inline-flex items-center gap-1.5 text-amber-600 dark:text-amber-400 hover:underline cursor-pointer max-w-[14rem]"
+           class="inline-flex items-center gap-1.5 text-amber-400 hover:underline cursor-pointer max-w-[14rem]"
            title="@($"{Row.CharacterName}'s {ItemName} drops")">
             <span class="truncate">@Row.CharacterName</span>
         </a>
     </td>
-    <td class="px-3 py-1.5 text-slate-500 dark:text-white truncate max-w-[12rem]">@Row.UserName</td>
+    <td class="px-3 py-1.5 text-white truncate max-w-[12rem]">@Row.UserName</td>
     <td class="px-3 py-1.5 text-right tabular-nums">@Row.Drops.ToString("N0")</td>
-    <td class="px-3 py-1.5 text-right tabular-nums text-slate-500 dark:text-white">@Row.TotalQuantity.ToString("N0")</td>
-    <td class="px-3 py-1.5 text-right tabular-nums font-medium text-amber-600 dark:text-amber-400">@GoldFormat.Format(Row.TotalValue)</td>
-    <td class="px-3 py-1.5 text-right tabular-nums text-slate-500 dark:text-white">@Row.DistinctSources.ToString("N0")</td>
-    <td class="px-3 py-1.5 text-right text-xs text-slate-400 dark:text-white tabular-nums whitespace-nowrap" title="@LocalDate(Row.FirstSeen)">@Ago(Row.FirstSeen)</td>
-    <td class="px-3 py-1.5 text-right text-xs text-slate-400 dark:text-white tabular-nums whitespace-nowrap" title="@LocalDate(Row.LastSeen)">@Ago(Row.LastSeen)</td>
+    <td class="px-3 py-1.5 text-right tabular-nums text-white">@Row.TotalQuantity.ToString("N0")</td>
+    <td class="px-3 py-1.5 text-right tabular-nums font-medium text-amber-400">@GoldFormat.Format(Row.TotalValue)</td>
+    <td class="px-3 py-1.5 text-right tabular-nums text-white">@Row.DistinctSources.ToString("N0")</td>
+    <td class="px-3 py-1.5 text-right text-xs text-white tabular-nums whitespace-nowrap" title="@LocalDate(Row.FirstSeen)">@Ago(Row.FirstSeen)</td>
+    <td class="px-3 py-1.5 text-right text-xs text-white tabular-nums whitespace-nowrap" title="@LocalDate(Row.LastSeen)">@Ago(Row.LastSeen)</td>
 </tr>
 
 @code {

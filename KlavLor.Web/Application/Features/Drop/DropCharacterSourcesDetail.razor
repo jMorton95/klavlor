@@ -15,7 +15,7 @@
 
 <div class="space-y-6 pb-64">
     <a onclick="history.back()"
-       class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-amber-600 dark:text-white dark:hover:text-amber-400 cursor-pointer transition-colors">
+       class="inline-flex items-center gap-1 text-sm text-white hover:text-amber-400 cursor-pointer transition-colors">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
         </svg>
@@ -24,9 +24,9 @@
 
     @if (Data is null)
     {
-        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-12 text-center">
-            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">No drops recorded</h3>
-            <p class="text-sm text-slate-500 dark:text-white">This character has no recorded &ldquo;@ItemName&rdquo; drops.</p>
+        <div class="bg-slate-900 rounded-xl shadow-sm border border-slate-700 p-12 text-center">
+            <h3 class="text-lg font-semibold text-slate-100 mb-2">No drops recorded</h3>
+            <p class="text-sm text-white">This character has no recorded &ldquo;@ItemName&rdquo; drops.</p>
         </div>
     }
     else
@@ -34,15 +34,15 @@
         @* Same three-line summary as the global page — identity, haul, spread — so the two read as
            the same card. There is no characters or players count here by definition, so the third
            line is just the source count. *@
-        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 px-4 py-3">
+        <div class="bg-slate-900 rounded-xl shadow-sm border border-slate-700 px-4 py-3">
             <div class="flex items-center gap-2 min-w-0 mb-1.5">
                 <img src="/api/images/item-icon?name=@Uri.EscapeDataString(ItemName)" alt=""
                      class="w-7 h-7 shrink-0" loading="lazy" onerror="this.style.display='none'" />
-                <h1 class="text-lg font-bold text-slate-900 dark:text-slate-100 truncate">@ItemName</h1>
-                <span class="text-sm text-slate-400 dark:text-white shrink-0">for</span>
+                <h1 class="text-lg font-bold text-slate-100 truncate">@ItemName</h1>
+                <span class="text-sm text-white shrink-0">for</span>
                 @* Through to the character's own profile — the one thing this page can't cover. *@
                 <a hx-get="@CharacterUrl.FromApi()" hx-target="#hx-page-container" hx-push-url="@CharacterUrl" hx-swap="innerHTML transition:true"
-                   class="text-lg font-bold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer truncate">@Data.CharacterName</a>
+                   class="text-lg font-bold text-amber-400 hover:underline cursor-pointer truncate">@Data.CharacterName</a>
             </div>
 
             <div class="flex items-center gap-x-4 gap-y-1 flex-wrap text-sm">
@@ -58,13 +58,13 @@
 
         @* Staggered like the global page so one view never opens two queries at once. *@
         <div hx-get="@Url(AppRoutes.DropTrend)" hx-trigger="load" hx-swap="outerHTML">
-            <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
-                <div class="h-32 animate-pulse bg-slate-100 dark:bg-slate-800 rounded"></div>
+            <div class="bg-slate-900 rounded-xl shadow-sm border border-slate-700 p-5">
+                <div class="h-32 animate-pulse bg-slate-800 rounded"></div>
             </div>
         </div>
 
         <div>
-            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">Sources</h2>
+            <h2 class="text-lg font-semibold text-slate-100 mb-3">Sources</h2>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
                 @foreach (var row in Data.Rows)
                 {
@@ -72,23 +72,23 @@
                        from here the useful next step is their kill log at it. *@
                     <a hx-get="@SourceUrl(row.SourceName).FromApi()" hx-target="#hx-page-container"
                        hx-push-url="@SourceUrl(row.SourceName)" hx-swap="innerHTML transition:true"
-                       class="group flex flex-col gap-1.5 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2.5 hover:border-amber-300 dark:hover:border-amber-600 cursor-pointer transition-colors">
+                       class="group flex flex-col gap-1.5 bg-slate-900 rounded-lg border border-slate-700 px-3 py-2.5 hover:border-amber-600 cursor-pointer transition-colors">
                         <div class="flex items-center gap-2 min-w-0">
                             <img src="/api/images/source-icon?name=@Uri.EscapeDataString(row.SourceName)" alt=""
                                  class="w-5 h-5 rounded shrink-0" loading="lazy" onerror="this.style.display='none'" />
-                            <span class="text-sm font-medium text-slate-800 dark:text-slate-100 truncate group-hover:text-amber-600 dark:group-hover:text-amber-400">@row.SourceName</span>
+                            <span class="text-sm font-medium text-slate-100 truncate group-hover:text-amber-400">@row.SourceName</span>
                         </div>
                         <div class="flex items-baseline justify-between gap-2">
-                            <span class="text-xs text-slate-500 dark:text-white tabular-nums whitespace-nowrap">
+                            <span class="text-xs text-white tabular-nums whitespace-nowrap">
                                 @row.Drops.ToString("N0") drop@(row.Drops == 1 ? "" : "s")
                                 @if (row.TotalQuantity != row.Drops)
                                 {
-                                    <span class="text-slate-400 dark:text-slate-300"> · @row.TotalQuantity.ToString("N0") qty</span>
+                                    <span class="text-slate-300"> · @row.TotalQuantity.ToString("N0") qty</span>
                                 }
                             </span>
-                            <span class="text-xs font-medium text-amber-600 dark:text-amber-400 tabular-nums whitespace-nowrap">@GoldFormat.Format(row.TotalValue)</span>
+                            <span class="text-xs font-medium text-amber-400 tabular-nums whitespace-nowrap">@GoldFormat.Format(row.TotalValue)</span>
                         </div>
-                        <div class="text-[10px] text-slate-400 dark:text-slate-300 tabular-nums whitespace-nowrap">
+                        <div class="text-[10px] text-slate-300 tabular-nums whitespace-nowrap">
                             @* This character's own rolls at the source — 3 from 40 kills reads very
                                differently to 3 from 4,000. *@
                             @if (row.Kills > 0)
@@ -103,8 +103,8 @@
         </div>
 
         <div hx-get="@Url(AppRoutes.DropSessions)" hx-trigger="load delay:400ms" hx-swap="outerHTML">
-            <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
-                <div class="h-40 animate-pulse bg-slate-100 dark:bg-slate-800 rounded"></div>
+            <div class="bg-slate-900 rounded-xl shadow-sm border border-slate-700 p-5">
+                <div class="h-40 animate-pulse bg-slate-800 rounded"></div>
             </div>
         </div>
     }

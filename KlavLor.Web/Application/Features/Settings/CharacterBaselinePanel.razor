@@ -3,9 +3,9 @@
 
 <div class="flex flex-wrap items-end gap-3 mb-3">
     <div>
-        <label class="block text-[10px] uppercase tracking-wider text-slate-500 dark:text-white mb-1">Character</label>
+        <label class="block text-[10px] uppercase tracking-wider text-white mb-1">Character</label>
         <select id="csb-char" name="characterId"
-                class="w-56 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none">
+                class="w-56 px-3 py-2 text-sm border border-slate-600 bg-slate-800 text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none">
             @foreach (var c in Characters)
             {
                 <option value="@c.Id">@c.Name</option>
@@ -13,14 +13,14 @@
         </select>
     </div>
     <div>
-        <label class="block text-[10px] uppercase tracking-wider text-slate-500 dark:text-white mb-1">Source</label>
+        <label class="block text-[10px] uppercase tracking-wider text-white mb-1">Source</label>
         <input id="csb-source" name="sourceName" type="text" placeholder="e.g. Lizardman shaman" autocomplete="off"
-               class="w-56 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+               class="w-56 px-3 py-2 text-sm border border-slate-600 bg-slate-800 text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
     </div>
     <div>
-        <label class="block text-[10px] uppercase tracking-wider text-slate-500 dark:text-white mb-1">Baseline KC</label>
+        <label class="block text-[10px] uppercase tracking-wider text-white mb-1">Baseline KC</label>
         <input id="csb-kc" name="baselineKc" type="number" min="0" step="1" value="0"
-               class="w-28 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+               class="w-28 px-3 py-2 text-sm border border-slate-600 bg-slate-800 text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
     </div>
     <button type="button"
             hx-post="@AppRoutes.AdminBaselineSet.FromApi()"
@@ -33,7 +33,7 @@
     </button>
 </div>
 
-<p class="text-xs text-slate-400 dark:text-white mb-3">
+<p class="text-xs text-white mb-3">
     Sets the kill count a character is assumed to have done at a source before we had their data — added to counted kills (never to a real reported kill count), so their luck and collection-log calculations start from a realistic number. Set to 0 to clear.
 </p>
 

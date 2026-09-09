@@ -54,12 +54,12 @@
     }
 
     @* Weekday labels: Mon / Wed / Fri *@
-    <svg:text x="0" y="@(topPad + cell)" class="fill-slate-500 dark:fill-slate-400 text-[9px]">M</svg:text>
-    <svg:text x="0" y="@(topPad + 2 * (cell + gap) + cell)" class="fill-slate-500 dark:fill-slate-400 text-[9px]">W</svg:text>
-    <svg:text x="0" y="@(topPad + 4 * (cell + gap) + cell)" class="fill-slate-500 dark:fill-slate-400 text-[9px]">F</svg:text>
+    <svg:text x="0" y="@(topPad + cell)" class="fill-slate-400 text-[9px]">M</svg:text>
+    <svg:text x="0" y="@(topPad + 2 * (cell + gap) + cell)" class="fill-slate-400 text-[9px]">W</svg:text>
+    <svg:text x="0" y="@(topPad + 4 * (cell + gap) + cell)" class="fill-slate-400 text-[9px]">F</svg:text>
 </svg>
 
-<div class="flex items-center flex-wrap gap-x-3 gap-y-1 mt-3 text-[10px] text-slate-500 dark:text-white">
+<div class="flex items-center flex-wrap gap-x-3 gap-y-1 mt-3 text-[10px] text-white">
     @if (Data.Mode == HeatmapMode.Gp)
     {
         <span class="font-medium">GP / day</span>
@@ -69,13 +69,13 @@
             <svg width="10" height="10" class="shrink-0" aria-hidden="true"><rect width="10" height="10" rx="2" class="@fill" /></svg>
         }
         <span>More</span>
-        <span class="text-slate-300 dark:text-slate-600" aria-hidden="true">·</span>
+        <span class="text-slate-600" aria-hidden="true">·</span>
         <span class="inline-flex items-center gap-1">
-            <svg width="12" height="12" class="shrink-0" aria-hidden="true"><rect x="1" y="1" width="10" height="10" rx="2" class="fill-transparent stroke-amber-500 dark:stroke-amber-400 stroke-1" /></svg>
+            <svg width="12" height="12" class="shrink-0" aria-hidden="true"><rect x="1" y="1" width="10" height="10" rx="2" class="fill-transparent stroke-amber-400 stroke-1" /></svg>
             100M+
         </span>
         <span class="inline-flex items-center gap-1">
-            <svg width="12" height="12" class="shrink-0" aria-hidden="true"><rect x="1" y="1" width="10" height="10" rx="2" class="fill-transparent stroke-purple-500 dark:stroke-purple-400 stroke-1" /></svg>
+            <svg width="12" height="12" class="shrink-0" aria-hidden="true"><rect x="1" y="1" width="10" height="10" rx="2" class="fill-transparent stroke-purple-400 stroke-1" /></svg>
             250M+
         </span>
     }
@@ -100,57 +100,57 @@
     // lockstep and Tailwind already emits the classes.
     private static readonly string[] GpLegend =
     {
-        "fill-emerald-200 dark:fill-emerald-900",
-        "fill-emerald-300 dark:fill-emerald-800",
-        "fill-emerald-400 dark:fill-emerald-700",
-        "fill-emerald-500 dark:fill-emerald-600",
-        "fill-emerald-600 dark:fill-emerald-500",
-        "fill-emerald-700 dark:fill-emerald-400",
-        "fill-emerald-800 dark:fill-emerald-300",
-        "fill-emerald-900 dark:fill-emerald-200",
+        "fill-emerald-900",
+        "fill-emerald-800",
+        "fill-emerald-700",
+        "fill-emerald-600",
+        "fill-emerald-500",
+        "fill-emerald-400",
+        "fill-emerald-300",
+        "fill-emerald-200",
     };
 
     private static readonly (string Label, string Fill)[] ClogsLegend =
     {
-        ("1", "fill-cyan-300 dark:fill-cyan-900"),
-        ("2", "fill-cyan-400 dark:fill-cyan-700"),
-        ("3", "fill-cyan-500 dark:fill-cyan-600"),
-        ("4", "fill-cyan-600 dark:fill-cyan-500"),
-        ("5+", "fill-cyan-700 dark:fill-cyan-400"),
+        ("1", "fill-cyan-900"),
+        ("2", "fill-cyan-700"),
+        ("3", "fill-cyan-600"),
+        ("4", "fill-cyan-500"),
+        ("5+", "fill-cyan-400"),
     };
 
     // Daily GP ramp: starts at a visible emerald (not near-white) and climbs through many
     // explicit steps between 0 and 100M+ so the gradient rises slowly rather than maxing fast.
     private static string GetGpFill(long gp) => gp switch
     {
-        <= 0            => "fill-slate-100 dark:fill-slate-800",
-        < 50_000        => "fill-emerald-200 dark:fill-emerald-900",
-        < 250_000       => "fill-emerald-300 dark:fill-emerald-800",
-        < 1_000_000     => "fill-emerald-400 dark:fill-emerald-700",
-        < 5_000_000     => "fill-emerald-500 dark:fill-emerald-600",
-        < 25_000_000    => "fill-emerald-600 dark:fill-emerald-500",
-        < 100_000_000   => "fill-emerald-700 dark:fill-emerald-400",
-        < 500_000_000   => "fill-emerald-800 dark:fill-emerald-300",
-        _               => "fill-emerald-900 dark:fill-emerald-200"
+        <= 0            => "fill-slate-800",
+        < 50_000        => "fill-emerald-900",
+        < 250_000       => "fill-emerald-800",
+        < 1_000_000     => "fill-emerald-700",
+        < 5_000_000     => "fill-emerald-600",
+        < 25_000_000    => "fill-emerald-500",
+        < 100_000_000   => "fill-emerald-400",
+        < 500_000_000   => "fill-emerald-300",
+        _               => "fill-emerald-200"
     };
 
     // New collection-log items that day — small absolute counts, cyan to match the "NEW" theme.
     private static string GetClogsFill(int clogs) => clogs switch
     {
-        <= 0 => "fill-slate-100 dark:fill-slate-800",
-        1    => "fill-cyan-300 dark:fill-cyan-900",
-        2    => "fill-cyan-400 dark:fill-cyan-700",
-        3    => "fill-cyan-500 dark:fill-cyan-600",
-        4    => "fill-cyan-600 dark:fill-cyan-500",
-        _    => "fill-cyan-700 dark:fill-cyan-400"
+        <= 0 => "fill-slate-800",
+        1    => "fill-cyan-900",
+        2    => "fill-cyan-700",
+        3    => "fill-cyan-600",
+        4    => "fill-cyan-500",
+        _    => "fill-cyan-400"
     };
 
     // Big-loot milestone ring around the day cell (GP mode only):
     // amber for 100M+, purple for 250M+ (purple takes precedence).
     private static string GetMilestoneStroke(long gp) => gp switch
     {
-        >= 250_000_000 => "stroke-purple-500 dark:stroke-purple-400 stroke-1",
-        >= 100_000_000 => "stroke-amber-500 dark:stroke-amber-400 stroke-1",
+        >= 250_000_000 => "stroke-purple-400 stroke-1",
+        >= 100_000_000 => "stroke-amber-400 stroke-1",
         _              => ""
     };
 }

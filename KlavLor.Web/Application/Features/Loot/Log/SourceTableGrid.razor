@@ -7,15 +7,15 @@
     <input type="hidden" id="st-sort" name="sortBy" value="@Table.SortBy" />
     <input type="hidden" id="st-dir" name="sortDirection" value="@Table.SortDirection" />
 
-    <div class="bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 overflow-x-auto">
+    <div class="bg-slate-900 rounded-xl border border-slate-700 overflow-x-auto">
         <table class="w-full text-sm">
-            <thead class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
+            <thead class="bg-slate-800/50 border-b border-slate-700">
                 <tr>
                     @foreach (var col in Columns)
                     {
-                        <th class="px-3 py-2 text-[10px] uppercase tracking-wider text-slate-500 dark:text-white @(col.Right ? "text-right" : "text-left")">
+                        <th class="px-3 py-2 text-[10px] uppercase tracking-wider text-white @(col.Right ? "text-right" : "text-left")">
                             <a hx-get="@SortUrl(col.Key)" hx-target="#source-table" hx-swap="outerHTML"
-                               class="inline-flex items-center gap-1 cursor-pointer hover:text-slate-700 dark:hover:text-slate-200 @(IsActive(col.Key) ? "text-amber-600 dark:text-amber-400" : "")">
+                               class="inline-flex items-center gap-1 cursor-pointer hover:text-slate-200 @(IsActive(col.Key) ? "text-amber-400" : "")">
                                 <span>@col.Label</span>
                                 <span class="text-[8px] leading-none w-2">@Arrow(col.Key)</span>
                             </a>
@@ -23,10 +23,10 @@
                     }
                 </tr>
             </thead>
-            <tbody id="source-table-rows" class="divide-y divide-slate-200 dark:divide-slate-700/50">
+            <tbody id="source-table-rows" class="divide-y divide-slate-700/50">
                 @if (Table.Rows.Count == 0)
                 {
-                    <tr><td colspan="@Columns.Length" class="px-3 py-8 text-center text-sm text-slate-400 dark:text-white">No sources match.</td></tr>
+                    <tr><td colspan="@Columns.Length" class="px-3 py-8 text-center text-sm text-white">No sources match.</td></tr>
                 }
                 else
                 {
@@ -38,15 +38,15 @@
             </tbody>
             @if (Table.TotalSources > 0)
             {
-                <tfoot class="border-t-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 font-medium">
+                <tfoot class="border-t-2 border-slate-700 bg-slate-800/40 font-medium">
                     <tr>
-                        <td class="px-3 py-2 text-slate-600 dark:text-slate-300">@Table.Totals.Sources.ToString("N0") sources</td>
+                        <td class="px-3 py-2 text-slate-300">@Table.Totals.Sources.ToString("N0") sources</td>
                         <td class="px-3 py-2"></td>
-                        <td class="px-3 py-2 text-right tabular-nums text-slate-600 dark:text-slate-300">@Table.Totals.Kills.ToString("N0")</td>
-                        <td class="px-3 py-2 text-right tabular-nums text-amber-600 dark:text-amber-400">@GoldFormat.Format(Table.Totals.TotalValue)</td>
+                        <td class="px-3 py-2 text-right tabular-nums text-slate-300">@Table.Totals.Kills.ToString("N0")</td>
+                        <td class="px-3 py-2 text-right tabular-nums text-amber-400">@GoldFormat.Format(Table.Totals.TotalValue)</td>
                         <td class="px-3 py-2"></td>
-                        <td class="px-3 py-2 text-right tabular-nums text-slate-500 dark:text-white">@Table.Totals.DistinctItems.ToString("N0")</td>
-                        <td class="px-3 py-2 text-right tabular-nums text-slate-500 dark:text-white">@Table.Totals.TotalDrops.ToString("N0")</td>
+                        <td class="px-3 py-2 text-right tabular-nums text-white">@Table.Totals.DistinctItems.ToString("N0")</td>
+                        <td class="px-3 py-2 text-right tabular-nums text-white">@Table.Totals.TotalDrops.ToString("N0")</td>
                         <td class="px-3 py-2" colspan="4"></td>
                     </tr>
                 </tfoot>
@@ -59,7 +59,7 @@
         <div id="source-table-more" class="flex justify-center py-2"
              hx-get="@MoreUrl(2)" hx-target="#source-table-rows" hx-swap="beforeend" hx-trigger="click">
             <button type="button"
-                    class="px-6 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer">
+                    class="px-6 py-2.5 text-sm font-medium text-slate-300 bg-slate-900 border border-slate-600 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer">
                 Showing @Table.Rows.Count of @Table.TotalSources sources
             </button>
         </div>

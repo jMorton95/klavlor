@@ -121,7 +121,7 @@
 }
 
 <div class="flex w-full gap-2">
-    <div class="shrink-0 relative text-[10px] text-slate-600 dark:text-slate-300 tabular-nums"
+    <div class="shrink-0 relative text-[10px] text-slate-300 tabular-nums"
          style="width: 3rem; height: @(ChartHeightPx)px;">
         @for (var i = 0; i < tickCount; i++)
         {
@@ -137,7 +137,7 @@
             @for (var i = 0; i < tickCount; i++)
             {
                 var pos = valueLabelSpacePx + plotHeightPx * i / (tickCount - 1);
-                <div class="absolute left-0 right-0 border-t border-slate-200/40 dark:border-slate-700/40 pointer-events-none"
+                <div class="absolute left-0 right-0 border-t border-slate-700/40 pointer-events-none"
                      style="top: @(pos)px;"></div>
             }
 
@@ -157,28 +157,28 @@
                         <div class="flex-1 flex flex-col justify-end items-center h-full px-0.5">
                             @if (showSecondaryLabels && sv > 0)
                             {
-                                <span class="text-[9px] font-medium leading-none tabular-nums text-emerald-700 dark:text-emerald-300 mb-0.5 whitespace-nowrap">
+                                <span class="text-[9px] font-medium leading-none tabular-nums text-emerald-300 mb-0.5 whitespace-nowrap">
                                     @FormatSecondary(sv)
                                 </span>
                             }
                             @* A still-running period is hatched, because its bar is short only
                                because the period isn't over. Left solid it read as a real collapse
                                in activity, which is the opposite of what a part-week means. *@
-                            <div class="w-full rounded-t @(p.IsPartial ? "bg-emerald-500/35 dark:bg-emerald-400/30 trend-bar-partial" : "bg-emerald-500/70 dark:bg-emerald-400/60")"
+                            <div class="w-full rounded-t @(p.IsPartial ? "bg-emerald-400/30 trend-bar-partial" : "bg-emerald-400/60")"
                                  style="height: @(Math.Max(sv > 0 ? 2 : 0, h).ToString("0.##", inv))px;"></div>
                         </div>
                     }
                 </div>
             }
 
-            <svg class="absolute inset-0 w-full h-full text-amber-500 dark:text-amber-400 pointer-events-none"
+            <svg class="absolute inset-0 w-full h-full text-amber-400 pointer-events-none"
                  viewBox="0 0 100 @ChartHeightPx" preserveAspectRatio="none" aria-hidden="true">
                 <polygon points="@area" fill="currentColor" opacity="0.12" />
                 <polyline points="@(line.ToString())" fill="none" stroke="currentColor" stroke-width="2"
                           vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round" />
                 @if (drawSecondaryLine)
                 {
-                    <polyline class="text-emerald-500 dark:text-emerald-400" points="@(secondaryLine.ToString())"
+                    <polyline class="text-emerald-400" points="@(secondaryLine.ToString())"
                               fill="none" stroke="currentColor" stroke-width="2"
                               vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round" />
                 }
@@ -193,31 +193,31 @@
                     var y = YPx(p.Value);
                     var anchor = TooltipAnchor(i, count);
                     <div class="relative flex-1 group">
-                        <div class="hidden group-hover:block absolute inset-y-0 left-1/2 w-px bg-slate-400/40 dark:bg-slate-500/40 pointer-events-none"></div>
+                        <div class="hidden group-hover:block absolute inset-y-0 left-1/2 w-px bg-slate-500/40 pointer-events-none"></div>
                         @* Ringed in the panel colour so the node still reads where it lands on top
                            of a bar — the bar is the full column width, so the newest node in
                            particular sat inside one and was easy to lose. *@
-                        <div class="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-amber-500 dark:bg-amber-400 ring-2 ring-slate-50 dark:ring-slate-900 pointer-events-none"
+                        <div class="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-slate-900 pointer-events-none"
                              style="top: @(y.ToString("0.##", inv))px;"></div>
                         @if (p.SecondaryValue is { } sv && !SecondaryAsBars)
                         {
                             var sy = valueLabelSpacePx + plotHeightPx - SecondaryPx(sv);
-                            <div class="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 pointer-events-none"
+                            <div class="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-emerald-400 pointer-events-none"
                                  style="top: @(sy.ToString("0.##", inv))px;"></div>
                         }
-                        <div class="hidden group-hover:block absolute left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-amber-500 dark:bg-amber-400 ring-2 ring-slate-50 dark:ring-slate-900 pointer-events-none"
+                        <div class="hidden group-hover:block absolute left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-slate-900 pointer-events-none"
                              style="top: @(y.ToString("0.##", inv))px;"></div>
-                        <div class="hidden group-hover:block absolute z-20 @anchor pointer-events-none min-w-[11rem] max-w-[16rem] rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 shadow-lg p-2.5 text-left"
+                        <div class="hidden group-hover:block absolute z-20 @anchor pointer-events-none min-w-[11rem] max-w-[16rem] rounded-md border border-slate-700 bg-slate-900 shadow-lg p-2.5 text-left"
                              style="top: @((y - 10).ToString("0.##", inv))px; transform: translateY(-100%);">
-                            <div class="text-xs font-semibold text-slate-900 dark:text-slate-100">@p.Title</div>
-                            <div class="mt-1 text-sm font-semibold text-amber-600 dark:text-amber-400 tabular-nums">@p.ValueText</div>
+                            <div class="text-xs font-semibold text-slate-100">@p.Title</div>
+                            <div class="mt-1 text-sm font-semibold text-amber-400 tabular-nums">@p.ValueText</div>
                             @if (!string.IsNullOrEmpty(p.SecondaryText))
                             {
-                                <div class="mt-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 tabular-nums">@p.SecondaryText</div>
+                                <div class="mt-0.5 text-xs font-medium text-emerald-400 tabular-nums">@p.SecondaryText</div>
                             }
                             @if (!string.IsNullOrEmpty(p.Detail))
                             {
-                                <div class="mt-0.5 text-[11px] text-slate-500 dark:text-white">@p.Detail</div>
+                                <div class="mt-0.5 text-[11px] text-white">@p.Detail</div>
                             }
                         </div>
                     </div>
@@ -228,7 +228,7 @@
         <div class="flex mt-1">
             @foreach (var p in Points)
             {
-                <div class="flex-1 text-center text-[10px] text-slate-600 dark:text-slate-300 leading-tight whitespace-nowrap">@p.Label</div>
+                <div class="flex-1 text-center text-[10px] text-slate-300 leading-tight whitespace-nowrap">@p.Label</div>
             }
         </div>
 
@@ -238,15 +238,15 @@
                 @if (!string.IsNullOrEmpty(PrimaryName))
                 {
                     <span class="inline-flex items-center gap-1.5">
-                        <span class="inline-block w-2.5 h-2.5 rounded-sm bg-amber-500 dark:bg-amber-400"></span>
-                        <span class="text-slate-600 dark:text-slate-300">@PrimaryName@(splitAxis ? " (left axis)" : "")</span>
+                        <span class="inline-block w-2.5 h-2.5 rounded-sm bg-amber-400"></span>
+                        <span class="text-slate-300">@PrimaryName@(splitAxis ? " (left axis)" : "")</span>
                     </span>
                 }
                 @if (!string.IsNullOrEmpty(SecondaryName))
                 {
                     <span class="inline-flex items-center gap-1.5">
-                        <span class="inline-block w-2.5 h-2.5 rounded-sm bg-emerald-500 dark:bg-emerald-400"></span>
-                        <span class="text-slate-600 dark:text-slate-300">@SecondaryName@(splitAxis ? " (right axis)" : "")</span>
+                        <span class="inline-block w-2.5 h-2.5 rounded-sm bg-emerald-400"></span>
+                        <span class="text-slate-300">@SecondaryName@(splitAxis ? " (right axis)" : "")</span>
                     </span>
                 }
             </div>
@@ -255,7 +255,7 @@
 
     @if (splitAxis)
     {
-        <div class="shrink-0 relative text-[10px] text-emerald-700 dark:text-emerald-300 tabular-nums"
+        <div class="shrink-0 relative text-[10px] text-emerald-300 tabular-nums"
              style="width: 3rem; height: @(ChartHeightPx)px;">
             @for (var i = 0; i < tickCount; i++)
             {

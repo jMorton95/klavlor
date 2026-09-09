@@ -2,7 +2,7 @@
 
 @if (Items.Count == 0)
 {
-    <p class="text-sm text-slate-400 dark:text-white py-2">
+    <p class="text-sm text-white py-2">
         @(string.IsNullOrWhiteSpace(SearchTerm) ? "No sources are excluded from the leaderboards." : "No sources match your search.")
     </p>
 }
@@ -10,7 +10,7 @@ else
 {
     @if (string.IsNullOrWhiteSpace(SearchTerm))
     {
-        <p class="text-xs text-slate-400 dark:text-white mb-2">@Items.Count excluded source@(Items.Count == 1 ? "" : "s")</p>
+        <p class="text-xs text-white mb-2">@Items.Count excluded source@(Items.Count == 1 ? "" : "s")</p>
     }
     <div class="space-y-1">
         @for (var i = 0; i < Items.Count; i++)

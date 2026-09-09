@@ -27,15 +27,15 @@ public static class StackPalette
     // EVERY fill here is bright enough to carry dark text, and every entry therefore uses the same
     // dark slate label. That is the whole design constraint, and it is deliberate: white labels were
     // the single worst thing to read on these charts, so the palette gave up the darker half of its
-    // range rather than keep them. There is no `dark:` fill variant either — a bright fill reads as a
-    // filled block against both the near-white and the slate-900 panel, so one fill serves both
-    // themes and a whole class of light/dark mismatch bugs disappears with it.
+    // range rather than keep them. It also never needed a per-theme variant: a bright fill reads as
+    // a filled block on any panel, which is why this palette survived the light theme's removal
+    // unchanged while the themed colours around it did not.
     //
     // The cost is variety: dropping the 600/700/800 levels leaves three usable bands of the same 17
     // hues (51 entries) rather than four, and the third band has to reach down to -200 for the eight
-    // hues that are still too dark at -500 for dark text. Those pale blocks are the weakest link on
-    // the light theme — hence the ring on every segment in HistogramBars, which keeps a block defined
-    // when its fill sits close to the panel. Accepted knowingly: every named block also carries its
+    // hues that are still too dark at -500 for dark text. Those pale blocks are the weakest link —
+    // hence the ring on every segment in HistogramBars, which keeps a block defined when its fill
+    // sits close to the panel. Accepted knowingly: every named block also carries its
     // item name, and neither chart draws a legend, so colour is the secondary cue here, not the only
     // one.
     public static readonly Entry[] Palette =

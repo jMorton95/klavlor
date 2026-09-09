@@ -14,7 +14,7 @@
                hx-target="#hx-page-container"
                hx-push-url="@AppRoutes.LootLog"
                hx-swap="innerHTML transition:true"
-               class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-amber-600 dark:text-white dark:hover:text-amber-400 cursor-pointer transition-colors">
+               class="inline-flex items-center gap-1 text-sm text-white hover:text-amber-400 cursor-pointer transition-colors">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                 </svg>
@@ -24,14 +24,14 @@
         <input type="text" name="searchTerm" placeholder="Search sources or items..." value="@Result?.SearchTerm"
                autofocus="@(!Embedded)" onfocus="this.setSelectionRange(this.value.length, this.value.length)"
                hx-get="@AppRoutes.LootLogCharacter.WithId(CharacterId).FromApi()" hx-trigger="keyup changed delay:300ms" hx-target="#loot-log-results" hx-select="#loot-log-results" hx-swap="outerHTML transition:true"
-               class="px-4 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none w-full max-w-md" />
+               class="px-4 py-2 text-sm border border-slate-600 bg-slate-800 text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none w-full max-w-md" />
         @if (Embedded)
         {
             <a hx-get="@AppRoutes.LootLogCharacterFirsts.WithId(CharacterId).FromApi()"
                hx-target="#hx-page-container"
                hx-push-url="@AppRoutes.LootLogCharacterFirsts.WithId(CharacterId)"
                hx-swap="innerHTML transition:true"
-               class="ml-auto inline-flex items-center gap-1 text-xs text-cyan-700 dark:text-cyan-300 hover:underline cursor-pointer">
+               class="ml-auto inline-flex items-center gap-1 text-xs text-cyan-300 hover:underline cursor-pointer">
                 <span class="px-1 py-0 text-[9px] font-semibold rounded-sm bg-cyan-700 text-white">NEW</span>
                 First-time receipts
             </a>
@@ -44,7 +44,7 @@
         @if (Result.SourceMatches.Count > 0)
         {
             <div>
-                <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">Sources</h2>
+                <h2 class="text-lg font-semibold text-slate-100 mb-3">Sources</h2>
                 <div id="source-cards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
                     @foreach (var source in Result.SourceMatches)
                     {
@@ -61,7 +61,7 @@
         @if (Result.ItemMatches.Count > 0)
         {
             <div>
-                <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">Item Matches</h2>
+                <h2 class="text-lg font-semibold text-slate-100 mb-3">Item Matches</h2>
                 <div class="space-y-1.5">
                     @foreach (var item in Result.ItemMatches)
                     {
@@ -73,16 +73,16 @@
 
         @if (Result.SourceMatches.Count == 0 && Result.ItemMatches.Count == 0)
         {
-            <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-12 text-center">
+            <div class="bg-slate-900 rounded-xl shadow-sm border border-slate-700 p-12 text-center">
                 <div class="flex justify-center mb-4">
-                    <div class="p-4 bg-amber-50 dark:bg-amber-950 rounded-full">
+                    <div class="p-4 bg-amber-950 rounded-full">
                         <svg class="w-8 h-8 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                         </svg>
                     </div>
                 </div>
-                <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">No results found</h3>
-                <p class="text-sm text-slate-500 dark:text-white">Try a different search term or sync some loot data first.</p>
+                <h3 class="text-lg font-semibold text-slate-100 mb-2">No results found</h3>
+                <p class="text-sm text-white">Try a different search term or sync some loot data first.</p>
             </div>
         }
     }

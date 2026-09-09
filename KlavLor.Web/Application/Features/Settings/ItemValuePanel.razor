@@ -4,7 +4,7 @@
    keyed on item id, never on name), then a GP figure is applied globally to every past and future
    receipt of it. Wired the same way as the source rate modifier panel. *@
 
-<p class="text-xs text-slate-400 dark:text-white mb-3">
+<p class="text-xs text-white mb-3">
     Some genuinely valuable drops are untradeable, so RuneLite reports them at 0 GP — the three Noxious halberd components, for instance, are worth about 10 million each but never register. Give one a value here and that value becomes the truth everywhere: the live feed (a 10m value lands it in Epic, 100k in Uncommon), the character and source pages, the monthly and daily graphs, top items and the luck leaderboard's value floor. It is a flat global figure with no point-in-time pricing — past drops are re-valued too. Setting a value of 0 removes the override and restores the raw price.
 </p>
 
@@ -18,7 +18,7 @@
            hx-trigger="keyup changed delay:300ms"
            hx-target="#ivp-candidates"
            hx-swap="innerHTML"
-           class="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+           class="w-full pl-9 pr-3 py-2 text-sm border border-slate-600 bg-slate-800 text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
 </div>
 <div id="ivp-candidates" class="mb-4"></div>
 
@@ -31,7 +31,7 @@
             hx-swap="innerHTML"
             hx-disabled-elt="this"
             hx-indicator="#ivp-zero-spinner"
-            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer disabled:opacity-50">
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-slate-800 text-slate-200 hover:bg-slate-700 cursor-pointer disabled:opacity-50">
         Find items with no value
         <span id="ivp-zero-spinner" class="htmx-indicator w-3 h-3 rounded-full border-2 border-slate-400 border-t-transparent animate-spin"></span>
     </button>
@@ -40,15 +40,15 @@
 
 <div class="flex flex-wrap items-end gap-3 mb-4">
     <div>
-        <label class="block text-[10px] uppercase tracking-wider text-slate-500 dark:text-white mb-1">Selected item</label>
+        <label class="block text-[10px] uppercase tracking-wider text-white mb-1">Selected item</label>
         <input id="ivp-item-name" name="itemName" type="text" readonly placeholder="pick one from the search above"
-               class="w-64 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg outline-none" />
+               class="w-64 px-3 py-2 text-sm border border-slate-600 bg-slate-800 text-slate-200 rounded-lg outline-none" />
         <input id="ivp-item-id" name="itemId" type="hidden" value="0" />
     </div>
     <div>
-        <label class="block text-[10px] uppercase tracking-wider text-slate-500 dark:text-white mb-1">Value (GP)</label>
+        <label class="block text-[10px] uppercase tracking-wider text-white mb-1">Value (GP)</label>
         <input id="ivp-value" name="value" type="number" step="1" min="0" value="0" placeholder="10000000"
-               class="w-40 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+               class="w-40 px-3 py-2 text-sm border border-slate-600 bg-slate-800 text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
     </div>
     <button type="button"
             hx-post="@AppRoutes.AdminItemValueSet.FromApi()"
@@ -61,7 +61,7 @@
     </button>
 </div>
 
-<h3 class="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-2">Configured item values</h3>
+<h3 class="text-sm font-semibold text-slate-300 mb-2">Configured item values</h3>
 <div id="ivp-results">
     <ItemValueResults Rows="Rows" />
 </div>

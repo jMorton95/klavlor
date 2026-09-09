@@ -39,11 +39,11 @@
              hx-get="@(AppRoutes.LootSuperiorsTable.FromApi() + SortQuery())"
              hx-trigger="load"
              hx-swap="outerHTML">
-            <div class="superior-head bg-slate-100 dark:bg-slate-800"></div>
+            <div class="superior-head bg-slate-800"></div>
             <div class="w-[55rem] max-w-full px-4 py-3 space-y-3">
                 @for (var i = 0; i < 12; i++)
                 {
-                    <div class="h-6 rounded bg-slate-100 dark:bg-slate-800/60"></div>
+                    <div class="h-6 rounded bg-slate-800/60"></div>
                 }
             </div>
         </div>
@@ -53,11 +53,11 @@
              hx-get="@AppRoutes.LootSuperiorsReceipts.FromApi()"
              hx-trigger="load"
              hx-swap="outerHTML">
-            <div class="superior-head-panel bg-slate-100 dark:bg-slate-800"></div>
+            <div class="superior-head-panel bg-slate-800"></div>
             <div class="px-4 py-4 space-y-2">
                 @for (var i = 0; i < 8; i++)
                 {
-                    <div class="h-10 rounded-lg bg-slate-100 dark:bg-slate-800/60"></div>
+                    <div class="h-10 rounded-lg bg-slate-800/60"></div>
                 }
             </div>
         </div>

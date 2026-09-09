@@ -1,31 +1,31 @@
 @using KlavLor.Application.Common
 @using KlavLor.Application.Features.Loot.Log
 
-<div class="bg-slate-50 dark:bg-slate-900 rounded-lg border @(Compact ? "p-1.5" : "p-3") @(Highlighted ? "border-amber-300 dark:border-amber-600 ring-1 ring-amber-300/30 dark:ring-amber-600/30" : "border-slate-200 dark:border-slate-700")">
+<div class="bg-slate-900 rounded-lg border @(Compact ? "p-1.5" : "p-3") @(Highlighted ? "border-amber-600 ring-1 ring-amber-600/30" : "border-slate-700")">
     <div class="flex items-center justify-between gap-2 @(Compact ? "mb-1" : "mb-2")">
-        <time datetime="@Kill.OccurredAt.UtcDateTime.ToString("o")" class="@LabelText text-slate-400 dark:text-white loot-timestamp">@FormatTime(Kill.OccurredAt)</time>
+        <time datetime="@Kill.OccurredAt.UtcDateTime.ToString("o")" class="@LabelText text-white loot-timestamp">@FormatTime(Kill.OccurredAt)</time>
         @if (Kill.KillCount is not null)
         {
-            <span class="@LabelText font-medium text-slate-500 dark:text-white">
+            <span class="@LabelText font-medium text-white">
                 KC #@Kill.KillCount.Value.ToString("N0")
             </span>
         }
         else if (Kill.KillOrdinal is not null)
         {
-            <span class="@LabelText font-medium text-slate-500 dark:text-white" title="Position in your roll log (RuneLite didn't report an in-game roll count)">
+            <span class="@LabelText font-medium text-white" title="Position in your roll log (RuneLite didn't report an in-game roll count)">
                 Kill #@Kill.KillOrdinal.Value.ToString("N0")
             </span>
         }
         @if (Kill.TotalValue > 0)
         {
-            <span class="@LabelText font-medium text-amber-600 dark:text-amber-400">@GoldFormat.Format(Kill.TotalValue) gp</span>
+            <span class="@LabelText font-medium text-amber-400">@GoldFormat.Format(Kill.TotalValue) gp</span>
         }
     </div>
     <div class="flex flex-wrap @(Compact ? "gap-1" : "gap-1.5")">
         @foreach (var drop in Kill.Drops)
         {
             var isNew = drop.IsFirstTime && drop.IsCollectionLogItem;
-            <span class="inline-flex items-center gap-1 @(Compact ? "px-1.5 py-0 text-[10px]" : "px-2 py-0.5 text-xs") rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 @(isNew ? "ring-2 ring-cyan-400 dark:ring-cyan-500/70" : "")"
+            <span class="inline-flex items-center gap-1 @(Compact ? "px-1.5 py-0 text-[10px]" : "px-2 py-0.5 text-xs") rounded bg-slate-800 text-slate-200 @(isNew ? "ring-2 ring-cyan-500/70" : "")"
                   title="@(isNew ? "First-time collection log unlock" : null)">
                 @if (isNew)
                 {
@@ -37,12 +37,12 @@
                      onerror="this.style.display='none'" />
                 @if (drop.Quantity > 1)
                 {
-                    <span class="font-medium text-amber-600 dark:text-amber-400">@(drop.Quantity.ToString("N0"))x</span>
+                    <span class="font-medium text-amber-400">@(drop.Quantity.ToString("N0"))x</span>
                 }
                 @drop.Name
                 @if (drop.Price > 0)
                 {
-                    <span class="text-slate-400 dark:text-white">(@GoldFormat.Format((long)drop.Quantity * drop.Price))</span>
+                    <span class="text-white">(@GoldFormat.Format((long)drop.Quantity * drop.Price))</span>
                 }
             </span>
         }

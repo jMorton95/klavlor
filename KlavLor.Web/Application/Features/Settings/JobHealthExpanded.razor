@@ -7,10 +7,10 @@
     @{
         var bad = Row.IsStuck || Row.Outcome == JobRunOutcome.Failed;
     }
-    <div class="rounded-lg border p-4 @(bad ? "border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/30" : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900")">
+    <div class="rounded-lg border p-4 @(bad ? "border-red-800 bg-red-950/30" : "border-slate-700 bg-slate-900")">
         <div class="flex items-center justify-between gap-3 mb-4">
             <div class="flex items-center gap-2 min-w-0">
-                <span class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate">@Row.JobName</span>
+                <span class="text-base font-semibold text-slate-100 truncate">@Row.JobName</span>
                 <span class="text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap @BadgeClass(Row)">@Label(Row)</span>
             </div>
             <div class="flex items-center gap-2 shrink-0">
@@ -18,7 +18,7 @@
                 {
                     @if (Row.ManualPending)
                     {
-                        <span class="inline-flex items-center gap-1 text-[11px] font-medium text-amber-600 dark:text-amber-400" title="An admin has requested a run; the service picks it up within a minute">
+                        <span class="inline-flex items-center gap-1 text-[11px] font-medium text-amber-400" title="An admin has requested a run; the service picks it up within a minute">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                             Run requested
                         </span>
@@ -42,37 +42,37 @@
                         hx-swap="outerHTML"
                         aria-label="Back to all jobs"
                         title="Back to all jobs"
-                        class="inline-flex items-center justify-center w-7 h-7 rounded-lg text-slate-500 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer">
+                        class="inline-flex items-center justify-center w-7 h-7 rounded-lg text-slate-300 hover:bg-slate-700 cursor-pointer">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
         </div>
 
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-            <div class="rounded-lg bg-white/60 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 p-2.5">
-                <p class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-white">Last outcome</p>
-                <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">@Label(Row)</p>
+            <div class="rounded-lg bg-slate-800/50 border border-slate-700 p-2.5">
+                <p class="text-[10px] uppercase tracking-wider text-white">Last outcome</p>
+                <p class="text-sm font-semibold text-slate-100">@Label(Row)</p>
             </div>
-            <div class="rounded-lg bg-white/60 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 p-2.5">
-                <p class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-white">Rows processed</p>
-                <p class="text-sm font-semibold text-slate-800 dark:text-slate-100 tabular-nums">@Row.ItemsProcessed.ToString("N0")</p>
+            <div class="rounded-lg bg-slate-800/50 border border-slate-700 p-2.5">
+                <p class="text-[10px] uppercase tracking-wider text-white">Rows processed</p>
+                <p class="text-sm font-semibold text-slate-100 tabular-nums">@Row.ItemsProcessed.ToString("N0")</p>
             </div>
-            <div class="rounded-lg bg-white/60 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 p-2.5">
-                <p class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-white">Last run</p>
-                <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">@Ago(Row.StartedAt)</p>
+            <div class="rounded-lg bg-slate-800/50 border border-slate-700 p-2.5">
+                <p class="text-[10px] uppercase tracking-wider text-white">Last run</p>
+                <p class="text-sm font-semibold text-slate-100">@Ago(Row.StartedAt)</p>
             </div>
-            <div class="rounded-lg bg-white/60 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 p-2.5">
-                <p class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-white">Duration</p>
-                <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">@(Row.DurationSeconds is { } d ? Duration(d) : "—")</p>
+            <div class="rounded-lg bg-slate-800/50 border border-slate-700 p-2.5">
+                <p class="text-[10px] uppercase tracking-wider text-white">Duration</p>
+                <p class="text-sm font-semibold text-slate-100">@(Row.DurationSeconds is { } d ? Duration(d) : "—")</p>
             </div>
         </div>
 
         @if (!string.IsNullOrWhiteSpace(Row.Detail))
         {
-            <p class="text-xs text-slate-500 dark:text-slate-300 mb-4">@Row.Detail</p>
+            <p class="text-xs text-slate-300 mb-4">@Row.Detail</p>
         }
 
-        <h3 class="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-1">Recent runs</h3>
+        <h3 class="text-sm font-semibold text-slate-300 mb-1">Recent runs</h3>
         <JobRunHistory JobName="@Row.JobName" Runs="@Runs" />
     </div>
 </div>
@@ -95,12 +95,12 @@
     private static string BadgeClass(JobHealthRow row)
     {
         if (row.IsStuck || row.Outcome == JobRunOutcome.Failed)
-            return "bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300";
+            return "bg-red-900/50 text-red-300";
         return row.Outcome switch
         {
-            JobRunOutcome.Succeeded => "bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300",
-            JobRunOutcome.Running => "bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300",
-            _ => "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-200"
+            JobRunOutcome.Succeeded => "bg-emerald-900/50 text-emerald-300",
+            JobRunOutcome.Running => "bg-amber-900/50 text-amber-300",
+            _ => "bg-slate-700 text-slate-200"
         };
     }
 

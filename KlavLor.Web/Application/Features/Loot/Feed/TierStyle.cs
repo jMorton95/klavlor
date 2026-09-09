@@ -20,15 +20,15 @@ public static class TierStyle
     public static Style For(LootFeedTier tier) => tier switch
     {
         LootFeedTier.Standard => new("standard", "Standard", "10K – 100K",
-            "text-slate-700 dark:text-slate-300", "border-slate-200 dark:border-slate-700"),
+            "text-slate-300", "border-slate-700"),
         LootFeedTier.Uncommon => new("uncommon", "Uncommon", "100K – 1M",
-            "text-green-600 dark:text-green-400", "border-green-200 dark:border-green-900"),
+            "text-green-400", "border-green-900"),
         LootFeedTier.Rare => new("rare", "Rare", "1M – 10M",
-            "text-blue-600 dark:text-blue-400", "border-blue-200 dark:border-blue-900"),
+            "text-blue-400", "border-blue-900"),
         LootFeedTier.Epic => new("epic", "Epic", "10M – 100M",
-            "text-purple-600 dark:text-purple-400", "border-purple-200 dark:border-purple-900"),
+            "text-purple-400", "border-purple-900"),
         LootFeedTier.Legendary => new("legendary", "Legendary", "100M+",
-            "text-amber-600 dark:text-amber-400", "border-amber-200 dark:border-amber-900"),
+            "text-amber-400", "border-amber-900"),
         _ => throw new ArgumentOutOfRangeException(nameof(tier))
     };
 
@@ -67,11 +67,11 @@ public static class TierStyle
     /// the session cleared the feed's floor — a real grind that simply didn't pay out.</summary>
     public static string SessionAccentClass(LootFeedTier? tier) => tier switch
     {
-        LootFeedTier.Legendary => "border-amber-400 dark:border-amber-500",
-        LootFeedTier.Epic => "border-purple-400 dark:border-purple-500",
-        LootFeedTier.Rare => "border-blue-400 dark:border-blue-500",
-        LootFeedTier.Uncommon => "border-green-400 dark:border-green-500",
-        LootFeedTier.Standard => "border-slate-300 dark:border-slate-600",
-        _ => "border-slate-200 dark:border-slate-700"
+        LootFeedTier.Legendary => "border-amber-500",
+        LootFeedTier.Epic => "border-purple-500",
+        LootFeedTier.Rare => "border-blue-500",
+        LootFeedTier.Uncommon => "border-green-500",
+        LootFeedTier.Standard => "border-slate-600",
+        _ => "border-slate-700"
     };
 }

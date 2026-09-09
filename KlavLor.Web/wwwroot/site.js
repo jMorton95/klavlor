@@ -1,14 +1,3 @@
-﻿function toggleDarkMode() {
-    var isDark = document.documentElement.classList.toggle('dark');
-    localStorage.setItem('theme', isDark ? 'dark' : 'light');
-}
-
-document.addEventListener('click', function(e) {
-    if (e.target.closest('[data-toggle="dark-mode"]')) {
-        toggleDarkMode();
-    }
-});
-
 const toggleSidebar = () => {
     const sidebar = document.getElementById('mobile-sidebar');
     const backdrop = document.getElementById('sidebar-backdrop');
@@ -84,7 +73,7 @@ window.selectOsrsItem = function(el, name, iconUrl) {
 
     var preview = document.createElement('div');
     preview.id = 'selected-item';
-    preview.className = 'flex items-center gap-2 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-800';
+    preview.className = 'flex items-center gap-2 px-3 py-2 text-sm border border-slate-600 rounded-lg bg-slate-800';
 
     if (iconUrl) {
         var img = document.createElement('img');
@@ -96,7 +85,7 @@ window.selectOsrsItem = function(el, name, iconUrl) {
     }
 
     var span = document.createElement('span');
-    span.className = 'flex-1 truncate text-slate-800 dark:text-slate-200';
+    span.className = 'flex-1 truncate text-slate-200';
     span.textContent = name;
     preview.appendChild(span);
 
@@ -185,8 +174,8 @@ window.syncHistoryToggleButton = function() {
     if (!btn) return;
     var open = document.body.classList.contains('history-panel-open');
     btn.setAttribute('aria-pressed', open ? 'true' : 'false');
-    var active = ['bg-amber-500', 'text-white', 'border-amber-500', 'dark:bg-amber-600', 'dark:border-amber-600', 'dark:text-white'];
-    var inactive = ['text-amber-600', 'dark:text-amber-400', 'border-amber-300', 'dark:border-amber-600'];
+    var active = ['bg-amber-600', 'border-amber-600', 'text-white'];
+    var inactive = ['text-amber-400', 'border-amber-600'];
     if (open) {
         active.forEach(function(c) { btn.classList.add(c); });
         inactive.forEach(function(c) { btn.classList.remove(c); });

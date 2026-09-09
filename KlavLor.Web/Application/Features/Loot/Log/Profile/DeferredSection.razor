@@ -26,18 +26,18 @@
 <div hx-get="@Url"
      hx-trigger="load"
      hx-swap="outerHTML"
-     class="relative bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+     class="relative bg-slate-900 rounded-xl shadow-sm border border-slate-700 p-5">
     @if (ChildContent is not null)
     {
         @ChildContent
     }
     else
     {
-        <div class="rounded bg-slate-100 dark:bg-slate-800/60 @HeightClass"></div>
+        <div class="rounded bg-slate-800/60 @HeightClass"></div>
     }
 
     <div class="defer-spinner absolute inset-0 flex items-center justify-center pointer-events-none">
-        <svg class="w-7 h-7 animate-spin text-amber-500 dark:text-amber-400" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+        <svg class="w-7 h-7 animate-spin text-amber-400" fill="none" viewBox="0 0 24 24" aria-hidden="true">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
             <path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
         </svg>

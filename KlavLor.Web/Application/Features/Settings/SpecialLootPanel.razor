@@ -5,9 +5,9 @@
    log, with a search box below for confirming the exact name. *@
 <div class="flex flex-wrap items-end gap-3 mb-3">
     <div>
-        <label class="block text-[10px] uppercase tracking-wider text-slate-500 dark:text-white mb-1">Character</label>
+        <label class="block text-[10px] uppercase tracking-wider text-white mb-1">Character</label>
         <select id="srp-char" name="characterId"
-                class="w-56 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none">
+                class="w-56 px-3 py-2 text-sm border border-slate-600 bg-slate-800 text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none">
             @foreach (var c in Characters)
             {
                 <option value="@c.Id">@c.Name</option>
@@ -15,23 +15,23 @@
         </select>
     </div>
     <div>
-        <label class="block text-[10px] uppercase tracking-wider text-slate-500 dark:text-white mb-1">Item</label>
+        <label class="block text-[10px] uppercase tracking-wider text-white mb-1">Item</label>
         <input id="srp-item" name="itemName" type="text" placeholder="e.g. Infernal cape" autocomplete="off"
-               class="w-56 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+               class="w-56 px-3 py-2 text-sm border border-slate-600 bg-slate-800 text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
     </div>
     <div>
-        <label class="block text-[10px] uppercase tracking-wider text-slate-500 dark:text-white mb-1">Source</label>
+        <label class="block text-[10px] uppercase tracking-wider text-white mb-1">Source</label>
         <input id="srp-source" name="sourceName" type="text" placeholder="e.g. TzKal-Zuk" autocomplete="off"
-               class="w-52 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+               class="w-52 px-3 py-2 text-sm border border-slate-600 bg-slate-800 text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
     </div>
     <div>
-        <label class="block text-[10px] uppercase tracking-wider text-slate-500 dark:text-white mb-1">When</label>
+        <label class="block text-[10px] uppercase tracking-wider text-white mb-1">When</label>
         <input id="srp-date" name="occurredAt" type="datetime-local"
-               class="px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+               class="px-3 py-2 text-sm border border-slate-600 bg-slate-800 text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
     </div>
-    <label class="inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-white cursor-pointer pb-2">
+    <label class="inline-flex items-center gap-1.5 text-xs text-white cursor-pointer pb-2">
         <input id="srp-announce" type="checkbox" name="announce" value="true"
-               class="rounded border-slate-300 dark:border-slate-600 text-amber-500 focus:ring-amber-500" />
+               class="rounded border-slate-600 text-amber-500 focus:ring-amber-500" />
         Announce to the live feed now
     </label>
     <button type="button"
@@ -47,7 +47,7 @@
 
 <div id="srp-status" class="mb-3"></div>
 
-<p class="text-xs text-slate-400 dark:text-white mb-3">
+<p class="text-xs text-white mb-3">
     The item is added to the character's log at the chosen time with no monetary value, populates their collection log automatically (matched by item id), and always renders as a giga drop with the distinct spinning feed effect. Leave "announce" off to backfill quietly; tick it to headline the live feed regardless of the logged time. Re-adding the same item, character and time is a no-op.
 </p>
 
@@ -61,7 +61,7 @@
            hx-trigger="keyup changed delay:300ms"
            hx-target="#srp-items"
            hx-swap="innerHTML"
-           class="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+           class="w-full pl-9 pr-3 py-2 text-sm border border-slate-600 bg-slate-800 text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
 </div>
 <div id="srp-items"></div>
 

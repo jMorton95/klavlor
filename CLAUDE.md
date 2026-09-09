@@ -729,6 +729,46 @@ Web-only:
 
 - `HealthCheck/` — Health check endpoint
 
+### The App Is Dark-Only. There Is No Theme To Switch.
+
+There is no light theme, no theme toggle, no `dark:` variant and no `.dark` class. Do not add a
+`dark:` utility to anything — it will not compile to a variant, because `@variant dark` is gone from
+`app.css`; it would be emitted as a literal class name that matches nothing and silently do nothing.
+Write the colour you want.
+
+It was removed rather than fixed. There never was a light theme — there was the dark theme with its
+neutral ramp mirrored, which is why it read as "eye burningly bright and borderline unusable":
+mirroring cannot survive the trip, since above 96.8% lightness there is no room left, so light got
+1.05:1 between card and ground where dark gets 1.13:1, and the unpaired `*-400` tier borders ended up
+carrying the whole page's structure. `docs/light-theme-audit.md` has the measurements and the
+retuning that was tried first; it is kept because the same trap waits for anyone adding a second
+theme later.
+
+What the removal actually did, in case it has to be redone or reasoned about:
+
+- **Every `x dark:y` pair collapsed to `y`.** This is exactly appearance-preserving, and the reason
+  is worth knowing: a `dark:` utility and its light counterpart have EQUAL specificity in Tailwind 4
+  (the variant is `&:where(.dark, .dark *)`, and `:where()` contributes none), so the dark one won
+  purely on source order. Deleting the light utility and unprefixing the dark one therefore lands on
+  precisely what dark mode painted.
+- **Which light utility a `dark:` one overrode was decided from the compiled CSS**, never from the
+  class name. `text-` is three different properties (`color`, `font-size`, `text-align`), so
+  `dark:text-white` must delete `text-slate-500` and must not touch `text-xs` or `text-center`. Only
+  the emitted stylesheet knows that.
+- **`:where(.dark, .dark *) X { … }` rules in `app.css` had the prefix stripped in place**, keeping
+  their position. They sat after a plain rule for the same selector and overrode only the properties
+  they declared, so leaving the order alone preserves the cascade — deleting the plain rule would
+  have dropped the properties the dark rule never set (`.sc-item` sets `font-weight` and `color`;
+  only the colour was themed). The now-shadowed light declarations were then deleted individually.
+- **Verified, not eyeballed.** Every class list the change touched (995 of them, including all
+  `app.css` custom classes) was rendered against the OLD stylesheet with `.dark` set and against the
+  new dark-only one, and all 66 computed visual properties compared: zero differences, base state and
+  `:hover` alike.
+
+A user who had previously chosen light gets dark; the stored `theme` key is simply ignored and never
+read. `StackPalette` needed no change at all and the reason is recorded on it — its fills were
+deliberately theme-independent.
+
 ### Frontend
 
 - **Tailwind CSS 4** — Config lives in `KlavLor.Web/wwwroot/app.css` using `@theme` blocks (no tailwind.config.js). Output: `wwwroot/styles.css`.

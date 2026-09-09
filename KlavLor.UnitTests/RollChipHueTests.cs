@@ -57,12 +57,15 @@ public sealed class RollChipHueTests
     {
         // The class names are computed, so nothing else would catch the palette and the assigner
         // drifting apart - the chip would simply render in the default slate and look unstyled.
+        //
+        // There used to be a second assertion here for a `:where(.dark, .dark *) .roll-hue-N` rule,
+        // because each hue carried a light/dark PAIR. The app is dark-only now, so there is one
+        // rule per hue and the paired assertion would fail on a file that is perfectly correct.
         var css = File.ReadAllText(StylesheetPath());
 
         foreach (var hue in Enumerable.Range(1, RollChipHues.Count))
         {
             Assert.Contains($".roll-hue-{hue} ", css);
-            Assert.Contains($":where(.dark, .dark *) .roll-hue-{hue} ", css);
         }
 
         // ...and no rule beyond what the assigner can produce, which would be a dead colour.

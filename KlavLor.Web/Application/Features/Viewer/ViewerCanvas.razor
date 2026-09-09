@@ -85,7 +85,7 @@
     }
 }
 
-<div id="viewer-canvas" class="viewer-canvas absolute inset-0 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-200 dark:border-slate-700 overflow-auto"
+<div id="viewer-canvas" class="viewer-canvas absolute inset-0 bg-slate-950 rounded-lg border border-slate-700 overflow-auto"
      data-template-id="@Template.Id">
 
     <div class="relative" style="width: @(canvasW)px; height: @(canvasH)px;">
@@ -141,8 +141,8 @@
         {
             <div class="absolute select-none pointer-events-none"
                  style="left: @(annotation.PositionX)px; top: @(annotation.PositionY)px; z-index: 2;">
-                <div class="px-2 py-1 rounded bg-white/60 dark:bg-slate-800/60 border border-dashed border-purple-300 dark:border-purple-600 max-w-[250px]">
-                    <p class="@GetAnnotationFontClass(annotation.FontSize) text-slate-700 dark:text-slate-300 whitespace-pre-wrap break-words">@annotation.Text</p>
+                <div class="px-2 py-1 rounded bg-slate-800/60 border border-dashed border-purple-600 max-w-[250px]">
+                    <p class="@GetAnnotationFontClass(annotation.FontSize) text-slate-300 whitespace-pre-wrap break-words">@annotation.Text</p>
                 </div>
             </div>
         }
@@ -176,26 +176,26 @@
 
     private static string GetRegionBorderClass(string color) => color switch
     {
-        "amber" => "border-amber-400 dark:border-amber-600",
-        "blue" => "border-blue-400 dark:border-blue-600",
-        "purple" => "border-purple-400 dark:border-purple-600",
-        "green" => "border-green-400 dark:border-green-600",
-        "orange" => "border-orange-400 dark:border-orange-600",
-        "red" => "border-red-400 dark:border-red-600",
-        "indigo" => "border-indigo-400 dark:border-indigo-600",
-        _ => "border-slate-400 dark:border-slate-600"
+        "amber" => "border-amber-600",
+        "blue" => "border-blue-600",
+        "purple" => "border-purple-600",
+        "green" => "border-green-600",
+        "orange" => "border-orange-600",
+        "red" => "border-red-600",
+        "indigo" => "border-indigo-600",
+        _ => "border-slate-600"
     };
 
     private static string GetRegionLabelClass(string color) => color switch
     {
-        "amber" => "text-amber-700 dark:text-amber-400",
-        "blue" => "text-blue-700 dark:text-blue-400",
-        "purple" => "text-purple-700 dark:text-purple-400",
-        "green" => "text-green-700 dark:text-green-400",
-        "orange" => "text-orange-700 dark:text-orange-400",
-        "red" => "text-red-700 dark:text-red-400",
-        "indigo" => "text-indigo-700 dark:text-indigo-400",
-        _ => "text-slate-700 dark:text-white"
+        "amber" => "text-amber-400",
+        "blue" => "text-blue-400",
+        "purple" => "text-purple-400",
+        "green" => "text-green-400",
+        "orange" => "text-orange-400",
+        "red" => "text-red-400",
+        "indigo" => "text-indigo-400",
+        _ => "text-white"
     };
 
     private static string GetRegionBackground(string color, double opacity) => color switch

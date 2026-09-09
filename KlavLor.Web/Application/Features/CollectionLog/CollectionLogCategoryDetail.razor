@@ -18,7 +18,7 @@
 
 <div class="space-y-5 pb-32">
     <a onclick="history.back()"
-       class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-amber-600 dark:text-white dark:hover:text-amber-400 cursor-pointer transition-colors">
+       class="inline-flex items-center gap-1 text-sm text-white hover:text-amber-400 cursor-pointer transition-colors">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
         </svg>
@@ -27,27 +27,27 @@
 
     @if (Comparison is null)
     {
-        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-12 text-center">
-            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">Category not found</h3>
-            <p class="text-sm text-slate-500 dark:text-white">No collection log category called &ldquo;@Slug&rdquo;.</p>
+        <div class="bg-slate-900 rounded-xl shadow-sm border border-slate-700 p-12 text-center">
+            <h3 class="text-lg font-semibold text-slate-100 mb-2">Category not found</h3>
+            <p class="text-sm text-white">No collection log category called &ldquo;@Slug&rdquo;.</p>
         </div>
     }
     else
     {
-        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 px-4 py-3">
-            <h1 class="text-lg font-bold text-slate-900 dark:text-slate-100 mb-1.5">@Comparison.DisplayName</h1>
+        <div class="bg-slate-900 rounded-xl shadow-sm border border-slate-700 px-4 py-3">
+            <h1 class="text-lg font-bold text-slate-100 mb-1.5">@Comparison.DisplayName</h1>
             <div class="flex items-center gap-x-4 gap-y-1 flex-wrap text-sm">
                 <span class="inline-flex items-baseline gap-1">
-                    <span class="font-semibold tabular-nums text-slate-900 dark:text-slate-100">@Comparison.Total</span>
-                    <span class="text-[11px] text-slate-500 dark:text-white">items</span>
+                    <span class="font-semibold tabular-nums text-slate-100">@Comparison.Total</span>
+                    <span class="text-[11px] text-white">items</span>
                 </span>
-                <span class="text-[11px] text-slate-500 dark:text-white">@Comparison.GroupName</span>
+                <span class="text-[11px] text-white">@Comparison.GroupName</span>
             </div>
         </div>
 
         @if (Comparison.Standings.Count == 0)
         {
-            <div class="bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-8 text-center text-sm text-slate-400 dark:text-white">
+            <div class="bg-slate-900 rounded-xl border border-slate-700 px-3 py-8 text-center text-sm text-white">
                 No collection log data for any character yet.
             </div>
         }
@@ -59,29 +59,29 @@
                 @foreach (var standing in Comparison.Standings)
                 {
                     var complete = standing.Total > 0 && standing.Obtained >= standing.Total;
-                    <div class="shrink-0 w-64 rounded-xl border overflow-hidden @(complete ? "border-emerald-300 dark:border-emerald-700" : "border-slate-200 dark:border-slate-700")">
-                        <div class="px-3 py-2.5 border-b @(complete ? "border-emerald-300 dark:border-emerald-700 bg-emerald-50/70 dark:bg-emerald-900/20" : "border-slate-200 dark:border-slate-700 bg-slate-100/70 dark:bg-slate-800/40")">
+                    <div class="shrink-0 w-64 rounded-xl border overflow-hidden @(complete ? "border-emerald-700" : "border-slate-700")">
+                        <div class="px-3 py-2.5 border-b @(complete ? "border-emerald-700 bg-emerald-900/20" : "border-slate-700 bg-slate-800/40")">
                             <a hx-get="@CharacterUrl(standing.GameCharacterId).FromApi()" hx-target="#hx-page-container"
                                hx-push-url="@CharacterUrl(standing.GameCharacterId)" hx-swap="innerHTML transition:true"
-                               class="block text-sm font-semibold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer truncate">@standing.CharacterName</a>
+                               class="block text-sm font-semibold text-amber-400 hover:underline cursor-pointer truncate">@standing.CharacterName</a>
                             @* The denominator for every per-item roll below it: without the total,
                                "#40" says nothing about whether 40 was lucky. Absent when we hold no
                                loot data for this character at the source. *@
                             @if (standing.Rolls is > 0)
                             {
-                                <div class="text-[10px] tabular-nums text-slate-500 dark:text-white"
+                                <div class="text-[10px] tabular-nums text-white"
                                      title="@RollsTitle(standing)">@standing.Rolls!.Value.ToString("N0") rolls</div>
                             }
                             <div class="flex items-center gap-2 mt-1">
-                                <div class="h-1 flex-1 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                                <div class="h-1 flex-1 rounded-full bg-slate-800 overflow-hidden">
                                     <div class="h-full rounded-full @(complete ? "bg-emerald-500" : "bg-amber-500")"
                                          style="width:@Percent(standing).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)%"></div>
                                 </div>
-                                <span class="text-[10px] tabular-nums shrink-0 @(complete ? "text-emerald-600 dark:text-emerald-400 font-semibold" : "text-slate-500 dark:text-white")">@standing.Obtained/@standing.Total</span>
+                                <span class="text-[10px] tabular-nums shrink-0 @(complete ? "text-emerald-400 font-semibold" : "text-white")">@standing.Obtained/@standing.Total</span>
                             </div>
                         </div>
 
-                        <div class="bg-slate-50 dark:bg-slate-900 divide-y divide-slate-200/70 dark:divide-slate-800">
+                        <div class="bg-slate-900 divide-y divide-slate-800">
                             @foreach (var item in Comparison.Items)
                             {
                                 var has = standing.Has(item.ItemId);
@@ -90,13 +90,13 @@
                                 <a hx-get="@ItemUrl(item.ItemId).FromApi()" hx-target="#hx-page-container"
                                    hx-push-url="@ItemUrl(item.ItemId)" hx-swap="innerHTML transition:true"
                                    title="@CellTitle(standing.CharacterName, item.Name, has, count, receipt)"
-                                   class="flex items-center gap-2 px-2.5 py-1 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors">
+                                   class="flex items-center gap-2 px-2.5 py-1 cursor-pointer hover:bg-slate-800/60 transition-colors">
                                     @* Missing items keep their row and grey out — icon desaturated,
                                        name dimmed — so the panels stay aligned row for row. *@
                                     <img src="/api/images/item-icon?name=@Uri.EscapeDataString(item.Name)" alt=""
                                          class="w-5 h-5 object-contain shrink-0 @(has ? "" : "grayscale opacity-40")"
                                          loading="lazy" onerror="this.style.visibility='hidden'" />
-                                    <span class="text-[11px] truncate flex-1 min-w-0 @(has ? "text-slate-700 dark:text-slate-200" : "text-slate-400 dark:text-slate-600")">@item.Name</span>
+                                    <span class="text-[11px] truncate flex-1 min-w-0 @(has ? "text-slate-200" : "text-slate-600")">@item.Name</span>
                                     @* THE ROLL IT LANDED ON, per character. Without it two panels of
                                        ticks say only who has what, never whose grind was worse - which
                                        is the question a comparison exists to answer. Same figure and
@@ -105,17 +105,17 @@
                                        obtained before tracking began. *@
                                     @if (has && receipt is { KillCount: > 0 } r)
                                     {
-                                        <span class="text-[10px] font-semibold tabular-nums shrink-0 text-amber-600 dark:text-amber-400">#@r.KillCount!.Value.ToString("N0")</span>
+                                        <span class="text-[10px] font-semibold tabular-nums shrink-0 text-amber-400">#@r.KillCount!.Value.ToString("N0")</span>
                                     }
                                     @if (has && count > 0)
                                     {
-                                        <span class="text-[11px] font-semibold tabular-nums shrink-0 text-emerald-600 dark:text-emerald-400">@count.ToString("N0")</span>
+                                        <span class="text-[11px] font-semibold tabular-nums shrink-0 text-emerald-400">@count.ToString("N0")</span>
                                     }
                                     else if (has)
                                     {
                                         @* Owned but the upstream reports no count — a tick, not a zero,
                                            which would read as "has none". *@
-                                        <svg class="w-3 h-3 shrink-0 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                        <svg class="w-3 h-3 shrink-0 text-emerald-400" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
                                     }
                                 </a>
                             }

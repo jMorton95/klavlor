@@ -24,18 +24,18 @@
             <img src="@IconUrl" alt="" class="w-7 h-7 shrink-0 object-contain" loading="lazy" onerror="this.style.visibility='hidden'" />
         }
         <div class="min-w-0 flex-1">
-            <div class="text-sm font-bold text-amber-900 dark:text-amber-100 truncate">@DisplayName</div>
-            <div class="text-[11px] tabular-nums @(IsComplete ? "text-emerald-600 dark:text-emerald-400" : "text-slate-600 dark:text-slate-300")">
+            <div class="text-sm font-bold text-amber-100 truncate">@DisplayName</div>
+            <div class="text-[11px] tabular-nums @(IsComplete ? "text-emerald-400" : "text-slate-300")">
                 @Obtained of @Items.Count obtained@(IsComplete ? " · complete" : "")
             </div>
         </div>
         <a hx-get="@CompareUrl.FromApi()" hx-target="#hx-page-container" hx-push-url="@CompareUrl" hx-swap="innerHTML transition:true"
-           class="shrink-0 text-[11px] font-medium px-2 py-1 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 hover:bg-amber-500/30 cursor-pointer whitespace-nowrap transition-colors">Compare</a>
+           class="shrink-0 text-[11px] font-medium px-2 py-1 rounded-full bg-amber-500/15 text-amber-300 hover:bg-amber-500/30 cursor-pointer whitespace-nowrap transition-colors">Compare</a>
     </div>
 
     @if (Items.Count == 0)
     {
-        <div class="px-3 py-8 text-center text-sm text-slate-400 dark:text-white grow">No items in this category.</div>
+        <div class="px-3 py-8 text-center text-sm text-white grow">No items in this category.</div>
     }
     else
     {
@@ -52,22 +52,22 @@
                     <a hx-get="@ItemUrl(item.ItemId).FromApi()" hx-target="#hx-page-container"
                        hx-push-url="@ItemUrl(item.ItemId)" hx-swap="innerHTML transition:true"
                        title="@Tooltip(item)"
-                       class="clog-tile relative flex flex-col items-center justify-center rounded-lg border cursor-pointer transition-colors @(item.Obtained ? "border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-800/50 hover:border-amber-400" : "border-slate-200/80 dark:border-slate-700/80 bg-slate-100/70 dark:bg-slate-950/40 hover:border-amber-400")">
+                       class="clog-tile relative flex flex-col items-center justify-center rounded-lg border cursor-pointer transition-colors @(item.Obtained ? "border-slate-700 bg-slate-800/50 hover:border-amber-400" : "border-slate-700/80 bg-slate-950/40 hover:border-amber-400")">
                         <img src="/api/images/item-icon?name=@Uri.EscapeDataString(item.Name)" alt=""
                              class="clog-tile-icon object-contain @(item.Obtained ? "" : "grayscale opacity-70")" loading="lazy" onerror="this.style.display='none'" />
-                        <span class="clog-tile-name text-center line-clamp-2 @(item.Obtained ? "text-slate-700 dark:text-slate-200" : "text-slate-500 dark:text-slate-400")">@item.Name</span>
+                        <span class="clog-tile-name text-center line-clamp-2 @(item.Obtained ? "text-slate-200" : "text-slate-400")">@item.Name</span>
 
                         @* The roll it landed on, from OUR loot records, attributed to the source
                            that actually dropped it. Absent for anything obtained before tracking
                            began, and omitted rather than shown as zero. *@
                         @if (item.FirstReceipt is { KillCount: > 0 } receipt)
                         {
-                            <span class="clog-tile-roll font-semibold tabular-nums text-amber-600 dark:text-amber-400">#@receipt.KillCount!.Value.ToString("N0")</span>
+                            <span class="clog-tile-roll font-semibold tabular-nums text-amber-400">#@receipt.KillCount!.Value.ToString("N0")</span>
                         }
 
                         @if (item.Obtained && item.Count > 1)
                         {
-                            <span class="absolute top-0.5 right-1 text-[10px] font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">@item.Count</span>
+                            <span class="absolute top-0.5 right-1 text-[10px] font-semibold tabular-nums text-emerald-400">@item.Count</span>
                         }
                     </a>
                 }

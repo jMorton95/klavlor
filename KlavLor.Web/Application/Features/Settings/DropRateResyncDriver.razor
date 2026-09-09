@@ -4,7 +4,7 @@
    a short polite delay, posting the remaining queue + running tallies. The step
    endpoint syncs the head source and swaps this driver out for [result row + next
    driver], so the chain advances one source at a time with the browser watching. *@
-<form class="drate-resync-driver flex items-center gap-2 px-3 py-2 text-xs text-slate-600 dark:text-slate-300"
+<form class="drate-resync-driver flex items-center gap-2 px-3 py-2 text-xs text-slate-300"
       hx-post="@AppRoutes.AdminDropRatesResyncStep.FromApi()"
       hx-trigger="load delay:500ms"
       hx-target="this"

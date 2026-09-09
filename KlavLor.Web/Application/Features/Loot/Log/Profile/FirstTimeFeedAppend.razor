@@ -8,7 +8,7 @@
 @foreach (var group in months)
 {
     <div>
-        <h3 class="text-xs uppercase tracking-wider text-slate-500 dark:text-white mb-2 px-1">@group.Key</h3>
+        <h3 class="text-xs uppercase tracking-wider text-white mb-2 px-1">@group.Key</h3>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
             @foreach (var e in group)
             {
@@ -25,7 +25,7 @@
          hx-target="#firsts-list"
          hx-swap="beforeend"
          hx-trigger="click">
-        <button type="button" class="px-6 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer">
+        <button type="button" class="px-6 py-2.5 text-sm font-medium text-slate-300 bg-slate-900 border border-slate-600 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer">
             Show more
         </button>
     </div>

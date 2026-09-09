@@ -3,29 +3,29 @@
 @using KlavLor.Application.Features.Loot.Log
 @using KlavLor.Web.Application.Features.Loot.Log.Profile.Svg
 
-<div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+<div class="bg-slate-900 rounded-xl shadow-sm border border-slate-700 p-5">
     <div class="flex items-start justify-between mb-3 flex-wrap gap-2">
         <div>
-            <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-200">@Title</h3>
+            <h3 class="text-sm font-semibold text-slate-200">@Title</h3>
             <p class="text-lg font-bold mt-0.5 leading-tight">
-                <span class="text-amber-600 dark:text-amber-400 tabular-nums">@GoldFormat.Format(TotalGp)</span>
-                <span class="text-xs font-normal text-slate-500 dark:text-white">across @Trend.Months.Count(m => m.Kills > 0) active @(Trend.Months.Count(m => m.Kills > 0) == 1 ? "month" : "months")</span>
+                <span class="text-amber-400 tabular-nums">@GoldFormat.Format(TotalGp)</span>
+                <span class="text-xs font-normal text-white">across @Trend.Months.Count(m => m.Kills > 0) active @(Trend.Months.Count(m => m.Kills > 0) == 1 ? "month" : "months")</span>
             </p>
         </div>
         <div class="flex items-center gap-2">
-            <div class="inline-flex rounded-md border border-slate-200 dark:border-slate-700 overflow-hidden text-[11px]">
+            <div class="inline-flex rounded-md border border-slate-700 overflow-hidden text-[11px]">
                 <button type="button"
                         hx-get="@GetTrendUrl("12m", Expanded)"
                         hx-target="closest div.bg-slate-50"
                         hx-swap="outerHTML"
-                        class="px-2 py-1 @(Trend.Range == "12m" ? "bg-amber-500 text-white" : "bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300")">
+                        class="px-2 py-1 @(Trend.Range == "12m" ? "bg-amber-500 text-white" : "bg-slate-900 text-slate-300")">
                     12 months
                 </button>
                 <button type="button"
                         hx-get="@GetTrendUrl("all", Expanded)"
                         hx-target="closest div.bg-slate-50"
                         hx-swap="outerHTML"
-                        class="px-2 py-1 @(Trend.Range == "all" ? "bg-amber-500 text-white" : "bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300")">
+                        class="px-2 py-1 @(Trend.Range == "all" ? "bg-amber-500 text-white" : "bg-slate-900 text-slate-300")">
                     All time
                 </button>
             </div>
@@ -34,7 +34,7 @@
                     hx-target="closest div.bg-slate-50"
                     hx-swap="outerHTML"
                     title="@(Expanded ? "Back to the standard chart" : $"Expand: double the height, naming the top {ExpandedMinPerMonth} items in every month instead of {StandardMinPerMonth}")"
-                    class="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700 text-[11px] @(Expanded ? "bg-amber-500 text-white" : "bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300")">
+                    class="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-slate-700 text-[11px] @(Expanded ? "bg-amber-500 text-white" : "bg-slate-900 text-slate-300")">
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
                     @if (Expanded)
                     {
@@ -52,7 +52,7 @@
 
     @if (Trend.Months.Count == 0 || TotalGp == 0)
     {
-        <p class="text-xs text-slate-500 dark:text-white">No activity in this window yet.</p>
+        <p class="text-xs text-white">No activity in this window yet.</p>
     }
     else
     {
@@ -67,7 +67,7 @@
                        MaxSegmentFraction="0.25"
                        Scale="HistogramBars.BarScaleMode.Compressed" />
 
-        <p class="text-[10px] text-slate-500 dark:text-white mt-2">
+        <p class="text-[10px] text-white mt-2">
             Bar heights use a compressed scale so a quiet month is still readable next to a record one — the order is unchanged and every bar prints its true total above itself. Within a bar, no single item takes more than a quarter of the height; its real share is on the tooltip.
         </p>
 

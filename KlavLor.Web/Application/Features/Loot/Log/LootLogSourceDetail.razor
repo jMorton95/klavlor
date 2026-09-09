@@ -15,7 +15,7 @@
        rather than always forcing them onto the character page. Every navigation into this page
        uses hx-push-url, so a browser-history back restores the originating view. *@
     <button type="button" onclick="history.back()"
-            class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-amber-600 dark:text-white dark:hover:text-amber-400 cursor-pointer transition-colors">
+            class="inline-flex items-center gap-1 text-sm text-white hover:text-amber-400 cursor-pointer transition-colors">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
         </svg>
@@ -24,20 +24,20 @@
 
     @if (Detail is not null)
     {
-        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+        <div class="bg-slate-900 rounded-xl shadow-sm border border-slate-700 p-5">
             <div class="flex items-center justify-between mb-4">
                 <div>
-                    <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100 inline-flex items-center gap-2">
+                    <h2 class="text-xl font-bold text-slate-100 inline-flex items-center gap-2">
                         <img src="/api/images/source-icon?name=@Uri.EscapeDataString(Detail.SourceName)" alt="@Detail.SourceName"
                              class="w-6 h-6 inline-block rounded shrink-0"
                              loading="lazy"
                              onerror="this.style.display='none'" />
                         @Detail.SourceName
                     </h2>
-                    <div class="flex items-center gap-4 mt-1 text-sm text-slate-500 dark:text-white">
+                    <div class="flex items-center gap-4 mt-1 text-sm text-white">
                         <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium @GetSourceTypeBadgeClasses()">@Detail.SourceType</span>
                         <span>@Detail.TotalKills.ToString("N0") rolls</span>
-                        <span class="font-medium text-amber-600 dark:text-amber-400">@GoldFormat.Format(Detail.TotalValue) gp total</span>
+                        <span class="font-medium text-amber-400">@GoldFormat.Format(Detail.TotalValue) gp total</span>
                     </div>
                 </div>
             </div>
@@ -64,9 +64,9 @@
                     .OrderByDescending(d => d.TotalValue)
                     .ToList();
 
-                <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                <h3 class="text-sm font-semibold text-slate-300 mb-2">
                     All Drops (aggregated)
-                    <span class="ml-1 font-normal text-xs text-slate-500 dark:text-white">@Detail.AllDrops.Count.ToString("N0") items</span>
+                    <span class="ml-1 font-normal text-xs text-white">@Detail.AllDrops.Count.ToString("N0") items</span>
                 </h3>
 
                 @if (tiered.Count > 0)
@@ -81,16 +81,16 @@
                             var tier = ILootFeedService.GetDropTier(drop.BestDropValue)!.Value;
                             <div class="flex items-center justify-between gap-1 text-[11px] rounded px-1.5 py-0.5 border @TierCardClasses(tier)"
                                  title="@($"{drop.Name} — ×{drop.TotalQuantity:N0} for {GoldFormat.Format(drop.TotalValue)}. Biggest single drop: {GoldFormat.Format(drop.BestDropValue)}")">
-                                <span class="text-slate-800 dark:text-slate-100 truncate inline-flex items-center gap-1 min-w-0">
+                                <span class="text-slate-100 truncate inline-flex items-center gap-1 min-w-0">
                                     <img src="/api/images/item-icon?name=@Uri.EscapeDataString(drop.Name)" alt=""
                                          class="w-4 h-4 shrink-0 object-contain" loading="lazy" onerror="this.style.display='none'" />
                                     <span class="truncate font-medium">@drop.Name</span>
                                     @if (drop.TotalQuantity > 1)
                                     {
-                                        <span class="text-slate-500 dark:text-white shrink-0">×@drop.TotalQuantity.ToString("N0")</span>
+                                        <span class="text-white shrink-0">×@drop.TotalQuantity.ToString("N0")</span>
                                     }
                                 </span>
-                                <span class="text-amber-600 dark:text-amber-400 font-medium whitespace-nowrap">@GoldFormat.Format(drop.TotalValue)</span>
+                                <span class="text-amber-400 font-medium whitespace-nowrap">@GoldFormat.Format(drop.TotalValue)</span>
                             </div>
                         }
                     </div>
@@ -101,18 +101,18 @@
                     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-1">
                         @foreach (var drop in plain)
                         {
-                            <div class="flex items-center justify-between gap-1 text-[11px] bg-slate-100 dark:bg-slate-800 rounded px-1.5 py-0.5"
+                            <div class="flex items-center justify-between gap-1 text-[11px] bg-slate-800 rounded px-1.5 py-0.5"
                                  title="@($"{drop.Name} — ×{drop.TotalQuantity:N0} for {GoldFormat.Format(drop.TotalValue)}")">
-                                <span class="text-slate-700 dark:text-slate-100 truncate inline-flex items-center gap-1 min-w-0">
+                                <span class="text-slate-100 truncate inline-flex items-center gap-1 min-w-0">
                                     <img src="/api/images/item-icon?name=@Uri.EscapeDataString(drop.Name)" alt=""
                                          class="w-4 h-4 shrink-0 object-contain" loading="lazy" onerror="this.style.display='none'" />
                                     <span class="truncate">@drop.Name</span>
                                     @if (drop.TotalQuantity > 1)
                                     {
-                                        <span class="text-slate-400 dark:text-white shrink-0">×@drop.TotalQuantity.ToString("N0")</span>
+                                        <span class="text-white shrink-0">×@drop.TotalQuantity.ToString("N0")</span>
                                     }
                                 </span>
-                                <span class="text-amber-600 dark:text-amber-400 font-medium whitespace-nowrap">@GoldFormat.Format(drop.TotalValue)</span>
+                                <span class="text-amber-400 font-medium whitespace-nowrap">@GoldFormat.Format(drop.TotalValue)</span>
                             </div>
                         }
                     </div>
@@ -129,7 +129,7 @@
         @if (Detail.NotableDrops is not null && Detail.NotableDrops.Count > 0)
         {
             <div>
-                <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3 inline-flex items-center gap-2">
+                <h3 class="text-lg font-semibold text-slate-100 mb-3 inline-flex items-center gap-2">
                     <svg class="w-5 h-5 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
                         <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
                     </svg>
@@ -154,13 +154,13 @@
                rule as the live feed). Tabs live inside #source-tab-content so swap-on-click
                brings the active-state styling along with the content. *@
             <div id="source-tab-content">
-                <div class="border-b border-slate-200 dark:border-slate-700 flex items-center gap-1 mb-3">
+                <div class="border-b border-slate-700 flex items-center gap-1 mb-3">
                     <button type="button"
                             hx-get="@GetCollectionTabUrl()"
                             hx-target="#source-tab-content"
                             hx-swap="outerHTML"
                             onclick="history.replaceState(history.state, '', '@GetCollectionPageUrl()')"
-                            class="px-3 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:text-white dark:hover:text-slate-200 cursor-pointer">
+                            class="px-3 py-2 text-sm font-medium border-b-2 border-transparent text-white hover:text-slate-200 cursor-pointer">
                         Collection Log
                     </button>
                     <button type="button"
@@ -169,7 +169,7 @@
                             hx-select="#source-tab-content"
                             hx-swap="outerHTML"
                             onclick="history.replaceState(history.state, '', '@GetKillPageUrl()')"
-                            class="px-3 py-2 text-sm font-medium border-b-2 border-amber-500 text-amber-600 dark:text-amber-400">
+                            class="px-3 py-2 text-sm font-medium border-b-2 border-amber-500 text-amber-400">
                         Roll Sessions
                     </button>
                 </div>
@@ -184,7 +184,7 @@
                     <div id="show-more-sessions" class="flex justify-center py-2"
                          hx-get="@GetSessionsMoreUrl(2)" hx-target="#session-list" hx-swap="beforeend" hx-trigger="click">
                         <button type="button"
-                                class="px-6 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer">
+                                class="px-6 py-2.5 text-sm font-medium text-slate-300 bg-slate-900 border border-slate-600 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer">
                             Showing @Sessions.Sessions.Count of @Sessions.TotalSessions sessions
                         </button>
                     </div>
@@ -245,11 +245,11 @@
 
     private string GetSourceTypeBadgeClasses() => Detail?.SourceType switch
     {
-        LootSourceType.Npc => "bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300",
-        LootSourceType.Event => "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300",
-        LootSourceType.Pickpocket => "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300",
-        LootSourceType.Player => "bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300",
-        _ => "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-white"
+        LootSourceType.Npc => "bg-red-900/50 text-red-300",
+        LootSourceType.Event => "bg-blue-900/50 text-blue-300",
+        LootSourceType.Pickpocket => "bg-purple-900/50 text-purple-300",
+        LootSourceType.Player => "bg-orange-900/50 text-orange-300",
+        _ => "bg-slate-800 text-white"
     };
 
     // Deliberately the same border+ring treatment LootFeedItem uses for a card in that swimlane,
@@ -260,7 +260,7 @@
         LootFeedTier.Epic => "border-purple-400 ring-1 ring-purple-400/30",
         LootFeedTier.Rare => "border-blue-400 ring-1 ring-blue-400/30",
         LootFeedTier.Uncommon => "border-green-400",
-        _ => "border-slate-200 dark:border-slate-700"
+        _ => "border-slate-700"
     };
 
 }

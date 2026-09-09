@@ -8,14 +8,14 @@
 
 <div id="sync-log-results" class="space-y-4 pb-[20vh]">
     <div class="flex flex-wrap items-center justify-between gap-3">
-        <div class="text-sm text-slate-600 dark:text-slate-300">
-            <span class="font-semibold text-slate-900 dark:text-slate-100">@Result.TotalCount.ToString("N0")</span> records shown
-            <span class="text-slate-400 dark:text-white mx-1">·</span>
-            <span class="text-emerald-600 dark:text-emerald-400">@Result.LiveCount.ToString("N0") live</span>
-            <span class="text-slate-400 dark:text-white mx-1">·</span>
-            <span class="text-slate-500 dark:text-white">@Result.BackfillCount.ToString("N0") backfill</span>
+        <div class="text-sm text-slate-300">
+            <span class="font-semibold text-slate-100">@Result.TotalCount.ToString("N0")</span> records shown
+            <span class="text-white mx-1">·</span>
+            <span class="text-emerald-400">@Result.LiveCount.ToString("N0") live</span>
+            <span class="text-white mx-1">·</span>
+            <span class="text-white">@Result.BackfillCount.ToString("N0") backfill</span>
         </div>
-        <label class="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 cursor-pointer select-none">
+        <label class="inline-flex items-center gap-2 text-sm text-slate-300 cursor-pointer select-none">
             <input type="checkbox" checked="@Query.IncludeBackfill"
                    hx-get="@FlipBackfillUrl()"
                    hx-target="#sync-log-results"
@@ -27,21 +27,21 @@
         </label>
     </div>
 
-    <div class="bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 overflow-x-auto">
+    <div class="bg-slate-900 rounded-xl border border-slate-700 overflow-x-auto">
         <table class="w-full text-sm">
-            <thead class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
+            <thead class="bg-slate-800/50 border-b border-slate-700">
                 <tr>
-                    <th class="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-slate-500 dark:text-white">Ingested</th>
-                    <th class="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-slate-500 dark:text-white">Roll time</th>
-                    <th class="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-slate-500 dark:text-white">User</th>
-                    <th class="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-slate-500 dark:text-white">Character</th>
-                    <th class="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-slate-500 dark:text-white">Source</th>
-                    <th class="px-3 py-2 text-right text-[10px] uppercase tracking-wider text-slate-500 dark:text-white">KC</th>
-                    <th class="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-slate-500 dark:text-white">Items</th>
-                    <th class="px-3 py-2 text-right text-[10px] uppercase tracking-wider text-slate-500 dark:text-white">Stream</th>
+                    <th class="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-white">Ingested</th>
+                    <th class="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-white">Roll time</th>
+                    <th class="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-white">User</th>
+                    <th class="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-white">Character</th>
+                    <th class="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-white">Source</th>
+                    <th class="px-3 py-2 text-right text-[10px] uppercase tracking-wider text-white">KC</th>
+                    <th class="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-white">Items</th>
+                    <th class="px-3 py-2 text-right text-[10px] uppercase tracking-wider text-white">Stream</th>
                 </tr>
             </thead>
-            <tbody id="sync-log-rows" class="divide-y divide-slate-200 dark:divide-slate-700/50">
+            <tbody id="sync-log-rows" class="divide-y divide-slate-700/50">
                 @foreach (var entry in Result.Entries)
                 {
                     <SyncLogRow Entry="entry" />
@@ -49,7 +49,7 @@
                 @if (Result.Entries.Count == 0)
                 {
                     <tr>
-                        <td colspan="8" class="px-3 py-8 text-center text-sm text-slate-500 dark:text-white">
+                        <td colspan="8" class="px-3 py-8 text-center text-sm text-white">
                             No ingested records@(Query.IncludeBackfill ? "" : " on the live stream") yet.
                         </td>
                     </tr>
@@ -65,7 +65,7 @@
                     hx-get="@NextPageUrl()"
                     hx-target="#sync-log-rows"
                     hx-swap="beforeend"
-                    class="px-6 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer">
+                    class="px-6 py-2.5 text-sm font-medium text-slate-300 bg-slate-900 border border-slate-600 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer">
                 Show more
             </button>
         </div>

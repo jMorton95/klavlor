@@ -66,7 +66,7 @@
 <div id="@Entry.DomId"
      data-feed-character="@(Entry.GameCharacterId?.ToString() ?? "")"
      @attributes="rootAttrs"
-     class="group relative hover:z-40 @(Animate ? "loot-feed-new " : "")bg-slate-50 dark:bg-slate-900 rounded-lg shadow border @GetValueTierClasses() p-2.5 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-amber-200 dark:hover:border-amber-700 transition-all duration-200 @legendaryCardClass @gigaCardClass @tierOverflowClass @highlightCardClass">
+     class="group relative hover:z-40 @(Animate ? "loot-feed-new " : "")bg-slate-900 rounded-lg shadow border @GetValueTierClasses() p-2.5 hover:bg-slate-800 hover:border-amber-700 transition-all duration-200 @legendaryCardClass @gigaCardClass @tierOverflowClass @highlightCardClass">
     @if (isHighlight)
     {
         <span class="absolute -top-2 -right-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-linear-to-r from-amber-500 to-yellow-400 text-amber-950 shadow ring-1 ring-amber-300/80 select-none"
@@ -98,18 +98,18 @@
                    hx-target="#hx-page-container"
                    hx-push-url="@AppRoutes.LootLogCharacter.WithId(Entry.GameCharacterId.Value)"
                    hx-swap="innerHTML transition:true"
-                   class="text-xs font-semibold text-slate-900 dark:text-slate-100 hover:underline cursor-pointer truncate shrink-0 max-w-[40%]">@(Entry.CharacterName ?? Entry.UserName)</a>
+                   class="text-xs font-semibold text-slate-100 hover:underline cursor-pointer truncate shrink-0 max-w-[40%]">@(Entry.CharacterName ?? Entry.UserName)</a>
             }
             else
             {
-                <span class="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate shrink-0 max-w-[40%]">@Entry.UserName</span>
+                <span class="text-xs font-semibold text-slate-100 truncate shrink-0 max-w-[40%]">@Entry.UserName</span>
             }
-            <span class="text-[10px] text-slate-500 dark:text-white shrink-0">@(Entry.SourceType switch { KlavLor.Domain.Entities.LootSourceType.Event => "rolled", KlavLor.Domain.Entities.LootSourceType.Pickpocket => "pickpocketed", _ => "rolled" })</span>
+            <span class="text-[10px] text-white shrink-0">@(Entry.SourceType switch { KlavLor.Domain.Entities.LootSourceType.Event => "rolled", KlavLor.Domain.Entities.LootSourceType.Pickpocket => "pickpocketed", _ => "rolled" })</span>
             <a hx-get="@sourceApi"
                hx-target="#hx-page-container"
                hx-push-url="@sourceUrl"
                hx-swap="innerHTML transition:true"
-               class="inline-flex items-center gap-0.5 text-xs font-medium text-amber-600 dark:text-amber-400 hover:underline cursor-pointer min-w-0 flex-1">
+               class="inline-flex items-center gap-0.5 text-xs font-medium text-amber-400 hover:underline cursor-pointer min-w-0 flex-1">
                 <img src="/api/images/source-icon?name=@Uri.EscapeDataString(Entry.SourceName)" alt="@Entry.SourceName"
                      class="w-4 h-4 rounded shrink-0"
                      loading="lazy"
@@ -121,16 +121,16 @@
             </a>
         </div>
         @* Row 2: rolls this session · KC · time *@
-        <div class="flex items-center gap-1.5 mt-0.5 text-[10px] text-slate-500 dark:text-slate-300">
+        <div class="flex items-center gap-1.5 mt-0.5 text-[10px] text-slate-300">
             @if (sessionKills is > 1)
             {
-                <span class="text-slate-600 dark:text-slate-200 font-medium whitespace-nowrap"
+                <span class="text-slate-200 font-medium whitespace-nowrap"
                       title="Rolls in this session, from the roll range below">@sessionKills.Value.ToString("N0") rolls</span>
                 <span class="mx-0.5" aria-hidden="true">·</span>
             }
             @if (kcLabel is not null)
             {
-                <span class="text-slate-600 dark:text-slate-200 whitespace-nowrap">@kcLabel</span>
+                <span class="text-slate-200 whitespace-nowrap">@kcLabel</span>
                 <span class="mx-0.5" aria-hidden="true">·</span>
             }
             <time datetime="@Entry.OccurredAt.UtcDateTime.ToString("o")" class="whitespace-nowrap loot-timestamp">@FormatTime(Entry.OccurredAt)</time>
@@ -153,7 +153,7 @@
                 var isLegendary = dropTotal >= 250_000_000;
                 var isSpecial = drop.IsSpecial;
                 <span class="flex flex-col min-w-0">
-                <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] border @GetDropTierClasses(drop.Price) text-slate-700 dark:text-slate-200 @((isNewUnique && !isLegendary && !isSpecial) ? GetFirstTimeRingClasses(Entry.Tier) : "") @(isLegendary ? "legendary-item" : "") @(isSpecial ? "giga-item" : "")"
+                <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] border @GetDropTierClasses(drop.Price) text-slate-200 @((isNewUnique && !isLegendary && !isSpecial) ? GetFirstTimeRingClasses(Entry.Tier) : "") @(isLegendary ? "legendary-item" : "") @(isSpecial ? "giga-item" : "")"
                       title="@(isNewUnique ? "First-time collection log unlock" : null)">
                     @* An injected special gets no bolt of its own: the card already carries the
                        spinning neon ring, and a second lightning effect inside it was competing
@@ -197,18 +197,18 @@
                          onerror="this.style.display='none'" />
                     @if (drop.Quantity > 1)
                     {
-                        <span class="font-medium text-amber-600 dark:text-amber-400">@drop.Quantity.ToString("N0")x</span>
+                        <span class="font-medium text-amber-400">@drop.Quantity.ToString("N0")x</span>
                     }
                     <span>@drop.Name</span>
                     @if (drop.Price > 0)
                     {
                         @if (Entry.RunCount > 1 && drop.Quantity > 1)
                         {
-                            <span class="text-slate-700 dark:text-slate-200">(@GoldFormat.Format(drop.Price) ea)</span>
+                            <span class="text-slate-200">(@GoldFormat.Format(drop.Price) ea)</span>
                         }
                         else
                         {
-                            <span class="text-slate-700 dark:text-slate-200">(@GoldFormat.Format((long)drop.Quantity * drop.Price))</span>
+                            <span class="text-slate-200">(@GoldFormat.Format((long)drop.Quantity * drop.Price))</span>
                         }
                     }
                 </span>
@@ -218,7 +218,7 @@
                        crowding the name. Collection-log items only, and only when we hold a rate
                        for this item AT THIS SOURCE - see LuckLabel. The figures come from
                        SourceLootService, so they match the character page and the leaderboard. *@
-                    <span class="mt-1 pl-1 text-[9px] leading-tight text-slate-500 dark:text-white whitespace-nowrap"
+                    <span class="mt-1 pl-1 text-[9px] leading-tight text-white whitespace-nowrap"
                           title="@luckLabel.Title">
                         @luckLabel.Text
                         @if (luckLabel.Verdict is { } verdict)
@@ -235,8 +235,8 @@
 
     @if (Entry.Drops.Count > 1 && Entry.TotalValue > 0)
     {
-        <div class="mt-1.5 text-[10px] text-slate-500 dark:text-white">
-            Total: <span class="font-medium text-amber-600 dark:text-amber-400">@GoldFormat.Format(Entry.TotalValue) gp</span>
+        <div class="mt-1.5 text-[10px] text-white">
+            Total: <span class="font-medium text-amber-400">@GoldFormat.Format(Entry.TotalValue) gp</span>
         </div>
     }
 
@@ -264,16 +264,16 @@
         LootFeedTier.Epic => "border-purple-400 ring-1 ring-purple-400/30",
         LootFeedTier.Rare => "border-blue-400 ring-1 ring-blue-400/30",
         LootFeedTier.Uncommon => "border-green-400",
-        _ => "border-slate-200 dark:border-slate-700"
+        _ => "border-slate-700"
     };
 
     private static string GetDropTierClasses(long dropValue) => dropValue switch
     {
-        >= 100_000_000 => "bg-amber-100 dark:bg-amber-950 border-amber-400",
-        >= 10_000_000 => "bg-purple-100 dark:bg-purple-950 border-purple-400",
-        >= 1_000_000 => "bg-blue-100 dark:bg-blue-950 border-blue-400",
-        >= 100_000 => "bg-green-100 dark:bg-green-950 border-green-400",
-        _ => "bg-slate-200 dark:bg-slate-800 border-slate-300 dark:border-slate-700"
+        >= 100_000_000 => "bg-amber-950 border-amber-400",
+        >= 10_000_000 => "bg-purple-950 border-purple-400",
+        >= 1_000_000 => "bg-blue-950 border-blue-400",
+        >= 100_000 => "bg-green-950 border-green-400",
+        _ => "bg-slate-800 border-slate-700"
     };
 
     // Pulse colours for a card carrying more than its lane (see ILootFeedService.ExceedsTier).
@@ -291,22 +291,22 @@
 
     private static string GetFirstTimeRingClasses(LootFeedTier tier) => tier switch
     {
-        LootFeedTier.Legendary => "ring-2 ring-amber-400 dark:ring-amber-500/80",
-        LootFeedTier.Epic => "ring-2 ring-purple-400 dark:ring-purple-500/80",
-        LootFeedTier.Rare => "ring-2 ring-blue-400 dark:ring-blue-500/80",
-        LootFeedTier.Uncommon => "ring-2 ring-green-400 dark:ring-green-500/80",
-        _ => "ring-2 ring-slate-400 dark:ring-slate-500/80"
+        LootFeedTier.Legendary => "ring-2 ring-amber-500/80",
+        LootFeedTier.Epic => "ring-2 ring-purple-500/80",
+        LootFeedTier.Rare => "ring-2 ring-blue-500/80",
+        LootFeedTier.Uncommon => "ring-2 ring-green-500/80",
+        _ => "ring-2 ring-slate-500/80"
     };
 
     // Ring sits at ring-2 so it visually beats the tier's existing ring-1 from GetValueTierClasses().
     // Colours match the tier border, so the highlight feels like the swimlane "endorsing" the card.
     private static string GetHighlightRingClasses(LootFeedTier tier) => tier switch
     {
-        LootFeedTier.Legendary => "ring-2 ring-amber-400/70 dark:ring-amber-300/60",
-        LootFeedTier.Epic => "ring-2 ring-purple-400/70 dark:ring-purple-300/60",
-        LootFeedTier.Rare => "ring-2 ring-blue-400/70 dark:ring-blue-300/60",
-        LootFeedTier.Uncommon => "ring-2 ring-green-400/70 dark:ring-green-300/60",
-        _ => "ring-2 ring-slate-400/70 dark:ring-slate-300/60"
+        LootFeedTier.Legendary => "ring-2 ring-amber-300/60",
+        LootFeedTier.Epic => "ring-2 ring-purple-300/60",
+        LootFeedTier.Rare => "ring-2 ring-blue-300/60",
+        LootFeedTier.Uncommon => "ring-2 ring-green-300/60",
+        _ => "ring-2 ring-slate-300/60"
     };
 
     // Collapse repeats of the same item into one chip. Every flag must be carried through:
@@ -386,10 +386,10 @@
         var ratio = landedOn.Value / expected;
         var (verdict, verdictClass) = ratio switch
         {
-            <= 0.50 => ($"{1 / ratio:0.#}x lucky", "text-emerald-600 dark:text-emerald-400"),
-            <= 1.50 => ("on rate", "text-slate-500 dark:text-white"),
-            <= 3.00 => ($"{ratio:0.#}x dry", "text-amber-600 dark:text-amber-400"),
-            _ => ($"{ratio:0.#}x dry", "text-rose-600 dark:text-rose-400")
+            <= 0.50 => ($"{1 / ratio:0.#}x lucky", "text-emerald-400"),
+            <= 1.50 => ("on rate", "text-white"),
+            <= 3.00 => ($"{ratio:0.#}x dry", "text-amber-400"),
+            _ => ($"{ratio:0.#}x dry", "text-rose-400")
         };
         return new DropLuck(text, verdict, verdictClass,
             $"{title}. This drop came at roll {landedOn.Value:N0}, their first.");

@@ -27,13 +27,13 @@
 <div class="max-h-[min(54rem,78vh)] overflow-auto themed-scrollbar -mx-1 px-1">
     @if (Panel.Characters.Count == 0)
     {
-        <p class="text-sm text-slate-500 dark:text-white py-4 text-center">
+        <p class="text-sm text-white py-4 text-center">
             No sessions in the last @Panel.WindowHours hours.
         </p>
     }
     else
     {
-        <div class="flex items-stretch divide-x divide-slate-200 dark:divide-slate-700">
+        <div class="flex items-stretch divide-x divide-slate-700">
             @foreach (var character in Panel.Characters)
             {
                 @* flex-1 between a min and a max: a handful of characters spread out to fill the
@@ -45,11 +45,11 @@
                            hx-target="#hx-page-container"
                            hx-push-url="@AppRoutes.LootLogCharacter.WithId(character.CharacterId)"
                            hx-swap="innerHTML transition:true"
-                           class="text-sm font-semibold text-slate-800 dark:text-slate-100 hover:text-amber-600 dark:hover:text-amber-400 cursor-pointer truncate">
+                           class="text-sm font-semibold text-slate-100 hover:text-amber-400 cursor-pointer truncate">
                             @character.CharacterName
                         </a>
                     </div>
-                    <div class="text-xs text-slate-500 dark:text-white tabular-nums mb-2 truncate">
+                    <div class="text-xs text-white tabular-nums mb-2 truncate">
                         @character.TotalRolls.ToString("N0") rolls · @GoldFormat.Format(character.TotalGp)
                     </div>
 
@@ -62,22 +62,22 @@
                                         <img src="/api/images/source-icon?name=@Uri.EscapeDataString(session.SourceName)" alt=""
                                              class="w-5 h-5 shrink-0 object-contain rounded" loading="lazy"
                                              onerror="this.style.display='none'" />
-                                        <span class="text-[13px] font-medium text-slate-700 dark:text-slate-100 truncate">@session.SourceName</span>
+                                        <span class="text-[13px] font-medium text-slate-100 truncate">@session.SourceName</span>
                                         @if (session.ClogCount > 0)
                                         {
-                                            <span class="text-[11px] font-semibold px-1.5 rounded bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 shrink-0"
+                                            <span class="text-[11px] font-semibold px-1.5 rounded bg-amber-900/60 text-amber-300 shrink-0"
                                                   title="@($"{session.ClogCount} first-time collection log {(session.ClogCount == 1 ? "item" : "items")} this session")">
                                                 @session.ClogCount clog@(session.ClogCount == 1 ? "" : "s")
                                             </span>
                                         }
                                     </span>
-                                    <span class="text-xs tabular-nums text-slate-600 dark:text-slate-300 shrink-0">
+                                    <span class="text-xs tabular-nums text-slate-300 shrink-0">
                                         @session.Rolls.ToString("N0") @Noun(session)
                                     </span>
                                 </div>
-                                <div class="flex items-baseline justify-between gap-2 text-xs text-slate-500 dark:text-white">
+                                <div class="flex items-baseline justify-between gap-2 text-xs text-white">
                                     <span class="truncate">@RelativeTime(session.EndedAt)</span>
-                                    <span class="tabular-nums text-amber-600 dark:text-amber-400 font-medium shrink-0">@GoldFormat.Format(session.Gp)</span>
+                                    <span class="tabular-nums text-amber-400 font-medium shrink-0">@GoldFormat.Format(session.Gp)</span>
                                 </div>
                             </li>
                         }

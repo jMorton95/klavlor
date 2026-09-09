@@ -2,11 +2,11 @@
 
 @if (Results.Any())
 {
-    <div class="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 shadow-lg max-h-60 overflow-y-auto z-50">
+    <div class="absolute left-0 right-0 top-full mt-1 bg-slate-800 rounded-lg border border-slate-700 shadow-lg max-h-60 overflow-y-auto z-50">
         @foreach (var item in Results)
         {
             <button type="button"
-                    class="osrs-search-result w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-amber-50 dark:hover:bg-amber-950 transition-colors text-sm"
+                    class="osrs-search-result w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-amber-950 transition-colors text-sm"
                     data-item-name="@item.Name"
                     data-item-icon="@(item.IconUrl ?? "")">
                 @if (item.IconUrl is not null)
@@ -16,9 +16,9 @@
                 }
                 else
                 {
-                    <div class="w-6 h-6 bg-slate-100 dark:bg-slate-700 rounded flex-shrink-0"></div>
+                    <div class="w-6 h-6 bg-slate-700 rounded flex-shrink-0"></div>
                 }
-                <span class="truncate text-slate-800 dark:text-slate-200">@item.Name</span>
+                <span class="truncate text-slate-200">@item.Name</span>
             </button>
         }
     </div>

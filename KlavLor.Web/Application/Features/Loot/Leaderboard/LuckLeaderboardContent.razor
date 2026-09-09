@@ -15,7 +15,7 @@
 }
 
 <div class="max-w-7xl mx-auto">
-    <p class="text-sm text-slate-500 dark:text-white mb-4">
+    <p class="text-sm text-white mb-4">
         Collection-log items only, ranked by how many multiples off the expected kill count each drop was, with rarer grinds winning ties. Dry streaks include items players are still chasing. Rebuilt hourly.
     </p>
 
@@ -28,28 +28,28 @@
         <input type="radio" name="lb-board" id="lb-r-spoons" class="hidden" checked />
         <input type="radio" name="lb-board" id="lb-r-dry" class="hidden" />
 
-        <div class="xl:hidden inline-flex rounded-md border border-slate-200 dark:border-slate-700 overflow-hidden text-sm mb-4">
+        <div class="xl:hidden inline-flex rounded-md border border-slate-700 overflow-hidden text-sm mb-4">
             <label for="lb-r-spoons"
-                   class="px-3 py-1.5 cursor-pointer bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300 group-has-[#lb-r-spoons:checked]:bg-amber-500 group-has-[#lb-r-spoons:checked]:text-white">
+                   class="px-3 py-1.5 cursor-pointer bg-slate-900 text-slate-300 group-has-[#lb-r-spoons:checked]:bg-amber-500 group-has-[#lb-r-spoons:checked]:text-white">
                 Spoons
             </label>
             <label for="lb-r-dry"
-                   class="px-3 py-1.5 cursor-pointer bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300 group-has-[#lb-r-dry:checked]:bg-amber-500 group-has-[#lb-r-dry:checked]:text-white">
+                   class="px-3 py-1.5 cursor-pointer bg-slate-900 text-slate-300 group-has-[#lb-r-dry:checked]:bg-amber-500 group-has-[#lb-r-dry:checked]:text-white">
                 Dry streaks
             </label>
         </div>
 
         <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
             <section class="max-xl:group-has-[#lb-r-dry:checked]:hidden">
-                <h2 class="text-sm font-semibold text-emerald-600 dark:text-emerald-400 mb-2">Luckiest spoons</h2>
+                <h2 class="text-sm font-semibold text-emerald-400 mb-2">Luckiest spoons</h2>
                 <div id="lb-spoons" hx-get="@spoonUrl" hx-trigger="load" hx-swap="innerHTML">
-                    <div class="h-24 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
+                    <div class="h-24 animate-pulse bg-slate-800 rounded-lg"></div>
                 </div>
             </section>
             <section class="max-xl:group-has-[#lb-r-spoons:checked]:hidden">
-                <h2 class="text-sm font-semibold text-rose-600 dark:text-rose-400 mb-2">Driest streaks</h2>
+                <h2 class="text-sm font-semibold text-rose-400 mb-2">Driest streaks</h2>
                 <div id="lb-dry" hx-get="@dryUrl" hx-trigger="load" hx-swap="innerHTML">
-                    <div class="h-24 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
+                    <div class="h-24 animate-pulse bg-slate-800 rounded-lg"></div>
                 </div>
             </section>
         </div>

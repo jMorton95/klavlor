@@ -17,19 +17,19 @@
                    hx-target="#hx-page-container"
                    hx-push-url="@AppRoutes.LootLogCharacter.WithId(character.GameCharacterId)"
                    hx-swap="innerHTML transition:true"
-                   class="block bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden hover:shadow-md hover:border-amber-200 dark:hover:border-amber-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200 cursor-pointer">
+                   class="block bg-slate-900 rounded-xl shadow-sm border border-slate-700 overflow-hidden hover:shadow-md hover:border-amber-700 hover:bg-slate-800 transition-all duration-200 cursor-pointer">
                     <div class="p-7">
                         <div class="flex items-center gap-4 mb-4">
                             <div class="w-14 h-14 bg-linear-to-br from-amber-500 to-orange-600 rounded-full flex items-center justify-center">
                                 <span class="text-white font-bold text-lg">@character.CharacterName[0]</span>
                             </div>
                             <div>
-                                <h3 class="text-xl font-bold text-slate-900 dark:text-slate-100">@character.CharacterName</h3>
-                                <p class="text-xs text-slate-400 dark:text-white">@character.UserName</p>
+                                <h3 class="text-xl font-bold text-slate-100">@character.CharacterName</h3>
+                                <p class="text-xs text-white">@character.UserName</p>
                             </div>
                         </div>
 
-                        <div class="flex flex-wrap items-center gap-5 text-sm text-slate-500 dark:text-white">
+                        <div class="flex flex-wrap items-center gap-5 text-sm text-white">
                             <span class="flex items-center gap-1.5 whitespace-nowrap">
                                 <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
@@ -42,7 +42,7 @@
                                 </svg>
                                 @character.TotalKills.ToString("N0") rolls
                             </span>
-                            <span class="flex items-center gap-1.5 whitespace-nowrap font-medium text-amber-600 dark:text-amber-400">
+                            <span class="flex items-center gap-1.5 whitespace-nowrap font-medium text-amber-400">
                                 @GoldFormat.Format(character.TotalValue) gp
                             </span>
                         </div>
@@ -53,16 +53,16 @@
     }
     else
     {
-        <div class="bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-12 text-center">
+        <div class="bg-slate-900 rounded-xl shadow-sm border border-slate-700 p-12 text-center">
             <div class="flex justify-center mb-4">
-                <div class="p-4 bg-amber-50 dark:bg-amber-950 rounded-full">
+                <div class="p-4 bg-amber-950 rounded-full">
                     <svg class="w-8 h-8 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
                     </svg>
                 </div>
             </div>
-            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">No drop logs yet</h3>
-            <p class="text-sm text-slate-500 dark:text-white">Drop logs will appear here once users sync their loot data.</p>
+            <h3 class="text-lg font-semibold text-slate-100 mb-2">No drop logs yet</h3>
+            <p class="text-sm text-white">Drop logs will appear here once users sync their loot data.</p>
         </div>
     }
 </div>
