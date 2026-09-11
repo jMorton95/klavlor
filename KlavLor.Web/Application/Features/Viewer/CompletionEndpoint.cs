@@ -38,12 +38,16 @@ public sealed class CompletionEndpoint : IEndpoint
         var node = template.Nodes.FirstOrDefault(n => n.Id == nodeId);
         if (node is null) return Results.NotFound();
 
-        var allCompletions = await completionRepository.GetByUserAndTemplate(userId.Value, id);
+        // Read back the OWNER's rows, matching both ToggleCompletionHandler's write and
+        // ViewerDataHandler's read - completion is the template's state, not the clicker's. Reading
+        // them as the acting user meant an admin's swapped-in fragment disagreed with the page it
+        // landed on, and with itself on the next load.
+        var allCompletions = await completionRepository.GetByUserAndTemplate(template.CreatedById, id);
         var completionDates = allCompletions.ToDictionary(
             c => c.TemplateNodeId,
             c => new CompletionInfo(c.CompletedAt, c.Note));
 
-        var completion = await completionRepository.GetCompletion(userId.Value, nodeId);
+        var completion = await completionRepository.GetCompletion(template.CreatedById, nodeId);
         var isCompleted = completion is not null;
         DateTimeOffset? completedAt = completion?.CompletedAt;
         string? completionNote = completion?.Note;

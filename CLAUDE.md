@@ -652,6 +652,12 @@ The luck leaderboard is precomputed hourly, but nearly every admin panel edits a
 
 Template-node completion happens **only** when a user clicks a node in the viewer. There is deliberately no drop-driven auto-completion and no generated completion notes — that feature was removed, along with `Features/Progression/` and the `GetAutoCompletableNodes`/`AddCompletions` repository methods. Loot ingest must never write to `UserNodeCompletions`.
 
+**A completion belongs to the TEMPLATE, not to whoever clicked it.** Despite the table being called `UserNodeCompletions`, every read and every write resolves to `template.CreatedById` — the owner's rows *are* the template's progress, which is why `ViewerDataHandler` loads the owner's rows for every viewer rather than the current user's. An **admin ticking a node or writing a note is doing it on the owner's behalf**, and that is intended: admins are the only other actor `ToggleCompletionHandler` lets through.
+
+Keep the three sites in step — `ToggleCompletionHandler` (write), `ViewerDataHandler` (page read) and `CompletionEndpoint` (the read that renders the swapped-in fragment). They drifted once: the write targeted `currentUser` while the page read targeted the owner. For the owner those two ids are identical, so the bug was invisible to the person most likely to hit it; for an admin it was silent and total. The toggle *succeeded*, wrote a row under the **admin's** account, and the viewer then rendered the owner's rows, which had not changed — so the tick survived the htmx swap and vanished on the next load. It was reported as "the admin cannot check nodes", when in fact it was ticking a node nothing displays.
+
+`KlavLor.IntegrationTests/AdminCompletionOnBehalfTests.cs` pins both halves against real SQL — the tick lands on the owner **and** nothing is written under the admin — because either half alone still looks right in the swap and wrong on reload. Note the write carries no record of *which* admin made it: `UserNodeCompletion` is a composite-key join row and does not extend `Entity`, so it has no `SavedById` audit trail. Adding attribution means a new column and a migration.
+
 ### Rate Limiting Policies
 
 New endpoints must use one of these existing policies (applied via `.RequireRateLimiting("name")`):

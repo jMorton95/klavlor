@@ -22,7 +22,20 @@ public sealed class ToggleCompletionHandler(
         if (!nodeExists)
             return Result.Failure("Node does not belong to this template.");
 
-        await completionRepository.Toggle(currentUser.UserId!.Value, command.NodeId, command.Note);
+        // COMPLETION BELONGS TO THE TEMPLATE, NOT TO WHOEVER CLICKED, so the tick is always written
+        // against the owner. That is the model ViewerDataHandler already reads - it loads the
+        // owner's rows so every viewer sees one shared progress state - and this write used to
+        // disagree with it, targeting currentUser instead.
+        //
+        // The disagreement was invisible to the owner (for them the two ids are the same) and
+        // silent for an admin: the toggle succeeded, wrote a row under the ADMIN's account, and the
+        // viewer then rendered the owner's rows, which had not changed. The tick survived the htmx
+        // swap and vanished on the next load, so it read as "admin cannot check nodes" while in
+        // fact it was checking a node nothing displays. Notes went the same way.
+        //
+        // Only the owner and admins reach this line (the check above), so the owner is the right
+        // target for both: an admin is filling the sheet in on the owner's behalf.
+        await completionRepository.Toggle(template.CreatedById, command.NodeId, command.Note);
 
         return Result.Success();
     }
