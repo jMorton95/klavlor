@@ -139,6 +139,15 @@ public sealed class AdminSettingsEndpoint : IEndpoint
             .RequireRateLimiting("mutation")
             .DisableAntiforgery();
 
+        app.MapPost(AppRoutes.AdminRecordAuditBlacklist.FromApi(), SetAuditDropBlacklist)
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("mutation")
+            .DisableAntiforgery();
+
+        app.MapGet(AppRoutes.AdminRecordAuditModifications.FromApi(), GetRecordAuditModifications)
+            .RequireAuthorization(nameof(RoleName.Admin))
+            .RequireRateLimiting("read");
+
         app.MapGet(AppRoutes.AdminBaseline.FromApi(), GetBaselines)
             .RequireAuthorization(nameof(RoleName.Admin))
             .RequireRateLimiting("read");
@@ -492,21 +501,58 @@ public sealed class AdminSettingsEndpoint : IEndpoint
     /// removing the row client-side would leave a page of 24 claiming to be a page of 25.
     private static async Task<RazorComponentResult> DeleteAuditRecord(
         int recordId, int characterId, string? sourceName, string? term, int? page, int? pageSize,
-        RecordAuditHandler handler)
+        string? reason, RecordAuditHandler handler)
     {
-        await handler.Delete(recordId);
+        await handler.Delete(recordId, reason);
         return await SearchRecordAudit(characterId, sourceName, term, page, pageSize, handler);
     }
 
     /// Same re-run-the-search shape as the delete: the row has to come back showing its new state,
     /// and the toggle is one button whose label depends on it.
     private static async Task<RazorComponentResult> SetAuditRecordLuckExclusion(
-        int recordId, bool excluded, int characterId, string? sourceName, string? term, int? page, int? pageSize,
-        RecordAuditHandler handler)
+        int recordId, bool excluded, int? characterId, string? sourceName, string? term, int? page, int? pageSize,
+        string? view, RecordAuditHandler handler)
     {
         await handler.SetLuckExclusion(recordId, excluded);
-        return await SearchRecordAudit(characterId, sourceName, term, page, pageSize, handler);
+        return await RenderAfterAuditChange(view, characterId, sourceName, term, page, pageSize, handler);
     }
+
+    /// Hides or restores ONE drop on a record, then re-renders whichever list the click came from.
+    /// The item travels as id AND name because that pair is the blacklist's whole key (an
+    /// untradeable can be logged with no usable id) — see BlacklistedLootDrop.
+    private static async Task<RazorComponentResult> SetAuditDropBlacklist(
+        int recordId, int itemId, string? itemName, bool blacklisted,
+        int? characterId, string? sourceName, string? term, int? page, int? pageSize,
+        string? view, RecordAuditHandler handler)
+    {
+        await handler.SetDropBlacklist(recordId, itemId, itemName, blacklisted);
+        return await RenderAfterAuditChange(view, characterId, sourceName, term, page, pageSize, handler);
+    }
+
+    private static async Task<RazorComponentResult> GetRecordAuditModifications(RecordAuditHandler handler)
+    {
+        var rows = await handler.GetModifications();
+        return IResultExtensions.Component<RecordAuditModifications>(new { Rows = rows });
+    }
+
+    /// Both reversible repairs are offered in two places — on a record in the search results, and on
+    /// its entry in the modifications list — and the response has to be whichever one the admin is
+    /// looking at, because htmx swaps it straight into that container. The caller says which; the
+    /// default is the search results, so the existing buttons need no parameter.
+    ///
+    /// EVERY SEARCH PARAMETER IS OPTIONAL, and that is not tidiness. The modifications list has no
+    /// search context to send — it is a list of past decisions, not a page of results — so a
+    /// required `int characterId` made its undo buttons 400 before reaching any handler. The
+    /// integration tests cannot catch that: they drive the handler, and this is model binding.
+    private static Task<RazorComponentResult> RenderAfterAuditChange(
+        string? view, int? characterId, string? sourceName, string? term, int? page, int? pageSize,
+        RecordAuditHandler handler) =>
+        string.Equals(view, ModificationsView, StringComparison.OrdinalIgnoreCase)
+            ? GetRecordAuditModifications(handler)
+            : SearchRecordAudit(characterId ?? 0, sourceName, term, page, pageSize, handler);
+
+    /// The one spelling of the "render the modifications list back" signal, shared with the razor.
+    public const string ModificationsView = "modifications";
 
     private static async Task<RazorComponentResult> GetBaselines(CharacterBaselineAdminHandler handler)
     {

@@ -98,6 +98,13 @@ var itemValueOverrideCache = scope.ServiceProvider.GetRequiredService<KlavLor.Ap
 var itemValueOverrideRepository = scope.ServiceProvider.GetRequiredService<KlavLor.Application.Interfaces.Repositories.IItemValueOverrideRepository>();
 itemValueOverrideCache.Replace(await itemValueOverrideRepository.GetAll());
 
+// Prime the drop blacklist before the feed seeder runs, for the same reason as the line above: the
+// seeder reads kills back out of DropsJson, which still holds every blacklisted drop by design, so
+// an empty cache would rebuild the swimlanes with items an admin has removed from the site.
+var dropBlacklistCache = scope.ServiceProvider.GetRequiredService<KlavLor.Application.Interfaces.Services.IDropBlacklistCache>();
+var recordAuditRepository = scope.ServiceProvider.GetRequiredService<KlavLor.Application.Interfaces.Repositories.ILootRecordAuditRepository>();
+dropBlacklistCache.Replace(await recordAuditRepository.GetAllBlacklistedDrops());
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);

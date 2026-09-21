@@ -31,7 +31,7 @@ public sealed class FeedOrdinalAndOneOffTests(PostgresFixture fx)
         Seed.AddKill(ctx, userId, charId, withKc, t.AddHours(2), 500, [drop]);
         await ctx.SaveChangesAsync();
 
-        var repo = new LootFeedRepository(ctx, NullLogger<LootFeedRepository>.Instance, new FakeClogCache(), new FakeItemValueCache());
+        var repo = new LootFeedRepository(ctx, NullLogger<LootFeedRepository>.Instance, new FakeClogCache(), Fakes.DropReader());
         var tiers = await repo.GetAllFeedTiers(200, LootFeedScope.Main);
         var standard = tiers[LootFeedTier.Standard];
 
@@ -69,7 +69,7 @@ public sealed class FeedOrdinalAndOneOffTests(PostgresFixture fx)
         Seed.AddKill(ctx, userId, charId, src, t.AddHours(3), 120, [junk]);
         await ctx.SaveChangesAsync();
 
-        var repo = new LootFeedRepository(ctx, NullLogger<LootFeedRepository>.Instance, new FakeClogCache(), new FakeItemValueCache());
+        var repo = new LootFeedRepository(ctx, NullLogger<LootFeedRepository>.Instance, new FakeClogCache(), Fakes.DropReader());
         var tiers = await repo.GetAllFeedTiers(200, LootFeedScope.Main);
 
         var standard = tiers[LootFeedTier.Standard].Single(e => e.SourceName == src);
@@ -138,8 +138,8 @@ public sealed class FeedOrdinalAndOneOffTests(PostgresFixture fx)
         Seed.AddKill(ctx, userId, charId, cheapGrind, t.AddMinutes(40), 2, [new("Bones", 3, 1, 3_000)]);
         await ctx.SaveChangesAsync();
 
-        var repo = new LootSessionRepository(ctx, NullLogger<LootSessionRepository>.Instance, new FakeClogCache(), new FakeItemValueCache());
-        var profileRepo = new LootProfileRepository(ctx, NullLogger<LootProfileRepository>.Instance, new FakeItemValueCache());
+        var repo = new LootSessionRepository(ctx, NullLogger<LootSessionRepository>.Instance, new FakeClogCache(), Fakes.DropReader());
+        var profileRepo = new LootProfileRepository(ctx, NullLogger<LootProfileRepository>.Instance, Fakes.DropReader());
 
         var history = await repo.GetCharacterSessions(charId, pageNumber: 1, pageSize: 20);
         Assert.Equal(2, history.TotalSessions);
@@ -170,7 +170,7 @@ public sealed class FeedOrdinalAndOneOffTests(PostgresFixture fx)
             Seed.AddKill(ctx, userId, charId, src, t.AddHours(2 * k), k + 1, [new("Loot", 1, 1, 2_000)]);
         await ctx.SaveChangesAsync();
 
-        var repo = new LootSessionRepository(ctx, NullLogger<LootSessionRepository>.Instance, new FakeClogCache(), new FakeItemValueCache());
+        var repo = new LootSessionRepository(ctx, NullLogger<LootSessionRepository>.Instance, new FakeClogCache(), Fakes.DropReader());
         var history = await repo.GetCharacterSessions(charId, pageNumber: 1, pageSize: 20);
 
         var mine = history.Sessions.Where(s => s.SourceName == src).ToList();

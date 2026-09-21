@@ -28,6 +28,7 @@ public sealed class LootIngestHandler(
     IDropRateRepository dropRateRepository,
     ICharacterDelveDepthRepository delveDepthRepository,
     IItemValueOverrideCache itemValues,
+    EffectiveDropReader dropReader,
     SourceLootService sourceLoot)
 {
     /// <summary>
@@ -297,10 +298,10 @@ public sealed class LootIngestHandler(
         // Imported records only publish if any single drop qualifies for Rare+ (1M+) to avoid flooding.
         if (record.IsImported)
         {
-            // Re-priced through the override cache: DropsJson holds the raw price, so an item whose
-            // real worth is admin-set would otherwise be judged at 0 and silently never publish.
-            var drops = itemValues.WithEffectivePrices(
-                JsonSerializer.Deserialize<List<LootDrop>>(record.DropsJson) ?? []);
+            // Through the one reader: DropsJson holds the raw price, so an item whose real worth is
+            // admin-set would otherwise be judged at 0 and silently never publish. A blacklisted
+            // drop cannot carry a record into the feed either — it does not exist on any surface.
+            var drops = dropReader.Read(record.Id, record.DropsJson);
             return drops.Any(d => (long)d.Quantity * d.Price >= 1_000_000);
         }
 
@@ -393,12 +394,12 @@ public sealed class LootIngestHandler(
     private async Task PublishRecordToFeed(
         string userName, LootRecord record, GameCharacter? character, Dictionary<int, int> ordinals)
     {
-        // Re-priced through the override cache before anything looks at a value: this is the live
-        // path, and it must agree with the backfill path (which reads the already-effective
-        // LootDrops projection) or the same drop would land in a different swimlane before and
-        // after a refresh.
-        var drops = itemValues.WithEffectivePrices(
-            JsonSerializer.Deserialize<List<LootDrop>>(record.DropsJson) ?? []);
+        // Through the one reader before anything looks at a value: this is the live path, and it
+        // must agree with the backfill path (which reads the already-effective LootDrops
+        // projection) or the same drop would land in a different swimlane before and after a
+        // refresh. Both halves of that agreement — effective prices and blacklisted drops — are
+        // applied together here for exactly that reason.
+        var drops = dropReader.Read(record.Id, record.DropsJson);
 
         // Attach the effective rate to every drop so a feed card can say how lucky it was using
         // exactly the same numbers as the character page and the leaderboard. One batched lookup

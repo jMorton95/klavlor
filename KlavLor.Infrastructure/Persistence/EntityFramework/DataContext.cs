@@ -37,6 +37,8 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
     public virtual DbSet<LeaderboardItemExclusion> LeaderboardItemExclusions => Set<LeaderboardItemExclusion>();
     public virtual DbSet<SourceRateModifier> SourceRateModifiers => Set<SourceRateModifier>();
     public virtual DbSet<ItemValueOverride> ItemValueOverrides => Set<ItemValueOverride>();
+    public virtual DbSet<BlacklistedLootDrop> BlacklistedLootDrops => Set<BlacklistedLootDrop>();
+    public virtual DbSet<DeletedLootRecordLog> DeletedLootRecordLogs => Set<DeletedLootRecordLog>();
     public virtual DbSet<CollectionLogCategory> CollectionLogCategories => Set<CollectionLogCategory>();
     public virtual DbSet<CollectionLogCategoryItem> CollectionLogCategoryItems => Set<CollectionLogCategoryItem>();
     public virtual DbSet<CharacterCollectionLogEntry> CharacterCollectionLogEntries => Set<CharacterCollectionLogEntry>();
@@ -526,6 +528,32 @@ internal class DataContext(DbContextOptions<DataContext> options) : DbContext(op
         modelBuilder.Entity<ItemValueOverride>()
             .HasIndex(e => e.ItemId)
             .IsUnique();
+
+        // Admin drop blacklist (see BlacklistedLootDrop). Cascades with its record: a deleted
+        // record's drops are gone anyway, so a blacklist row for one describes nothing.
+        modelBuilder.Entity<BlacklistedLootDrop>()
+            .HasOne(b => b.LootRecord)
+            .WithMany()
+            .HasForeignKey(b => b.LootRecordId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // One decision per (record, item), enforced by a UNIQUE index on
+        // ("LootRecordId", "ItemId", lower("ItemName")) — added as raw SQL in the migration, since
+        // EF cannot model an expression index. Case-insensitive because the three vocabularies that
+        // produce an item name disagree on case, and ItemName is part of the key at all because an
+        // untradeable can be logged with no usable id (ItemId 0), so two such drops on one kill must
+        // stay individually blacklistable. ItemName itself is stored exactly as the drop spells it,
+        // for display in the audit list.
+
+        // Audit log of deleted records (see DeletedLootRecordLog). Append-only; read newest-first
+        // by the record-audit panel's "manually modified" list.
+        modelBuilder.Entity<DeletedLootRecordLog>()
+            .Property(e => e.OccurredAt)
+            .HasColumnType("timestamp with time zone");
+
+        modelBuilder.Entity<DeletedLootRecordLog>()
+            .HasIndex(e => e.SavedAt)
+            .IsDescending();
 
         // Background-job run log (append-only operational history; not an Entity, no audit stamp).
         modelBuilder.Entity<JobRun>()

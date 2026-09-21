@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Npgsql;
 using KlavLor.Application.Common;
 using KlavLor.Application.Common.Exceptions;
+using KlavLor.Application.Features.Loot;
 using KlavLor.Application.Features.Loot.Feed;
 using KlavLor.Application.Features.Loot.Ingest.Audit;
 using KlavLor.Application.Features.Loot.Log;
@@ -19,7 +20,7 @@ namespace KlavLor.Infrastructure.Persistence.EntityFramework.Repositories.Loot;
 // consumer feature; the queries are unchanged.
 internal sealed class LootSourceDetailRepository(
     DataContext dataContext, ILogger<LootSourceDetailRepository> logger, ICollectionLogCache collectionLogCache,
-    IItemValueOverrideCache itemValues)
+    EffectiveDropReader dropReader)
     : ILootSourceDetailRepository
 {
     public async Task<LootSourceDetail> GetSourceDetail(int characterId, string sourceName, int pageNumber, int pageSize)
@@ -58,6 +59,7 @@ internal sealed class LootSourceDetailRepository(
                 .Take(5)
                 .Select(r => new
                 {
+                    r.Id,
                     r.OccurredAt,
                     r.KillCount,
                     r.TotalValue,
@@ -74,9 +76,9 @@ internal sealed class LootSourceDetailRepository(
                 .Where(k => k.TotalValue > 0)
                 .Select(k =>
                 {
-                    // DropsJson holds the raw RuneLite price; re-price through the admin overrides.
-                    var drops = itemValues.WithEffectivePrices(
-                        JsonSerializer.Deserialize<List<LootDrop>>(k.DropsJson) ?? []);
+                    // Through the one reader: DropsJson holds the raw price and still holds any
+                    // blacklisted drop, neither of which this page may show.
+                    var drops = dropReader.Read(k.Id, k.DropsJson);
                     return new LootKillEntry(
                         k.OccurredAt,
                         k.KillCount,
@@ -93,15 +95,14 @@ internal sealed class LootSourceDetailRepository(
                 .OrderByDescending(r => r.OccurredAt)
                 .Skip(skip)
                 .Take(pageSize + 1)
-                .Select(r => new { r.OccurredAt, r.KillCount, r.TotalValue, r.DropsJson })
+                .Select(r => new { r.Id, r.OccurredAt, r.KillCount, r.TotalValue, r.DropsJson })
                 .ToListAsync();
 
             var hasMore = kills.Count > pageSize;
             var killEntries = kills.Take(pageSize).Select((k, i) =>
             {
-                // DropsJson holds the raw RuneLite price; re-price through the admin overrides.
-                var drops = itemValues.WithEffectivePrices(
-                    JsonSerializer.Deserialize<List<LootDrop>>(k.DropsJson) ?? []);
+                // Through the one reader: raw prices re-priced, blacklisted drops removed.
+                var drops = dropReader.Read(k.Id, k.DropsJson);
                 var ordinal = summary.TotalKills - skip - i;
                 return new LootKillEntry(
                     k.OccurredAt,
@@ -146,15 +147,14 @@ internal sealed class LootSourceDetailRepository(
                 .OrderByDescending(r => r.OccurredAt)
                 .Skip(skip)
                 .Take(pageSize + 1)
-                .Select(r => new { r.OccurredAt, r.KillCount, r.TotalValue, r.DropsJson })
+                .Select(r => new { r.Id, r.OccurredAt, r.KillCount, r.TotalValue, r.DropsJson })
                 .ToListAsync();
 
             var hasMore = kills.Count > pageSize;
             var killEntries = kills.Take(pageSize).Select((k, i) =>
             {
-                // DropsJson holds the raw RuneLite price; re-price through the admin overrides.
-                var drops = itemValues.WithEffectivePrices(
-                    JsonSerializer.Deserialize<List<LootDrop>>(k.DropsJson) ?? []);
+                // Through the one reader: raw prices re-priced, blacklisted drops removed.
+                var drops = dropReader.Read(k.Id, k.DropsJson);
                 var ordinal = totalKills - skip - i;
                 return new LootKillEntry(
                     k.OccurredAt,
