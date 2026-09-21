@@ -135,27 +135,31 @@ public sealed class RecordAuditHandler(
         // the database agreed it was gone.
         blacklistCache.Replace(await repository.GetAllBlacklistedDrops());
 
-        var result = await Invalidate(changed);
-
-        // The live feed's swimlanes are an in-memory buffer, not a query, so nothing above reaches
-        // them: re-priming a cache and re-deriving the database fixes every surface that reads on
-        // request and leaves the lanes exactly as they were, still holding a card that shows the
-        // drop. Shipping this without the reseed is the same bug the item-value override shipped
-        // with, and it looks identical from outside — a card that refuses to change until a restart.
-        await feedBuffer.Reseed();
-
-        return result;
+        return await Invalidate(changed);
     }
 
-    /// Drop every memoised aggregate the record fed and ask for a leaderboard rebuild. Shared by
-    /// delete, exclude and blacklist so the three can't invalidate different things for the same
-    /// change of fact.
+    /// Drop every memoised aggregate the record fed, reseed the live feed, and ask for a
+    /// leaderboard rebuild. Shared by delete, exclude and blacklist so the three can't invalidate
+    /// different things for the same change of fact.
     private async Task<Result> Invalidate(DeletedRecordInfo record)
     {
         LootStatsCache.Invalidate(memoryCache, record.GameCharacterId);
         GlobalSourceCache.Invalidate(memoryCache, record.SourceName);
         foreach (var item in record.ItemNames.Distinct(StringComparer.OrdinalIgnoreCase))
             GlobalDropCache.Invalidate(memoryCache, item);
+
+        // THE SWIMLANES ARE AN IN-MEMORY BUFFER, NOT A QUERY, so nothing above reaches them:
+        // dropping a memoised aggregate and re-deriving the database fixes every surface that reads
+        // on request and leaves the lanes exactly as they were, still holding the card. It looks
+        // from outside like a card that refuses to change until a restart — the same bug the
+        // item-value override shipped with, and the reason FeedBufferSeeder exists at all.
+        //
+        // It sits here rather than at one call site because all three repairs change what a lane is
+        // showing. A delete removes a kill the lanes may be holding; a luck exclusion moves the
+        // lucky/dry line on its card, which the buffer carries on LootFeedDrop.ExcludedFromLuck; a
+        // blacklist removes a drop from one. Only the blacklist reseeded, so the other two were
+        // silently stale until a restart.
+        await feedBuffer.Reseed();
 
         await recompute.LuckInputsChanged();
         return Result.Success();
