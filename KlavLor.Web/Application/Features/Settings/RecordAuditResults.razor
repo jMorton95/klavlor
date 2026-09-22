@@ -1,11 +1,16 @@
 @using KlavLor.Application.Interfaces.Repositories
 
-@* One page of records for a character at a source, each with its drops and a delete.
+@* One page of records for a character, each with its drops, and the three repairs.
 
    Every control here carries the full query as hx-vals rather than reading the form inputs. The
-   pager and the delete both need to reproduce the exact search that produced this page, and after
-   a delete swaps this component the original inputs are still on screen but the page number in
-   them is stale. Round-tripping the parameters through the markup keeps them in step. *@
+   pager, the delete and both toggles need to reproduce the exact search that produced this page, and
+   after a swap the original inputs are still on screen but the page number in them is stale.
+   Round-tripping the parameters through the markup keeps them in step.
+
+   THE DROPS COME FROM THE CANONICAL DropsJson, not the LootDrops projection, and this panel is the
+   only place on the site that does. Blacklisting a drop removes it from the projection — that
+   absence is exactly how it disappears everywhere else — so reading the projection here would make
+   a blacklisted drop invisible on the one screen that has to be able to see it and put it back. *@
 
 @if (Page.TotalRows == 0)
 {
@@ -35,6 +40,9 @@ else
                 <div class="min-w-0 flex-1">
                     <div class="flex items-baseline gap-2 flex-wrap">
                         <span class="text-xs font-semibold tabular-nums text-slate-200">@row.OccurredAt.ToLocalTime().ToString("d MMM yyyy HH:mm")</span>
+                        @* The source is shown per row now: a search can span every source the
+                           character has, so the row can no longer assume the header says which. *@
+                        <span class="text-[11px] text-slate-300">@row.SourceName</span>
                         @if (row.KillCount is { } kc)
                         {
                             <span class="text-[10px] tabular-nums text-amber-400">KC @kc.ToString("N0")</span>
@@ -56,19 +64,37 @@ else
                         <span class="text-[10px] text-slate-500">#@row.Id</span>
                     </div>
 
-                    <div class="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
+                    @* Each drop is its own control. Clicking one hides that item site-wide and
+                       leaves the kill and every other drop alone; clicking a hidden one puts it
+                       back. Reversible either way, so no confirm — the chip says which state it is
+                       in and one more click undoes it. *@
+                    <div class="flex flex-wrap gap-1.5 mt-1.5">
                         @if (row.Drops.Count == 0)
                         {
                             <span class="text-[11px] text-slate-500">no drops</span>
                         }
                         @foreach (var drop in row.Drops)
                         {
-                            <span class="text-[11px] text-slate-300">
-                                @drop.Name@(drop.Quantity > 1 ? $" ×{drop.Quantity:N0}" : "")
-                                <span class="text-slate-500">@(((long)drop.Quantity * drop.Price).ToString("N0"))</span>
-                            </span>
+                            <button type="button"
+                                    hx-post="@BlacklistUrl(row.Id, drop, !drop.Blacklisted)"
+                                    hx-target="#ra-results"
+                                    hx-swap="innerHTML"
+                                    title="@(drop.Blacklisted
+                                        ? $"Restore {drop.Name}: it becomes visible again everywhere and counts for gold as before."
+                                        : $"Hide {drop.Name} across the whole site — drop lists, gold totals, the collection log and the live feed. The kill still counts as a roll and this record's other drops are unaffected.")"
+                                    class="group inline-flex items-baseline gap-1 px-1.5 py-0.5 rounded border text-[11px] cursor-pointer @(drop.Blacklisted
+                                        ? "border-red-900 bg-red-950/40 text-red-400 line-through decoration-red-500/70"
+                                        : "border-slate-700 text-slate-300 hover:border-red-900 hover:text-red-400")">
+                                <span>@drop.Name@(drop.Quantity > 1 ? $" ×{drop.Quantity:N0}" : "")</span>
+                                <span class="@(drop.Blacklisted ? "text-red-500/70" : "text-slate-500")">@((drop.Quantity * drop.Price).ToString("N0"))</span>
+                            </button>
                         }
                     </div>
+
+                    @if (row.Drops.Any(d => d.Blacklisted))
+                    {
+                        <p class="text-[10px] text-red-400/80 mt-1">Struck through = hidden everywhere. Click to restore.</p>
+                    }
                 </div>
 
                 @* Reversible and non-destructive, so no confirm: the button says which way it is
@@ -91,7 +117,7 @@ else
                         hx-delete="@DeleteUrl(row.Id)"
                         hx-target="#ra-results"
                         hx-swap="innerHTML"
-                        hx-confirm="Delete this record and its drops? This cannot be undone."
+                        hx-confirm="Delete this record and its drops? This cannot be undone — it will be logged in the modifications list, but the record itself is gone."
                         class="shrink-0 px-2 py-1 text-[11px] rounded border border-red-800 text-red-400 hover:bg-red-950/40 cursor-pointer">
                     Delete
                 </button>
@@ -124,4 +150,14 @@ else
     private string ExcludeUrl(int recordId, bool excluded) =>
         AppRoutes.AdminRecordAuditExclude.Replace("{recordId:int}", recordId.ToString()).FromApi()
         + Query(Page.Page) + $"&excluded={excluded.ToString().ToLowerInvariant()}";
+
+    /// Same idempotent shape as the exclude toggle. The item id AND name both travel because
+    /// together they are the blacklist's key — an untradeable can be logged with no usable id, so
+    /// the id alone would not distinguish two of them on one kill.
+    private string BlacklistUrl(int recordId, AuditRecordDrop drop, bool blacklisted) =>
+        AppRoutes.AdminRecordAuditBlacklist.Replace("{recordId:int}", recordId.ToString()).FromApi()
+        + Query(Page.Page)
+        + $"&itemId={drop.ItemId}"
+        + $"&itemName={Uri.EscapeDataString(drop.Name)}"
+        + $"&blacklisted={blacklisted.ToString().ToLowerInvariant()}";
 }

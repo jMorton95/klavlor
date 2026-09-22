@@ -31,6 +31,11 @@ public static class ApplicationDependencyConfiguration
         // seeder and the item-value admin — see FeedBufferSeeder for why the admin needs it.
         services.TryAddScoped<Features.Loot.Feed.FeedBufferSeeder>();
 
+        // THE one way to read a loot record's drops back out of DropsJson — applies the item-value
+        // overrides and the drop blacklist together, so a call site cannot honour one and forget
+        // the other. Singleton, because both caches behind it are. See EffectiveDropReader.
+        services.TryAddSingleton<Features.Loot.EffectiveDropReader>();
+
         // Source loot strategies (PVT strategy convention). One line per strategy against the
         // shared interface so SourceLootService receives them all as IEnumerable and dispatches
         // by source name. The default (empty key) covers every ordinary source; add a new

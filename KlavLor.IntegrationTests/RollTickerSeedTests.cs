@@ -14,7 +14,7 @@ public sealed class RollTickerSeedTests(PostgresFixture fx)
     private static readonly DateTimeOffset T = new(2026, 6, 1, 12, 0, 0, TimeSpan.Zero);
 
     private static LootFeedRepository Repo(KlavLor.Infrastructure.Persistence.EntityFramework.DataContext ctx)
-        => new(ctx, NullLogger<LootFeedRepository>.Instance, new FakeClogCache(), new FakeItemValueCache());
+        => new(ctx, NullLogger<LootFeedRepository>.Instance, new FakeClogCache(), Fakes.DropReader());
 
     [Fact]
     public async Task The_seed_returns_the_newest_kills_first_with_no_loot()

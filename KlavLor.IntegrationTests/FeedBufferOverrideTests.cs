@@ -66,7 +66,7 @@ public sealed class FeedBufferOverrideTests(PostgresFixture fx)
     private static Rig Build(DataContext ctx)
     {
         var cache = new FakeItemValueCache();
-        var feedRepo = new LootFeedRepository(ctx, NullLogger<LootFeedRepository>.Instance, new FakeClogCache(), cache);
+        var feedRepo = new LootFeedRepository(ctx, NullLogger<LootFeedRepository>.Instance, new FakeClogCache(), Fakes.DropReader(cache));
         var tiers = new LootFeedTiersHandler(
             feedRepo,
             new DropRateRepository(ctx, NullLogger<DropRateRepository>.Instance),

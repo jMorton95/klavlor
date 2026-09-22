@@ -309,6 +309,89 @@ The semantics are deliberately asymmetric, and `KlavLor.IntegrationTests/RecordL
 - On the feed the drop keeps its value, tier and chip; only the luck line goes, via `LootFeedDrop.ExcludedFromLuck` (carried from `FeedTierProjection`) and `ShouldRate`. A grouped chip standing for several receipts is silenced if **any** of them is excluded — half a verdict is worse than none.
 - Toggling invalidates exactly what a delete does and calls `RecomputeTrigger.LuckInputsChanged()`, so the board rebuilds within ~60s.
 
+### The Record Audit Has THREE Repairs, And They Are Not Degrees Of One Thing
+
+`/admin/settings/record-audit` offers three actions, and choosing between them is a question about
+what is actually wrong rather than about how hard you want to hit it:
+
+| | Unit | Kill counts as a roll? | Counts for gold? | Visible? | Reversible? |
+|---|---|---|---|---|---|
+| **Exclude from luck** | whole record | yes | yes | yes | yes |
+| **Blacklist a drop** | one item on one kill | yes | no | no | yes |
+| **Delete** | whole record | no | no | no | no (logged) |
+
+`LootRecord.ExcludedFromLuck` (above) disowns a real receipt's luck *attribution*.
+`BlacklistedLootDrop` is for an item that is **not loot at all** — RuneLite logging something as it
+is equipped and attributing it to whatever dossier or chest was opened at that moment. Deleting
+would throw away a real kill to remove one phantom item.
+
+**A BLACKLISTED DROP IS HIDDEN BY BEING ABSENT FROM THE PROJECTION, AND THAT IS WHY THIS FEATURE
+TOUCHED NO QUERY SITES.** `LootRecords`/`LootDrops` are read from ~20 repository files across ~150
+call sites, most of them raw ADO SQL, so a `Hidden` flag filtered per query would have been the
+"miss one and two surfaces disagree" bug class at its worst. Instead it rides the invariant already
+recorded under "Item Values" — `DropsJson` is canonical and raw, `LootDrops` + `LootRecords.TotalValue`
+are the derived projection — by simply **leaving the drop out of the projection**:
+
+- Every SQL read site queries the projection, so the drop vanishes from the character's drop grid and
+  loot chart, source tables, GP totals, the collection log, profile stats, sessions, the global item
+  and source pages — with **no query changed**, including pages written later that never heard of it.
+- `DropsJson` keeps the entry untouched, which is the whole basis of reversibility: restoring
+  re-derives the row straight back out of it, first-time flag and all.
+- The kill keeps its row, so it still counts as a roll and a KC, and the record's **other** drops are
+  untouched.
+
+The exception is the handful of sites that deserialise `DropsJson` directly. They all go through
+**`EffectiveDropReader`**, the one seam that deserialises and applies *both* admin decisions — item
+value overrides and the blacklist — in a single call. It replaced the bare
+`itemValues.WithEffectivePrices(JsonSerializer.Deserialize(...))` pattern at all nine of them
+precisely so a call site cannot honour one rule and forget the other; CLAUDE.md already had to
+enumerate those sites once for prices, and the list would have had to be kept in step twice. Any
+projection carrying `DropsJson` must therefore carry the **record id** with it — see
+`FeedTierProjection.RecordId`, and note several anonymous projections had `r.Id` added for this. The
+blacklist is per `(record, item)`, so without the id the filter silently never engages.
+
+Four more things are load-bearing:
+
+- **The key is item id AND name, matched case-insensitively.** Not the id alone: an untradeable can
+  be logged with no usable id (`COALESCE(... , 0)`), and two such drops on one kill must stay
+  individually blacklistable. Not the name alone: names collide. The unique index is an expression
+  index on `("LootRecordId", "ItemId", lower("ItemName"))`, hand-written in the migration because EF
+  cannot model one. Three vocabularies produce an item name and they disagree on case — the same
+  reason the collection-log rule matches case-insensitively.
+- **`RebuildDropsForCharacter` and `RebuildDropsForRecord` share ONE spelling of the projection SQL**,
+  parameterised by their scope predicate, and both now re-derive `TotalValue`. That re-derivation used
+  to be deliberately omitted on the reasoning that a rebuild "only restores the projection to what it
+  should already have been" — true until the blacklist made the projection smaller than `DropsJson`.
+  Without it, `RecomputeFirstTimeFlags` (which runs after every imported batch and every special-drop
+  injection) would resurrect a blacklisted drop's gold. This is the same trap
+  `ProjectionRebuildTests` pins for item-value overrides, and it is silent.
+- **A blacklisted drop cannot hold an item's first-time flag.** `RecomputeFirstTimeFlags` excludes it
+  from the candidate CTE rather than from the UPDATE, so the flag moves to the next *visible* receipt
+  instead of sitting on a drop nobody can see.
+- **Every write re-primes `IDropBlacklistCache` and reseeds the live feed buffer.** The swimlanes are
+  an in-memory buffer, not a query, so re-deriving the database fixes every surface that reads on
+  request and leaves the lanes exactly as they were. Skipping `FeedBufferSeeder.Reseed()` is the
+  identical bug the item-value override shipped with, and it looks identical from outside — a card
+  that refuses to change until a restart.
+
+**The audit panel is the ONE surface that reads `DropsJson` rather than the projection**, and it must
+stay that way: it is the only screen that can lift a blacklist, so it has to be able to see what it
+hid. Its search matches the blacklist table as well as the projection for the same reason. The
+source filter is also now optional when a term is given — the source a mis-attributed drop was filed
+under is exactly what an admin cannot guess, so "find every Crystal armour seed this character has"
+has to work without one. It is still bound to a single character, so it never becomes a way to scan
+the whole loot table from a text box.
+
+**Deletions are logged, not archived.** `DeletedLootRecordLog` records who, when, which character and
+source, the kill's time, value and a flattened item summary. Deletion stays irreversible — the log
+exists because, months later, there was no way to tell a record someone removed from one that never
+synced. It deliberately stores a **summary rather than the original `DropsJson`**: keeping the JSON
+would make it an archive by accident and retain a copy of data an admin decided to remove.
+
+`RecordAuditModifications.razor` shows all three kinds, newest first, with an undo on the two live
+ones. `KlavLor.IntegrationTests/DropBlacklistTests.cs` pins the mechanism against real SQL;
+`KlavLor.UnitTests/DropBlacklistTests.cs` pins the reader seam and the cache.
+
 **Only items of 1/6 or rarer get a lucky/dry verdict** (`FeedLuckRules.WorthRating`, one of the conditions `ShouldRate` checks). Below that, ordinary variance renders as a lurid multiple. The threshold reads **expected rolls** from `SourceLootService`, never the raw stored denominator — that is precisely what keeps raid uniques rated and is why Chambers of Xeric, Tombs of Amascut and Theatre of Blood need no special case: a CoX prayer scroll is stored as 12/56 (which as a bare fraction looks like 1 in 4.7 and would be filtered out), but it is a share of the unique table and `RaidUniqueShareStrategy` has already scaled it to ~149 raids by the time the feed sees it. `KlavLor.UnitTests/FeedLuckRulesTests.cs` pins this; `KlavLor.UnitTests/FeedLuckShouldRateTests.cs` pins the other four conditions.
 
 **Feed tiers are per drop, everywhere.** Anything that classifies an item into a swimlane must use the value of a single receipt, never a running total — `LootDropSummary.BestDropValue` exists for exactly this, so 500 cheap drops summing to millions can't read as a legendary. Always classify via `ILootFeedService.GetDropTier` rather than re-hardcoding thresholds; the character/source page's drop grid and the live feed cards share it.

@@ -25,7 +25,7 @@ namespace KlavLor.IntegrationTests;
 public sealed class RecordLuckExclusionTests(PostgresFixture fx)
 {
     private static LootSourceDetailRepository Repo(DataContext ctx, params int[] clogIds) =>
-        new(ctx, NullLogger<LootSourceDetailRepository>.Instance, new FakeClogCache(clogIds), new FakeItemValueCache());
+        new(ctx, NullLogger<LootSourceDetailRepository>.Instance, new FakeClogCache(clogIds), Fakes.DropReader());
 
     [Fact]
     public async Task An_excluded_record_stops_being_a_receipt_but_still_counts_as_a_roll()
@@ -125,8 +125,11 @@ public sealed class RecordLuckExclusionTests(PostgresFixture fx)
             [new("RLE3 crystal armour seed", 910_301, 1, 0, IsFirstTime: true)]);
         await ctx.SaveChangesAsync();
 
-        ILootRecordAuditRepository audit =
-            new LootRecordAuditRepository(ctx, NullLogger<LootRecordAuditRepository>.Instance);
+        ILootRecordAuditRepository audit = new LootRecordAuditRepository(
+            ctx,
+            new LootRecordRepository(ctx, NullLogger<LootRecordRepository>.Instance),
+            new FakeItemValueCache(),
+            NullLogger<LootRecordAuditRepository>.Instance);
 
         // Setting it twice reports success both times rather than failing the second call: the
         // toggle sends the state it wants, so a double click asks for what is already true.

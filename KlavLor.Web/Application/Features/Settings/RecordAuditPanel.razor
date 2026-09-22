@@ -27,7 +27,7 @@
     </div>
 
     <div>
-        <label class="block text-[10px] uppercase tracking-wider text-white mb-1">Source</label>
+        <label class="block text-[10px] uppercase tracking-wider text-white mb-1">Source <span class="normal-case tracking-normal text-slate-400">(or search by item alone)</span></label>
         <select id="ra-source" name="sourceName"
                 class="w-64 px-3 py-2 text-sm border border-slate-600 bg-slate-800 text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none">
             <option value="">Pick a character first</option>
@@ -36,7 +36,7 @@
 
     <div>
         <label class="block text-[10px] uppercase tracking-wider text-white mb-1">Item contains</label>
-        <input id="ra-term" name="term" type="text" placeholder="optional, fuzzy" autocomplete="off"
+        <input id="ra-term" name="term" type="text" placeholder="e.g. Crystal armour seed" autocomplete="off"
                class="w-52 px-3 py-2 text-sm border border-slate-600 bg-slate-800 text-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
     </div>
 
@@ -65,14 +65,29 @@
     </button>
 </div>
 
-<p class="text-xs text-white mb-3">
-    Deleting removes that single kill and its drops, and cannot be undone. Use it for records RuneLite
-    logged wrongly &mdash; a drop attributed to a dossier or chest that was opened at the same moment
-    something was equipped. The luck leaderboard is rebuilt automatically afterwards.
-</p>
+@* The three actions differ in what they leave behind, which the buttons alone don't say. *@
+<ul class="text-xs text-white mb-3 space-y-0.5 list-disc pl-4">
+    <li><span class="font-semibold text-slate-200">Click a drop</span> to hide that item everywhere. Kill still counts; other drops unaffected.</li>
+    <li><span class="font-semibold text-slate-200">Exclude from luck</span> keeps the record, drops the luck figures only.</li>
+    <li><span class="font-semibold text-slate-200">Delete</span> removes the kill. <span class="text-red-400">Not undoable</span>, but logged below.</li>
+</ul>
 
 <div id="ra-results">
-    <p class="text-sm text-white">Choose a character and source, then search.</p>
+    <p class="text-sm text-white">Pick a character, then choose a source or type an item name.</p>
+</div>
+
+@* The modifications list is the answer to "why is this missing" — two of the three repairs above
+   leave nothing visible once made. Loaded on its own trigger rather than shipped with the panel, and
+   staggered behind nothing because it is the panel's only other load. *@
+<div class="mt-6 pt-4 border-t border-slate-800">
+    <h3 class="text-sm font-semibold text-slate-200 mb-1">Manually modified records</h3>
+    <p class="text-xs text-white mb-3">Newest first. Hidden drops and luck exclusions can be undone here.</p>
+    <div id="ra-modifications"
+         hx-get="@AppRoutes.AdminRecordAuditModifications.FromApi()"
+         hx-trigger="load"
+         hx-swap="innerHTML">
+        <p class="text-sm text-white">Loading&hellip;</p>
+    </div>
 </div>
 
 @code {

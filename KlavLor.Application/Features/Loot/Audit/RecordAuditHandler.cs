@@ -1,17 +1,19 @@
 ﻿using KlavLor.Application.Common;
 using KlavLor.Application.Features.Drop;
+using KlavLor.Application.Features.Loot.Feed;
 using KlavLor.Application.Features.Loot.Log;
 using KlavLor.Application.Features.Loot.Special;
 using KlavLor.Application.Features.Source;
 using KlavLor.Application.Features.Maintenance;
 using KlavLor.Application.Interfaces.Repositories;
+using KlavLor.Application.Interfaces.Services;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace KlavLor.Application.Features.Loot.Audit;
 
 /// <summary>
-/// Backs the admin record-audit panel: narrow to a character and a source, page through their
-/// records, and either delete a single bad one or take it out of the luck maths.
+/// Backs the admin record-audit panel: narrow to a character, page through their records, and
+/// repair one — delete it, take it out of the luck maths, or hide a single drop on it.
 ///
 /// The case it exists for is RuneLite mis-attributing a drop — opening a dossier at the moment an
 /// item was equipped logs that item as loot from the dossier. Before this, the only deletion
@@ -20,7 +22,9 @@ namespace KlavLor.Application.Features.Loot.Audit;
 public sealed class RecordAuditHandler(
     ILootRecordAuditRepository repository,
     IGameCharacterRepository characters,
+    IDropBlacklistCache blacklistCache,
     IMemoryCache memoryCache,
+    FeedBufferSeeder feedBuffer,
     RecomputeTrigger recompute)
 {
     /// <summary>Page sizes offered in the UI. Bounded rather than free-form: the rows carry their
@@ -28,6 +32,10 @@ public sealed class RecordAuditHandler(
     public static readonly int[] PageSizes = [10, 25, 50, 100];
 
     public const int DefaultPageSize = 25;
+
+    /// <summary>How many manual changes the modifications list shows. Generous enough to be a
+    /// history, small enough that it stays a list you read rather than one you page through.</summary>
+    public const int ModificationsLimit = 100;
 
     public async Task<List<SpecialLootCharacterOption>> GetCharacters()
     {
@@ -38,29 +46,39 @@ public sealed class RecordAuditHandler(
     public Task<List<AuditSourceOption>> GetSources(int characterId) =>
         characterId > 0 ? repository.GetSources(characterId) : Task.FromResult(new List<AuditSourceOption>());
 
-    public async Task<AuditRecordPage> Search(int characterId, string? sourceName, string? term, int page, int pageSize)
+    /// <summary>
+    /// A source OR a search term is enough. Requiring both made the commonest hunt impossible:
+    /// the source a mis-attributed drop was filed under is exactly what the admin cannot guess, so
+    /// "find every Crystal armour seed this character has" has to work without one. A bare
+    /// character with neither still returns nothing rather than their whole history.
+    /// </summary>
+    public Task<AuditRecordPage> Search(int characterId, string? sourceName, string? term, int page, int pageSize)
     {
         var source = (sourceName ?? "").Trim();
-        if (characterId <= 0 || source.Length == 0)
-            return new AuditRecordPage([], 1, DefaultPageSize, 0);
+        var needle = (term ?? "").Trim();
+        if (characterId <= 0 || (source.Length == 0 && needle.Length == 0))
+            return Task.FromResult(new AuditRecordPage([], 1, DefaultPageSize, 0));
 
         // Clamp rather than trust: these arrive as query-string values.
         var size = PageSizes.Contains(pageSize) ? pageSize : DefaultPageSize;
-        return await repository.Search(characterId, source, (term ?? "").Trim(), Math.Max(1, page), size);
+        return repository.Search(characterId, source, needle, Math.Max(1, page), size);
     }
+
+    public Task<List<AuditModification>> GetModifications() => repository.GetModifications(ModificationsLimit);
 
     /// <summary>
     /// Delete one record entirely. Its drops go with it through the existing cascade. For a record
-    /// whose kill was real but whose drop cannot be rated, use <see cref="SetLuckExclusion"/>.
+    /// whose kill was real but whose drop cannot be rated, use <see cref="SetLuckExclusion"/>; for
+    /// one bad item on an otherwise real kill, use <see cref="SetDropBlacklist"/>.
     ///
     /// A deleted record changes both sides of every luck ratio for that character and source — the
     /// roll count and, if it carried the item, the receipt — so the leaderboard is flagged for
     /// rebuild and the memoised aggregates it fed are dropped. Without that the site would keep
     /// quoting figures derived from a record the admin has just decided was never real.
     /// </summary>
-    public async Task<Result> Delete(int recordId)
+    public async Task<Result> Delete(int recordId, string? reason = null)
     {
-        var deleted = await repository.Delete(recordId);
+        var deleted = await repository.Delete(recordId, reason);
         if (deleted is null) return Result.Failure("That record no longer exists.");
 
         return await Invalidate(deleted);
@@ -85,14 +103,63 @@ public sealed class RecordAuditHandler(
         return await Invalidate(changed);
     }
 
-    /// Drop every memoised aggregate the record fed and ask for a leaderboard rebuild. Shared by
-    /// delete and exclude so the two can't invalidate different things for the same change of fact.
+    /// <summary>
+    /// Hide ONE drop on one record from the entire site, or restore it.
+    ///
+    /// The harder sibling of <see cref="SetLuckExclusion"/>, and deliberately a different unit. That
+    /// one disowns a whole record's luck attribution while the drop keeps counting for gold and
+    /// stays visible; this one removes a single item outright — the drop grid, the loot chart, GP
+    /// totals, the collection log, the live feed, the global item and source pages. The kill still
+    /// counts as a roll and every other drop on it is untouched.
+    ///
+    /// It is for an item that is not loot at all: RuneLite logging something as it is equipped and
+    /// attributing it to whatever was opened at that moment. Deleting the record would throw away a
+    /// real kill to remove one phantom item.
+    ///
+    /// Reversible, because DropsJson is never rewritten — restoring re-derives the drop back out of
+    /// it exactly as it was.
+    /// </summary>
+    public async Task<Result> SetDropBlacklist(
+        int recordId, int itemId, string? itemName, bool blacklisted, string? reason = null)
+    {
+        var name = (itemName ?? "").Trim();
+        if (name.Length == 0) return Result.Failure("An item name is required.");
+
+        var changed = await repository.SetDropBlacklist(recordId, itemId, name, blacklisted, reason);
+        if (changed is null) return Result.Failure("That record no longer exists.");
+
+        // Re-prime before anything reads: the repository has already rebuilt the stored projection,
+        // but every call site that reads a kill back out of DropsJson goes through
+        // EffectiveDropReader, which asks this cache. A stale cache would leave the drop showing on
+        // exactly those surfaces — the feed card, the session list, the biggest-kill panel — while
+        // the database agreed it was gone.
+        blacklistCache.Replace(await repository.GetAllBlacklistedDrops());
+
+        return await Invalidate(changed);
+    }
+
+    /// Drop every memoised aggregate the record fed, reseed the live feed, and ask for a
+    /// leaderboard rebuild. Shared by delete, exclude and blacklist so the three can't invalidate
+    /// different things for the same change of fact.
     private async Task<Result> Invalidate(DeletedRecordInfo record)
     {
         LootStatsCache.Invalidate(memoryCache, record.GameCharacterId);
         GlobalSourceCache.Invalidate(memoryCache, record.SourceName);
         foreach (var item in record.ItemNames.Distinct(StringComparer.OrdinalIgnoreCase))
             GlobalDropCache.Invalidate(memoryCache, item);
+
+        // THE SWIMLANES ARE AN IN-MEMORY BUFFER, NOT A QUERY, so nothing above reaches them:
+        // dropping a memoised aggregate and re-deriving the database fixes every surface that reads
+        // on request and leaves the lanes exactly as they were, still holding the card. It looks
+        // from outside like a card that refuses to change until a restart — the same bug the
+        // item-value override shipped with, and the reason FeedBufferSeeder exists at all.
+        //
+        // It sits here rather than at one call site because all three repairs change what a lane is
+        // showing. A delete removes a kill the lanes may be holding; a luck exclusion moves the
+        // lucky/dry line on its card, which the buffer carries on LootFeedDrop.ExcludedFromLuck; a
+        // blacklist removes a drop from one. Only the blacklist reseeded, so the other two were
+        // silently stale until a restart.
+        await feedBuffer.Reseed();
 
         await recompute.LuckInputsChanged();
         return Result.Success();

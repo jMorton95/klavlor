@@ -12,6 +12,17 @@ public interface ILootRecordRepository
 
     Task RecomputeFirstTimeFlags(int gameCharacterId);
 
+    /// <summary>
+    /// Re-derive one record's <c>LootDrops</c> rows and its <c>TotalValue</c> from the canonical
+    /// <c>DropsJson</c>, honouring the admin drop blacklist.
+    /// </summary>
+    /// <remarks>
+    /// On the interface because the record-audit admin needs it: blacklisting or restoring a single
+    /// drop is a change to exactly one record's projection, and rebuilding the whole character to
+    /// express that would be tens of thousands of rows deleted and reinserted to move one.
+    /// </remarks>
+    Task RebuildDropsForRecord(int lootRecordId);
+
     Task<int> GetKillOrdinal(int gameCharacterId, string sourceName, DateTimeOffset occurredAt, int recordId);
 
     /// <summary>

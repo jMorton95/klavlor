@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Npgsql;
 using KlavLor.Application.Common;
 using KlavLor.Application.Common.Exceptions;
+using KlavLor.Application.Features.Loot;
 using KlavLor.Application.Features.Loot.Feed;
 using KlavLor.Application.Features.Loot.Ingest.Audit;
 using KlavLor.Application.Features.Loot.Log;
@@ -18,7 +19,7 @@ namespace KlavLor.Infrastructure.Persistence.EntityFramework.Repositories.Loot;
 // LootLogRepository by consumer feature; the queries are unchanged.
 internal sealed class LootSessionRepository(
     DataContext dataContext, ILogger<LootSessionRepository> logger, ICollectionLogCache collectionLogCache,
-    IItemValueOverrideCache itemValues)
+    EffectiveDropReader dropReader)
     : ILootSessionRepository
 {
     // Groups a character's kills at one source into play "sessions" (same rule as the live feed,
@@ -230,7 +231,7 @@ internal sealed class LootSessionRepository(
                     WHERE "GameCharacterId" = @cid AND "SourceName" = @src
                 ),
                 {SessionSql.GapIslandsWithCap("")}
-                SELECT "OccurredAt", "KillCount", "TotalValue", "DropsJson", kill_ord + @baseline AS kill_ord
+                SELECT "OccurredAt", "KillCount", "TotalValue", "DropsJson", kill_ord + @baseline AS kill_ord, "Id"
                 FROM sessioned
                 WHERE session_no = @sessionNo
                 ORDER BY "OccurredAt" DESC, kill_ord DESC
@@ -250,9 +251,8 @@ internal sealed class LootSessionRepository(
             while (await reader.ReadAsync())
             {
                 var json = reader.GetString(3);
-                // DropsJson holds the raw RuneLite price; re-price through the admin overrides.
-                var drops = itemValues.WithEffectivePrices(
-                    JsonSerializer.Deserialize<List<LootDrop>>(json) ?? []);
+                // Through the one reader: raw prices re-priced, blacklisted drops removed.
+                var drops = dropReader.Read(reader.GetInt32(5), json);
                 entries.Add(new LootKillEntry(
                     reader.GetFieldValue<DateTimeOffset>(0),
                     reader.IsDBNull(1) ? null : reader.GetInt32(1),

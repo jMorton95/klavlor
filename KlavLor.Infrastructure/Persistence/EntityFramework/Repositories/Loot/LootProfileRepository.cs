@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Npgsql;
 using KlavLor.Application.Common;
 using KlavLor.Application.Common.Exceptions;
+using KlavLor.Application.Features.Loot;
 using KlavLor.Application.Features.Loot.Feed;
 using KlavLor.Application.Features.Loot.Ingest.Audit;
 using KlavLor.Application.Features.Loot.Log;
@@ -18,7 +19,7 @@ namespace KlavLor.Infrastructure.Persistence.EntityFramework.Repositories.Loot;
 // trend, personal records, top items - plus bulk deletion of a character's or user's records.
 // Split out of LootLogRepository by consumer feature; the queries are unchanged.
 internal sealed class LootProfileRepository(
-    DataContext dataContext, ILogger<LootProfileRepository> logger, IItemValueOverrideCache itemValues)
+    DataContext dataContext, ILogger<LootProfileRepository> logger, EffectiveDropReader dropReader)
     : ILootProfileRepository
 {
     public async Task<ProfileHeader?> GetProfileHeader(int characterId)
@@ -541,16 +542,16 @@ internal sealed class LootProfileRepository(
                 .Where(r => r.GameCharacterId == characterId)
                 .OrderByDescending(r => r.TotalValue)
                 .Take(1)
-                .Select(r => new { r.OccurredAt, r.KillCount, r.TotalValue, r.DropsJson, r.SourceName })
+                .Select(r => new { r.Id, r.OccurredAt, r.KillCount, r.TotalValue, r.DropsJson, r.SourceName })
                 .FirstOrDefaultAsync();
 
             LootKillEntry? biggestKill = null;
             string? biggestKillSource = null;
             if (topKillRaw is not null)
             {
-                // DropsJson holds the raw RuneLite price; re-price through the admin overrides.
-                var drops = itemValues.WithEffectivePrices(
-                    JsonSerializer.Deserialize<List<LootDrop>>(topKillRaw.DropsJson) ?? []);
+                // Through the one reader: raw prices re-priced, blacklisted drops removed. A
+                // biggest-kill card must not be headlining a drop that is invisible elsewhere.
+                var drops = dropReader.Read(topKillRaw.Id, topKillRaw.DropsJson);
                 biggestKill = new LootKillEntry(
                     topKillRaw.OccurredAt,
                     topKillRaw.KillCount,

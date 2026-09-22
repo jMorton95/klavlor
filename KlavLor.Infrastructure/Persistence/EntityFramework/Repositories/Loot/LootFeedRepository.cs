@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Npgsql;
 using KlavLor.Application.Common;
 using KlavLor.Application.Common.Exceptions;
+using KlavLor.Application.Features.Loot;
 using KlavLor.Application.Features.Loot.Feed;
 using KlavLor.Application.Features.Loot.Ingest.Audit;
 using KlavLor.Application.Features.Loot.Log;
@@ -19,7 +20,7 @@ namespace KlavLor.Infrastructure.Persistence.EntityFramework.Repositories.Loot;
 // consumer feature; the queries and the collapse/expand passes are unchanged.
 internal sealed class LootFeedRepository(
     DataContext dataContext, ILogger<LootFeedRepository> logger, ICollectionLogCache collectionLogCache,
-    IItemValueOverrideCache itemValues)
+    EffectiveDropReader dropReader)
     : ILootFeedRepository
 {
     /// <summary>
@@ -189,7 +190,7 @@ internal sealed class LootFeedRepository(
                     }
 
                     fetched += candidates.Count;
-                    var groups = CollapseProjections(candidates, tier, tierMin, tierMax, countPerTier, collectionLogCache, itemValues, scope);
+                    var groups = CollapseProjections(candidates, tier, tierMin, tierMax, countPerTier, collectionLogCache, dropReader, scope);
 
                     if (groups.Count >= countPerTier || candidates.Count < take || take >= hardCap)
                     {
@@ -591,7 +592,7 @@ internal sealed class LootFeedRepository(
         long? tierMax,
         int targetGroups,
         ICollectionLogCache collectionLogCache,
-        IItemValueOverrideCache itemValues,
+        EffectiveDropReader dropReader,
         LootFeedScope scope)
     {
         var groups = new List<LootFeedEntry>();
@@ -602,10 +603,9 @@ internal sealed class LootFeedRepository(
 
         foreach (var r in candidates)
         {
-            // DropsJson holds the raw RuneLite price; re-price through the admin overrides so a
-            // rebuilt card classifies into the same swimlane the live publish put it in.
-            var allDrops = itemValues.WithEffectivePrices(
-                JsonSerializer.Deserialize<List<LootDrop>>(r.DropsJson) ?? []);
+            // Through the one reader, so a rebuilt card classifies into the same swimlane the live
+            // publish put it in: same effective prices, and the same blacklisted drops absent.
+            var allDrops = dropReader.Read(r.RecordId, r.DropsJson);
             var tierDrops = allDrops
                 .Where(d =>
                 {
@@ -708,6 +708,7 @@ internal sealed class LootFeedRepository(
                 .OrderByDescending(x => x.Record.OccurredAt)
                 .Select(x => new FeedTierProjection
                 {
+                    RecordId = x.Record.Id,
                     UserName = x.User.FirstName + " " + x.User.LastName,
                     UserId = x.Record.UserId,
                     SourceName = x.Record.SourceName,
@@ -728,7 +729,7 @@ internal sealed class LootFeedRepository(
                 })
                 .ToListAsync();
 
-            var entries = CollapseDay(candidates, collectionLogCache, itemValues);
+            var entries = CollapseDay(candidates, collectionLogCache, dropReader);
 
             return new CharacterDayFeed(
                 day,
@@ -749,17 +750,16 @@ internal sealed class LootFeedRepository(
     private static List<LootFeedEntry> CollapseDay(
         List<FeedTierProjection> candidates,
         ICollectionLogCache collectionLogCache,
-        IItemValueOverrideCache itemValues)
+        EffectiveDropReader dropReader)
     {
         var groups = new List<LootFeedEntry>();
         var indexByKey = new Dictionary<string, List<int>>();
 
         foreach (var r in candidates)
         {
-            // DropsJson holds the raw RuneLite price; re-price through the admin overrides so a
-            // rebuilt card classifies into the same swimlane the live publish put it in.
-            var allDrops = itemValues.WithEffectivePrices(
-                JsonSerializer.Deserialize<List<LootDrop>>(r.DropsJson) ?? []);
+            // Through the one reader, so a rebuilt card classifies into the same swimlane the live
+            // publish put it in: same effective prices, and the same blacklisted drops absent.
+            var allDrops = dropReader.Read(r.RecordId, r.DropsJson);
             var drops = allDrops
                 .Where(d => ILootFeedService.GetDropTier((long)d.Quantity * d.Price) is not null)
                 .Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId, d.Name), d.IsSpecial, KillCount: r.KillCount, OccurredAt: r.OccurredAt, ExcludedFromLuck: r.ExcludedFromLuck))
@@ -1088,7 +1088,9 @@ internal sealed class LootFeedRepository(
 
     private sealed class FeedTierProjection
     {
-        /// Only used to de-duplicate the legendary lane's two candidate fetches.
+        /// De-duplicates the legendary lane's two candidate fetches, and identifies the record to
+        /// EffectiveDropReader — the drop blacklist is per (record, item), so every projection that
+        /// carries DropsJson must carry this with it or the blacklist silently never engages.
         public int RecordId { get; init; }
         public required string UserName { get; init; }
         public required int UserId { get; init; }

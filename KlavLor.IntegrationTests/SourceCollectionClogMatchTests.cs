@@ -33,7 +33,7 @@ public sealed class SourceCollectionClogMatchTests(PostgresFixture fx)
     private const string IdMatchedName = "CLM Abyssal head";
 
     private static LootSourceDetailRepository Repo(DataContext ctx) =>
-        new(ctx, NullLogger<LootSourceDetailRepository>.Instance, new FakeClogCache(), new FakeItemValueCache());
+        new(ctx, NullLogger<LootSourceDetailRepository>.Instance, new FakeClogCache(), Fakes.DropReader());
 
     [Fact]
     public async Task A_name_matched_clog_item_still_gets_its_drop_events()

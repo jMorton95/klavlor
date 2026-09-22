@@ -124,6 +124,16 @@ internal sealed class LootRecordRepository(DataContext dataContext, ILogger<Loot
                 FROM "LootRecords" lr,
                      jsonb_array_elements(lr."DropsJson") WITH ORDINALITY AS d(elem, idx)
                 WHERE lr."GameCharacterId" = @cid
+                  -- A blacklisted drop cannot hold the first-time flag: it is invisible everywhere,
+                  -- so the "first" badge would either sit on a drop nobody can see or be missing
+                  -- from the earliest one anybody can. Excluded from the candidate set rather than
+                  -- from the UPDATE, so the NEXT real receipt inherits the flag.
+                  AND NOT EXISTS (
+                      SELECT 1 FROM "BlacklistedLootDrops" b
+                      WHERE b."LootRecordId" = lr."Id"
+                        AND b."ItemId" = COALESCE((d.elem->>'ItemId')::int, 0)
+                        AND lower(b."ItemName") = lower(COALESCE(d.elem->>'Name', ''))
+                  )
             ),
             firsts AS (
                 SELECT DISTINCT ON (item_name) rec_id, item_name
@@ -172,18 +182,38 @@ internal sealed class LootRecordRepository(DataContext dataContext, ILogger<Loot
     // lane finds injected specials by querying LootDrops.IsSpecial, and dropping it here un-flagged
     // a special the moment SpecialLootHandler called RecomputeFirstTimeFlags right after writing it.
     //
-    // LootRecords.TotalValue is deliberately NOT re-derived: nothing in this pass changes a price,
-    // it only restores the projection to what it should already have been.
-    public async Task RebuildDropsForCharacter(int gameCharacterId)
+    // TotalValue IS re-derived at the end, and must be. It used to be left alone on the reasoning
+    // that this pass only restores the projection to what it should already have been and so cannot
+    // change a price — true while the projection was one row per DropsJson entry, but the admin drop
+    // blacklist removes entries, and a record whose drop has gone must lose that drop's gold with
+    // it. The re-derivation is guarded by IS DISTINCT FROM, so in the ordinary case where nothing
+    // moved it writes no rows at all. Keeping it here rather than at the blacklist call site is
+    // deliberate: the projection and the total it rolls up are written by the same method, so they
+    // cannot be left disagreeing by a caller that forgot the second half.
+    public Task RebuildDropsForCharacter(int gameCharacterId) =>
+        Rebuild("""lr."GameCharacterId" = @scope""", gameCharacterId);
+
+    /// <summary>
+    /// The same rebuild scoped to ONE record. What the drop blacklist uses: blacklisting a single
+    /// item must not re-derive a whole character's projection, which for a heavily-farmed account is
+    /// tens of thousands of rows deleted and reinserted to remove one.
+    /// </summary>
+    public Task RebuildDropsForRecord(int lootRecordId) =>
+        Rebuild("""lr."Id" = @scope""", lootRecordId);
+
+    // ONE spelling of the projection, parameterised by what it is scoped to. The two callers differ
+    // only in that predicate; written twice they would drift, and a drift here means the character
+    // page and the record it was rebuilt from disagree about what the kill contained.
+    private async Task Rebuild(string scopePredicate, int scopeValue)
     {
-        const string deleteSql = """
+        var deleteSql = $"""
             DELETE FROM "LootDrops" ld
             USING "LootRecords" lr
-            WHERE ld."LootRecordId" = lr."Id" AND lr."GameCharacterId" = @cid
+            WHERE ld."LootRecordId" = lr."Id" AND {scopePredicate}
             """;
         // The lateral gives the item id a name so the override join and the projected column can
         // both read it without spelling the COALESCE twice.
-        const string insertSql = """
+        var insertSql = $"""
             INSERT INTO "LootDrops" ("LootRecordId", "ItemId", "Name", "Quantity", "Price", "IsFirstTime", "IsSpecial")
             SELECT lr."Id",
                    d.item_id,
@@ -198,11 +228,68 @@ internal sealed class LootRecordRepository(DataContext dataContext, ILogger<Loot
                 FROM jsonb_array_elements(lr."DropsJson") AS elem
             ) d
             LEFT JOIN "ItemValueOverrides" ivo ON ivo."ItemId" = d.item_id
-            WHERE lr."GameCharacterId" = @cid
+            WHERE {scopePredicate}
+              -- A blacklisted drop is absent from the projection, and that absence IS the feature:
+              -- every SQL read site on the site queries LootDrops, so leaving the row out is what
+              -- makes the item invisible on all of them without a single query changing. DropsJson
+              -- above still holds it, which is what makes the decision reversible — lift the
+              -- blacklist, run this again, and the row comes back exactly as it was.
+              AND NOT EXISTS (
+                  SELECT 1 FROM "BlacklistedLootDrops" b
+                  WHERE b."LootRecordId" = lr."Id"
+                    AND b."ItemId" = d.item_id
+                    AND lower(b."ItemName") = lower(COALESCE(d.elem->>'Name', ''))
+              )
             """;
 
-        await dataContext.Database.ExecuteSqlRawAsync(deleteSql, new NpgsqlParameter("@cid", gameCharacterId));
-        await dataContext.Database.ExecuteSqlRawAsync(insertSql, new NpgsqlParameter("@cid", gameCharacterId));
+        await dataContext.Database.ExecuteSqlRawAsync(deleteSql, new NpgsqlParameter("@scope", scopeValue));
+        await dataContext.Database.ExecuteSqlRawAsync(insertSql, new NpgsqlParameter("@scope", scopeValue));
+
+        // TotalValue is the rolled-up projection of the rows just written, so a blacklisted drop has
+        // to leave the record's gold total as well as the drop grid. Left alone this would keep
+        // quoting a total that no longer matches the sum of its own visible drops.
+        await RecomputeTotals(scopePredicate, scopeValue);
+
+        // EVERY LootDropRow THIS SCOPE IS TRACKING IS NOW A PHANTOM. The rebuild above is raw
+        // set-based SQL: it DELETEs the projection rows and INSERTs new ones with new ids, and the
+        // change tracker knows none of it. A tracked row still points at an id that no longer
+        // exists, so the next tracked write touching it — most obviously a cascade from deleting the
+        // record — issues a statement that matches nothing and throws DbUpdateConcurrencyException
+        // ("expected 1, affected 0"). That is a false conflict: nobody edited anything, a derived
+        // projection was rewritten underneath.
+        //
+        // Detaching is the right repair rather than reloading, and LootDropRow's own comment says
+        // why: it has no independent lifecycle, audit trail or concurrency token — it is owned by
+        // its LootRecord and fully rebuildable from DropsJson. Anything that needs these rows again
+        // re-reads them, and gets the ones that actually exist.
+        foreach (var stale in dataContext.ChangeTracker.Entries<LootDropRow>().ToList())
+            stale.State = EntityState.Detached;
+    }
+
+    // Re-derives LootRecords.TotalValue from the LootDrops rows just written. Set-based and raw, so
+    // the LootRecords rows pick up no audit or RowVersion churn — TotalValue is a derived
+    // projection, not a user edit. Mirrors ItemValueOverrideRepository.RecomputeTotals, which does
+    // the same job scoped to a batch of record ids.
+    //
+    // The LEFT JOIN LATERAL matters: a record whose every drop is blacklisted has no rows left at
+    // all, and must fall to 0 rather than keep its old total by failing to match.
+    private async Task RecomputeTotals(string scopePredicate, int scopeValue)
+    {
+        var sql = $"""
+            UPDATE "LootRecords" target
+            SET "TotalValue" = COALESCE(agg.total, 0)
+            FROM "LootRecords" lr
+            LEFT JOIN LATERAL (
+                SELECT SUM(ld."Quantity"::bigint * ld."Price"::bigint) AS total
+                FROM "LootDrops" ld
+                WHERE ld."LootRecordId" = lr."Id"
+            ) agg ON TRUE
+            WHERE target."Id" = lr."Id"
+              AND {scopePredicate}
+              AND target."TotalValue" IS DISTINCT FROM COALESCE(agg.total, 0)
+            """;
+
+        await dataContext.Database.ExecuteSqlRawAsync(sql, new NpgsqlParameter("@scope", scopeValue));
     }
 
     public async Task<int> GetKillOrdinal(int gameCharacterId, string sourceName, DateTimeOffset occurredAt, int recordId)

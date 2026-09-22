@@ -1,4 +1,5 @@
 using System.Text.Json;
+using KlavLor.Application.Features.Loot;
 using KlavLor.Application.Interfaces.Services;
 using KlavLor.Domain.Entities;
 using KlavLor.Infrastructure.Persistence.EntityFramework;
@@ -26,6 +27,38 @@ internal sealed class FakeItemValueCache : IItemValueOverrideCache
         _map.Clear();
         foreach (var o in overrides) _map[o.ItemId] = o.Value;
     }
+}
+
+// Minimal IDropBlacklistCache stand-in. Empty by default: almost every test is about behaviour
+// that predates the blacklist and must be unaffected by it.
+internal sealed class FakeDropBlacklistCache : IDropBlacklistCache
+{
+    private readonly HashSet<(int, int, string)> _set = [];
+
+    public FakeDropBlacklistCache(params (int RecordId, int ItemId, string Name)[] entries)
+    {
+        foreach (var e in entries) _set.Add((e.RecordId, e.ItemId, e.Name.ToLowerInvariant()));
+    }
+
+    public bool HasAny => _set.Count > 0;
+
+    public bool IsBlacklisted(int lootRecordId, int itemId, string itemName) =>
+        _set.Contains((lootRecordId, itemId, itemName.ToLowerInvariant()));
+
+    public void Replace(IEnumerable<BlacklistedDropValue> entries)
+    {
+        _set.Clear();
+        foreach (var e in entries) _set.Add((e.LootRecordId, e.ItemId, e.ItemName.ToLowerInvariant()));
+    }
+}
+
+// The reader every repository that deserialises DropsJson now takes. Defaults to "no overrides, no
+// blacklist", so a test that cares about neither reads exactly the raw stored drops.
+internal static class Fakes
+{
+    public static EffectiveDropReader DropReader(
+        IItemValueOverrideCache? prices = null, IDropBlacklistCache? blacklist = null) =>
+        new(prices ?? new FakeItemValueCache(), blacklist ?? new FakeDropBlacklistCache());
 }
 
 // Minimal ICollectionLogCache stand-in: fixed sets of "is a collection-log item" ids and names.

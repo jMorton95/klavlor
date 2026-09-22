@@ -86,6 +86,7 @@ public static class InfrastructureDependencyConfiguration
             services.AddSingleton<ISystemSettingsCache, SystemSettingsCache>();
             services.AddSingleton<ISourceRateModifierCache, SourceRateModifierCache>();
             services.AddSingleton<IItemValueOverrideCache, ItemValueOverrideCache>();
+            services.AddSingleton<IDropBlacklistCache, DropBlacklistCache>();
 
             services.AddScoped<IDropRateSyncRunner, DropRateSyncRunner>();
             services.AddScoped<ICollectionLogSyncRunner, CollectionLogSyncRunner>();
