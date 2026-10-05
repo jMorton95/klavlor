@@ -3,7 +3,7 @@
 @using KlavLor.Application.Features.Loot.Log
 @using KlavLor.Web.Application.Features.Loot.Log.Profile.Svg
 
-<div class="bg-slate-900 rounded-xl shadow-sm border border-slate-700 p-5">
+<div data-swap-panel class="bg-slate-900 rounded-xl shadow-sm border border-slate-700 p-5">
     <div class="flex items-start justify-between mb-3 flex-wrap gap-2">
         <div>
             <h3 class="text-sm font-semibold text-slate-200">@Title</h3>
@@ -16,14 +16,14 @@
             <div class="inline-flex rounded-md border border-slate-700 overflow-hidden text-[11px]">
                 <button type="button"
                         hx-get="@GetTrendUrl("12m", Expanded)"
-                        hx-target="closest div.bg-slate-50"
+                        hx-target="closest [data-swap-panel]"
                         hx-swap="outerHTML"
                         class="px-2 py-1 @(Trend.Range == "12m" ? "bg-amber-500 text-white" : "bg-slate-900 text-slate-300")">
                     12 months
                 </button>
                 <button type="button"
                         hx-get="@GetTrendUrl("all", Expanded)"
-                        hx-target="closest div.bg-slate-50"
+                        hx-target="closest [data-swap-panel]"
                         hx-swap="outerHTML"
                         class="px-2 py-1 @(Trend.Range == "all" ? "bg-amber-500 text-white" : "bg-slate-900 text-slate-300")">
                     All time
@@ -31,7 +31,7 @@
             </div>
             <button type="button"
                     hx-get="@GetTrendUrl(Trend.Range, !Expanded)"
-                    hx-target="closest div.bg-slate-50"
+                    hx-target="closest [data-swap-panel]"
                     hx-swap="outerHTML"
                     title="@(Expanded ? "Back to the standard chart" : $"Expand: double the height, naming the top {ExpandedMinPerMonth} items in every month instead of {StandardMinPerMonth}")"
                     class="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-slate-700 text-[11px] @(Expanded ? "bg-amber-500 text-white" : "bg-slate-900 text-slate-300")">

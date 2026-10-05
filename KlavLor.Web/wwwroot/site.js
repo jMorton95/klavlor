@@ -174,8 +174,8 @@ window.syncHistoryToggleButton = function() {
     if (!btn) return;
     var open = document.body.classList.contains('history-panel-open');
     btn.setAttribute('aria-pressed', open ? 'true' : 'false');
-    var active = ['bg-amber-600', 'border-amber-600', 'text-white'];
-    var inactive = ['text-amber-400', 'border-amber-600'];
+    var active = ['bg-amber-600', 'text-white'];
+    var inactive = ['text-amber-400'];
     if (open) {
         active.forEach(function(c) { btn.classList.add(c); });
         inactive.forEach(function(c) { btn.classList.remove(c); });

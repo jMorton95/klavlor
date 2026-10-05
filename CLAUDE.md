@@ -80,6 +80,10 @@ Two failure modes are silent, because nothing throws when the scan misses:
 
 A handler that serves several surfaces injects several of these — that is intended, and is what the old single interface was hiding.
 
+### No Change-Narrating Inline Comments
+
+Do not add inline comments that narrate a fix or restate what the code does ("was X, now Y", "listed in both, so…"). That explanation goes in the commit message. A comment is only warranted for a non-obvious constraint the code cannot express.
+
 ### Key Patterns
 
 **Endpoint registration:** Each endpoint class implements `IEndpoint` with a static `MapEndpoint` method and is declared `sealed` (endpoints are never subclassed — `MapEndpoint` is static, so inheritance buys nothing). Registration is **not** automatic — every new endpoint class must be added to the explicit `MapEndpoints<T>()` list in `KlavLor.Web/Configuration/ConfigureEndpoints.cs` (called from `MapApplicationRequestHandlers()` in Program.cs), or its routes silently 404.
@@ -937,6 +941,7 @@ What it covers, and why each file exists:
 - `LootFeedTierClassificationTests` — tiers are per drop, never per running total (500 cheap drops summing to millions must not read as legendary).
 - `RepositoryRegistrationTests` — the reflection-based repository registration; see "Repository Auto-Registration".
 - `RazorComponentDataAccessTests` — the SSR data-access rules; see "Razor Component Data-Access Rules".
+- `HtmxTargetTests` — every relative htmx target (`closest …`) selects a class or attribute declared in the same component, and every static `#id` target is defined somewhere. Target a semantic hook such as `data-swap-panel`, never a styling utility: the dark-only migration renamed `bg-slate-50` away and silently broke every chart toggle on the character page.
 - `ItemValueOverrideTests` — the intrinsic item-value cache and the tier consequence; see "Item Values".
 - `FeedLuckShouldRateTests` — which feed drops get a lucky/dry line at all: collection-log items only, first receipt only, not admin-excluded, rare enough to judge. Each condition is pinned separately, plus a check that no two of them cancel out.
 - `RollChipHueTests` — the ticker's per-character colour: distinctness across a palette-sized clan, stability, case-insensitivity, and that every class the assigner can emit has a rule in `app.css` (the names are computed, so nothing else would catch the two drifting apart).
