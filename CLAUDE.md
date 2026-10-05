@@ -80,6 +80,10 @@ Two failure modes are silent, because nothing throws when the scan misses:
 
 A handler that serves several surfaces injects several of these — that is intended, and is what the old single interface was hiding.
 
+### No Change-Narrating Inline Comments
+
+Do not add inline comments that narrate a fix or restate what the code does ("was X, now Y", "listed in both, so…"). That explanation goes in the commit message. A comment is only warranted for a non-obvious constraint the code cannot express.
+
 ### Key Patterns
 
 **Endpoint registration:** Each endpoint class implements `IEndpoint` with a static `MapEndpoint` method and is declared `sealed` (endpoints are never subclassed — `MapEndpoint` is static, so inheritance buys nothing). Registration is **not** automatic — every new endpoint class must be added to the explicit `MapEndpoints<T>()` list in `KlavLor.Web/Configuration/ConfigureEndpoints.cs` (called from `MapApplicationRequestHandlers()` in Program.cs), or its routes silently 404.
