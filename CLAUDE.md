@@ -937,6 +937,7 @@ What it covers, and why each file exists:
 - `LootFeedTierClassificationTests` — tiers are per drop, never per running total (500 cheap drops summing to millions must not read as legendary).
 - `RepositoryRegistrationTests` — the reflection-based repository registration; see "Repository Auto-Registration".
 - `RazorComponentDataAccessTests` — the SSR data-access rules; see "Razor Component Data-Access Rules".
+- `HtmxTargetTests` — every relative htmx target (`closest …`) selects a class or attribute declared in the same component, and every static `#id` target is defined somewhere. Target a semantic hook such as `data-swap-panel`, never a styling utility: the dark-only migration renamed `bg-slate-50` away and silently broke every chart toggle on the character page.
 - `ItemValueOverrideTests` — the intrinsic item-value cache and the tier consequence; see "Item Values".
 - `FeedLuckShouldRateTests` — which feed drops get a lucky/dry line at all: collection-log items only, first receipt only, not admin-excluded, rare enough to judge. Each condition is pinned separately, plus a check that no two of them cancel out.
 - `RollChipHueTests` — the ticker's per-character colour: distinctness across a palette-sized clan, stability, case-insensitivity, and that every class the assigner can emit has a rule in `app.css` (the names are computed, so nothing else would catch the two drifting apart).

@@ -2,7 +2,7 @@
 @using KlavLor.Application.Features.Loot.Log
 @using KlavLor.Web.Application.Features.Loot.Log.Profile.Svg
 
-<div class="bg-slate-900 rounded-xl shadow-sm border border-slate-700 p-5">
+<div data-swap-panel class="bg-slate-900 rounded-xl shadow-sm border border-slate-700 p-5">
     <div class="flex items-start justify-between mb-3 flex-wrap gap-2">
         <div>
             <h3 class="text-sm font-semibold text-slate-200">Activity — last 365 days</h3>
@@ -22,14 +22,14 @@
         <div class="inline-flex rounded-md border border-slate-700 overflow-hidden text-[11px]">
             <button type="button"
                     hx-get="@GetModeUrl(HeatmapMode.Gp)"
-                    hx-target="closest div.bg-slate-50"
+                    hx-target="closest [data-swap-panel]"
                     hx-swap="outerHTML"
                     class="px-2 py-1 @(Data.Mode == HeatmapMode.Gp ? "bg-amber-500 text-white" : "bg-slate-900 text-slate-300")">
                 GP
             </button>
             <button type="button"
                     hx-get="@GetModeUrl(HeatmapMode.Clogs)"
-                    hx-target="closest div.bg-slate-50"
+                    hx-target="closest [data-swap-panel]"
                     hx-swap="outerHTML"
                     class="px-2 py-1 @(Data.Mode == HeatmapMode.Clogs ? "bg-cyan-600 text-white" : "bg-slate-900 text-slate-300")">
                 Clogs

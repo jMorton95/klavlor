@@ -14,7 +14,7 @@
    Each week's bar also prints its own count when the range is short enough for the numbers to fit. *@
 @if (_points.Count >= 2 && _lifetimeTotal > 0)
 {
-    <div class="bg-slate-900 rounded-xl shadow-sm border border-slate-700 p-5">
+    <div data-swap-panel class="bg-slate-900 rounded-xl shadow-sm border border-slate-700 p-5">
         <div class="flex items-start justify-between gap-2 mb-4 flex-wrap">
             <div>
                 <h2 class="text-lg font-semibold text-slate-100">Roll history</h2>
@@ -31,7 +31,7 @@
                 {
                     <button type="button"
                             hx-get="@GetUrl(value)"
-                            hx-target="closest div.bg-slate-50"
+                            hx-target="closest [data-swap-panel]"
                             hx-swap="outerHTML"
                             class="px-2 py-1 @(NormalisedRange == value ? "bg-amber-500 text-white" : "bg-slate-900 text-slate-300")">
                         @label
