@@ -166,18 +166,24 @@ body:not(.history-panel-open) #completion-history-panel {
 @keyframes giga-spin {
     to { --giga-angle: 360deg; }
 }
-.giga-card {
+/* A pet (LootFeedDrop.IsPet) spins the same ring in its own colours, so one rule draws both and a
+   pet never reads as an admin injection. */
+.giga-card,
+.pet-card {
     position: relative;
     isolation: isolate;
     border-color: transparent !important;
 }
-.giga-card::before {
+.giga-card { --ring-colours: #22d3ee, #a855f7, #ffffff, #22d3ee, #22d3ee; }
+.pet-card { --ring-colours: #f472b6, #fcd34d, #ffffff, #f472b6, #f472b6; }
+.giga-card::before,
+.pet-card::before {
     content: "";
     position: absolute;
     inset: -1.5px;
     border-radius: 0.6rem;
     padding: 2px;
-    background: conic-gradient(from var(--giga-angle), #22d3ee, #a855f7, #ffffff, #22d3ee, #22d3ee);
+    background: conic-gradient(from var(--giga-angle), var(--ring-colours));
     -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     -webkit-mask-composite: xor;
             mask-composite: exclude;

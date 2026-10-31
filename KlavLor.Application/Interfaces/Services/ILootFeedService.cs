@@ -60,14 +60,23 @@ public interface ILootFeedService
     static readonly LootFeedTier[] AllTiers =
         [LootFeedTier.Standard, LootFeedTier.Uncommon, LootFeedTier.Rare, LootFeedTier.Epic, LootFeedTier.Legendary];
 
+    /// <summary>
+    /// The swimlane one drop belongs in. Value decides, except for the two kinds of drop that have
+    /// none - an admin-injected special and a pet, both priced at 0 GP and so never clearing the 10k
+    /// floor - which are forced to Legendary and only Legendary.
+    ///
+    /// The live publish (<see cref="ClassifyDropsByTier"/>) and the backfill both classify through
+    /// here, so a card cannot change lanes on a refresh.
+    /// </summary>
+    static LootFeedTier? GetFeedTier(LootFeedDrop drop) =>
+        drop.IsSpecial || drop.IsPet ? LootFeedTier.Legendary : GetDropTier((long)drop.Quantity * drop.Price);
+
     static Dictionary<LootFeedTier, List<LootFeedDrop>> ClassifyDropsByTier(List<LootFeedDrop> drops)
     {
         var result = new Dictionary<LootFeedTier, List<LootFeedDrop>>();
         foreach (var drop in drops)
         {
-            // Admin-injected untradeables have no value, so they'd never tier by GP — force them
-            // into the top lane so the giga effect can render.
-            var tier = drop.IsSpecial ? LootFeedTier.Legendary : GetDropTier((long)drop.Quantity * drop.Price);
+            var tier = GetFeedTier(drop);
             if (tier is null) continue;
             if (!result.TryGetValue(tier.Value, out var list))
             {

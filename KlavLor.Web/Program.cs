@@ -78,6 +78,12 @@ var collectionLogCache = scope.ServiceProvider.GetRequiredService<KlavLor.Applic
 var collectionLogItemRepository = scope.ServiceProvider.GetRequiredService<KlavLor.Domain.Interfaces.Repositories.ICollectionLogItemRepository>();
 collectionLogCache.Replace(await collectionLogItemRepository.GetAllEntries());
 
+// Prime the pet list before the feed seeder runs: a pet is priced at 0 GP, so against an empty set
+// the seeder would leave every pet out of the Legendary lane until the next daily taxonomy pull.
+var petCache = scope.ServiceProvider.GetRequiredService<KlavLor.Application.Interfaces.Services.IPetCache>();
+var collectionLogRepository = scope.ServiceProvider.GetRequiredService<KlavLor.Application.Interfaces.Repositories.ICollectionLogRepository>();
+petCache.Replace(await collectionLogRepository.GetPets());
+
 // Prime the system-settings cache so the sidebar / character pages / feed endpoints
 // can branch on feature flags without a DB hit per request.
 var systemSettingsCache = scope.ServiceProvider.GetRequiredService<KlavLor.Application.Interfaces.Services.ISystemSettingsCache>();

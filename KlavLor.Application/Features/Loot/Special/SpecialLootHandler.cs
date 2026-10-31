@@ -29,6 +29,7 @@ public sealed class SpecialLootHandler(
     IUserRepository userRepository,
     ILootFeedService lootFeedService,
     ICollectionLogCache collectionLogCache,
+    IPetCache petCache,
     CollectionLogAdminHandler clogAdmin,
     IItemValueOverrideCache itemValues,
     IMemoryCache memoryCache,
@@ -126,8 +127,10 @@ public sealed class SpecialLootHandler(
             var owner = await userRepository.GetById(ownerUserId);
             var ownerName = owner is not null ? $"{owner.FirstName} {owner.LastName}" : "Unknown";
             var scope = character.IsLeagues ? LootFeedScope.Leagues : LootFeedScope.Main;
+            // An injected pet (one RuneLite never attached, such as a skilling pet) renders as a pet.
             var feedDrop = new LootFeedDrop(drop.Name, 1, effectivePrice, isFirstTime,
-                collectionLogCache.IsCollectionLogItem(drop.ItemId, drop.Name), IsSpecial: true);
+                collectionLogCache.IsCollectionLogItem(drop.ItemId, drop.Name), IsSpecial: true,
+                IsPet: petCache.IsPet(drop.ItemId, drop.Name));
 
             lootFeedService.Publish(new LootFeedEntry(
                 ownerName,

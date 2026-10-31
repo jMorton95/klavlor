@@ -83,6 +83,7 @@ public static class InfrastructureDependencyConfiguration
             services.AddSingleton<KlavLor.Application.Interfaces.Services.IJobScheduler, JobScheduler>();
 
             services.AddSingleton<ICollectionLogCache, CollectionLogCache>();
+            services.AddSingleton<IPetCache, PetCache>();
             services.AddSingleton<ISystemSettingsCache, SystemSettingsCache>();
             services.AddSingleton<ISourceRateModifierCache, SourceRateModifierCache>();
             services.AddSingleton<IItemValueOverrideCache, ItemValueOverrideCache>();

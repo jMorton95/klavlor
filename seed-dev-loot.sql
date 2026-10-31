@@ -124,13 +124,18 @@ INSERT INTO seed_source VALUES
 --    early = spoons), the rarer ones are hit-or-miss, and a high-KC near-miss reads
 --    as a genuine dry streak on the leaderboard, which computes luck against the
 --    real wiki rates from the drop-rate sync.
+--
+--    Ids and names must be the real ones (the wiki's, as the collection-log and drop-rate
+--    syncs store them), not approximations. The collection log and the pet list match a
+--    drop on id OR name, so an invented id that happens to belong to another item turns
+--    the drop into that item — including into a pet, which then takes the Legendary lane.
 -- ----------------------------------------------------------------------------
 CREATE TEMP TABLE seed_drop (source text, name text, item_id int, unit_price bigint, max_qty int, prob double precision) ON COMMIT DROP;
 INSERT INTO seed_drop VALUES
     -- Vorkath
     ('Vorkath', 'Superior dragon bones', 22124,     8000, 30, 1.00),
     ('Vorkath', 'Blue dragonhide',        1751,     1600, 30, 1.00),
-    ('Vorkath', 'Dragonbone necklace',   22095,    90000,  1, 0.00100),
+    ('Vorkath', 'Dragonbone necklace',   22111,    90000,  1, 0.00100),
     ('Vorkath', 'Jar of decay',          22106,   120000,  1, 0.00033),
     ('Vorkath', 'Skeletal visage',       22006, 55000000,  1, 0.00020),
     ('Vorkath', 'Vorki',                 21992,        0,  1, 0.00033),
@@ -144,7 +149,7 @@ INSERT INTO seed_drop VALUES
     ('Zulrah', 'Pet snakeling',          12921,        0,    1, 0.00025),
     -- Alchemical Hydra
     ('Alchemical Hydra', 'Hydra leather', 22983,  110000,   1, 1.00),
-    ('Alchemical Hydra', 'Dragon thrownaxe', 21205,  100, 200, 0.70),
+    ('Alchemical Hydra', 'Dragon thrownaxe', 20849,  100, 200, 0.70),
     ('Alchemical Hydra', 'Hydra''s claw', 22966, 1200000,   1, 0.00100),
     ('Alchemical Hydra', 'Hydra tail',    22988,   90000,   1, 0.00195),
     ('Alchemical Hydra', 'Brimstone ring', 22975, 800000,   1, 0.00050),
@@ -174,15 +179,15 @@ INSERT INTO seed_drop VALUES
     -- Corporeal Beast
     ('Corporeal Beast', 'Spirit shield',  12829,    35000, 1, 1.00),
     ('Corporeal Beast', 'Holy elixir',    12833,   350000, 1, 0.01560),
-    ('Corporeal Beast', 'Spectral sigil', 12821, 60000000, 1, 0.00073),
-    ('Corporeal Beast', 'Arcane sigil',   12825, 18000000, 1, 0.00073),
+    ('Corporeal Beast', 'Spectral sigil', 12823, 60000000, 1, 0.00073),
+    ('Corporeal Beast', 'Arcane sigil',   12827, 18000000, 1, 0.00073),
     ('Corporeal Beast', 'Elysian sigil',  12819, 700000000,1, 0.00024),
-    ('Corporeal Beast', 'Pet dark core',  13182,        0, 1, 0.00020),
+    ('Corporeal Beast', 'Pet dark core',  12816,        0, 1, 0.00020),
     -- Nex
-    ('Nex', 'Nihil shard',               26211,     4000, 30, 1.00),
-    ('Nex', 'Torva full helm',           26382, 38000000,  1, 0.00290),
-    ('Nex', 'Torva platebody',           26384, 50000000,  1, 0.00290),
-    ('Nex', 'Torva platelegs',           26386, 45000000,  1, 0.00290),
+    ('Nex', 'Nihil shard',               26231,     4000, 30, 1.00),
+    ('Nex', 'Torva full helm (damaged)', 26376, 38000000,  1, 0.00290),
+    ('Nex', 'Torva platebody (damaged)', 26378, 50000000,  1, 0.00290),
+    ('Nex', 'Torva platelegs (damaged)', 26380, 45000000,  1, 0.00290),
     ('Nex', 'Nihil horn',                26372, 14000000,  1, 0.00580),
     ('Nex', 'Zaryte vambraces',          26235,  4500000,  1, 0.01160),
     ('Nex', 'Ancient hilt',              26370, 90000000,  1, 0.00194),
@@ -194,7 +199,7 @@ INSERT INTO seed_drop VALUES
     ('Vardorvis', 'Virtus robe top',      26243, 30000000,     1, 0.00066),
     ('Vardorvis', 'Virtus robe bottom',   26245, 28000000,     1, 0.00066),
     ('Vardorvis', 'Ultor vestige',        28285, 60000000,     1, 0.00116),
-    ('Vardorvis', 'Butch',                28250,        0,     1, 0.00033),
+    ('Vardorvis', 'Butch',                28248,        0,     1, 0.00033),
     -- Chambers of Xeric (raid). Rates are realistic PER-RAID = unique-table share / ~32 raids
     -- per unique, so characters own a believable subset and the board shows spoons + dry streaks.
     ('Chambers of Xeric', 'Coins',                   995,          1, 200000, 1.00),
@@ -243,19 +248,16 @@ INSERT INTO seed_drop VALUES
     ('PvP Kill', 'Coins',          995,      1, 100000, 1.00),
     ('PvP Kill', 'Looting bag',  11941,   5000,     1, 0.30),
     ('PvP Kill', 'Dragon dagger',  1215,  17000,     1, 0.20),
-    -- Doom of Mokhaiotl (delve boss). Loot rolls per delve level and is claimed once;
-    -- our SourceLootService / DoomLootStrategy re-derive an estimated delve depth. Demon
-    -- tears are guaranteed and their quantity scales with depth (the strategy's stronger
-    -- depth signal), so a wide max qty spreads the derived depths across roughly 1 to 8.
-    -- The uniques are depth-gated in game; the estimator takes the max of the tear-implied
-    -- depth and the gate of any unique present, so independent rolls here still read sensibly.
-    -- Item names must contain the exact tokens the strategy matches. Ids/prices are
-    -- approximate (recent boss); icons resolve by name, so the ids are cosmetic.
-    ('Doom of Mokhaiotl', 'Demon tears',              30626,       800, 450, 1.00),
-    ('Doom of Mokhaiotl', 'Mokhaiotl cloth',          30628,    600000,   1, 0.05000),
-    ('Doom of Mokhaiotl', 'Eye of ayak (uncharged)',  30622,  45000000,   1, 0.00100),
-    ('Doom of Mokhaiotl', 'Avernic treads',           30624, 220000000,   1, 0.00074),
-    ('Doom of Mokhaiotl', 'Dom',                       30630,         0,   1, 0.00040);
+    -- Doom of Mokhaiotl (delve boss). Loot rolls per delve level and is claimed once.
+    -- DoomLootStrategy credits each run with an assumed average depth, raised only where a
+    -- claimed unique proves the run went deeper, so item names must contain the exact tokens
+    -- it matches ("Avernic treads", "Eye of ayak", "Mokhaiotl cloth", "Dom"). Prices are
+    -- approximate.
+    ('Doom of Mokhaiotl', 'Demon tear',               31111,       800, 450, 1.00),
+    ('Doom of Mokhaiotl', 'Mokhaiotl cloth',          31109,    600000,   1, 0.05000),
+    ('Doom of Mokhaiotl', 'Eye of ayak (uncharged)',  31115,  45000000,   1, 0.00100),
+    ('Doom of Mokhaiotl', 'Avernic treads',           31088, 220000000,   1, 0.00074),
+    ('Doom of Mokhaiotl', 'Dom',                      31130,         0,   1, 0.00040);
 
 -- ----------------------------------------------------------------------------
 -- 5b. Superior slayer monsters — the 38 rare upgraded task spawns, with their real
@@ -564,6 +566,15 @@ SELECT lr."Id",
 FROM "LootRecords" lr,
      LATERAL jsonb_array_elements(lr."DropsJson") AS d
 WHERE lr."GameCharacterId" IN (SELECT "Id" FROM "GameCharacters" WHERE "RuneLiteId" LIKE 'seed-%');
+
+-- ----------------------------------------------------------------------------
+-- 9c. Ask for a luck leaderboard rebuild, as RecomputeTrigger.LuckInputsChanged does. The
+--     board is a stored snapshot carrying its own character names, so without this it keeps
+--     quoting the previous seed for up to an hour after the app next starts.
+-- ----------------------------------------------------------------------------
+INSERT INTO "JobSchedules" ("JobName", "LastRunAt", "ManualRequestedAt")
+VALUES ('Luck leaderboard refresh', now(), now())
+ON CONFLICT ("JobName") DO UPDATE SET "ManualRequestedAt" = now();
 
 -- ----------------------------------------------------------------------------
 -- 10. Report what was created (character Id -> use in /loot/log/{Id}).

@@ -20,7 +20,7 @@ namespace KlavLor.Infrastructure.Persistence.EntityFramework.Repositories.Loot;
 // consumer feature; the queries and the collapse/expand passes are unchanged.
 internal sealed class LootFeedRepository(
     DataContext dataContext, ILogger<LootFeedRepository> logger, ICollectionLogCache collectionLogCache,
-    EffectiveDropReader dropReader)
+    IPetCache petCache, EffectiveDropReader dropReader)
     : ILootFeedRepository
 {
     /// <summary>
@@ -147,9 +147,9 @@ internal sealed class LootFeedRepository(
 
             foreach (var tier in tiers)
             {
-                var (tierMin, tierMax) = ILootFeedService.GetTierRange(tier);
-                // Zero-value special drops never clear the value gate, so pull records that carry
-                // one into the top lane explicitly.
+                var (tierMin, _) = ILootFeedService.GetTierRange(tier);
+                // Zero-value specials and pets never clear the value gate, so pull records that
+                // carry one into the top lane explicitly.
                 var isLegendaryTier = tier == LootFeedTier.Legendary;
                 var take = initialTake;
                 var rounds = 0;
@@ -160,9 +160,9 @@ internal sealed class LootFeedRepository(
                     rounds++;
                     var candidates = await FetchTierCandidates(baseQuery, tierMin, take);
 
-                    // The legendary lane is the only one two different things can qualify for: a
-                    // 100m+ value, or a zero-value admin-injected special. Those used to be one OR
-                    // in a single query, and that shape was pathological. Every other tier matches
+                    // The legendary lane is the only one several things can qualify for: a 100m+
+                    // value, a zero-value admin-injected special, or a pet. The first two used to be
+                    // one OR in a single query, and that shape was pathological. Every other tier matches
                     // a large share of rows, so scanning the OccurredAt index backwards fills the
                     // take almost immediately — Standard reads ~450 rows to find 300. Legendary
                     // matches roughly one row in five thousand, so the same scan runs to the END OF
@@ -173,16 +173,19 @@ internal sealed class LootFeedRepository(
                     //
                     // Split into two queries it is a range seek and an index lookup: 35 buffers.
                     // Each half can be satisfied by an index, which neither could while they were
-                    // joined by an OR. The halves are merged here rather than in SQL because the
-                    // top `take` of each is guaranteed to contain the top `take` of the union.
+                    // joined by an OR. Pets are a third query on the same principle. The parts are
+                    // merged here rather than in SQL because the top `take` of each is guaranteed to
+                    // contain the top `take` of the union.
                     if (isLegendaryTier)
                     {
                         var specials = await FetchSpecialCandidates(baseQuery, take);
-                        if (specials.Count > 0)
+                        var pets = await FetchPetCandidates(baseQuery, take);
+                        if (specials.Count > 0 || pets.Count > 0)
                             candidates = candidates
                                 .Concat(specials)
-                                // A record can be both 100m+ and special-carrying, so it can appear
-                                // in both halves; without this it would render as two cards.
+                                .Concat(pets)
+                                // A record can qualify more than one way (a 100m+ kill that also
+                                // dropped a pet); without this it would render as two cards.
                                 .DistinctBy(c => c.RecordId)
                                 .OrderByDescending(c => c.OccurredAt)
                                 .Take(take)
@@ -190,7 +193,7 @@ internal sealed class LootFeedRepository(
                     }
 
                     fetched += candidates.Count;
-                    var groups = CollapseProjections(candidates, tier, tierMin, tierMax, countPerTier, collectionLogCache, dropReader, scope);
+                    var groups = CollapseProjections(candidates, tier, countPerTier, collectionLogCache, petCache, dropReader, scope);
 
                     if (groups.Count >= countPerTier || candidates.Count < take || take >= hardCap)
                     {
@@ -244,6 +247,28 @@ internal sealed class LootFeedRepository(
         ProjectCandidates(
             baseQuery.Where(x => dataContext.LootDrops.Any(d => d.LootRecordId == x.Record.Id && d.IsSpecial)),
             take);
+
+    /// <summary>
+    /// The newest `take` records carrying a pet. Driven from LootDrops - an id lookup and a lowered
+    /// name lookup, each on its own index - so it costs the number of pet receipts, not the size of
+    /// the table. The list goes in as parameters for the reason recorded on IPetCache.ItemIds.
+    /// </summary>
+    private Task<List<FeedTierProjection>> FetchPetCandidates(IQueryable<FeedJoinRow> baseQuery, int take)
+    {
+        var petIds = petCache.ItemIds.ToList();
+        var petNames = petCache.LowerNames.ToList();
+        if (petIds.Count == 0 && petNames.Count == 0)
+            return Task.FromResult(new List<FeedTierProjection>());
+
+        var petRecordIds = dataContext.LootDrops
+            .Where(d => petIds.Contains(d.ItemId))
+            .Select(d => d.LootRecordId)
+            .Union(dataContext.LootDrops
+                .Where(d => petNames.Contains(d.Name.ToLower()))
+                .Select(d => d.LootRecordId));
+
+        return ProjectCandidates(baseQuery.Where(x => petRecordIds.Contains(x.Record.Id)), take);
+    }
 
     private static Task<List<FeedTierProjection>> ProjectCandidates(IQueryable<FeedJoinRow> filtered, int take) =>
         filtered
@@ -588,10 +613,9 @@ internal sealed class LootFeedRepository(
     private static List<LootFeedEntry> CollapseProjections(
         List<FeedTierProjection> candidates,
         LootFeedTier tier,
-        long tierMin,
-        long? tierMax,
         int targetGroups,
         ICollectionLogCache collectionLogCache,
+        IPetCache petCache,
         EffectiveDropReader dropReader,
         LootFeedScope scope)
     {
@@ -607,16 +631,10 @@ internal sealed class LootFeedRepository(
             // publish put it in: same effective prices, and the same blacklisted drops absent.
             var allDrops = dropReader.Read(r.RecordId, r.DropsJson);
             var tierDrops = allDrops
-                .Where(d =>
-                {
-                    // Admin-injected specials have no value; they belong only to the top lane.
-                    if (d.IsSpecial) return tier == LootFeedTier.Legendary;
-                    var val = (long)d.Quantity * d.Price;
-                    return val >= tierMin && (tierMax is null || val < tierMax.Value);
-                })
                 // KillCount is this record's own, so a drop keeps the KC it landed on when adjacent
                 // kills collapse into one card — the card's own Max would climb with the session.
-                .Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId, d.Name), d.IsSpecial, KillCount: r.KillCount, OccurredAt: r.OccurredAt, ExcludedFromLuck: r.ExcludedFromLuck))
+                .Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId, d.Name), d.IsSpecial, KillCount: r.KillCount, OccurredAt: r.OccurredAt, ExcludedFromLuck: r.ExcludedFromLuck, IsPet: petCache.IsPet(d.ItemId, d.Name)))
+                .Where(d => ILootFeedService.GetFeedTier(d) == tier)
                 .ToList();
 
             if (tierDrops.Count == 0) continue;
@@ -729,7 +747,7 @@ internal sealed class LootFeedRepository(
                 })
                 .ToListAsync();
 
-            var entries = CollapseDay(candidates, collectionLogCache, dropReader);
+            var entries = CollapseDay(candidates, collectionLogCache, petCache, dropReader);
 
             return new CharacterDayFeed(
                 day,
@@ -750,6 +768,7 @@ internal sealed class LootFeedRepository(
     private static List<LootFeedEntry> CollapseDay(
         List<FeedTierProjection> candidates,
         ICollectionLogCache collectionLogCache,
+        IPetCache petCache,
         EffectiveDropReader dropReader)
     {
         var groups = new List<LootFeedEntry>();
@@ -762,7 +781,7 @@ internal sealed class LootFeedRepository(
             var allDrops = dropReader.Read(r.RecordId, r.DropsJson);
             var drops = allDrops
                 .Where(d => ILootFeedService.GetDropTier((long)d.Quantity * d.Price) is not null)
-                .Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId, d.Name), d.IsSpecial, KillCount: r.KillCount, OccurredAt: r.OccurredAt, ExcludedFromLuck: r.ExcludedFromLuck))
+                .Select(d => new LootFeedDrop(d.Name, d.Quantity, d.Price, d.IsFirstTime, collectionLogCache.IsCollectionLogItem(d.ItemId, d.Name), d.IsSpecial, KillCount: r.KillCount, OccurredAt: r.OccurredAt, ExcludedFromLuck: r.ExcludedFromLuck, IsPet: petCache.IsPet(d.ItemId, d.Name)))
                 .ToList();
 
             if (drops.Count == 0) continue;
