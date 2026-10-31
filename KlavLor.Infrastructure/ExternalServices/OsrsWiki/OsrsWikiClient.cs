@@ -184,13 +184,14 @@ public sealed class OsrsWikiClient(HttpClient httpClient, ILogger<OsrsWikiClient
                 if (string.IsNullOrEmpty(page.Title))
                     continue;
 
-                // Derive the expected inventory icon filename from the page image or title.
-                var iconFilename = DeriveIconFilename(page.Title, page.PageImage);
-
-                // Resolve via imageinfo API (follows wiki file redirects, returns CDN URL).
-                var iconUrl = iconFilename is not null
-                    ? await ResolveImageUrl(iconFilename)
-                    : null;
+                // Derive the expected inventory icon filename from the page image or title, and
+                // resolve via imageinfo API (follows wiki file redirects, returns CDN URL).
+                string? iconUrl = null;
+                foreach (var iconFilename in DeriveIconFilenames(page.Title, page.PageImage))
+                {
+                    iconUrl = await ResolveImageUrl(iconFilename);
+                    if (iconUrl is not null) break;
+                }
 
                 // Fall back to the search thumbnail if the inventory icon doesn't exist.
                 iconUrl ??= page.Thumbnail?.Source;
@@ -235,23 +236,34 @@ public sealed class OsrsWikiClient(HttpClient httpClient, ILogger<OsrsWikiClient
         }
     }
 
-    private static string? DeriveIconFilename(string? title, string? pageImage)
+    // A pet's page image is its follower render ("Olmlet_(follower).png"), a full-body picture
+    // hundreds of pixels tall, so the sprite has to be found another way. Usually it is named after
+    // the page, but a pet with several forms has none by that name and only per-form sprites
+    // ("Rift_guardian_(follower,_fire).png" -> "Rift_guardian_(fire).png"). Neither rule covers
+    // every pet, so both are tried, title first: stripping alone turns "Gull (pet)" into the
+    // seagull NPC and finds nothing at all for Pet smoke devil or Tumeken's guardian.
+    private static readonly Regex FollowerMarker = new(@"_\(follower\)|(?<=\()follower,_", RegexOptions.Compiled);
+
+    internal static IReadOnlyList<string> DeriveIconFilenames(string? title, string? pageImage)
     {
+        if (pageImage is not null && FollowerMarker.IsMatch(pageImage))
+        {
+            var formSprite = FollowerMarker.Replace(pageImage, "");
+            return title is null ? [formSprite] : [TitleFilename(title), formSprite];
+        }
+
         if (pageImage is not null)
         {
             // Strip _detail suffix to get the inventory icon filename
-            return pageImage
+            return [pageImage
                 .Replace("_detail_animated.gif", ".png")
-                .Replace("_detail.png", ".png");
+                .Replace("_detail.png", ".png")];
         }
 
-        if (title is not null)
-        {
-            return $"{title.Replace(" ", "_")}.png";
-        }
-
-        return null;
+        return title is not null ? [TitleFilename(title)] : [];
     }
+
+    private static string TitleFilename(string title) => $"{title.Replace(" ", "_")}.png";
 }
 
 // Response envelope for action=bucket: { "bucketQuery": ..., "bucket": [ { <selected fields> } ] }.
