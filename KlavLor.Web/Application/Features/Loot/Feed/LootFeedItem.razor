@@ -12,12 +12,18 @@
     // Any single drop (Qty × Price) crossing 250M lights the whole card with
     // the legendary electric effect.
     var entryHasLegendaryDrop = Entry.Drops.Any(d => (long)d.Quantity * d.Price >= 250_000_000);
-    var legendaryCardClass = entryHasLegendaryDrop ? "legendary-card" : "";
 
     // Admin-injected untradeable "giga" drops (Infernal Cape, Quiver) light the card with a
     // distinct, differently-coloured spinning electric effect regardless of value.
     var entryHasSpecial = Entry.Drops.Any(d => d.IsSpecial);
-    var gigaCardClass = entryHasSpecial ? "giga-card" : "";
+
+    // A pet gets the same spinning ring in its own colours. It owns the card's edge outright: a ToB
+    // card can carry Lil' Zik and a Scythe, and two card-level effects at once read as a fault. The
+    // Scythe keeps its bolt, which is on the pill rather than the card.
+    var entryHasPet = Entry.Drops.Any(d => d.IsPet);
+    var petCardClass = entryHasPet ? "pet-card" : "";
+    var legendaryCardClass = entryHasLegendaryDrop && !entryHasPet ? "legendary-card" : "";
+    var gigaCardClass = entryHasSpecial && !entryHasPet ? "giga-card" : "";
 
     // A card whose TOTAL is worth more than its own lane is washed in that lane's colour: three 90M
     // drops from one source merge into one Epic card worth 270M, which is Legendary money sitting
@@ -31,7 +37,7 @@
     // and an injected special both classify as Legendary, which has no ceiling to exceed) but the
     // precedence is stated rather than implied.
     var exceedsTier = ILootFeedService.ExceedsTier(Entry.Tier, Entry.TotalValue);
-    var tierOverflowClass = exceedsTier && !entryHasLegendaryDrop && !entryHasSpecial
+    var tierOverflowClass = exceedsTier && !entryHasLegendaryDrop && !entryHasSpecial && !entryHasPet
         ? GetTierOverflowClasses(Entry.Tier)
         : "";
 
@@ -66,7 +72,7 @@
 <div id="@Entry.DomId"
      data-feed-character="@(Entry.GameCharacterId?.ToString() ?? "")"
      @attributes="rootAttrs"
-     class="group relative hover:z-40 @(Animate ? "loot-feed-new " : "")bg-slate-900 rounded-lg shadow border @GetValueTierClasses() p-2.5 hover:bg-slate-800 hover:border-amber-700 transition-all duration-200 @legendaryCardClass @gigaCardClass @tierOverflowClass @highlightCardClass">
+     class="group relative hover:z-40 @(Animate ? "loot-feed-new " : "")bg-slate-900 rounded-lg shadow border @GetValueTierClasses() p-2.5 hover:bg-slate-800 hover:border-amber-700 transition-all duration-200 @legendaryCardClass @gigaCardClass @petCardClass @tierOverflowClass @highlightCardClass">
     @if (isHighlight)
     {
         <span class="absolute -top-2 -right-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-linear-to-r from-amber-500 to-yellow-400 text-amber-950 shadow ring-1 ring-amber-300/80 select-none"
@@ -151,9 +157,9 @@
                 var isNewUnique = drop.IsFirstTime && drop.IsCollectionLogItem;
                 var dropTotal = (long)drop.Quantity * drop.Price;
                 var isLegendary = dropTotal >= 250_000_000;
-                var isSpecial = drop.IsSpecial;
+                var isGiga = drop.IsSpecial && !drop.IsPet;
                 <span class="flex flex-col min-w-0">
-                <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] border @GetDropTierClasses(drop.Price) text-slate-200 @((isNewUnique && !isLegendary && !isSpecial) ? GetFirstTimeRingClasses(Entry.Tier) : "") @(isLegendary ? "legendary-item" : "") @(isSpecial ? "giga-item" : "")"
+                <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] border @GetDropTierClasses(drop) text-slate-200 @((isNewUnique && !isLegendary && !isGiga) ? GetFirstTimeRingClasses(Entry.Tier) : "") @(isLegendary ? "legendary-item" : "") @(isGiga ? "giga-item" : "")"
                       title="@(isNewUnique ? "First-time collection log unlock" : null)">
                     @* An injected special gets no bolt of its own: the card already carries the
                        spinning neon ring, and a second lightning effect inside it was competing
@@ -192,7 +198,7 @@
                         <span class="px-1 py-0 text-[9px] font-semibold rounded-sm bg-cyan-700 text-white">NEW</span>
                     }
                     <img src="/api/images/item-icon?name=@Uri.EscapeDataString(drop.Name)" alt="@drop.Name"
-                         class="w-3 h-3 inline-block"
+                         class="w-3 h-3 inline-block object-contain"
                          loading="lazy"
                          onerror="this.style.display='none'" />
                     @if (drop.Quantity > 1)
@@ -267,6 +273,11 @@
         _ => "border-slate-700"
     };
 
+    // A pet is 0 GP but rides in the Legendary lane, so its chip takes the lane's colours and is
+    // otherwise an ordinary Legendary chip; the card's ring is what marks it as a pet.
+    private static string GetDropTierClasses(LootFeedDrop drop) =>
+        GetDropTierClasses(drop.IsPet ? ILootFeedService.GetTierRange(LootFeedTier.Legendary).Min : drop.Price);
+
     private static string GetDropTierClasses(long dropValue) => dropValue switch
     {
         >= 100_000_000 => "bg-amber-950 border-amber-400",
@@ -310,8 +321,8 @@
     };
 
     // Collapse repeats of the same item into one chip. Every flag must be carried through:
-    // dropping IsSpecial/ExpectedKc/EffectiveRarity here would silently strip the giga-effect
-    // marker and the rate label from any card that happened to list an item twice.
+    // dropping IsSpecial/IsPet/ExpectedKc/EffectiveRarity here would silently strip the ring
+    // and the rate label from any card that happened to list an item twice.
     private static List<LootFeedDrop> GroupDrops(List<LootFeedDrop> drops) =>
         drops
             .GroupBy(d => d.Name)
@@ -334,7 +345,8 @@
                 // Any excluded receipt silences the chip's luck line. A chip can stand for several
                 // records, and half a verdict is worse than none: if one of the receipts behind it
                 // has been disowned, the chip can no longer say what its number means.
-                g.Any(d => d.ExcludedFromLuck)))
+                g.Any(d => d.ExcludedFromLuck),
+                g.Any(d => d.IsPet)))
             .OrderByDescending(d => (long)d.Quantity * d.Price)
             .ToList();
 

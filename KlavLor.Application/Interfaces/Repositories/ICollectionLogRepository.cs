@@ -44,6 +44,12 @@ public interface ICollectionLogRepository
     Task<DateTimeOffset?> CategoriesSyncedAt();
 
     /// <summary>
+    /// Every pet in the game: the taxonomy's all_pets category, each named from the synced item list
+    /// where that carries it (empty name otherwise, leaving the id to match on). Primes IPetCache.
+    /// </summary>
+    Task<IReadOnlyList<CollectionLogEntryRef>> GetPets();
+
+    /// <summary>
     /// Applies one character's log: inserts new entries, updates changed ones, deletes entries the
     /// upstream no longer reports, and rewrites the state row. A single transaction, so a character
     /// is never left half-synced.

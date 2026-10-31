@@ -56,6 +56,30 @@ internal sealed class CollectionLogRepository(
         .AsNoTracking()
         .MaxAsync(c => (DateTimeOffset?)c.SyncedAt);
 
+    private const string AllPetsSlug = "all_pets";
+
+    public async Task<IReadOnlyList<CollectionLogEntryRef>> GetPets()
+    {
+        try
+        {
+            return await dataContext.CollectionLogCategoryItems
+                .AsNoTracking()
+                .Where(ci => ci.CategorySlug == AllPetsSlug)
+                .Select(ci => new CollectionLogEntryRef(
+                    ci.ItemId,
+                    dataContext.CollectionLogItems
+                        .Where(i => i.ItemId == ci.ItemId)
+                        .Select(i => i.Name)
+                        .FirstOrDefault() ?? ""))
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to load the pet list");
+            throw new RepositoryException("Failed to load the pet list", ex);
+        }
+    }
+
     public async Task ReplaceCategories(IReadOnlyList<TempleCategory> categories)
     {
         // This runs on a schedule now, not once, so an upstream hiccup that parses to an empty list

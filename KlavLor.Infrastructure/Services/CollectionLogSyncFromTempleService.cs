@@ -29,6 +29,7 @@ public sealed class CollectionLogSyncFromTempleService(
     IServiceScopeFactory scopeFactory,
     IJobRunRecorder jobRuns,
     IJobScheduler scheduler,
+    IPetCache petCache,
     ILogger<CollectionLogSyncFromTempleService> logger) : BackgroundService
 {
     private static readonly TimeSpan RunInterval = TimeSpan.FromHours(1);
@@ -179,6 +180,8 @@ public sealed class CollectionLogSyncFromTempleService(
         }
 
         await repository.ReplaceCategories(categories.Value!);
+        // The pet list is one of these categories, so this pull is the only moment it can change.
+        petCache.Replace(await repository.GetPets());
         logger.LogInformation("Refreshed {Count} collection-log categories from Temple (previous pull {Previous})",
             categories.Value!.Count, syncedAt?.ToString("u") ?? "none");
         await Task.Delay(BetweenCalls, ct);

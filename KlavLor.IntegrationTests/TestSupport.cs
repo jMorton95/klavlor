@@ -83,6 +83,31 @@ internal sealed class FakeClogCache(params int[] ids) : ICollectionLogCache
     }
 }
 
+// IPetCache stand-in. Empty by default, so every existing feed test reads exactly as it did before
+// pets reached the Legendary lane; pass ids (and names, via Replace) to exercise them.
+internal sealed class FakePetCache(params int[] ids) : IPetCache
+{
+    private readonly HashSet<int> _ids = [.. ids];
+    private readonly HashSet<string> _names = [];
+
+    public IReadOnlyCollection<int> ItemIds => _ids;
+    public IReadOnlyCollection<string> LowerNames => _names;
+
+    public bool IsPet(int itemId, string? itemName = null) =>
+        _ids.Contains(itemId) || (!string.IsNullOrEmpty(itemName) && _names.Contains(itemName.ToLowerInvariant()));
+
+    public void Replace(IEnumerable<CollectionLogEntryRef> pets)
+    {
+        _ids.Clear();
+        _names.Clear();
+        foreach (var p in pets)
+        {
+            _ids.Add(p.ItemId);
+            if (!string.IsNullOrWhiteSpace(p.Name)) _names.Add(p.Name.ToLowerInvariant());
+        }
+    }
+}
+
 internal static class Seed
 {
     private static string Unique(string tag) => $"{tag}-{Guid.NewGuid():N}";

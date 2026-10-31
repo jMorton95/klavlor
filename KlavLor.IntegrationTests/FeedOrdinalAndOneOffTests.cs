@@ -31,7 +31,7 @@ public sealed class FeedOrdinalAndOneOffTests(PostgresFixture fx)
         Seed.AddKill(ctx, userId, charId, withKc, t.AddHours(2), 500, [drop]);
         await ctx.SaveChangesAsync();
 
-        var repo = new LootFeedRepository(ctx, NullLogger<LootFeedRepository>.Instance, new FakeClogCache(), Fakes.DropReader());
+        var repo = new LootFeedRepository(ctx, NullLogger<LootFeedRepository>.Instance, new FakeClogCache(), new FakePetCache(), Fakes.DropReader());
         var tiers = await repo.GetAllFeedTiers(200, LootFeedScope.Main);
         var standard = tiers[LootFeedTier.Standard];
 
@@ -69,7 +69,7 @@ public sealed class FeedOrdinalAndOneOffTests(PostgresFixture fx)
         Seed.AddKill(ctx, userId, charId, src, t.AddHours(3), 120, [junk]);
         await ctx.SaveChangesAsync();
 
-        var repo = new LootFeedRepository(ctx, NullLogger<LootFeedRepository>.Instance, new FakeClogCache(), Fakes.DropReader());
+        var repo = new LootFeedRepository(ctx, NullLogger<LootFeedRepository>.Instance, new FakeClogCache(), new FakePetCache(), Fakes.DropReader());
         var tiers = await repo.GetAllFeedTiers(200, LootFeedScope.Main);
 
         var standard = tiers[LootFeedTier.Standard].Single(e => e.SourceName == src);

@@ -24,6 +24,7 @@ public sealed class LootIngestHandler(
     ILootRollFeed lootRollFeed,
     IUserRepository userRepository,
     ICollectionLogCache collectionLogCache,
+    IPetCache petCache,
     IMemoryCache memoryCache,
     IDropRateRepository dropRateRepository,
     ICharacterDelveDepthRepository delveDepthRepository,
@@ -444,7 +445,8 @@ public sealed class LootIngestHandler(
                 // admin luck exclusion. Read from the record anyway rather than hardcoded, so this
                 // path and the backfill (LootFeedTiersHandler) state the same thing about the same
                 // drop if a republish ever happens.
-                ExcludedFromLuck: record.ExcludedFromLuck);
+                ExcludedFromLuck: record.ExcludedFromLuck,
+                IsPet: petCache.IsPet(d.ItemId, d.Name));
         }).ToList();
         var dropsByTier = ILootFeedService.ClassifyDropsByTier(feedDrops);
         if (dropsByTier.Count == 0) return;

@@ -77,7 +77,10 @@ public sealed record LootFeedDrop(
     DateTimeOffset? OccurredAt = null,
     // Admin decision (LootRecord.ExcludedFromLuck) that this receipt must inform nobody's luck.
     // The drop still shows on the card with its value and tier; only the lucky/dry line goes.
-    bool ExcludedFromLuck = false);
+    bool ExcludedFromLuck = false,
+    // A pet, per IPetCache. A fact about the ITEM, looked up wherever the drop is built rather than
+    // stored on the receipt - unlike IsSpecial, which is an admin's decision about one record.
+    bool IsPet = false);
 
 public static class FeedLuckRules
 {

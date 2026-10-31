@@ -250,6 +250,53 @@ public sealed class LootFeedTierClassificationTests
     }
 
     [Fact]
+    public void A_pet_is_forced_to_the_top_lane_despite_having_no_value()
+    {
+        // RuneLite prices every pet at 0 GP, so by value it would never clear the 10k floor.
+        var classified = ILootFeedService.ClassifyDropsByTier(
+            [new LootFeedDrop("Baron", 1, 0, IsPet: true)]);
+
+        Assert.Equal(LootFeedTier.Legendary, Assert.Single(classified.Keys));
+    }
+
+    [Theory]
+    [InlineData(50_000)]
+    [InlineData(50_000_000)]
+    [InlineData(500_000_000)]
+    public void A_pet_with_an_admin_value_still_lands_only_in_legendary(int value)
+    {
+        // An intrinsic value override composes with being a pet; it never moves one into a value lane.
+        Assert.Equal(LootFeedTier.Legendary, ILootFeedService.GetFeedTier(new LootFeedDrop("Baron", 1, value, IsPet: true)));
+    }
+
+    [Fact]
+    public void A_kill_carrying_a_pet_and_a_valued_drop_splits_across_both_lanes()
+    {
+        var classified = ILootFeedService.ClassifyDropsByTier(
+        [
+            new LootFeedDrop("Nexling", 1, 0, IsPet: true),
+            new LootFeedDrop("Zaryte vambraces", 1, 50_000_000)
+        ]);
+
+        Assert.Equal("Nexling", Assert.Single(classified[LootFeedTier.Legendary]).Name);
+        Assert.Equal("Zaryte vambraces", Assert.Single(classified[LootFeedTier.Epic]).Name);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(9_999)]
+    [InlineData(10_000)]
+    [InlineData(999_999)]
+    [InlineData(99_999_999)]
+    [InlineData(100_000_000)]
+    public void An_ordinary_drop_tiers_exactly_as_its_value_does(int value)
+    {
+        // GetFeedTier is what the live publish AND the backfill classify through; for anything that
+        // is neither special nor a pet it must be GetDropTier and nothing else.
+        Assert.Equal(ILootFeedService.GetDropTier(value), ILootFeedService.GetFeedTier(new LootFeedDrop("Item", 1, value)));
+    }
+
+    [Fact]
     public void ClassifyDropsByTier_preserves_order_within_a_tier_and_returns_no_empty_lanes()
     {
         var drops = new List<LootFeedDrop>
