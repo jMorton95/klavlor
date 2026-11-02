@@ -476,6 +476,23 @@ body:not(.history-panel-open) #completion-history-panel {
 .heatmap-tooltip .hm-tt-gp { color: #fbbf24; }   /* amber-400 */
 .heatmap-tooltip .hm-tt-clog { color: #67e8f9; } /* cyan-300 */
 
+/* The monthly summary's header button (SummaryWidgetCard). Hidden on the summary page itself,
+   where it would be a link to the page underneath it. :has() rather than a server decision because
+   the header sits outside #hx-page-container, which in-app navigation never re-renders. */
+.summary-widget {
+    animation: summary-widget-in 300ms ease-out both;
+}
+@keyframes summary-widget-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .summary-widget { animation: none; }
+}
+body:has(#monthly-summary) .summary-widget {
+    display: none;
+}
+
 
 /* --- HTMX component-swap loader --- */
 /* Injected by site.js over a swap target (or the clicked element) when a GET component fetch

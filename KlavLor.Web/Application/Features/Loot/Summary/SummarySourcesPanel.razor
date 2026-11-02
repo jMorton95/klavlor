@@ -1,0 +1,90 @@
+@using KlavLor.Application.Common
+@using KlavLor.Application.Features.Loot.Summary
+
+@{
+    var ctx = Sources.Context;
+    var characterId = ctx.Character!.CharacterId;
+    var played = Sources.Page;
+    var topKills = played.Rows.Count > 0 ? played.Rows.Max(r => r.Kills) : 0;
+}
+
+<section class="bg-slate-900 rounded-xl shadow-sm border border-slate-700 p-5">
+    <div class="flex flex-wrap items-start justify-between gap-2 mb-3">
+        <div>
+            <h3 class="text-sm font-semibold text-slate-200">Where the time went</h3>
+            <p class="text-xs text-white mt-0.5">
+                @played.Total.ToString("N0") @(played.Total == 1 ? "source" : "sources") played in @ctx.Month.Name, by rolls
+            </p>
+        </div>
+        <a href="@AppRoutes.LootLogCharacterSources.WithId(characterId)"
+           hx-get="@AppRoutes.LootLogCharacterSources.WithId(characterId).FromApi()"
+           hx-target="#hx-page-container"
+           hx-push-url="@AppRoutes.LootLogCharacterSources.WithId(characterId)"
+           hx-swap="innerHTML transition:true"
+           class="text-xs font-medium text-amber-400 hover:text-amber-300 cursor-pointer">
+            All sources →
+        </a>
+    </div>
+
+    @if (played.Rows.Count == 0)
+    {
+        <p class="rounded-lg border border-dashed border-slate-700 px-4 py-6 text-center text-xs text-white">No rolls this month.</p>
+    }
+    else
+    {
+        <ol class="divide-y divide-slate-800">
+            @foreach (var row in played.Rows)
+            {
+                var share = topKills > 0 ? Math.Max(2.0, 100.0 * row.Kills / topKills) : 0;
+                <li>
+                    <a href="@SummaryLinks.Source(characterId, row.SourceName)"
+                       hx-get="@SummaryLinks.SourceApi(characterId, row.SourceName)"
+                       hx-target="#hx-page-container"
+                       hx-push-url="@SummaryLinks.Source(characterId, row.SourceName)"
+                       hx-swap="innerHTML transition:true"
+                       class="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 py-2.5 px-1 -mx-1 rounded-md hover:bg-slate-800/50 transition-colors cursor-pointer">
+                        <span class="w-8 h-8 rounded bg-slate-800 flex items-center justify-center overflow-hidden">
+                            <img src="@SummaryLinks.SourceIcon(row.SourceName)" alt="" class="max-w-7 max-h-7 object-contain"
+                                 loading="lazy" onerror="this.style.display='none'" />
+                        </span>
+                        <span class="min-w-0">
+                            <span class="flex items-center gap-2 min-w-0">
+                                <span class="text-sm font-medium text-slate-100 truncate">@row.SourceName</span>
+                                @if (row.IsFirstEver)
+                                {
+                                    <span class="shrink-0 px-1.5 py-px text-[9px] font-bold uppercase tracking-wide rounded-sm bg-cyan-700 text-white"
+                                          title="Your first ever kills here">New</span>
+                                }
+                                else if (row.Milestone is { } milestone)
+                                {
+                                    <span class="shrink-0 px-1.5 py-px text-[9px] font-bold uppercase tracking-wide rounded-sm bg-amber-500 text-slate-950"
+                                          title="Passed @milestone.ToString("N0") kills this month">@milestone.ToString("N0") KC</span>
+                                }
+                            </span>
+                            <span class="block mt-1.5 h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                                <span class="block h-full rounded-full bg-amber-500/70" style="width: @share.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)%"></span>
+                            </span>
+                        </span>
+                        <span class="text-right tabular-nums">
+                            <span class="block text-sm font-semibold text-slate-100">@row.Kills.ToString("N0")</span>
+                            <span class="block text-[10px] text-white whitespace-nowrap"
+                                  title="Kill count at the start and end of the month">
+                                KC @row.StartKc.ToString("N0") → @row.EndKc.ToString("N0") · <span class="text-amber-400">@GoldFormat.Format(row.Gp)</span>
+                            </span>
+                        </span>
+                    </a>
+                </li>
+            }
+        </ol>
+        @if (played.Total > played.Rows.Count)
+        {
+            <p class="mt-3 text-xs text-white">
+                and @((played.Total - played.Rows.Count).ToString("N0")) more @(played.Total - played.Rows.Count == 1 ? "source" : "sources")
+            </p>
+        }
+    }
+</section>
+
+@code {
+    [Parameter] public required SummarySources Sources { get; set; }
+}

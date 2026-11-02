@@ -1,0 +1,316 @@
+@using KlavLor.Application.Common
+@using KlavLor.Application.Features.Loot.Log
+@using KlavLor.Application.Features.Loot.Summary
+
+@{
+    var ctx = Overview.Context;
+    var character = ctx.Character;
+    var carried = SummaryLinks.CarriedCharacter(ctx);
+}
+
+<section class="bg-slate-900 rounded-xl shadow-sm border border-slate-700 p-5 space-y-5">
+    <header class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-3 min-w-0">
+            @MonthStep(ctx.Month.Previous(), ctx.HasPrevious, back: true, carried)
+            <div class="min-w-0">
+                <p class="text-[11px] font-semibold uppercase tracking-wider text-amber-400">
+                    @(ctx.IsInProgress ? "This month so far" : "Monthly summary")
+                </p>
+                <h2 class="text-2xl font-bold text-slate-100 leading-tight">@ctx.Month.Label</h2>
+            </div>
+            @MonthStep(ctx.Month.Next(), ctx.HasNext, back: false, carried)
+        </div>
+
+        @if (character is not null)
+        {
+            <a href="@AppRoutes.LootLogCharacter.WithId(character.CharacterId)"
+               hx-get="@AppRoutes.LootLogCharacter.WithId(character.CharacterId).FromApi()"
+               hx-target="#hx-page-container"
+               hx-push-url="@AppRoutes.LootLogCharacter.WithId(character.CharacterId)"
+               hx-swap="innerHTML transition:true"
+               class="flex items-center gap-3 rounded-lg border border-slate-700 bg-slate-800/40 px-3 py-2 hover:border-amber-700 hover:bg-slate-800 transition-colors cursor-pointer min-w-0">
+                <span class="w-8 h-8 shrink-0 rounded-lg bg-linear-to-br from-amber-500 to-orange-600 flex items-center justify-center text-sm font-bold text-white">@Initial(character.Name)</span>
+                <span class="min-w-0">
+                    <span class="block text-sm font-semibold text-slate-100 truncate">@character.Name</span>
+                    <span class="block text-[11px] text-white">@(ctx.IsPrimary ? "Your most-played character" : "Viewing this character")</span>
+                </span>
+            </a>
+        }
+    </header>
+
+    @if (ctx.ActiveCharacters.Count > 1)
+    {
+        <nav class="flex flex-wrap items-center gap-2" aria-label="Characters played this month">
+            <span class="text-[11px] font-semibold uppercase tracking-wider text-white mr-1">Played this month</span>
+            @foreach (var c in ctx.ActiveCharacters)
+            {
+                var selected = c.CharacterId == character?.CharacterId;
+                <a href="@SummaryLinks.Page(ctx.Month, c.CharacterId)"
+                   hx-get="@SummaryLinks.PageApi(ctx.Month, c.CharacterId)"
+                   hx-target="#hx-page-container"
+                   hx-push-url="@SummaryLinks.Page(ctx.Month, c.CharacterId)"
+                   hx-swap="innerHTML transition:true"
+                   aria-current="@(selected ? "page" : null)"
+                   class="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs cursor-pointer transition-colors @(selected ? "border-amber-500 bg-amber-500/10 text-amber-300" : "border-slate-700 text-slate-200 hover:border-slate-500 hover:text-white")">
+                    <span class="font-semibold">@c.Name</span>
+                    <span class="text-white tabular-nums">~@c.ActiveHours.ToString("N0")h</span>
+                </a>
+            }
+        </nav>
+    }
+
+    @if (character is null || !character.WasActive)
+    {
+        <div class="rounded-lg border border-dashed border-slate-700 px-6 py-10 text-center">
+            <svg class="w-10 h-10 mx-auto text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <h3 class="mt-3 text-sm font-semibold text-slate-200">
+                @(character is null ? $"No rolls logged in {ctx.Month.Label}" : $"{character.Name} logged no rolls in {ctx.Month.Label}")
+            </h3>
+            <p class="mt-1 text-xs text-white">
+                @if (ctx.ActiveCharacters.Count > 0)
+                {
+                    <text>Pick one of the characters above that did.</text>
+                }
+                else if (ctx.HasPrevious)
+                {
+                    <text>Nothing synced for any of your characters this month — step back a month to see an earlier one.</text>
+                }
+                else
+                {
+                    <text>Once <span class="font-medium text-slate-300">klavlor-sync</span> has logged some kills, your month will show up here.</text>
+                }
+            </p>
+        </div>
+    }
+    else
+    {
+        var previous = ctx.IsInProgress ? null : Overview.PreviousMonth;
+        var compareTo = ctx.Month.Previous().ShortName;
+
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+            @Tile("Rolls", character.Kills.ToString("N0"), "text-slate-100",
+                Change(character.Kills, previous?.Kills), compareTo)
+            @Tile("GP earned", GoldFormat.Format(character.Gp), "text-amber-400",
+                Change(character.Gp, previous?.Gp), compareTo)
+            @Tile("Time played", $"~{character.ActiveHours:N0}h", "text-slate-100",
+                Change(character.ActiveHours, previous?.ActiveHours), compareTo)
+            @Tile("Days active", $"{character.ActiveDays} / {DaysSoFar(ctx)}", "text-slate-100",
+                Change(character.ActiveDays, previous?.ActiveDays), compareTo)
+            @Tile("New clog slots", Overview.NewClogs.ToString("N0"), "text-cyan-300", null, compareTo)
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,42rem)_minmax(0,1fr)] gap-6">
+            @Calendar(character)
+            @Highlights(character)
+        </div>
+    }
+</section>
+
+@code {
+    [Parameter] public required SummaryOverview Overview { get; set; }
+
+    private static string Initial(string name) =>
+        string.IsNullOrWhiteSpace(name) ? "?" : char.ToUpperInvariant(name.Trim()[0]).ToString();
+
+    private static double? Change(double current, double? previous) =>
+        previous is { } p ? SummaryHighlights.Change(current, p) : null;
+
+    private static DateOnly Today => DateOnly.FromDateTime(IngestTimezone.ToZoneTime(DateTimeOffset.UtcNow).DateTime);
+
+    // The in-progress month is judged against the days that have happened, not the whole month.
+    private static int DaysSoFar(SummaryContext ctx) =>
+        ctx.IsInProgress ? Today.Day : ctx.Month.DayCount;
+
+    private RenderFragment MonthStep(SummaryMonth target, bool enabled, bool back, int? characterId) => __builder =>
+    {
+        var label = (back ? "Previous month: " : "Next month: ") + target.Label;
+        var path = back ? "M15 19l-7-7 7-7" : "M9 5l7 7-7 7";
+        if (enabled)
+        {
+            <a href="@SummaryLinks.Page(target, characterId)"
+               hx-get="@SummaryLinks.PageApi(target, characterId)"
+               hx-target="#hx-page-container"
+               hx-push-url="@SummaryLinks.Page(target, characterId)"
+               hx-swap="innerHTML transition:true"
+               title="@label"
+               aria-label="@label"
+               class="h-9 w-9 shrink-0 inline-flex items-center justify-center rounded-lg border border-slate-700 bg-slate-800/40 text-slate-200 hover:border-amber-700 hover:text-white transition-colors cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@path" /></svg>
+            </a>
+        }
+        else
+        {
+            <span class="h-9 w-9 shrink-0 inline-flex items-center justify-center rounded-lg border border-slate-800 text-slate-700" aria-hidden="true">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@path" /></svg>
+            </span>
+        }
+    };
+
+    private RenderFragment Tile(string label, string value, string valueClass, double? change, string compareTo) => __builder =>
+    {
+        <div class="rounded-lg bg-slate-800/40 border border-slate-700/60 px-3 py-2.5">
+            <div class="text-[10px] font-semibold uppercase tracking-wider text-white">@label</div>
+            <div class="text-xl font-bold tabular-nums leading-tight mt-0.5 @valueClass">@value</div>
+            @if (change is { } c)
+            {
+                var up = c >= 0;
+                <div class="text-[11px] tabular-nums mt-0.5 @(up ? "text-emerald-400" : "text-rose-400")"
+                     title="Compared with @compareTo">
+                    @(up ? "▲" : "▼") @Math.Abs(c * 100).ToString("N0")% <span class="text-white">vs @compareTo</span>
+                </div>
+            }
+        </div>
+    };
+
+    private RenderFragment Calendar(SummaryCharacter character) => __builder =>
+    {
+        var month = Overview.Context.Month;
+        var byDay = Overview.Days.ToDictionary(d => d.Day);
+        var lead = ((int)month.FirstDay.DayOfWeek + 6) % 7;
+        var today = Today;
+
+        <div>
+            <div class="grid grid-cols-7 gap-1 sm:gap-1.5 mb-1.5 text-center text-[10px] font-semibold uppercase tracking-wider text-white" aria-hidden="true">
+                @foreach (var weekday in new[] { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" })
+                {
+                    <span>@weekday</span>
+                }
+            </div>
+            <div class="grid grid-cols-7 gap-1 sm:gap-1.5" role="list" aria-label="@($"Daily activity in {month.Label}")">
+                @for (var i = 0; i < lead; i++)
+                {
+                    <span aria-hidden="true"></span>
+                }
+                @for (var d = 0; d < month.DayCount; d++)
+                {
+                    var day = month.FirstDay.AddDays(d);
+                    var dateLabel = day.ToString("ddd, d MMM yyyy");
+                    if (byDay.TryGetValue(day, out var bucket) && bucket.Kills > 0)
+                    {
+                        var (bg, text) = DayColours(bucket.Gp);
+                        <a role="listitem"
+                           href="@AppRoutes.LootLogCharacterDay.WithId(character.CharacterId).WithDate(day)"
+                           hx-get="@AppRoutes.LootLogCharacterDay.WithId(character.CharacterId).WithDate(day).FromApi()"
+                           hx-target="#hx-page-container"
+                           hx-push-url="@AppRoutes.LootLogCharacterDay.WithId(character.CharacterId).WithDate(day)"
+                           hx-swap="innerHTML transition:true"
+                           data-date="@dateLabel"
+                           data-gp="@GoldFormat.Format(bucket.Gp)"
+                           data-kills="@bucket.Kills.ToString("N0")"
+                           data-clogs="@bucket.Clogs.ToString("N0")"
+                           class="heatmap-cell relative h-11 sm:h-14 rounded-md cursor-pointer transition-transform hover:scale-105 @bg @text @MilestoneRing(bucket.Gp) @(day == today ? "outline outline-1 outline-white/60" : "")">
+                            <span class="absolute top-1 left-1.5 text-[10px] sm:text-[11px] font-semibold">@day.Day</span>
+                            @if (bucket.Clogs > 0)
+                            {
+                                <span class="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-cyan-300 ring-1 ring-slate-950/40" aria-hidden="true"></span>
+                            }
+                            <span class="absolute bottom-1 inset-x-0 text-center text-[10px] font-semibold tabular-nums hidden sm:block">@GoldFormat.Format(bucket.Gp)</span>
+                        </a>
+                    }
+                    else if (day > today)
+                    {
+                        <span role="listitem" class="relative h-11 sm:h-14 rounded-md border border-dashed border-slate-800">
+                            <span class="absolute top-1 left-1.5 text-[10px] sm:text-[11px] text-slate-600">@day.Day</span>
+                        </span>
+                    }
+                    else
+                    {
+                        <span role="listitem" data-date="@dateLabel" data-empty="true"
+                              class="heatmap-cell relative h-11 sm:h-14 rounded-md bg-slate-800/50 @(day == today ? "outline outline-1 outline-white/60" : "")">
+                            <span class="absolute top-1 left-1.5 text-[10px] sm:text-[11px] text-white/70">@day.Day</span>
+                        </span>
+                    }
+                }
+            </div>
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-1 mt-3 text-[10px] text-white">
+                <span class="font-medium">GP / day</span>
+                <span>Less</span>
+                @foreach (var swatch in Legend)
+                {
+                    <span class="w-2.5 h-2.5 rounded-sm @swatch" aria-hidden="true"></span>
+                }
+                <span>More</span>
+                <span class="text-slate-600" aria-hidden="true">·</span>
+                <span class="inline-flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-cyan-300" aria-hidden="true"></span>
+                    new collection log slot
+                </span>
+                <span class="text-slate-600" aria-hidden="true">·</span>
+                <span>click a day to see it</span>
+            </div>
+        </div>
+    };
+
+    private RenderFragment Highlights(SummaryCharacter character) => __builder =>
+    {
+        var busiest = Overview.BusiestDay;
+        var streak = Overview.LongestStreak;
+        var perHour = character.ActiveHours > 0 ? (long)(character.Gp / character.ActiveHours) : 0;
+        var perDay = character.ActiveDays > 0 ? character.Gp / character.ActiveDays : 0;
+
+        <div class="space-y-3">
+            <h3 class="text-[11px] font-semibold uppercase tracking-wider text-white">Highlights</h3>
+            @if (busiest is not null)
+            {
+                <a href="@AppRoutes.LootLogCharacterDay.WithId(character.CharacterId).WithDate(busiest.Day)"
+                   hx-get="@AppRoutes.LootLogCharacterDay.WithId(character.CharacterId).WithDate(busiest.Day).FromApi()"
+                   hx-target="#hx-page-container"
+                   hx-push-url="@AppRoutes.LootLogCharacterDay.WithId(character.CharacterId).WithDate(busiest.Day)"
+                   hx-swap="innerHTML transition:true"
+                   class="block rounded-lg border border-slate-700 bg-slate-800/40 px-3 py-2.5 hover:border-amber-700 hover:bg-slate-800 transition-colors cursor-pointer">
+                    <div class="text-[10px] font-semibold uppercase tracking-wider text-white">Biggest day</div>
+                    <div class="text-sm font-semibold text-slate-100">@busiest.Day.ToString("dddd d MMMM")</div>
+                    <div class="text-xs text-white tabular-nums">
+                        <span class="font-semibold text-amber-400">@GoldFormat.Format(busiest.Gp)</span>
+                        · @busiest.Kills.ToString("N0") @(busiest.Kills == 1 ? "roll" : "rolls")
+                    </div>
+                </a>
+            }
+            <div class="rounded-lg border border-slate-700 bg-slate-800/40 px-3 py-2.5">
+                <div class="text-[10px] font-semibold uppercase tracking-wider text-white">Longest streak</div>
+                <div class="text-sm font-semibold text-slate-100">
+                    @streak @(streak == 1 ? "day" : "days")@(streak > 1 ? " in a row" : "")
+                </div>
+                <div class="text-xs text-white">Consecutive days with at least one roll</div>
+            </div>
+            <div class="rounded-lg border border-slate-700 bg-slate-800/40 px-3 py-2.5">
+                <div class="text-[10px] font-semibold uppercase tracking-wider text-white">Typical active day</div>
+                <div class="text-sm font-semibold tabular-nums">
+                    <span class="text-amber-400">@GoldFormat.Format(perDay)</span>
+                    <span class="text-xs font-normal text-white">per day played</span>
+                </div>
+                <div class="text-xs text-white tabular-nums">~@GoldFormat.Format(perHour) GP/hr across ~@character.ActiveHours.ToString("N0")h</div>
+            </div>
+        </div>
+    };
+
+    // The same steps as HeatmapGrid's GP ramp, as backgrounds rather than SVG fills, so a day reads
+    // the same colour here as on the character page's year heatmap. The top steps are light enough
+    // that the day number has to switch to dark text.
+    private static (string Bg, string Text) DayColours(long gp) => gp switch
+    {
+        < 50_000 => ("bg-emerald-900", "text-white"),
+        < 250_000 => ("bg-emerald-800", "text-white"),
+        < 1_000_000 => ("bg-emerald-700", "text-white"),
+        < 5_000_000 => ("bg-emerald-600", "text-white"),
+        < 25_000_000 => ("bg-emerald-500", "text-slate-950"),
+        < 100_000_000 => ("bg-emerald-400", "text-slate-950"),
+        < 500_000_000 => ("bg-emerald-300", "text-slate-950"),
+        _ => ("bg-emerald-200", "text-slate-950")
+    };
+
+    private static string MilestoneRing(long gp) => gp switch
+    {
+        >= 250_000_000 => "ring-2 ring-purple-400",
+        >= 100_000_000 => "ring-2 ring-amber-400",
+        _ => ""
+    };
+
+    private static readonly string[] Legend =
+    [
+        "bg-emerald-900", "bg-emerald-800", "bg-emerald-700", "bg-emerald-600",
+        "bg-emerald-500", "bg-emerald-400", "bg-emerald-300", "bg-emerald-200"
+    ];
+}

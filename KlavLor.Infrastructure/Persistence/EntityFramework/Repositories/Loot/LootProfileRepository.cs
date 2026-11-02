@@ -93,9 +93,6 @@ internal sealed class LootProfileRepository(
             var kills = rowAgg?.Kills ?? 0;
             var gp = rowAgg?.Gp ?? 0;
 
-            // Active hours = distinct truncated-hour buckets, scaled by the fraction
-            // of each hour a player is realistically active (see ActiveFractionPerHour).
-            // Cheap approximation of "time spent earning" without session stitching.
             var activeHours = await GetActiveHours(characterId, from, to);
             var gpPerHour = activeHours > 0 ? (long)(gp / activeHours) : 0;
 
@@ -109,11 +106,6 @@ internal sealed class LootProfileRepository(
             throw new RepositoryException("Failed to get window stats", ex);
         }
     }
-
-    // Fraction of each "active" hour a player is realistically earning. An hour bucket
-    // containing a kill rarely represents 60 minutes of grinding, so we discount each
-    // counted hour to ~45 minutes to keep derived figures (e.g. GP/hr) honest.
-    private const double ActiveFractionPerHour = 0.75;
 
     private async Task<double> GetActiveHours(int characterId, DateTimeOffset? from, DateTimeOffset? to)
     {
@@ -135,7 +127,7 @@ internal sealed class LootProfileRepository(
         cmd.Parameters.Add(NullableTimestampParam("@to", to));
 
         var result = await cmd.ExecuteScalarAsync();
-        return result is long l ? l * ActiveFractionPerHour : 0;
+        return result is long l ? ActiveHours.FromHourBuckets(l) : 0;
     }
 
     private async Task<int> GetNewItemsInWindow(int characterId, DateTimeOffset? from, DateTimeOffset? to)

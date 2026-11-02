@@ -1,0 +1,64 @@
+@using KlavLor.Application.Common
+@using KlavLor.Application.Features.Loot.Summary
+@using KlavLor.Web.Application.Features.Loot.Feed
+
+@{
+    var ctx = Drops.Context;
+    var characterId = ctx.Character!.CharacterId;
+}
+
+<section class="bg-slate-900 rounded-xl shadow-sm border border-slate-700 p-5">
+    <div class="mb-3">
+        <h3 class="text-sm font-semibold text-slate-200">Notable drops</h3>
+        <p class="text-xs text-white mt-0.5">
+            The best single drop of each item worth @GoldFormat.Format(Drops.Floor)+, coloured by its live feed tier
+        </p>
+    </div>
+
+    @if (Drops.Drops.Count == 0)
+    {
+        <p class="rounded-lg border border-dashed border-slate-700 px-4 py-6 text-center text-xs text-white">
+            No drops worth @GoldFormat.Format(Drops.Floor) or more this month.
+        </p>
+    }
+    else
+    {
+        <ol class="space-y-2">
+            @foreach (var drop in Drops.Drops)
+            {
+                <li>
+                    <a href="@SummaryLinks.Source(characterId, drop.SourceName)"
+                       hx-get="@SummaryLinks.SourceApi(characterId, drop.SourceName)"
+                       hx-target="#hx-page-container"
+                       hx-push-url="@SummaryLinks.Source(characterId, drop.SourceName)"
+                       hx-swap="innerHTML transition:true"
+                       class="flex items-center gap-3 rounded-lg border-l-2 bg-slate-800/30 px-3 py-2 hover:bg-slate-800/70 transition-colors cursor-pointer @TierStyle.SessionAccentClass(drop.Tier)">
+                        <span class="w-9 h-9 shrink-0 rounded bg-slate-800 flex items-center justify-center">
+                            <img src="@SummaryLinks.ItemIcon(drop.ItemName)" alt="" class="max-w-8 max-h-8 object-contain"
+                                 loading="lazy" onerror="this.style.display='none'" />
+                        </span>
+                        <span class="min-w-0 flex-1">
+                            <span class="block text-sm text-slate-100 truncate">
+                                @if (drop.Quantity > 1)
+                                {
+                                    <span class="text-amber-400">@drop.Quantity.ToString("N0")x </span>
+                                }
+                                @drop.ItemName
+                            </span>
+                            <span class="block text-[10px] text-white truncate">
+                                @drop.SourceName · @IngestTimezone.ToZoneTime(drop.OccurredAt).ToString("ddd d MMM, HH:mm")
+                            </span>
+                        </span>
+                        <span class="shrink-0 text-sm font-semibold tabular-nums @(drop.Tier is { } tier ? TierStyle.For(tier).HeaderClass : "text-slate-300")">
+                            @GoldFormat.Format(drop.Value)
+                        </span>
+                    </a>
+                </li>
+            }
+        </ol>
+    }
+</section>
+
+@code {
+    [Parameter] public required SummaryDrops Drops { get; set; }
+}
