@@ -32,7 +32,7 @@ npm run test:js
 
 **App URL:** https://localhost:7081
 
-**Database:** PostgreSQL on localhost:5432, database `klavlor`, user/password `postgres/postgres` (local dev via compose.yaml). Migrations run automatically on startup.
+**Database:** PostgreSQL on **localhost:5430** (compose maps host 5430 → container 5432, so it doesn't collide with other local Postgres containers on 5432), database `klavlor`, user/password `postgres/postgres` (local dev via compose.yaml). Migrations run automatically on startup.
 
 ### EF Core Migrations
 
