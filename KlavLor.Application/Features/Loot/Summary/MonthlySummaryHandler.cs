@@ -9,7 +9,7 @@ namespace KlavLor.Application.Features.Loot.Summary;
 
 /// <summary>
 /// The signed-in user's monthly summary: one month, seen through one of their own characters — by
-/// default the one they played most that month.
+/// default the one they played most that month. An admin can also open anyone's, see Resolve.
 ///
 /// Computed on request from the loot tables and never stored. Each panel of the page is its own
 /// request and resolves the month and character for itself, so the page shell can paint without a
@@ -117,14 +117,35 @@ public sealed class MonthlySummaryHandler(
         return Result<SummaryDrops?>.Success(new SummaryDrops(context, drops, NotableFloor));
     }
 
+    /// <summary>
+    /// Every character's month, most active first — the admin area's way into any summary. Admin
+    /// only; not cached, because only admins ever ask and each ask is one aggregate per character.
+    /// </summary>
+    public async Task<Result<SummaryRoster>> Roster(string? month)
+    {
+        if (!currentUser.IsAdmin) return Result<SummaryRoster>.Failure("Admins only.");
+
+        var now = DateTimeOffset.UtcNow;
+        var resolved = SummaryMonth.Resolve(month, now);
+        var roster = await summaryRepository.GetRoster(resolved.StartUtc, resolved.EndUtc);
+
+        return Result<SummaryRoster>.Success(new SummaryRoster(
+            resolved,
+            SummaryMonth.Containing(now),
+            roster.FirstActivityAt is { } first ? SummaryMonth.Containing(first) : null,
+            roster.Characters));
+    }
+
+    // The UserId returned is the OWNER whose activity the context was built from: the signed-in user,
+    // or for an admin view the character's owner. Panels that read more activity must use it.
     private async Task<(int UserId, SummaryContext Context)?> Resolve(string? monthSlug, int? characterId)
     {
         if (currentUser.UserId is not { } userId) return null;
 
         var now = DateTimeOffset.UtcNow;
         var month = SummaryMonth.Resolve(monthSlug, now);
-        var activity = await Activity(userId, month);
-        var primary = activity.Primary;
+        var ownerId = userId;
+        var activity = await Activity(ownerId, month);
 
         // A named character is honoured only when it is one of the user's OWN — the activity list is
         // exactly those, so membership is the ownership check. Anything else (someone else's id, a
@@ -133,6 +154,21 @@ public sealed class MonthlySummaryHandler(
         var requested = characterId is { } id
             ? activity.Characters.FirstOrDefault(c => c.CharacterId == id)
             : null;
+
+        // The one exception is an admin, who can open any character's summary from the admin area.
+        // It is then built from the OWNER's activity — their characters, their history, their
+        // primary — so the admin sees exactly what the owner sees, and the context says whose it is.
+        string? adminViewOf = null;
+        if (requested is null && characterId is { } other && currentUser.IsAdmin
+            && await summaryRepository.GetOwner(other) is { } owner)
+        {
+            ownerId = owner.UserId;
+            activity = await Activity(ownerId, month);
+            requested = activity.Characters.FirstOrDefault(c => c.CharacterId == other);
+            adminViewOf = owner.Name;
+        }
+
+        var primary = activity.Primary;
         var selected = requested ?? primary;
 
         var context = new SummaryContext(
@@ -142,9 +178,10 @@ public sealed class MonthlySummaryHandler(
             selected,
             IsPrimary: selected is not null && selected.CharacterId == primary?.CharacterId,
             CharacterRequested: requested is not null,
-            activity.Characters.Where(c => c.WasActive).ToList());
+            activity.Characters.Where(c => c.WasActive).ToList(),
+            adminViewOf);
 
-        return (userId, context);
+        return (ownerId, context);
     }
 
     private async Task<SummaryActivity> Activity(int userId, SummaryMonth month)

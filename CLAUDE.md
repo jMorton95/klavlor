@@ -735,7 +735,8 @@ seen through one of their **own** characters. A button in the header beside the 
 "Monthly summary" link under Account in the sidebar for after the button is dismissed. It started as a
 fixed card bottom-left of the page and moved because the feed's hovered cards drew over it. Nothing is
 stored: `MonthlySummaryHandler` reads the loot tables through `ILootMonthlySummaryRepository` (plus
-`ILootProfileRepository.GetActivityCalendar` for the day-by-day calendar). User-only on every route.
+`ILootProfileRepository.GetActivityCalendar` for the day-by-day calendar). User-only on every route
+except the admin roster, which is Admin-only.
 
 - **The shell is query-free; four panels fetch themselves** (overview, new clog slots, sources,
   notable drops) via `DeferredSection`, each in its own request scope. The shell resolves the month
@@ -746,11 +747,23 @@ stored: `MonthlySummaryHandler` reads the loot tables through `ILootMonthlySumma
   per-character panels ride `LootStatsCache` versioning, so ingest and the admin repairs invalidate them.
 - **"Primary" means most distinct active HOURS, then kills, then GP** — never kills alone. Kill rate
   varies by two orders of magnitude between content; ranked by kills, an alt chinning for an evening
-  outranks a main that raided all month. The ordering lives in `GetActivity`'s `ORDER BY` and the
-  primary is the first character that played at all.
-- **A named character is honoured only if the user owns it.** `GetActivity` returns every character
-  the user owns, so membership in it IS the ownership check. Anyone else's id (or a stale one) falls
-  back to the primary rather than failing. `MonthlySummaryTests.A_summary_never_shows_a_character_belonging_to_someone_else` pins it.
+  outranks a main that raided all month. The ordering lives in the repository's `MostActiveFirst`
+  and the primary is the first character that played at all.
+- **A named character is honoured only if the user owns it — or the user is an admin.** `GetActivity`
+  returns every character the user owns, so membership in it IS the ownership check. Anyone else's
+  id (or a stale one) falls back to the primary rather than failing.
+  `MonthlySummaryTests.A_summary_never_shows_a_character_belonging_to_someone_else` pins it.
+- **An admin opens anyone's from Admin → Monthly summaries** (`/admin/settings/summaries`,
+  `AdminSummaryRoster`). Its route lives in `MonthlySummaryEndpoint`, with the feature, not in
+  `AdminSettingsEndpoint`. The roster is `GetRoster`, which runs the same per-character aggregate and
+  ordering as `GetActivity` (one shared SQL constant), so its "Main" badge always agrees with each
+  player's own primary. A row opens the ordinary summary page with `characterId`. For a character
+  the admin doesn't own, `Resolve` looks up its owner (`GetOwner`) and builds the whole context from
+  the OWNER's activity, so the admin sees exactly what the player sees: their characters, their
+  history, their primary. `SummaryContext.AdminViewOf` names the owner. The overview then shows an
+  "Admin view" banner and retitles the header out-of-band, because the query-free shell has already
+  titled the page "what you got up to". `MonthlySummaryTests.An_admin_sees_another_players_summary_exactly_as_that_player_does`
+  pins this, including that a non-admin's request for the same id still falls back.
 - **Months are Europe/London**, matching the monthly trend and heatmap. The default is the last
   COMPLETE month; the current month is one step forward and is labelled "so far", with no
   month-over-month deltas (a partial month against a whole one reads as a collapse).
@@ -974,7 +987,7 @@ These are the only places where manual DI scopes are acceptable (via `IServiceSc
 
 `KlavLor.IntegrationTests` (xUnit) runs against a real PostgreSQL started by Testcontainers (`postgres:16-alpine`) with the full EF migration set applied, so tests exercise real SQL — including the raw-ADO repositories and the `LootDrop` projection — rather than an in-memory fake. **Docker must be running.** The container is shared via `PostgresFixture` / the `"postgres"` collection, so tests in that collection must not assume an empty database; seed and scope your own rows.
 
-Coverage is targeted at the loot-derivation maths and query surface, not the web layer: character sessions, drop-rate bucket client and sync, feed ordinals and one-off drops, pets in the Legendary backfill, loot-drop projection, item-value override rebuild and restore, record-level luck exclusion, source rename, source tables, the monthly summary (primary character by hours, London month bounds, clog count agreeing with the list, KC with baselines, the notable-drop floor, and that another user's character is never shown), and golden-file assertions for drop search.
+Coverage is targeted at the loot-derivation maths and query surface, not the web layer: character sessions, drop-rate bucket client and sync, feed ordinals and one-off drops, pets in the Legendary backfill, loot-drop projection, item-value override rebuild and restore, record-level luck exclusion, source rename, source tables, the monthly summary (primary character by hours, London month bounds, clog count agreeing with the list, KC with baselines, the notable-drop floor, that another user's character is never shown to a non-admin, and that an admin sees it as its owner does), and golden-file assertions for drop search.
 
 Three files exist because the bug they pin was invisible until production and looked like something else entirely:
 

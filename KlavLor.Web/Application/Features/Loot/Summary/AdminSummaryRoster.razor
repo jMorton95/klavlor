@@ -1,0 +1,147 @@
+@using KlavLor.Application.Common
+@using KlavLor.Application.Features.Loot.Summary
+
+@{
+    var played = Roster.Played;
+    var idle = Roster.Idle.OrderBy(e => e.Character.Name, StringComparer.OrdinalIgnoreCase).ToList();
+
+    // The roster is ordered by the same rule each player's own summary uses, so the first of an
+    // owner's characters to appear IS their primary. Only worth saying when they played several.
+    var mains = played
+        .GroupBy(e => e.OwnerUserId)
+        .Where(g => g.Count() > 1)
+        .Select(g => g.First().Character.CharacterId)
+        .ToHashSet();
+}
+
+@* The admin area's way into anyone's monthly summary. Each row opens the ordinary summary page with
+   the character named; MonthlySummaryHandler lets an admin through and builds it from the owner's
+   activity, so what opens is exactly what that player sees. The month arrows swap this panel only. *@
+<div id="admin-summary-roster" class="space-y-5">
+    <div class="flex flex-wrap items-center gap-3">
+        @MonthStep(Roster.Month.Previous(), Roster.HasPrevious, back: true)
+        <div class="min-w-0">
+            <p class="text-[11px] font-semibold uppercase tracking-wider text-amber-400">
+                @(Roster.IsInProgress ? "This month so far" : "Month")
+            </p>
+            <h3 class="text-xl font-bold text-slate-100 leading-tight">@Roster.Month.Label</h3>
+        </div>
+        @MonthStep(Roster.Month.Next(), Roster.HasNext, back: false)
+        <p class="ml-auto text-xs text-white">
+            <span class="font-semibold tabular-nums">@played.Count</span> of @Roster.Characters.Count characters played
+        </p>
+    </div>
+
+    @if (played.Count == 0)
+    {
+        <p class="rounded-lg border border-dashed border-slate-700 px-4 py-8 text-center text-sm text-white">
+            Nobody logged a roll in @Roster.Month.Label.
+        </p>
+    }
+    else
+    {
+        <div>
+            <div class="hidden sm:grid @Columns px-2 pb-2 border-b border-slate-700 text-[10px] font-semibold uppercase tracking-wider text-white">
+                <span>Character</span>
+                <span>Player</span>
+                <span class="text-right">Rolls</span>
+                <span class="text-right" title="Estimated from distinct hours with a kill, as on the profile">Time</span>
+                <span class="text-right">Days</span>
+                <span class="text-right">GP</span>
+            </div>
+            <ol class="divide-y divide-slate-800">
+                @foreach (var entry in played)
+                {
+                    var c = entry.Character;
+                    <li>
+                        <a href="@SummaryLinks.Page(Roster.Month, c.CharacterId)"
+                           hx-get="@SummaryLinks.PageApi(Roster.Month, c.CharacterId)"
+                           hx-target="#hx-page-container"
+                           hx-push-url="@SummaryLinks.Page(Roster.Month, c.CharacterId)"
+                           hx-swap="innerHTML transition:true"
+                           title="@($"Open {c.Name}'s {Roster.Month.Name} summary")"
+                           class="group grid @Columns items-center px-2 py-2.5 rounded-md hover:bg-slate-800/60 transition-colors cursor-pointer">
+                            <span class="min-w-0">
+                                <span class="flex items-center gap-2 min-w-0">
+                                    <span class="text-sm font-semibold text-slate-100 truncate group-hover:text-amber-300">@c.Name</span>
+                                    @if (mains.Contains(c.CharacterId))
+                                    {
+                                        <span class="shrink-0 px-1.5 py-px text-[9px] font-bold uppercase tracking-wide rounded-sm bg-amber-500 text-slate-950"
+                                              title="This player's most-played character this month">Main</span>
+                                    }
+                                    @if (entry.IsLeagues)
+                                    {
+                                        <span class="shrink-0 px-1.5 py-px text-[9px] font-bold uppercase tracking-wide rounded-sm bg-emerald-700 text-white">Leagues</span>
+                                    }
+                                </span>
+                                <span class="block sm:hidden text-[11px] text-white truncate">@entry.OwnerName</span>
+                            </span>
+                            <span class="hidden sm:block text-sm text-slate-200 truncate">@entry.OwnerName</span>
+                            <span class="text-right tabular-nums">
+                                <span class="block text-sm font-semibold text-slate-100">@c.Kills.ToString("N0")</span>
+                                <span class="block sm:hidden text-[11px] text-amber-400">@GoldFormat.Format(c.Gp)</span>
+                            </span>
+                            <span class="hidden sm:block text-right text-sm tabular-nums text-slate-200">~@c.ActiveHours.ToString("N0")h</span>
+                            <span class="hidden sm:block text-right text-sm tabular-nums text-slate-200">@c.ActiveDays</span>
+                            <span class="hidden sm:block text-right text-sm tabular-nums font-semibold text-amber-400">@GoldFormat.Format(c.Gp)</span>
+                        </a>
+                    </li>
+                }
+            </ol>
+        </div>
+    }
+
+    @if (idle.Count > 0)
+    {
+        <div>
+            <p class="text-[11px] font-semibold uppercase tracking-wider text-white mb-2">Didn't play in @Roster.Month.Name</p>
+            <div class="flex flex-wrap gap-2">
+                @foreach (var entry in idle)
+                {
+                    <a href="@SummaryLinks.Page(Roster.Month, entry.Character.CharacterId)"
+                       hx-get="@SummaryLinks.PageApi(Roster.Month, entry.Character.CharacterId)"
+                       hx-target="#hx-page-container"
+                       hx-push-url="@SummaryLinks.Page(Roster.Month, entry.Character.CharacterId)"
+                       hx-swap="innerHTML transition:true"
+                       class="inline-flex items-center gap-1.5 rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-200 hover:border-slate-500 hover:text-white transition-colors cursor-pointer">
+                        <span class="font-semibold">@entry.Character.Name</span>
+                        <span class="text-white">· @entry.OwnerName</span>
+                    </a>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public required SummaryRoster Roster { get; set; }
+
+    // Each row is its own grid, so the number columns are fixed widths: auto tracks would size per
+    // row and the figures would not line up under their headings.
+    private const string Columns =
+        "grid-cols-[minmax(0,1fr)_5rem] sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_4.5rem_4rem_3rem_5rem] gap-x-4";
+
+    private static RenderFragment MonthStep(SummaryMonth target, bool enabled, bool back) => __builder =>
+    {
+        var label = (back ? "Previous month: " : "Next month: ") + target.Label;
+        var path = back ? "M15 19l-7-7 7-7" : "M9 5l7 7-7 7";
+        if (enabled)
+        {
+            <button type="button"
+                    hx-get="@($"{AppRoutes.AdminSummaries.FromApi()}?month={target.Slug}")"
+                    hx-target="#admin-summary-roster"
+                    hx-swap="outerHTML"
+                    title="@label"
+                    aria-label="@label"
+                    class="h-9 w-9 shrink-0 inline-flex items-center justify-center rounded-lg border border-slate-700 bg-slate-800/40 text-slate-200 hover:border-amber-700 hover:text-white transition-colors cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@path" /></svg>
+            </button>
+        }
+        else
+        {
+            <span class="h-9 w-9 shrink-0 inline-flex items-center justify-center rounded-lg border border-slate-800 text-slate-700" aria-hidden="true">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@path" /></svg>
+            </span>
+        }
+    };
+}

@@ -10,40 +10,49 @@ using KlavLor.Domain.Entities;
 namespace KlavLor.Infrastructure.Persistence.EntityFramework.Repositories.Loot;
 
 // Every query here is bounded to one month: [from, to) on OccurredAt for one character, or for each
-// of one user's characters. None of them materialise records in memory — they return aggregates and
+// of one user's characters (each of everyone's, for the admin roster). None of them materialise records in memory — they return aggregates and
 // capped lists, so a heavy month costs the database more rows to walk but the app no more memory.
 internal sealed class LootMonthlySummaryRepository(
     DataContext dataContext, ILogger<LootMonthlySummaryRepository> logger)
     : ILootMonthlySummaryRepository
 {
+    // One LATERAL aggregate per character, each an index-only range scan of
+    // IX_LootRecords_GameCharacterId_TotalValue_OccurredAt (it carries the GP as well as the
+    // timestamp). Hour buckets are counted the same way the profile's window stats count them, so
+    // ActiveHours means the same thing on both pages. Shared by GetActivity and GetRoster, together
+    // with the ordering, so the admin roster cannot rank a character differently from its owner's
+    // own summary.
+    private const string MonthOfEachCharacter = """
+        SELECT gc."Id",
+               COALESCE(gc."DisplayName", u."FirstName" || ' ' || u."LastName") AS name,
+               a.kills, a.hours, a.days, a.gp,
+               u."Id" AS owner_id,
+               u."FirstName" || ' ' || u."LastName" AS owner_name,
+               gc."IsLeagues"
+        FROM "GameCharacters" gc
+        JOIN "Users" u ON u."Id" = gc."UserId"
+        CROSS JOIN LATERAL (
+            SELECT COUNT(*)::int AS kills,
+                   COUNT(DISTINCT date_trunc('hour', lr."OccurredAt"))::int AS hours,
+                   COUNT(DISTINCT (lr."OccurredAt" AT TIME ZONE 'Europe/London')::date)::int AS days,
+                   COALESCE(SUM(lr."TotalValue"), 0)::bigint AS gp
+            FROM "LootRecords" lr
+            WHERE lr."GameCharacterId" = gc."Id"
+              AND lr."OccurredAt" >= @from
+              AND lr."OccurredAt" < @to
+        ) a
+        """;
+
+    private const string MostActiveFirst = """ORDER BY a.hours DESC, a.kills DESC, a.gp DESC, gc."Id" """;
+
     public async Task<SummaryActivity> GetActivity(int userId, DateTimeOffset from, DateTimeOffset to)
     {
         try
         {
-            // One LATERAL aggregate per character, each an index-only range scan of
-            // IX_LootRecords_GameCharacterId_TotalValue_OccurredAt (it carries the GP as well as the
-            // timestamp). Hour buckets are counted the same way the profile's window stats count
-            // them, so ActiveHours means the same thing on both pages.
-            const string sql = """
-                SELECT gc."Id",
-                       COALESCE(gc."DisplayName", u."FirstName" || ' ' || u."LastName") AS name,
-                       a.kills, a.hours, a.days, a.gp,
-                       (SELECT MIN(f."OccurredAt") FROM "LootRecords" f
-                         WHERE f."UserId" = @uid AND f."GameCharacterId" IS NOT NULL) AS first_at
-                FROM "GameCharacters" gc
-                JOIN "Users" u ON u."Id" = gc."UserId"
-                CROSS JOIN LATERAL (
-                    SELECT COUNT(*)::int AS kills,
-                           COUNT(DISTINCT date_trunc('hour', lr."OccurredAt"))::int AS hours,
-                           COUNT(DISTINCT (lr."OccurredAt" AT TIME ZONE 'Europe/London')::date)::int AS days,
-                           COALESCE(SUM(lr."TotalValue"), 0)::bigint AS gp
-                    FROM "LootRecords" lr
-                    WHERE lr."GameCharacterId" = gc."Id"
-                      AND lr."OccurredAt" >= @from
-                      AND lr."OccurredAt" < @to
-                ) a
+            const string sql = $"""
+                {MonthOfEachCharacter}
                 WHERE gc."UserId" = @uid
-                ORDER BY a.hours DESC, a.kills DESC, a.gp DESC, gc."Id"
+                {MostActiveFirst}
                 """;
 
             await using var cmd = await Command(sql);
@@ -52,19 +61,12 @@ internal sealed class LootMonthlySummaryRepository(
             cmd.Parameters.Add(new NpgsqlParameter("@to", to));
 
             var characters = new List<SummaryCharacter>();
-            DateTimeOffset? firstAt = null;
-            await using var reader = await cmd.ExecuteReaderAsync();
-            while (await reader.ReadAsync())
+            await using (var reader = await cmd.ExecuteReaderAsync())
             {
-                characters.Add(new SummaryCharacter(
-                    reader.GetInt32(0),
-                    reader.GetString(1),
-                    reader.GetInt32(2),
-                    reader.GetInt32(3),
-                    reader.GetInt32(4),
-                    reader.GetInt64(5)));
-                firstAt ??= reader.IsDBNull(6) ? null : reader.GetFieldValue<DateTimeOffset>(6);
+                while (await reader.ReadAsync()) characters.Add(ReadCharacter(reader));
             }
+
+            var firstAt = await FirstActivity("""AND "UserId" = @uid""", new NpgsqlParameter("@uid", userId));
             return new SummaryActivity(characters, firstAt);
         }
         catch (Exception ex)
@@ -72,6 +74,86 @@ internal sealed class LootMonthlySummaryRepository(
             logger.LogError(ex, "Failed to get monthly activity for user {UserId}", userId);
             throw new RepositoryException("Failed to get monthly activity", ex);
         }
+    }
+
+    public async Task<SummaryRosterActivity> GetRoster(DateTimeOffset from, DateTimeOffset to)
+    {
+        try
+        {
+            const string sql = $"""
+                {MonthOfEachCharacter}
+                {MostActiveFirst}
+                """;
+
+            await using var cmd = await Command(sql);
+            cmd.Parameters.Add(new NpgsqlParameter("@from", from));
+            cmd.Parameters.Add(new NpgsqlParameter("@to", to));
+
+            var roster = new List<SummaryRosterEntry>();
+            await using (var reader = await cmd.ExecuteReaderAsync())
+            {
+                while (await reader.ReadAsync())
+                {
+                    roster.Add(new SummaryRosterEntry(
+                        ReadCharacter(reader),
+                        reader.GetInt32(6),
+                        reader.GetString(7),
+                        reader.GetBoolean(8)));
+                }
+            }
+
+            var firstAt = await FirstActivity("");
+            return new SummaryRosterActivity(roster, firstAt);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get the monthly summary roster");
+            throw new RepositoryException("Failed to get the monthly summary roster", ex);
+        }
+    }
+
+    public async Task<SummaryOwner?> GetOwner(int characterId)
+    {
+        try
+        {
+            const string sql = """
+                SELECT u."Id", u."FirstName" || ' ' || u."LastName"
+                FROM "GameCharacters" gc
+                JOIN "Users" u ON u."Id" = gc."UserId"
+                WHERE gc."Id" = @cid
+                """;
+
+            await using var cmd = await Command(sql);
+            cmd.Parameters.Add(new NpgsqlParameter("@cid", characterId));
+            await using var reader = await cmd.ExecuteReaderAsync();
+            return await reader.ReadAsync() ? new SummaryOwner(reader.GetInt32(0), reader.GetString(1)) : null;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get the owner of character {CharacterId}", characterId);
+            throw new RepositoryException("Failed to get character owner", ex);
+        }
+    }
+
+    private static SummaryCharacter ReadCharacter(DbDataReader reader) => new(
+        reader.GetInt32(0),
+        reader.GetString(1),
+        reader.GetInt32(2),
+        reader.GetInt32(3),
+        reader.GetInt32(4),
+        reader.GetInt64(5));
+
+    // Where history begins, for the month navigation's lower bound. A separate statement rather than
+    // a column of the roster query, so a user or site with no characters still gets an answer.
+    private async Task<DateTimeOffset?> FirstActivity(string scope, params NpgsqlParameter[] parameters)
+    {
+        await using var cmd = await Command($"""
+            SELECT MIN("OccurredAt") FROM "LootRecords"
+            WHERE "GameCharacterId" IS NOT NULL {scope}
+            """);
+        cmd.Parameters.AddRange(parameters);
+        await using var reader = await cmd.ExecuteReaderAsync();
+        return await reader.ReadAsync() && !reader.IsDBNull(0) ? reader.GetFieldValue<DateTimeOffset>(0) : null;
     }
 
     public async Task<SummaryClogPage> GetNewCollectionLogItems(int characterId, DateTimeOffset from, DateTimeOffset to, int limit)

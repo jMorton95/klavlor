@@ -41,6 +41,10 @@ public sealed record SummaryActivity(
 /// naming it; otherwise each month resolves its own primary.
 /// </param>
 /// <param name="ActiveCharacters">The user's characters that played this month, most active first.</param>
+/// <param name="AdminViewOf">
+/// The owner's name when an admin is looking at another user's character; null on anyone's own
+/// summary. Everything else in the context is then the OWNER's — their characters, their history.
+/// </param>
 public sealed record SummaryContext(
     SummaryMonth Month,
     SummaryMonth CurrentMonth,
@@ -48,11 +52,39 @@ public sealed record SummaryContext(
     SummaryCharacter? Character,
     bool IsPrimary,
     bool CharacterRequested,
-    IReadOnlyList<SummaryCharacter> ActiveCharacters)
+    IReadOnlyList<SummaryCharacter> ActiveCharacters,
+    string? AdminViewOf = null)
 {
     public bool IsInProgress => Month == CurrentMonth;
     public bool HasPrevious => EarliestMonth is { } earliest && Month > earliest;
     public bool HasNext => Month < CurrentMonth;
+    public bool IsAdminView => AdminViewOf is not null;
+}
+
+/// <summary>Whose character it is, for an admin opening someone else's summary.</summary>
+public sealed record SummaryOwner(int UserId, string Name);
+
+/// <summary>One character in the admin roster: its month, and whose it is.</summary>
+public sealed record SummaryRosterEntry(SummaryCharacter Character, int OwnerUserId, string OwnerName, bool IsLeagues);
+
+/// <summary>
+/// Every character on the site with its activity in one month, most active first by the same rule
+/// as <see cref="SummaryActivity"/>, plus when the site's history begins.
+/// </summary>
+public sealed record SummaryRosterActivity(IReadOnlyList<SummaryRosterEntry> Characters, DateTimeOffset? FirstActivityAt);
+
+/// <summary>The admin area's way into any character's summary for one month.</summary>
+public sealed record SummaryRoster(
+    SummaryMonth Month,
+    SummaryMonth CurrentMonth,
+    SummaryMonth? EarliestMonth,
+    IReadOnlyList<SummaryRosterEntry> Characters)
+{
+    public bool IsInProgress => Month == CurrentMonth;
+    public bool HasPrevious => EarliestMonth is { } earliest && Month > earliest;
+    public bool HasNext => Month < CurrentMonth;
+    public IReadOnlyList<SummaryRosterEntry> Played => Characters.Where(c => c.Character.WasActive).ToList();
+    public IReadOnlyList<SummaryRosterEntry> Idle => Characters.Where(c => !c.Character.WasActive).ToList();
 }
 
 /// <param name="PreviousMonth">The same character's figures one month earlier, for the deltas.</param>

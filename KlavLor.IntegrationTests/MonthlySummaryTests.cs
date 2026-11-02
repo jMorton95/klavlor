@@ -35,6 +35,10 @@ public sealed class MonthlySummaryTests(PostgresFixture fx)
         new(Repo(ctx), ProfileRepo(ctx), new FakeCurrentUser(userId), new FakePetCache(petIds),
             new MemoryCache(new MemoryCacheOptions()));
 
+    private static MonthlySummaryHandler AdminHandler(DataContext ctx, int adminId) =>
+        new(Repo(ctx), ProfileRepo(ctx), new FakeCurrentUser(adminId, isAdmin: true), new FakePetCache([]),
+            new MemoryCache(new MemoryCacheOptions()));
+
     private static LootDrop Coins(int amount) => new("Coins", 995, amount, 1);
 
     [Fact]
@@ -329,6 +333,81 @@ public sealed class MonthlySummaryTests(PostgresFixture fx)
         Assert.False(collection.Page.Entries.Single(e => e.ItemName == "Sum Dust").IsPet);
     }
 
+    [Fact]
+    public async Task An_admin_sees_another_players_summary_exactly_as_that_player_does()
+    {
+        await using var ctx = fx.CreateContext();
+        var (adminId, adminChar) = await Seed.UserAndCharacter(ctx, "sum-admin");
+        var (playerId, main) = await Seed.UserAndCharacter(ctx, "sum-player");
+        var alt = await AddCharacter(ctx, playerId, "sum-player-alt");
+        Seed.AddKill(ctx, adminId, adminChar, "Sum Admin Boss", Oct, null, [Coins(20_000)]);
+        for (var i = 0; i < 3; i++)
+            Seed.AddKill(ctx, playerId, main, "Sum Player Boss", Oct.AddDays(i), null, [Coins(20_000)]);
+        Seed.AddKill(ctx, playerId, alt, "Sum Player Alt Boss", Oct, null, [Coins(20_000)]);
+        Seed.AddKill(ctx, playerId, main, "Sum Player Boss", Oct.AddMonths(-1), null, [Coins(20_000)]);
+        await ctx.SaveChangesAsync();
+
+        var admin = AdminHandler(ctx, adminId);
+        var overview = (await admin.Overview(October.Slug, alt)).Value!;
+        var context = overview.Context;
+
+        Assert.Equal(alt, context.Character!.CharacterId);
+        Assert.Equal("Test sum-player", context.AdminViewOf);
+        Assert.True(context.CharacterRequested);
+        // Built from the PLAYER's activity: their two characters, their primary, their history.
+        Assert.Equal([main, alt], context.ActiveCharacters.Select(c => c.CharacterId));
+        Assert.False(context.IsPrimary);
+        Assert.Equal(September, context.EarliestMonth);
+        Assert.True((await admin.Overview(October.Slug, main)).Value!.Context.IsPrimary);
+        Assert.NotNull((await admin.Overview(October.Slug, main)).Value!.PreviousMonth);
+
+        var sources = (await admin.Sources(October.Slug, alt)).Value!;
+        Assert.Equal(["Sum Player Alt Boss"], sources.Page.Rows.Select(r => r.SourceName));
+
+        // The admin's OWN summary is unaffected, and not marked as an admin view.
+        var own = (await admin.Overview(October.Slug, null)).Value!.Context;
+        Assert.Equal(adminChar, own.Character!.CharacterId);
+        Assert.Null(own.AdminViewOf);
+
+        // And the same request from the player's peer, who is not an admin, still falls back.
+        var (peerId, peerChar) = await Seed.UserAndCharacter(ctx, "sum-peer");
+        Seed.AddKill(ctx, peerId, peerChar, "Sum Peer Boss", Oct, null, [Coins(20_000)]);
+        await ctx.SaveChangesAsync();
+        var peer = (await Handler(ctx, peerId).Overview(October.Slug, alt)).Value!.Context;
+        Assert.Equal(peerChar, peer.Character!.CharacterId);
+        Assert.Null(peer.AdminViewOf);
+    }
+
+    [Fact]
+    public async Task The_admin_roster_lists_every_character_most_active_first_and_is_admin_only()
+    {
+        await using var ctx = fx.CreateContext();
+        var (adminId, _) = await Seed.UserAndCharacter(ctx, "sum-roster-admin");
+        var (busyId, busy) = await Seed.UserAndCharacter(ctx, "sum-roster-busy");
+        var (quietId, quiet) = await Seed.UserAndCharacter(ctx, "sum-roster-quiet", leagues: true);
+        var (_, idle) = await Seed.UserAndCharacter(ctx, "sum-roster-idle");
+        for (var i = 0; i < 5; i++)
+            Seed.AddKill(ctx, busyId, busy, "Sum Roster Boss", Oct.AddHours(i * 3), null, [Coins(20_000)]);
+        Seed.AddKill(ctx, quietId, quiet, "Sum Roster Boss", Oct, null, [Coins(90_000)]);
+        await ctx.SaveChangesAsync();
+
+        var roster = (await AdminHandler(ctx, adminId).Roster(October.Slug)).Value!;
+        var ours = roster.Characters
+            .Where(e => e.Character.CharacterId == busy || e.Character.CharacterId == quiet || e.Character.CharacterId == idle)
+            .ToList();
+
+        Assert.Equal(October, roster.Month);
+        Assert.Equal([busy, quiet, idle], ours.Select(e => e.Character.CharacterId));
+        Assert.Equal("Test sum-roster-busy", ours[0].OwnerName);
+        Assert.Equal(5, ours[0].Character.Kills);
+        Assert.True(ours[1].IsLeagues);
+        Assert.False(ours[2].Character.WasActive);
+        Assert.Contains(roster.Idle, e => e.Character.CharacterId == idle);
+        Assert.DoesNotContain(roster.Played, e => e.Character.CharacterId == idle);
+
+        Assert.False((await Handler(ctx, busyId).Roster(October.Slug)).IsSuccess);
+    }
+
     private static async Task<int> AddCharacter(DataContext ctx, int userId, string tag)
     {
         var character = new GameCharacter
@@ -343,10 +422,11 @@ public sealed class MonthlySummaryTests(PostgresFixture fx)
         return character.Id;
     }
 
-    private sealed class FakeCurrentUser(int? userId) : ICurrentUser
+    private sealed class FakeCurrentUser(int? userId, bool isAdmin = false) : ICurrentUser
     {
         public int? UserId => userId;
-        public bool IsAdmin => false;
-        public bool IsInRole(RoleName roleName) => roleName == RoleName.User;
+        public bool IsAdmin => isAdmin;
+        public bool IsInRole(RoleName roleName) =>
+            roleName == RoleName.User || (isAdmin && roleName == RoleName.Admin);
     }
 }

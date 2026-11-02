@@ -250,6 +250,8 @@ public static class AppRoutes
     public const string AdminIcons = "/admin/settings/icons/panel";
     public const string AdminIconsRetry = "/admin/settings/icons/retry";
     public const string AdminSyncStatus = "/admin/settings/sync-status/panel";
+    // Every character's month, each a link into its monthly summary as the admin (Loot/Summary).
+    public const string AdminSummaries = "/admin/settings/summaries/panel";
     public const string AdminJobHealth = "/admin/settings/job-health/panel";
     public const string AdminJobRunNow = "/admin/settings/job-health/run-now";
     public const string AdminClogSyncNow = "/admin/settings/collection-log/sync-now";

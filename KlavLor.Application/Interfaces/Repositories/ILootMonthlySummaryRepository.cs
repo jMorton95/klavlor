@@ -19,6 +19,16 @@ public interface ILootMonthlySummaryRepository
     /// </summary>
     Task<SummaryActivity> GetActivity(int userId, DateTimeOffset from, DateTimeOffset to);
 
+    /// <summary>
+    /// Every character on the site, ordered and measured exactly as <see cref="GetActivity"/> orders
+    /// and measures one user's. For the admin area only. Still one index-only aggregate per
+    /// character, so it grows with the roster rather than with the loot table.
+    /// </summary>
+    Task<SummaryRosterActivity> GetRoster(DateTimeOffset from, DateTimeOffset to);
+
+    /// <summary>Who owns a character; null for an id that matches none.</summary>
+    Task<SummaryOwner?> GetOwner(int characterId);
+
     Task<SummaryClogPage> GetNewCollectionLogItems(int characterId, DateTimeOffset from, DateTimeOffset to, int limit);
 
     Task<SummarySourcePage> GetSources(int characterId, DateTimeOffset from, DateTimeOffset to, int limit);

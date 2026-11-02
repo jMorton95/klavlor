@@ -19,7 +19,8 @@ namespace KlavLor.Web.Application.Features.Loot.Summary;
 /// page opened a moment before midnight on the last day cannot have panels disagree about which
 /// month "default" meant.
 ///
-/// User-only, every route: the summary is one person's own characters, never a public surface.
+/// User-only, every route: the summary is one person's own characters, never a public surface. The
+/// exception is an admin, who reaches anyone's from the roster in the admin area (Admin-only).
 ///
 /// MUST be added to the explicit list in ConfigureEndpoints.cs — endpoint classes are not
 /// auto-registered, and an unregistered one silently 404s.
@@ -48,6 +49,12 @@ public sealed class MonthlySummaryEndpoint : IEndpoint
 
         app.MapGet(AppRoutes.LootSummaryDrops.FromApi(), GetDrops)
             .RequireAuthorization(nameof(RoleName.User))
+            .RequireRateLimiting("read");
+
+        // The admin area's roster, a section body under /admin/settings/summaries. Lives with the
+        // feature it opens rather than in AdminSettingsEndpoint.
+        app.MapGet(AppRoutes.AdminSummaries.FromApi(), GetRoster)
+            .RequireAuthorization(nameof(RoleName.Admin))
             .RequireRateLimiting("read");
 
         return app.MapGet(AppRoutes.LootSummary.FromApi(), Get)
@@ -106,6 +113,14 @@ public sealed class MonthlySummaryEndpoint : IEndpoint
         return result.Value is { } drops
             ? IResultExtensions.Component<SummaryDropsPanel>(new { Drops = drops })
             : NothingPlayed();
+    }
+
+    private static async Task<IResult> GetRoster([FromQuery] string? month, MonthlySummaryHandler handler)
+    {
+        var result = await handler.Roster(month);
+        return result.IsSuccess
+            ? IResultExtensions.Component<AdminSummaryRoster>(new { Roster = result.Value })
+            : Results.NotFound();
     }
 
     // A month with no character at all is said once, by the overview. The other panels answer with

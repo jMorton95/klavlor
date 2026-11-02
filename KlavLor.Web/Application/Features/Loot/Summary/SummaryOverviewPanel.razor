@@ -1,14 +1,40 @@
 @using KlavLor.Application.Common
 @using KlavLor.Application.Features.Loot.Log
 @using KlavLor.Application.Features.Loot.Summary
+@using KlavLor.Web.Components.Layout
 
 @{
     var ctx = Overview.Context;
     var character = ctx.Character;
     var carried = SummaryLinks.CarriedCharacter(ctx);
+    var whose = ctx.AdminViewOf is { } ownerName ? $"{ownerName}'s" : "your";
+}
+
+@if (ctx.AdminViewOf is { } owner)
+{
+    @* The query-free shell titled the page in the second person before anyone knew whose it was. *@
+    <TopBarMetaData Title="Monthly Summary" Description="@($"{owner}'s {ctx.Month.Label} — admin view")" />
 }
 
 <section class="bg-slate-900 rounded-xl shadow-sm border border-slate-700 p-5 space-y-5">
+    @if (ctx.AdminViewOf is { } viewing)
+    {
+        <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-sky-700/60 bg-sky-950/40 px-3 py-2 text-xs text-white">
+            <span>
+                <span class="font-semibold text-sky-300">Admin view</span>
+                · This is @viewing's summary, exactly as they see it.
+            </span>
+            <a href="@SummaryLinks.AdminRoster"
+               hx-get="@SummaryLinks.AdminRoster.FromApi()"
+               hx-target="#hx-page-container"
+               hx-push-url="@SummaryLinks.AdminRoster"
+               hx-swap="innerHTML transition:true"
+               class="font-medium text-sky-300 hover:text-sky-200 cursor-pointer">
+                All characters →
+            </a>
+        </div>
+    }
+
     <header class="flex flex-wrap items-center justify-between gap-3">
         <div class="flex items-center gap-3 min-w-0">
             @MonthStep(ctx.Month.Previous(), ctx.HasPrevious, back: true, carried)
@@ -32,7 +58,7 @@
                 <span class="w-8 h-8 shrink-0 rounded-lg bg-linear-to-br from-amber-500 to-orange-600 flex items-center justify-center text-sm font-bold text-white">@Initial(character.Name)</span>
                 <span class="min-w-0">
                     <span class="block text-sm font-semibold text-slate-100 truncate">@character.Name</span>
-                    <span class="block text-[11px] text-white">@(ctx.IsPrimary ? "Your most-played character" : "Viewing this character")</span>
+                    <span class="block text-[11px] text-white">@(ctx.IsPrimary ? $"{Capitalise(whose)} most-played character" : "Viewing this character")</span>
                 </span>
             </a>
         }
@@ -75,11 +101,11 @@
                 }
                 else if (ctx.HasPrevious)
                 {
-                    <text>Nothing synced for any of your characters this month — step back a month to see an earlier one.</text>
+                    <text>Nothing synced for any of @whose characters this month — step back a month to see an earlier one.</text>
                 }
                 else
                 {
-                    <text>Once <span class="font-medium text-slate-300">klavlor-sync</span> has logged some kills, your month will show up here.</text>
+                    <text>Once <span class="font-medium text-slate-300">klavlor-sync</span> has logged some kills, @whose month will show up here.</text>
                 }
             </p>
         </div>
@@ -113,6 +139,9 @@
 
     private static string Initial(string name) =>
         string.IsNullOrWhiteSpace(name) ? "?" : char.ToUpperInvariant(name.Trim()[0]).ToString();
+
+    private static string Capitalise(string text) =>
+        text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text[1..];
 
     private static double? Change(double current, double? previous) =>
         previous is { } p ? SummaryHighlights.Change(current, p) : null;

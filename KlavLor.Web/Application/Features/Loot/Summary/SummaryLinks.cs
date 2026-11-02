@@ -36,4 +36,7 @@ public static class SummaryLinks
     public static string SourceIcon(string sourceName) => AppRoutes.SourceIcon.FromApi() + "?name=" + Uri.EscapeDataString(sourceName);
 
     public static string PageTitle(SummaryMonth month) => $"KlavLor - {month.Label} Summary";
+
+    /// <summary>The admin section listing every character's month.</summary>
+    public static string AdminRoster => $"{AppRoutes.AdminSettings}/summaries";
 }
