@@ -1,0 +1,79 @@
+@using KlavLor.Application.Common
+@using KlavLor.Application.Features.Loot.Summary
+
+@{
+    var ctx = Collection.Context;
+    var characterId = ctx.Character!.CharacterId;
+    var slots = Collection.Page;
+}
+
+<section class="bg-slate-900 rounded-xl shadow-sm border border-slate-700 p-5">
+    <div class="flex flex-wrap items-start justify-between gap-2 mb-4">
+        <div>
+            <h3 class="text-sm font-semibold text-slate-200">New collection log slots</h3>
+            <p class="text-lg font-bold mt-0.5 leading-tight">
+                <span class="text-cyan-300 tabular-nums">@slots.Total.ToString("N0")</span>
+                <span class="text-xs font-normal text-white">unlocked in @ctx.Month.Name</span>
+            </p>
+        </div>
+        @if (slots.Total > slots.Entries.Count)
+        {
+            <a href="@AppRoutes.LootLogCharacterFirsts.WithId(characterId)"
+               hx-get="@AppRoutes.LootLogCharacterFirsts.WithId(characterId).FromApi()"
+               hx-target="#hx-page-container"
+               hx-push-url="@AppRoutes.LootLogCharacterFirsts.WithId(characterId)"
+               hx-swap="innerHTML transition:true"
+               class="text-xs font-medium text-cyan-300 hover:text-cyan-200 cursor-pointer">
+                +@((slots.Total - slots.Entries.Count).ToString("N0")) more — see every first →
+            </a>
+        }
+    </div>
+
+    @if (slots.Entries.Count == 0)
+    {
+        <p class="rounded-lg border border-dashed border-slate-700 px-4 py-6 text-center text-xs text-white">
+            No new collection log slots this month.
+        </p>
+    }
+    else
+    {
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 2xl:grid-cols-8 gap-3">
+            @foreach (var entry in slots.Entries)
+            {
+                <a href="@SummaryLinks.Source(characterId, entry.SourceName)"
+                   hx-get="@SummaryLinks.SourceApi(characterId, entry.SourceName)"
+                   hx-target="#hx-page-container"
+                   hx-push-url="@SummaryLinks.Source(characterId, entry.SourceName)"
+                   hx-swap="innerHTML transition:true"
+                   title="@($"{entry.ItemName} — {entry.SourceName}, {IngestTimezone.ToZoneTime(entry.OccurredAt):d MMM HH:mm}")"
+                   class="relative flex flex-col items-center gap-1 rounded-lg border p-3 text-center cursor-pointer transition-colors @(entry.IsPet ? "border-amber-500/60 bg-amber-500/5 ring-1 ring-amber-400/40 hover:bg-amber-500/10" : "border-cyan-700/40 bg-slate-800/40 hover:bg-cyan-900/20")">
+                    @if (entry.IsPet)
+                    {
+                        <span class="absolute top-1.5 right-1.5 px-1 text-[9px] font-bold rounded-sm bg-amber-500 text-slate-950">PET</span>
+                    }
+                    <span class="w-12 h-12 flex items-center justify-center">
+                        <img src="@SummaryLinks.ItemIcon(entry.ItemName)" alt="" class="max-w-11 max-h-11 object-contain"
+                             loading="lazy" onerror="this.style.display='none'" />
+                    </span>
+                    <span class="text-xs font-medium text-slate-100 leading-snug line-clamp-2">@entry.ItemName</span>
+                    <span class="text-[10px] text-white truncate max-w-full">@entry.SourceName</span>
+                    <span class="text-[10px] text-white tabular-nums">
+                        @if (entry.KillCount is { } kc)
+                        {
+                            <text>KC @kc.ToString("N0")</text>
+                        }
+                        else
+                        {
+                            <span title="Position in your roll log (RuneLite didn't report an in-game kill count)">#@entry.KillOrdinal.ToString("N0")</span>
+                        }
+                        · @IngestTimezone.ToZoneTime(entry.OccurredAt).ToString("d MMM")
+                    </span>
+                </a>
+            }
+        </div>
+    }
+</section>
+
+@code {
+    [Parameter] public required SummaryCollection Collection { get; set; }
+}

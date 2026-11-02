@@ -29,6 +29,8 @@ public static class AdminSections
         new("management", "Management", "Management", Operations),
         new("icons", "Broken icons", "Broken icons", Operations,
             "Item and source icons that gave up after repeated failed wiki lookups (so they show no image anywhere). Retry clears the failure and the backfill re-attempts within a couple of minutes."),
+        new("summaries", "Monthly summaries", "Monthly summaries", Operations,
+            "Open any character's monthly summary exactly as its owner sees it. Characters are listed most active first, by the same rule that picks each player's primary character."),
 
         new("collection-log", "Collection log", "Collection log blacklist", Data,
             "Excluded items stop counting as collection-log drops everywhere — recent clogs, first-time feeds, activity counts and the live feed. Search to add; the list below shows what's currently excluded."),

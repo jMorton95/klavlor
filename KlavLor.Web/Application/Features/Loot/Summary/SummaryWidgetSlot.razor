@@ -1,0 +1,15 @@
+@using KlavLor.Application.Interfaces.Authentication
+
+@inject ISessionStateManager SessionStateManager
+
+@* The header's placeholder for the monthly summary button. It reads a claim and nothing else: the
+   button's data comes from its own hx-trigger="load" request, in its own request scope, because a
+   header component that queried during SSR would race the page body on the shared DbContext. A 204
+   from the endpoint leaves this hidden div in place, so it takes no room in the header row. *@
+@if (SessionStateManager.IsAuthenticated())
+{
+    <div hx-get="@AppRoutes.LootSummaryWidget.FromApi()"
+         hx-trigger="load"
+         hx-swap="outerHTML"
+         class="hidden"></div>
+}

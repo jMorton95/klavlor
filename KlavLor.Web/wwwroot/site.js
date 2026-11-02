@@ -680,3 +680,28 @@ trackLastViewedTemplate();
         panel.classList.remove('is-visible');
     });
 })();
+
+// Monthly summary widget (SummaryWidgetCard). Dismissing it records WHICH month was dismissed, so it
+// stays hidden until there is a new month's summary to offer rather than for good. The month rides
+// along on the widget's own fetch and the server answers 204 for a dismissed month, so a dismissed
+// widget is never drawn at all; removing it after the swap would flash it for a frame on every load.
+(() => {
+    const KEY = 'klavlor.summaryDismissed';
+    const WIDGET_PATH = '/api/loot/summary/widget';
+
+    document.body.addEventListener('htmx:configRequest', (evt) => {
+        if (evt.detail.path !== WIDGET_PATH) return;
+        let dismissed = null;
+        try { dismissed = localStorage.getItem(KEY); } catch {}
+        if (dismissed) evt.detail.parameters['dismissed'] = dismissed;
+    });
+
+    document.addEventListener('click', (e) => {
+        const button = e.target.closest && e.target.closest('[data-summary-dismiss]');
+        if (!button) return;
+        const widget = button.closest('[data-summary-month]');
+        if (!widget) return;
+        try { localStorage.setItem(KEY, widget.dataset.summaryMonth); } catch {}
+        widget.remove();
+    });
+})();

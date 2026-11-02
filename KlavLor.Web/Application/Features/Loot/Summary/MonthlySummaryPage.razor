@@ -1,0 +1,23 @@
+@page "/loot/summary"
+@using KlavLor.Application.Features.Loot.Summary
+@using KlavLor.Web.Components.Layout
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+
+@* Routable shell for direct browser loads and refreshes; in-app navigation is served by the
+   /api/loot/summary endpoint instead. [Authorize] matches the endpoint's User policy — a routable
+   page carries no fallback policy, and the two must agree about who may see it. *@
+<PageLayout PageTitle="@SummaryLinks.PageTitle(_month)"
+            Title="Monthly Summary"
+            Description="@MonthlySummaryContent.DescriptionFor(_month)">
+    <MonthlySummaryContent Month="@Month" CharacterId="@CharacterId" UpdateHeader="false" />
+</PageLayout>
+
+@code {
+    [SupplyParameterFromQuery] public string? Month { get; set; }
+    [SupplyParameterFromQuery] public int? CharacterId { get; set; }
+
+    private SummaryMonth _month;
+
+    // NO QUERY HERE, AND NO HANDLER INJECTED: every panel fetches itself. See MonthlySummaryContent.
+    protected override void OnParametersSet() => _month = SummaryMonth.Resolve(Month, DateTimeOffset.UtcNow);
+}

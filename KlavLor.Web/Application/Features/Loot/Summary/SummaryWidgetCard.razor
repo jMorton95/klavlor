@@ -1,0 +1,47 @@
+@using KlavLor.Application.Common
+@using KlavLor.Application.Features.Loot.Summary
+
+@* The teaser for last month's summary, in the header beside the sidebar toggle. The header sits
+   outside #hx-page-container, which in-app navigation never swaps, so it is fetched once per full
+   page load and then stays put. It was a fixed card bottom-left of the page at first, where the
+   feed's hovered cards drew over it.
+
+   data-summary-month is what the dismiss button records (site.js): the button stays hidden until a
+   new month's summary exists, rather than for good. Hidden on the summary page itself by
+   .summary-widget in app.css. *@
+<div id="summary-widget"
+     data-summary-month="@Widget.Month.Slug"
+     class="summary-widget relative shrink-0">
+    <a href="@SummaryLinks.Page(Widget.Month)"
+       hx-get="@SummaryLinks.PageApi(Widget.Month)"
+       hx-target="#hx-page-container"
+       hx-push-url="@SummaryLinks.Page(Widget.Month)"
+       hx-swap="innerHTML transition:true"
+       title="@($"See your {Widget.Month.Name} summary")"
+       class="flex items-center gap-3 rounded-xl border border-amber-500/40 bg-slate-900/95 px-2 py-0.5 sm:pr-4 shadow-lg shadow-black/40 hover:border-amber-400 hover:bg-slate-800/95 transition-colors cursor-pointer">
+        <span class="w-10 h-10 shrink-0 rounded-lg bg-linear-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <span class="sr-only">Your @Widget.Month.Name summary</span>
+        </span>
+        <span class="hidden sm:flex flex-col leading-tight min-w-0" aria-hidden="true">
+            <span class="text-[10px] font-semibold uppercase tracking-wider text-amber-400">Your @Widget.Month.Name</span>
+            <span class="text-sm leading-tight font-semibold text-slate-100 truncate max-w-44">@Widget.Character.Name</span>
+            <span class="text-[11px] text-white tabular-nums">
+                @Widget.Character.Kills.ToString("N0") @(Widget.Character.Kills == 1 ? "roll" : "rolls") · @GoldFormat.Format(Widget.Character.Gp)
+            </span>
+        </span>
+    </a>
+    <button type="button"
+            data-summary-dismiss
+            title="Hide until next month"
+            aria-label="Hide the monthly summary until next month"
+            class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full border border-slate-600 bg-slate-800 text-white text-xs leading-none flex items-center justify-center hover:bg-slate-700 hover:border-slate-400 cursor-pointer">
+        &times;
+    </button>
+</div>
+
+@code {
+    [Parameter] public required SummaryWidget Widget { get; set; }
+}

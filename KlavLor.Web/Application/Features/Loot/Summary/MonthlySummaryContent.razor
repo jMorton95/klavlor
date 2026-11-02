@@ -1,0 +1,74 @@
+@using KlavLor.Application.Features.Loot.Summary
+@using KlavLor.Web.Application.Features.Loot.Log.Profile
+@using KlavLor.Web.Components.Layout
+
+@if (UpdateHeader)
+{
+    <TopBarMetaData PageTitle="@SummaryLinks.PageTitle(_month)"
+                    Title="Monthly Summary"
+                    Description="@DescriptionFor(_month)" />
+}
+
+@* THE SHELL, AND IT ASKS THE DATABASE NOTHING. The four panels each fetch themselves on load, in
+   their own request scope, all at once — the character page's DeferredSection pattern. Each placeholder
+   is shaped like the panel it stands in for, so nothing jumps when they land.
+
+   The month is resolved HERE and passed to every panel explicitly, so they cannot disagree about
+   which month an unqualified URL meant. The character is passed through as given: resolving the
+   primary takes a query, so each panel does it (memoised per user, so the four share one read).
+
+   #monthly-summary is also what hides the header button on this page — see .summary-widget in
+   app.css. *@
+<div id="monthly-summary" class="space-y-6 pb-24">
+    <DeferredSection Url="@SummaryLinks.Panel(AppRoutes.LootSummaryOverview, _month, CharacterId)">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="h-9 w-9 rounded-lg bg-slate-800/60"></div>
+                <div class="space-y-2">
+                    <div class="h-3 w-28 rounded bg-slate-800/60"></div>
+                    <div class="h-7 w-44 rounded bg-slate-800/60"></div>
+                </div>
+                <div class="h-9 w-9 rounded-lg bg-slate-800/60"></div>
+            </div>
+            <div class="h-10 w-48 rounded-lg bg-slate-800/60"></div>
+        </div>
+        <div class="mt-5 grid grid-cols-2 md:grid-cols-5 gap-3">
+            @for (var i = 0; i < 5; i++)
+            {
+                <div class="h-[4.5rem] rounded-lg bg-slate-800/60"></div>
+            }
+        </div>
+        <div class="mt-5 grid grid-cols-1 lg:grid-cols-[minmax(0,42rem)_minmax(0,1fr)] gap-6">
+            <div class="h-[22rem] rounded-lg bg-slate-800/60"></div>
+            <div class="h-[22rem] rounded-lg bg-slate-800/60"></div>
+        </div>
+    </DeferredSection>
+
+    <DeferredSection Url="@SummaryLinks.Panel(AppRoutes.LootSummaryCollection, _month, CharacterId)"
+                     HeightClass="h-44" />
+
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+        <DeferredSection Url="@SummaryLinks.Panel(AppRoutes.LootSummarySources, _month, CharacterId)"
+                         HeightClass="h-[30rem]" />
+        <DeferredSection Url="@SummaryLinks.Panel(AppRoutes.LootSummaryDrops, _month, CharacterId)"
+                         HeightClass="h-[30rem]" />
+    </div>
+</div>
+
+@code {
+    /// True when served as an HTMX fragment (emits the OOB header); false inside PageLayout, which
+    /// renders the header itself. Without this an in-app navigation draws the title twice.
+    [Parameter] public bool UpdateHeader { get; set; } = true;
+
+    [Parameter] public string? Month { get; set; }
+    [Parameter] public int? CharacterId { get; set; }
+
+    private SummaryMonth _month;
+
+    protected override void OnParametersSet() => _month = SummaryMonth.Resolve(Month, DateTimeOffset.UtcNow);
+
+    public static string DescriptionFor(SummaryMonth month) =>
+        month == SummaryMonth.Containing(DateTimeOffset.UtcNow)
+            ? $"What you've been up to so far in {month.Label}"
+            : $"What you got up to in {month.Label}";
+}

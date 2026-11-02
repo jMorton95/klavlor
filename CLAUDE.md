@@ -32,7 +32,7 @@ npm run test:js
 
 **App URL:** https://localhost:7081
 
-**Database:** PostgreSQL on localhost:5432, database `klavlor`, user/password `postgres/postgres` (local dev via compose.yaml). Migrations run automatically on startup.
+**Database:** PostgreSQL on **localhost:5430** (compose maps host 5430 → container 5432, so it doesn't collide with other local Postgres containers on 5432), database `klavlor`, user/password `postgres/postgres` (local dev via compose.yaml). Migrations run automatically on startup.
 
 ### EF Core Migrations
 
@@ -727,6 +727,70 @@ scoreboard, and the numbers are already side by side. Monster names are delibera
 the global source page is behind the `User` policy while this page is anonymous, so a link would
 401-redirect the visitors the page exists for.
 
+### The Monthly Summary Is Computed On Request, One Month Of One Character At A Time
+
+`/loot/summary?month=yyyy-MM[&characterId=N]` is the signed-in user's recap of one calendar month,
+seen through one of their **own** characters. A button in the header beside the sidebar toggle
+(`SummaryWidgetCard`, fetched by `SummaryWidgetSlot` in `TopBarComponent`) leads to it, and there is a
+"Monthly summary" link under Account in the sidebar for after the button is dismissed. It started as a
+fixed card bottom-left of the page and moved because the feed's hovered cards drew over it. Nothing is
+stored: `MonthlySummaryHandler` reads the loot tables through `ILootMonthlySummaryRepository` (plus
+`ILootProfileRepository.GetActivityCalendar` for the day-by-day calendar). User-only on every route
+except the admin roster, which is Admin-only.
+
+- **The shell is query-free; four panels fetch themselves** (overview, new clog slots, sources,
+  notable drops) via `DeferredSection`, each in its own request scope. The shell resolves the month
+  (pure, `SummaryMonth.Resolve`) and passes it explicitly to every panel, so no two panels can
+  disagree about what an unqualified URL meant across midnight. The character is passed through as
+  given: each panel resolves it itself, through a per-user activity read memoised for **one minute**
+  (not `LootStatsCache` — that is versioned per character and this spans all of the user's). The
+  per-character panels ride `LootStatsCache` versioning, so ingest and the admin repairs invalidate them.
+- **"Primary" means most distinct active HOURS, then kills, then GP** — never kills alone. Kill rate
+  varies by two orders of magnitude between content; ranked by kills, an alt chinning for an evening
+  outranks a main that raided all month. The ordering lives in the repository's `MostActiveFirst`
+  and the primary is the first character that played at all.
+- **A named character is honoured only if the user owns it — or the user is an admin.** `GetActivity`
+  returns every character the user owns, so membership in it IS the ownership check. Anyone else's
+  id (or a stale one) falls back to the primary rather than failing.
+  `MonthlySummaryTests.A_summary_never_shows_a_character_belonging_to_someone_else` pins it.
+- **An admin opens anyone's from Admin → Monthly summaries** (`/admin/settings/summaries`,
+  `AdminSummaryRoster`). Its route lives in `MonthlySummaryEndpoint`, with the feature, not in
+  `AdminSettingsEndpoint`. The roster is `GetRoster`, which runs the same per-character aggregate and
+  ordering as `GetActivity` (one shared SQL constant), so its "Main" badge always agrees with each
+  player's own primary. A row opens the ordinary summary page with `characterId`. For a character
+  the admin doesn't own, `Resolve` looks up its owner (`GetOwner`) and builds the whole context from
+  the OWNER's activity, so the admin sees exactly what the player sees: their characters, their
+  history, their primary. `SummaryContext.AdminViewOf` names the owner. The overview then shows an
+  "Admin view" banner and retitles the header out-of-band, because the query-free shell has already
+  titled the page "what you got up to". `MonthlySummaryTests.An_admin_sees_another_players_summary_exactly_as_that_player_does`
+  pins this, including that a non-admin's request for the same id still falls back.
+- **Months are Europe/London**, matching the monthly trend and heatmap. The default is the last
+  COMPLETE month; the current month is one step forward and is labelled "so far", with no
+  month-over-month deltas (a partial month against a whole one reads as a collapse).
+- **Hours are `ActiveHours.FromHourBuckets`**, the profile window stats' estimate, moved into
+  Application so both pages quote the same figure.
+- **"N new clog slots" is the calendar's clog column summed, and the list beneath it uses the same
+  two-`EXISTS` predicate**, so the headline and the list cannot disagree.
+- **Source KC follows the canonical rule evaluated at month end** — `GREATEST(in-game KC, tracked +
+  baseline)` — using the month's max reported KC (in-game KC only rises), with start = end − kills.
+  Milestones (`KcMilestones`) report only the highest round number crossed.
+- **Notable drops have a floor, and the floor is what makes the query cheap.** It is the live feed's
+  Standard minimum (`ILootFeedService.GetTierRange`). Unfloored, ranking one month's drops was a
+  parallel seq scan of all of `LootDrops` (38ms on 1M rows, growing with the table); with the floor
+  — and the deliberately redundant `lr."TotalValue" >= @floor` that lets the planner prune kills
+  before touching drops — it is 12ms and bounded by the month's valuable kills.
+- **The header button's dismissal is per month.** site.js stores the dismissed month and sends it as
+  `dismissed=` on the button's fetch; the server answers 204, so a dismissed button is never drawn.
+  `SummaryWidget.MonthToOffer` is the whole rule: a dismissal names the month it dismissed, so it
+  lapses by itself at London midnight on the 1st, when the offered month moves on — no expiry to
+  store. It lives in localStorage, so it is per browser rather than per account. The button is
+  hidden on the summary page itself by `body:has(#monthly-summary)` in `app.css`.
+
+Measured on a 529k-record / 1M-drop table, warm: activity 1.8ms per character, calendar 3.7ms, new
+slots 1.7ms, sources 11ms, notable drops 12ms — every per-character lookup index-only, no sort over
+600kB. A month with no play shows the overview's empty state once; the other panels return an empty
+200 so their placeholders disappear rather than repeating it.
+
 ### The Admin Area Is One Section Per URL
 
 `AdminSections.All` (in `AdminSection.cs`) is the registry: slug, nav label, title, group, description. It drives the nav, the routable page and the shell endpoint together, so there is one list to add to.
@@ -820,6 +884,7 @@ Shared in both layers:
 - `Log/` — Per-character loot log, source detail, kill sessions, collection progress
 - `Leaderboard/` — Luck leaderboard (spoons / dry streaks) and its source + item exclusion admin
 - `Superiors/` — Superior slayer monster comparison (see "Superior Slayer Monsters" below)
+- `Summary/` — The signed-in user's monthly summary and its header button (see "The Monthly Summary" above)
 - `SourceModels/` (Application only) — Pluggable per-source drop maths behind `ISourceLootStrategy`: `DefaultSourceLootStrategy`, `DoomLootStrategy` (per-run delve depth), `RaidUniqueShareStrategy`, dispatched by `SourceLootService`, plus admin rate modifiers. **Strategies are matched by interface dispatch — a new strategy must be registered with `SourceLootService` or it silently never engages** (see commit `abf0996`). Enforced by `KlavLor.UnitTests/SourceLootStrategyRegistrationTests.cs`, which scans the Application assembly and fails if any `ISourceLootStrategy` implementation is unregistered or unreachable through the facade.
 - `Baseline/` (Application only) — Admin-entered pre-tracking kill counts, added to derived KC
 - `Special/` (Application only) — Special/one-off loot item configuration
@@ -922,7 +987,7 @@ These are the only places where manual DI scopes are acceptable (via `IServiceSc
 
 `KlavLor.IntegrationTests` (xUnit) runs against a real PostgreSQL started by Testcontainers (`postgres:16-alpine`) with the full EF migration set applied, so tests exercise real SQL — including the raw-ADO repositories and the `LootDrop` projection — rather than an in-memory fake. **Docker must be running.** The container is shared via `PostgresFixture` / the `"postgres"` collection, so tests in that collection must not assume an empty database; seed and scope your own rows.
 
-Coverage is targeted at the loot-derivation maths and query surface, not the web layer: character sessions, drop-rate bucket client and sync, feed ordinals and one-off drops, pets in the Legendary backfill, loot-drop projection, item-value override rebuild and restore, record-level luck exclusion, source rename, source tables, and golden-file assertions for drop search.
+Coverage is targeted at the loot-derivation maths and query surface, not the web layer: character sessions, drop-rate bucket client and sync, feed ordinals and one-off drops, pets in the Legendary backfill, loot-drop projection, item-value override rebuild and restore, record-level luck exclusion, source rename, source tables, the monthly summary (primary character by hours, London month bounds, clog count agreeing with the list, KC with baselines, the notable-drop floor, that another user's character is never shown to a non-admin, and that an admin sees it as its owner does), and golden-file assertions for drop search.
 
 Three files exist because the bug they pin was invisible until production and looked like something else entirely:
 
@@ -959,6 +1024,7 @@ What it covers, and why each file exists:
 - `FeedLuckShouldRateTests` — which feed drops get a lucky/dry line at all: collection-log items only, first receipt only, not admin-excluded, rare enough to judge. Each condition is pinned separately, plus a check that no two of them cancel out.
 - `PetCacheTests` — which drops count as pets and so reach the Legendary lane: id or name, any case, the wiki's `(pet)` suffix, and a wholesale swap on refresh. See "A pet is Legendary".
 - `WikiIconFilenameTests` — that a pet resolves to its inventory sprite rather than its wiki follower render, including the pets each half of the rule alone gets wrong.
+- `MonthlySummaryTests` — `SummaryMonth`'s London boundaries across both DST changes, the default/clamp/fallback rules for a requested month, KC start/end and milestones, streaks, busiest day and month-over-month change.
 - `RollChipHueTests` — the ticker's per-character colour: distinctness across a palette-sized clan, stability, case-insensitivity, and that every class the assigner can emit has a rule in `app.css` (the names are computed, so nothing else would catch the two drifting apart).
 
 There is still no coverage of Web endpoints.

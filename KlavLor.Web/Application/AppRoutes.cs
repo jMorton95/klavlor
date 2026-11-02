@@ -113,6 +113,19 @@ public static class AppRoutes
     public const string LootSuperiorsTable = "/loot/superiors/table";
     public const string LootSuperiorsReceipts = "/loot/superiors/receipts";
 
+    // The signed-in user's monthly summary: a query-free shell plus four panels that each fetch
+    // themselves on load. Every panel route sits a segment deeper than the page, so none can shadow
+    // it. All take ?month=yyyy-MM and an optional &characterId=N.
+    public const string LootSummary = "/loot/summary";
+    public const string LootSummaryOverview = "/loot/summary/overview";
+    public const string LootSummaryCollection = "/loot/summary/collection";
+    public const string LootSummarySources = "/loot/summary/sources";
+    public const string LootSummaryDrops = "/loot/summary/drops";
+
+    // The floating teaser in the layout. Fetched on load in its own request scope, because the
+    // layout must never query during SSR.
+    public const string LootSummaryWidget = "/loot/summary/widget";
+
     // Collection log (TempleOSRS-sourced). Its own top-level area, not nested under /loot, because
     // it is not derived from our loot data — see CollectionLogHandler for the split.
     public const string CollectionLog = "/collection-log";
@@ -237,6 +250,8 @@ public static class AppRoutes
     public const string AdminIcons = "/admin/settings/icons/panel";
     public const string AdminIconsRetry = "/admin/settings/icons/retry";
     public const string AdminSyncStatus = "/admin/settings/sync-status/panel";
+    // Every character's month, each a link into its monthly summary as the admin (Loot/Summary).
+    public const string AdminSummaries = "/admin/settings/summaries/panel";
     public const string AdminJobHealth = "/admin/settings/job-health/panel";
     public const string AdminJobRunNow = "/admin/settings/job-health/run-now";
     public const string AdminClogSyncNow = "/admin/settings/collection-log/sync-now";
