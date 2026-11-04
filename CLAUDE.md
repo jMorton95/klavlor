@@ -785,6 +785,11 @@ except the admin roster, which is Admin-only.
   lapses by itself at London midnight on the 1st, when the offered month moves on — no expiry to
   store. It lives in localStorage, so it is per browser rather than per account. The button is
   hidden on the summary page itself by `body:has(#monthly-summary)` in `app.css`.
+- **A day opened from the summary knows where it came from.** The day page is the profile heatmap's,
+  so the summary's day links (`SummaryLinks.Day`) add `?summary=yyyy-MM`, and the page's back link
+  then returns to that month's summary instead of the profile. It is in the URL rather than read
+  off history, so a refresh or a pasted link keeps it. Signed-out visitors still get the profile,
+  since the summary would only send them to log in.
 
 Measured on a 529k-record / 1M-drop table, warm: activity 1.8ms per character, calendar 3.7ms, new
 slots 1.7ms, sources 11ms, notable drops 12ms — every per-character lookup index-only, no sort over

@@ -220,10 +220,10 @@
                     {
                         var (bg, text) = DayColours(bucket.Gp);
                         <a role="listitem"
-                           href="@AppRoutes.LootLogCharacterDay.WithId(character.CharacterId).WithDate(day)"
-                           hx-get="@AppRoutes.LootLogCharacterDay.WithId(character.CharacterId).WithDate(day).FromApi()"
+                           href="@SummaryLinks.Day(character.CharacterId, day, month)"
+                           hx-get="@SummaryLinks.DayApi(character.CharacterId, day, month)"
                            hx-target="#hx-page-container"
-                           hx-push-url="@AppRoutes.LootLogCharacterDay.WithId(character.CharacterId).WithDate(day)"
+                           hx-push-url="@SummaryLinks.Day(character.CharacterId, day, month)"
                            hx-swap="innerHTML transition:true"
                            data-date="@dateLabel"
                            data-gp="@GoldFormat.Format(bucket.Gp)"
@@ -283,10 +283,10 @@
             <h3 class="text-[11px] font-semibold uppercase tracking-wider text-white">Highlights</h3>
             @if (busiest is not null)
             {
-                <a href="@AppRoutes.LootLogCharacterDay.WithId(character.CharacterId).WithDate(busiest.Day)"
-                   hx-get="@AppRoutes.LootLogCharacterDay.WithId(character.CharacterId).WithDate(busiest.Day).FromApi()"
+                <a href="@SummaryLinks.Day(character.CharacterId, busiest.Day, Overview.Context.Month)"
+                   hx-get="@SummaryLinks.DayApi(character.CharacterId, busiest.Day, Overview.Context.Month)"
                    hx-target="#hx-page-container"
-                   hx-push-url="@AppRoutes.LootLogCharacterDay.WithId(character.CharacterId).WithDate(busiest.Day)"
+                   hx-push-url="@SummaryLinks.Day(character.CharacterId, busiest.Day, Overview.Context.Month)"
                    hx-swap="innerHTML transition:true"
                    class="block rounded-lg border border-slate-700 bg-slate-800/40 px-3 py-2.5 hover:border-amber-700 hover:bg-slate-800 transition-colors cursor-pointer">
                     <div class="text-[10px] font-semibold uppercase tracking-wider text-white">Biggest day</div>
