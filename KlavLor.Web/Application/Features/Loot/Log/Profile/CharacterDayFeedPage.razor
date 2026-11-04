@@ -1,9 +1,14 @@
 @using KlavLor.Application.Common
 @using KlavLor.Application.Features.Loot.Feed
 @using KlavLor.Application.Features.Loot.Log
+@using KlavLor.Application.Features.Loot.Summary
+@using KlavLor.Application.Interfaces.Authentication
 @using KlavLor.Application.Interfaces.Services
 @using KlavLor.Web.Application.Features.Loot.Feed
+@using KlavLor.Web.Application.Features.Loot.Summary
 @using KlavLor.Web.Components.Layout
+
+@inject ISessionStateManager SessionStateManager
 
 <TopBarMetaData PageTitle="@($"KlavLor - {Feed.Day:MMM d, yyyy}")" Title="" Description="" />
 
@@ -11,19 +16,21 @@
     var (activeTiers, columns) = BuildColumns(Feed.Entries);
     var containerClass = FeedColumnLayout.ContainerClass(activeTiers.Count);
     var colClass = FeedColumnLayout.ColumnClass(activeTiers.Count);
+    var (backUrl, backLabel) = Back();
 }
 
 <div class="space-y-5">
     <div class="bg-slate-900 rounded-xl shadow-sm border border-slate-700 p-5">
-        <a hx-get="@AppRoutes.LootLogCharacter.WithId(CharacterId).FromApi()"
+        <a href="@backUrl"
+           hx-get="@backUrl.FromApi()"
            hx-target="#hx-page-container"
-           hx-push-url="@AppRoutes.LootLogCharacter.WithId(CharacterId)"
+           hx-push-url="@backUrl"
            hx-swap="innerHTML transition:true"
            class="inline-flex items-center gap-1 text-xs text-white hover:text-amber-400 cursor-pointer transition-colors mb-3">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
             </svg>
-            Back to profile
+            @backLabel
         </a>
 
         <div class="flex items-center justify-between gap-4 flex-wrap">
@@ -90,6 +97,17 @@
 @code {
     [Parameter] public required CharacterDayFeed Feed { get; set; }
     [Parameter] public int CharacterId { get; set; }
+
+    /// The monthly summary this day was opened from, if any. The same page serves the profile's
+    /// heatmap, which names none.
+    [Parameter] public SummaryMonth? FromSummary { get; set; }
+
+    // The summary is signed-in only, so a shared link carrying the month still leads a signed-out
+    // visitor back to the public profile rather than to a login prompt.
+    private (string Url, string Label) Back() =>
+        FromSummary is { } month && SessionStateManager.IsAuthenticated()
+            ? (SummaryLinks.Page(month, CharacterId), $"Back to {month.Label} summary")
+            : (AppRoutes.LootLogCharacter.WithId(CharacterId), "Back to profile");
 
     // One column per tier that has at least one card, in tier order (matching the live feed).
     // No folding or relabeling: a card always sits in — and is styled as — its own tier, so a lone

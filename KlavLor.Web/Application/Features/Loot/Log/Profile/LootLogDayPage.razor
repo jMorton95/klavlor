@@ -1,5 +1,6 @@
 @page "/loot/log/{Id:int}/day/{Date}"
 @using KlavLor.Application.Features.Loot.Log
+@using KlavLor.Web.Application.Features.Loot.Summary
 @using KlavLor.Web.Components.Layout
 
 @inject LootCharacterProfileHandler Handler
@@ -7,13 +8,16 @@
 <PageLayout PageTitle="KlavLor - Day" Title="" Description="">
     @if (_feed is not null)
     {
-        <CharacterDayFeedPage Feed="@_feed" CharacterId="@Id" />
+        <CharacterDayFeedPage Feed="@_feed" CharacterId="@Id" FromSummary="@SummaryLinks.Origin(Summary)" />
     }
 </PageLayout>
 
 @code {
     [Parameter] public int Id { get; set; }
     [Parameter] public string Date { get; set; } = "";
+
+    [SupplyParameterFromQuery(Name = "summary")]
+    public string? Summary { get; set; }
 
     private CharacterDayFeed? _feed;
 

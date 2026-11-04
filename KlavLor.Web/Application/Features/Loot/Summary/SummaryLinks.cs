@@ -25,6 +25,22 @@ public static class SummaryLinks
     public static int? CarriedCharacter(SummaryContext context) =>
         context.CharacterRequested ? context.Character?.CharacterId : null;
 
+    /// <summary>
+    /// A day of the month, opened from the summary. The day page is shared with the profile's
+    /// heatmap and names no summary of its own, so the month rides along for its back link.
+    /// </summary>
+    public static string Day(int characterId, DateOnly day, SummaryMonth month) =>
+        AppRoutes.LootLogCharacterDay.WithId(characterId).WithDate(day) + DayOrigin(month);
+
+    public static string DayApi(int characterId, DateOnly day, SummaryMonth month) =>
+        AppRoutes.LootLogCharacterDay.WithId(characterId).WithDate(day).FromApi() + DayOrigin(month);
+
+    /// <summary>The summary a day page was opened from, if its query names a valid one.</summary>
+    public static SummaryMonth? Origin(string? summary) =>
+        SummaryMonth.TryParse(summary, out var month) ? month : null;
+
+    private static string DayOrigin(SummaryMonth month) => $"?summary={month.Slug}";
+
     public static string Source(int characterId, string sourceName) =>
         AppRoutes.LootLogSource.WithId(characterId) + "?name=" + Uri.EscapeDataString(sourceName);
 

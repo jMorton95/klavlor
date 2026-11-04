@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using KlavLor.Application.Features.Loot.Log;
 using KlavLor.Web.Application.Features.Loot.Log.Profile;
+using KlavLor.Web.Application.Features.Loot.Summary;
 using KlavLor.Web.Application.Filters;
 using KlavLor.Web.Application.HttpResults;
 
@@ -120,7 +121,11 @@ public sealed class LootCharacterProfileEndpoint : IEndpoint
         });
     }
 
-    private static async Task<IResult> GetDayFeed(int id, string date, LootCharacterProfileHandler handler)
+    private static async Task<IResult> GetDayFeed(
+        int id,
+        string date,
+        [FromQuery] string? summary,
+        LootCharacterProfileHandler handler)
     {
         if (!DateOnly.TryParseExact(date, "yyyy-MM-dd", out var day))
             return Results.NotFound();
@@ -131,7 +136,8 @@ public sealed class LootCharacterProfileEndpoint : IEndpoint
         return IResultExtensions.Component<CharacterDayFeedPage>(new
         {
             Feed = result.Value,
-            CharacterId = id
+            CharacterId = id,
+            FromSummary = SummaryLinks.Origin(summary)
         });
     }
 
